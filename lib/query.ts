@@ -84,3 +84,46 @@ export const parseCarRequestQuery = (params: QueryReader): CarRequestQuery => {
     date: readIsoDate(params, 'date'),
   }
 }
+
+export const tourListingSorts = ['Recommended', 'Price: low to high', 'Price: high to low'] as const
+
+export type TourListingSort = (typeof tourListingSorts)[number]
+
+export const tourPriceBands = [
+  { id: '', label: 'Any price' },
+  { id: 'under-200', label: 'Under $200' },
+  { id: '200-400', label: '$200 - $400' },
+  { id: 'over-400', label: 'Over $400' },
+] as const
+
+export type TourPriceBandId = (typeof tourPriceBands)[number]['id']
+
+export const matchPriceBand = (price: number, band: string) =>
+  band === 'under-200' ? price < 200 : band === '200-400' ? price >= 200 && price <= 400 : band === 'over-400' ? price > 400 : true
+
+export type TourListingQuery = {
+  destination: string
+  duration: string
+  price: string
+  sort: TourListingSort
+  page: number
+}
+
+export const parseTourListingQuery = (
+  params: QueryReader,
+  validDestinations: readonly string[],
+  validDurations: readonly string[],
+): TourListingQuery => {
+  const destination = readText(params, 'destination', 80)
+  const duration = readText(params, 'duration', 40)
+  const price = readText(params, 'price', 20)
+  const rawSort = readText(params, 'sort', 30)
+
+  return {
+    destination: validDestinations.includes(destination) ? destination : '',
+    duration: validDurations.includes(duration) ? duration : '',
+    price: tourPriceBands.some((band) => band.id === price) ? price : '',
+    sort: (tourListingSorts as readonly string[]).includes(rawSort) ? (rawSort as TourListingSort) : 'Recommended',
+    page: readPositiveInt(params, 'page', 1, 999),
+  }
+}
