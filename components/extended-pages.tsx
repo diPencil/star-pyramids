@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { ArrowRight, Camera, Check, Clock3, Compass, CarFront, Mail, MapPin, Phone, Search, ShieldCheck, Sun, Ticket, Users, type LucideIcon } from 'lucide-react'
+import { ArrowRight, Camera, Check, Clock3, Compass, CarFront, Mail, MapPin, Phone, Search, ShieldCheck, Star, Sun, Ticket, Users, type LucideIcon } from 'lucide-react'
 import { blogs, cars, destinations, events, faqs, offers, policies, siteImages, allSearchItems, findBlog, findDestination, findEvent, findOffer } from '@/data/content'
 import type { Blog, Car, Event, Offer } from '@/data/types'
 import { parseCarRequestQuery, parseSearchQuery } from '@/lib/query'
@@ -87,6 +87,27 @@ export function BlogEditorialPage({ item }: { item: Blog }) {
   const related = blogs.filter((blog) => blog.slug !== item.slug).slice(0, 3)
   const heroImage = editorial.heroImage || item.image
   const heroAlt = editorial.heroAlt || item.title
+  const [activeSection, setActiveSection] = useState<string>('')
+
+  useEffect(() => {
+    if (!editorial.sidebarLinks || !editorial.sidebarLinks.length) return
+    const ids = editorial.sidebarLinks.map((l) => l.href.replace('#', ''))
+    const targets = ids.map((id) => document.getElementById(id)).filter(Boolean) as HTMLElement[]
+    if (!targets.length) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setActiveSection(entry.target.id)
+            break
+          }
+        }
+      },
+      { rootMargin: '-20% 0px -60% 0px', threshold: 0 }
+    )
+    targets.forEach((el) => observer.observe(el))
+    return () => observer.disconnect()
+  }, [editorial.sidebarLinks])
 
   return <SiteShell>
     <div className="guide-breadcrumb"><div className="container"><Link href="/">Home</Link><span>›</span><Link href="/blogs">Blogs</Link><span>›</span><strong>{item.title}</strong></div></div>
@@ -110,8 +131,24 @@ export function BlogEditorialPage({ item }: { item: Blog }) {
 
       <div className="container guide-layout">
         <aside className="guide-sidebar">
-          {editorial.sidebarLinks && editorial.sidebarLinks.length > 0 && <nav aria-label="In this guide"><strong>In this guide</strong>{editorial.sidebarLinks.map((link) => <a key={link.href} href={link.href}>{link.label}</a>)}</nav>}
+          {editorial.sidebarLinks && editorial.sidebarLinks.length > 0 && <nav aria-label="In this guide"><strong>In this guide</strong>{editorial.sidebarLinks.map((link) => <a key={link.href} href={link.href} className={activeSection === link.href.replace('#', '') ? 'active' : ''}>{link.label}</a>)}</nav>}
           {editorial.sidebarAction && <div className="guide-side-action"><span>{editorial.sidebarAction.label}</span><strong>{editorial.sidebarAction.heading}</strong><Link href={`/egypt-tours/${editorial.sidebarAction.tourSlug}`}>View the tour <ArrowRight size={15}/></Link></div>}
+          <Link href="/make-your-trip" className="guide-ad-card">
+            <img src="https://images.unsplash.com/photo-1568322445389-f64ac2515020?auto=format&fit=crop&w=800&q=80" alt="Private Luxury Pyramids Tour" className="guide-ad-card-img" loading="lazy" />
+            <div className="guide-ad-card-overlay" />
+            <div className="guide-ad-card-content">
+              <span className="guide-ad-badge"><Star size={12} fill="currentColor" /> Special VIP Offer</span>
+              <h4>Tailor-Made Egypt Journey</h4>
+              <p>Skip the tourist lines with a licensed private Egyptologist & luxury vehicle.</p>
+              <div className="guide-ad-price">
+                <small>Special rate from</small>
+                <strong>$65</strong>
+              </div>
+              <div className="guide-ad-btn">
+                Plan My VIP Trip <ArrowRight size={14} />
+              </div>
+            </div>
+          </Link>
         </aside>
 
         <article className="guide-story">
