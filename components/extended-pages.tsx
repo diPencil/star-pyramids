@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { ArrowRight, Camera, Check, Clock3, Compass, CarFront, Mail, MapPin, Phone, Search, ShieldCheck, Star, Sun, Ticket, Users } from 'lucide-react'
+import { ArrowRight, Camera, Check, Clock3, Compass, CarFront, Mail, MapPin, Phone, Search, ShieldCheck, Sun, Ticket, Users, type LucideIcon } from 'lucide-react'
 import { blogs, cars, destinations, events, faqs, offers, policies, siteImages, allSearchItems, findBlog, findDestination, findEvent, findOffer } from '@/data/content'
 import type { Blog, Car, Event, Offer } from '@/data/types'
 import { parseCarRequestQuery, parseSearchQuery } from '@/lib/query'
@@ -46,93 +46,111 @@ export function DestinationDetailPage({ slug }: { slug: string }) { const item =
 
 export function BlogsPage() { return <SiteShell><EditorialHero eyebrow="Stories & inspiration" title="Travel notes for curious Egypt explorers" copy="Practical guides, local perspective, and the small details that help you travel with more confidence." image={siteImages.cairo} href="/make-your-trip" action="Plan a trip"/><main className="section container"><div className="featured-blog"><img src={blogs[0].image} alt={blogs[0].title}/><div><span className="eyebrow">Featured story</span><h2>{blogs[0].title}</h2><p>{blogs[0].excerpt}</p><Link href={`/blogs/${blogs[0].slug}`} className="primary-btn">Read the story <ArrowRight size={16}/></Link></div></div><div className="content-grid blog-grid-expanded">{blogs.slice(1).map(item=><ContentCard item={item} key={item.slug}/>)}</div></main></SiteShell> }
 
-const pyramidGuideImages = {
-  hero: 'https://images.unsplash.com/photo-1738580426685-f8f0d34291dc?auto=format&fit=crop&w=2000&q=88',
-  sphinx: 'https://images.unsplash.com/photo-1636020833630-89d4a5a75807?auto=format&fit=crop&w=1400&q=86',
-  stone: 'https://images.unsplash.com/photo-1761561291297-a37de90f454c?auto=format&fit=crop&w=1400&q=86',
-  sunset: 'https://images.unsplash.com/photo-1771325676184-44d8035e3cd1?auto=format&fit=crop&w=2000&q=88',
-} as const
+const guideIconMap: Record<string, LucideIcon> = { Sun, Clock3, Compass, ShieldCheck, Ticket, Camera }
 
-function PyramidGuidePage({ item }: { item: Blog }) {
+function GuideTipCard({ icon, title, copy }: { icon: string; title: string; copy: string }) {
+  const Icon = guideIconMap[icon] || Compass
+  return <article><Icon size={24}/><h3>{title}</h3><p>{copy}</p></article>
+}
+
+function GuideSection({ section, tips }: { section: { id: string; number: string; eyebrow: string; heading: string; lede?: string; copy?: readonly string[]; list?: readonly string[]; image?: { src: string; alt: string; caption?: string }; reverse?: boolean }; tips?: readonly { icon: string; title: string; copy: string }[] }) {
+  const hasImage = !!section.image
+  const hasCopy = !!(section.copy && section.copy.length) || !!section.lede || !!(section.list && section.list.length)
+  if (section.id === 'essentials' && tips && tips.length) {
+    return <section id={section.id} className="guide-essentials">
+      <div className="guide-heading"><span className="guide-section-number">{section.number}</span><div><span className="eyebrow">{section.eyebrow}</span><h2>{section.heading}</h2></div></div>
+      <div className="guide-tip-grid">{tips.map((tip) => <GuideTipCard key={tip.title} {...tip} />)}</div>
+    </section>
+  }
+  if (hasImage && hasCopy) {
+    return <section id={section.id} className={`guide-split${section.reverse ? ' guide-split-reverse' : ''}`}>
+      {section.reverse ? <>
+        <div className="guide-copy"><span className="guide-section-number">{section.number}</span><span className="eyebrow">{section.eyebrow}</span><h2>{section.heading}</h2>{section.lede && <p className="guide-lede">{section.lede}</p>}{section.copy?.map((p, i) => <p key={i}>{p}</p>)}{section.list && <ul>{section.list.map((item, i) => <li key={i}><Check size={16}/>{item}</li>)}</ul>}</div>
+        <div className="guide-image"><img src={section.image!.src} alt={section.image!.alt} loading="lazy"/>{section.image!.caption && <span>{section.image!.caption}</span>}</div>
+      </> : <>
+        <div className="guide-image"><img src={section.image!.src} alt={section.image!.alt} loading="lazy"/>{section.image!.caption && <span>{section.image!.caption}</span>}</div>
+        <div className="guide-copy"><span className="guide-section-number">{section.number}</span><span className="eyebrow">{section.eyebrow}</span><h2>{section.heading}</h2>{section.lede && <p className="guide-lede">{section.lede}</p>}{section.copy?.map((p, i) => <p key={i}>{p}</p>)}{section.list && <ul>{section.list.map((item, i) => <li key={i}><Check size={16}/>{item}</li>)}</ul>}</div>
+      </>}
+    </section>
+  }
+  if (hasImage && !hasCopy) {
+    return <figure className="guide-wide-image"><img src={section.image!.src} alt={section.image!.alt} loading="lazy"/>{section.image!.caption && <figcaption>{section.image!.caption}</figcaption>}</figure>
+  }
+  return <section id={section.id} className="guide-intro">
+    <span className="guide-section-number">{section.number}</span>
+    <div><span className="eyebrow">{section.eyebrow}</span><h2>{section.heading}</h2>{section.lede && <p className="guide-lede">{section.lede}</p>}{section.copy?.map((p, i) => <p key={i}>{p}</p>)}</div>
+  </section>
+}
+
+export function BlogEditorialPage({ item }: { item: Blog }) {
+  const editorial = item.editorial!
   const related = blogs.filter((blog) => blog.slug !== item.slug).slice(0, 3)
-  const facts = [
-    { icon: Sun, label: 'Best rhythm', value: 'Start at opening' },
-    { icon: Clock3, label: 'Time to allow', value: 'Half a day' },
-    { icon: Compass, label: 'Setting', value: 'Open desert plateau' },
-    { icon: ShieldCheck, label: 'Travel style', value: 'Private guide recommended' },
-  ]
+  const heroImage = editorial.heroImage || item.image
+  const heroAlt = editorial.heroAlt || item.title
 
   return <SiteShell>
     <div className="guide-breadcrumb"><div className="container"><Link href="/">Home</Link><span>›</span><Link href="/blogs">Blogs</Link><span>›</span><strong>{item.title}</strong></div></div>
     <main className="guide-page">
       <header className="guide-hero">
-        <img src={pyramidGuideImages.hero} alt="The Great Sphinx with the Pyramids of Giza behind it" />
+        <img src={heroImage} alt={heroAlt} />
         <div className="guide-hero-shade" />
         <div className="container guide-hero-content">
-          <div className="guide-meta"><span>{item.category}</span><span>{item.date}</span><span>8 min read</span></div>
+          <div className="guide-meta"><span>{item.category}</span><span>{item.date}</span>{editorial.readTime && <span>{editorial.readTime}</span>}</div>
           <h1>{item.title}</h1>
-          <p>{item.excerpt} Plan the timing, route, and small details that turn a famous landmark into a remarkable day.</p>
+          <p>{item.excerpt} {editorial.heroDescription}</p>
         </div>
       </header>
 
-      <section className="guide-facts" aria-label="Visit at a glance">
-        <div className="container guide-facts-inner">{facts.map(({ icon: Icon, label, value }) => <div key={label}><Icon size={22} aria-hidden="true"/><span><small>{label}</small><strong>{value}</strong></span></div>)}</div>
-      </section>
+      {editorial.facts && editorial.facts.length > 0 && <section className="guide-facts" aria-label="At a glance">
+        <div className="container guide-facts-inner">{editorial.facts.map(({ icon, label, value }) => {
+          const Icon = guideIconMap[icon] || Compass
+          return <div key={label}><Icon size={22} aria-hidden="true"/><span><small>{label}</small><strong>{value}</strong></span></div>
+        })}</div>
+      </section>}
 
       <div className="container guide-layout">
         <aside className="guide-sidebar">
-          <nav aria-label="In this guide"><strong>In this guide</strong><a href="#overview">Why Giza matters</a><a href="#timing">Choose your moment</a><a href="#essentials">Visit essentials</a><a href="#experience">Experience the plateau</a><a href="#before-you-go">Before you go</a></nav>
-          <div className="guide-side-action"><span>Prefer everything arranged?</span><strong>Explore Giza with a private guide and driver.</strong><Link href="/egypt-tours/cairo-and-giza-pyramids">View the tour <ArrowRight size={15}/></Link></div>
+          {editorial.sidebarLinks && editorial.sidebarLinks.length > 0 && <nav aria-label="In this guide"><strong>In this guide</strong>{editorial.sidebarLinks.map((link) => <a key={link.href} href={link.href}>{link.label}</a>)}</nav>}
+          {editorial.sidebarAction && <div className="guide-side-action"><span>{editorial.sidebarAction.label}</span><strong>{editorial.sidebarAction.heading}</strong><Link href={`/egypt-tours/${editorial.sidebarAction.tourSlug}`}>View the tour <ArrowRight size={15}/></Link></div>}
         </aside>
 
         <article className="guide-story">
-          <section id="overview" className="guide-intro">
-            <span className="guide-section-number">01</span>
-            <div><span className="eyebrow">Begin with the scale</span><h2>More than a photo stop</h2><p className="guide-lede">The Giza Plateau rewards a slower visit. The Great Pyramid, Khafre&apos;s pyramid, Menkaure&apos;s pyramid, and the Sphinx form one vast landscape, not a single viewpoint.</p><p>Your best experience comes from treating the site as a journey across the plateau: arrive with a route, leave room to walk, and pause where the desert opens around the monuments.</p></div>
-          </section>
+          {editorial.sections?.map((section) => <GuideSection key={section.id} section={section} tips={editorial.tips} />)}
 
-          <section id="timing" className="guide-split">
-            <div className="guide-image"><img src={pyramidGuideImages.sphinx} alt="The Great Sphinx and Pyramid of Khafre under a clear sky" loading="lazy"/><span>Giza Plateau · Cairo</span></div>
-            <div className="guide-copy"><span className="guide-section-number">02</span><span className="eyebrow">Choose your moment</span><h2>Start early. Let the plateau unfold.</h2><p>Arriving near opening time gives you cooler air, softer light, and a calmer first look at the pyramids. Move from the major viewpoints toward the Sphinx rather than racing between isolated stops.</p><ul><li><Check size={16}/>Confirm current opening hours before you travel.</li><li><Check size={16}/>Keep water, sun protection, and comfortable shoes close.</li><li><Check size={16}/>Allow extra time if you plan to enter a pyramid.</li></ul></div>
-          </section>
+          {editorial.quote && <blockquote className="guide-quote"><span aria-hidden="true">{'\u201C'}</span><p>{editorial.quote}</p></blockquote>}
 
-          <blockquote className="guide-quote"><span aria-hidden="true">“</span><p>The unforgettable part is not simply seeing the pyramids. It is watching their scale change as you move through the desert.</p></blockquote>
-
-          <section id="essentials" className="guide-essentials">
-            <div className="guide-heading"><span className="guide-section-number">03</span><div><span className="eyebrow">Visit essentials</span><h2>Know before you step onto the plateau</h2></div></div>
-            <div className="guide-tip-grid">
-              <article><Ticket size={24}/><h3>Tickets & access</h3><p>General entry and access inside individual pyramids may be ticketed separately. Confirm the current options before your visit.</p></article>
-              <article><Compass size={24}/><h3>Getting around</h3><p>The plateau is larger than it appears. A planned vehicle route saves energy while preserving time for the best walking sections.</p></article>
-              <article><Camera size={24}/><h3>Photography</h3><p>Morning light brings out the limestone texture. Follow local rules around interiors, restricted areas, and professional equipment.</p></article>
-            </div>
-          </section>
-
-          <figure className="guide-wide-image"><img src={pyramidGuideImages.stone} alt="Close view of the limestone blocks of a Giza pyramid" loading="lazy"/><figcaption>Up close, the monuments become layers of weathered limestone, marks, and extraordinary human scale.</figcaption></figure>
-
-          <section id="experience" className="guide-split guide-split-reverse">
-            <div className="guide-copy"><span className="guide-section-number">04</span><span className="eyebrow">Travel beyond the checklist</span><h2>Give the landscape room to surprise you</h2><p>A good guide does more than recite dates. They connect the architecture to the people who built it, choose viewpoints around the changing light, and help you move through the plateau without friction.</p><p>Pair Giza with a thoughtful Cairo plan rather than squeezing it between unrelated stops. The experience feels richer when the day has one clear story.</p></div>
-            <div className="guide-image"><img src={pyramidGuideImages.sunset} alt="Camel riders passing the Pyramids of Giza at sunset" loading="lazy"/><span>Golden hour on the desert edge</span></div>
-          </section>
-
-          <section id="before-you-go" className="guide-checklist">
-            <div><span className="guide-section-number">05</span><span className="eyebrow">Before you go</span><h2>Your Giza day, simplified</h2></div>
-            <ul><li><Check size={17}/><span><strong>Check live details</strong>Opening hours, interior access, and photography policies can change.</span></li><li><Check size={17}/><span><strong>Dress for the setting</strong>Choose breathable layers, sturdy shoes, sunglasses, and sun protection.</span></li><li><Check size={17}/><span><strong>Carry small essentials</strong>Water, a charged phone, and a small amount of cash keep the day easy.</span></li><li><Check size={17}/><span><strong>Use trusted transport</strong>A pre-arranged driver and licensed guide remove the most common points of friction.</span></li></ul>
-          </section>
+          {editorial.checklist && editorial.checklist.length > 0 && <section className="guide-checklist">
+            <div><span className="guide-section-number">{String((editorial.sections?.length || 0) + 1).padStart(2, '0')}</span><span className="eyebrow">Before you go</span><h2>Your trip, simplified</h2></div>
+            <ul>{editorial.checklist.map((item, i) => <li key={i}><Check size={17}/><span><strong>{item.title}</strong>{item.detail}</span></li>)}</ul>
+          </section>}
         </article>
       </div>
 
-      <section className="guide-cta">
-        <img src={pyramidGuideImages.sunset} alt="Pyramids of Giza at sunset" loading="lazy"/>
+      {editorial.cta && <section className="guide-cta">
+        <img src={heroImage} alt={heroAlt} loading="lazy"/>
         <div className="guide-cta-shade"/>
-        <div className="container guide-cta-content"><span>Private Giza experience</span><h2>See the Pyramids without the guesswork.</h2><p>Your guide, route, and private transport arranged around the way you want to travel.</p><div><Link href="/egypt-tours/cairo-and-giza-pyramids" className="primary-btn">Explore the tour <ArrowRight size={17}/></Link><Link href="/make-your-trip" className="guide-cta-link">Build my own trip</Link></div></div>
-      </section>
+        <div className="container guide-cta-content">
+          <span>{editorial.cta.eyebrow}</span>
+          <h2>{editorial.cta.heading}</h2>
+          <p>{editorial.cta.copy}</p>
+          <div>
+            {editorial.cta.tourSlug && <Link href={`/egypt-tours/${editorial.cta.tourSlug}`} className="primary-btn">{editorial.cta.tourLabel || 'View the tour'} <ArrowRight size={17}/></Link>}
+            <Link href="/make-your-trip" className="guide-cta-link">{editorial.cta.customLabel || 'Build my own trip'}</Link>
+          </div>
+        </div>
+      </section>}
 
       <section className="container guide-related"><div className="guide-related-head"><div><span className="eyebrow">Keep exploring</span><h2>More stories from Egypt</h2></div><Link href="/blogs">All travel stories <ArrowRight size={16}/></Link></div><div className="guide-related-grid">{related.map((blog) => <article key={blog.slug}><Link href={`/blogs/${blog.slug}`}><img src={blog.image} alt={blog.title} loading="lazy"/></Link><small>{blog.category}</small><h3><Link href={`/blogs/${blog.slug}`}>{blog.title}</Link></h3><p>{blog.excerpt}</p></article>)}</div></section>
     </main>
   </SiteShell>
 }
 
-export function BlogDetailPage({ slug }: { slug: string }) { const item = findBlog(slug); if (!item) return <DetailNotFound title="Story not found" copy="The story you were looking for has taken a different route." backHref="/blogs" backLabel="Read all stories"/>; if (item.slug === 'ultimate-guide-pyramids') return <PyramidGuidePage item={item}/>; return <SiteShell><Breadcrumb items={['Blogs',item.title]}/><main className="article-page container"><div className="article-header"><span className="eyebrow">{item.category} · {item.date}</span><h1>{item.title}</h1><p>{item.excerpt}</p></div><img className="article-cover" src={item.image} alt={item.title}/><div className="article-body"><p>Egypt rewards travelers who look a little closer. The great landmarks are only the beginning; the real rhythm of a journey appears in the streets, the meals, the conversations, and the quiet spaces between one stop and the next.</p><h2>Make room for the unexpected</h2><p>Leave space in your itinerary for a second cup of tea, a local market, and the kind of discovery that never appears in a checklist. Our team can help you find that balance.</p><blockquote>Travel slowly enough to notice what makes a place itself.</blockquote><Link href="/make-your-trip" className="primary-btn">Use this inspiration <ArrowRight size={16}/></Link></div></main></SiteShell> }
+export function BlogDetailPage({ slug }: { slug: string }) {
+  const item = findBlog(slug)
+  if (!item) return <DetailNotFound title="Story not found" copy="The story you were looking for has taken a different route." backHref="/blogs" backLabel="Read all stories"/>
+  if (item.editorial) return <BlogEditorialPage item={item}/>
+  return <SiteShell><Breadcrumb items={['Blogs',item.title]}/><main className="article-page container"><div className="article-header"><span className="eyebrow">{item.category} · {item.date}</span><h1>{item.title}</h1><p>{item.excerpt}</p></div><img className="article-cover" src={item.image} alt={item.title}/><div className="article-body"><p>Egypt rewards travelers who look a little closer. The great landmarks are only the beginning; the real rhythm of a journey appears in the streets, the meals, the conversations, and the quiet spaces between one stop and the next.</p><h2>Make room for the unexpected</h2><p>Leave space in your itinerary for a second cup of tea, a local market, and the kind of discovery that never appears in a checklist. Our team can help you find that balance.</p><blockquote>Travel slowly enough to notice what makes a place itself.</blockquote><Link href="/make-your-trip" className="primary-btn">Use this inspiration <ArrowRight size={16}/></Link></div></main></SiteShell>
+}
 
 export function EventsPage() { return <SiteShell><EditorialHero eyebrow="Calendar of experiences" title="Join Egypt when it feels most alive" copy="Seasonal escapes, cultural weekends, and celebrations designed around the moments worth traveling for." image={siteImages.nile} href="/contact" action="Ask about an event"/><main className="section container"><div className="event-list">{events.map(item=><ContentCard item={item} type="event" key={item.slug}/>)}</div></main></SiteShell> }
 

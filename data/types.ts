@@ -76,6 +76,24 @@ export type Car = {
   copy: string
 }
 
+export type BlogGuideTip = {
+  icon: string
+  title: string
+  copy: string
+}
+
+export type BlogGuideSection = {
+  id: string
+  number: string
+  eyebrow: string
+  heading: string
+  lede?: string
+  copy?: readonly string[]
+  list?: readonly string[]
+  image?: { src: string; alt: string; caption?: string }
+  reverse?: boolean
+}
+
 export type Blog = {
   title: string
   slug: string
@@ -83,6 +101,21 @@ export type Blog = {
   category: string
   date: string
   excerpt: string
+  editorial?: {
+    heroImage?: string
+    heroAlt?: string
+    readTime?: string
+    heroDescription?: string
+    facts?: readonly { icon: string; label: string; value: string }[]
+    sidebarLinks?: readonly { href: string; label: string }[]
+    sidebarAction?: { label: string; heading: string; tourSlug: string }
+    sections?: readonly BlogGuideSection[]
+    tips?: readonly BlogGuideTip[]
+    quote?: string
+    checklist?: readonly { title: string; detail: string }[]
+    wideImage?: { src: string; alt: string; caption?: string }
+    cta?: { eyebrow: string; heading: string; copy: string; tourSlug?: string; tourLabel?: string; customLabel?: string }
+  }
 }
 
 export type Event = {

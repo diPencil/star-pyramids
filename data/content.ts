@@ -26,12 +26,326 @@ export const cars: Car[] = [
 ]
 
 export const blogs: Blog[] = [
-  { title: 'The ultimate guide to visiting the Pyramids', slug: 'ultimate-guide-pyramids', image: siteImages.pyramids, category: 'Travel Guide', date: 'May 18, 2026', excerpt: 'Everything you need for a smooth and memorable visit to Giza.' },
-  { title: 'What to pack for a Nile cruise', slug: 'what-to-pack-nile-cruise', image: siteImages.nile, category: 'Travel Tips', date: 'April 26, 2026', excerpt: 'A thoughtful packing list for sunny days and elegant evenings.' },
-  { title: 'A local’s guide to Old Cairo', slug: 'locals-guide-old-cairo', image: siteImages.cairo, category: 'Culture', date: 'March 09, 2026', excerpt: 'Mosques, markets, coffee, and the small details worth slowing down for.' },
-  { title: 'The best time to visit Egypt', slug: 'best-time-visit-egypt', image: siteImages.desert, category: 'Travel Guide', date: 'February 20, 2026', excerpt: 'Season-by-season planning for the trip you imagine.' },
-  { title: 'Five Egyptian dishes you must try', slug: 'five-egyptian-dishes', image: siteImages.redSea, category: 'Food', date: 'January 14, 2026', excerpt: 'From koshary to fresh seafood, taste the places you visit.' },
-  { title: 'Sunrise over Luxor’s West Bank', slug: 'sunrise-luxor-west-bank', image: siteImages.temple, category: 'Stories', date: 'December 05, 2025', excerpt: 'One perfect morning among tombs, valleys, and ancient silhouettes.' },
+  {
+    title: 'The ultimate guide to visiting the Pyramids',
+    slug: 'ultimate-guide-pyramids',
+    image: siteImages.pyramids,
+    category: 'Travel Guide',
+    date: 'May 18, 2026',
+    excerpt: 'Everything you need for a smooth and memorable visit to Giza.',
+    editorial: {
+      heroImage: 'https://images.unsplash.com/photo-1738580426685-f8f0d34291dc?auto=format&fit=crop&w=2000&q=88',
+      heroAlt: 'The Great Sphinx with the Pyramids of Giza behind it',
+      readTime: '8 min read',
+      heroDescription: 'Plan the timing, route, and small details that turn a famous landmark into a remarkable day.',
+      facts: [
+        { icon: 'Sun', label: 'Best rhythm', value: 'Start at opening' },
+        { icon: 'Clock3', label: 'Time to allow', value: 'Half a day' },
+        { icon: 'Compass', label: 'Setting', value: 'Open desert plateau' },
+        { icon: 'ShieldCheck', label: 'Travel style', value: 'Private guide recommended' },
+      ],
+      sidebarLinks: [
+        { href: '#overview', label: 'Why Giza matters' },
+        { href: '#timing', label: 'Choose your moment' },
+        { href: '#essentials', label: 'Visit essentials' },
+        { href: '#experience', label: 'Experience the plateau' },
+        { href: '#before-you-go', label: 'Before you go' },
+      ],
+      sidebarAction: { label: 'Prefer everything arranged?', heading: 'Explore Giza with a private guide and driver.', tourSlug: 'cairo-and-giza-pyramids' },
+      sections: [
+        {
+          id: 'overview', number: '01', eyebrow: 'Begin with the scale', heading: 'More than a photo stop',
+          lede: 'The Giza Plateau rewards a slower visit. The Great Pyramid, Khafre\u2019s pyramid, Menkaure\u2019s pyramid, and the Sphinx form one vast landscape, not a single viewpoint.',
+          copy: ['Your best experience comes from treating the site as a journey across the plateau: arrive with a route, leave room to walk, and pause where the desert opens around the monuments.'],
+        },
+        {
+          id: 'timing', number: '02', eyebrow: 'Choose your moment', heading: 'Start early. Let the plateau unfold.',
+          image: { src: 'https://images.unsplash.com/photo-1636020833630-89d4a5a75807?auto=format&fit=crop&w=1400&q=86', alt: 'The Great Sphinx and Pyramid of Khafre under a clear sky', caption: 'Giza Plateau \u00B7 Cairo' },
+          copy: ['Arriving near opening time gives you cooler air, softer light, and a calmer first look at the pyramids. Move from the major viewpoints toward the Sphinx rather than racing between isolated stops.'],
+          list: ['Confirm current opening hours before you travel.', 'Keep water, sun protection, and comfortable shoes close.', 'Allow extra time if you plan to enter a pyramid.'],
+        },
+        {
+          id: 'essentials', number: '03', eyebrow: 'Visit essentials', heading: 'Know before you step onto the plateau',
+        },
+        {
+          id: 'experience', number: '04', eyebrow: 'Travel beyond the checklist', heading: 'Give the landscape room to surprise you',
+          copy: ['A good guide does more than recite dates. They connect the architecture to the people who built it, choose viewpoints around the changing light, and help you move through the plateau without friction.', 'Pair Giza with a thoughtful Cairo plan rather than squeezing it between unrelated stops. The experience feels richer when the day has one clear story.'],
+          image: { src: 'https://images.unsplash.com/photo-1771325676184-44d8035e3cd1?auto=format&fit=crop&w=2000&q=88', alt: 'Camel riders passing the Pyramids of Giza at sunset', caption: 'Golden hour on the desert edge' },
+          reverse: true,
+        },
+        {
+          id: 'before-you-go', number: '05', eyebrow: 'Before you go', heading: 'Your Giza day, simplified',
+        },
+      ],
+      tips: [
+        { icon: 'Ticket', title: 'Tickets & access', copy: 'General entry and access inside individual pyramids may be ticketed separately. Confirm the current options before your visit.' },
+        { icon: 'Compass', title: 'Getting around', copy: 'The plateau is larger than it appears. A planned vehicle route saves energy while preserving time for the best walking sections.' },
+        { icon: 'Camera', title: 'Photography', copy: 'Morning light brings out the limestone texture. Follow local rules around interiors, restricted areas, and professional equipment.' },
+      ],
+      quote: 'The unforgettable part is not simply seeing the pyramids. It is watching their scale change as you move through the desert.',
+      checklist: [
+        { title: 'Check live details', detail: 'Opening hours, interior access, and photography policies can change.' },
+        { title: 'Dress for the setting', detail: 'Choose breathable layers, sturdy shoes, sunglasses, and sun protection.' },
+        { title: 'Carry small essentials', detail: 'Water, a charged phone, and a small amount of cash keep the day easy.' },
+        { title: 'Use trusted transport', detail: 'A pre-arranged driver and licensed guide remove the most common points of friction.' },
+      ],
+      wideImage: { src: 'https://images.unsplash.com/photo-1761561291297-a37de90f454c?auto=format&fit=crop&w=1400&q=86', alt: 'Close view of the limestone blocks of a Giza pyramid', caption: 'Up close, the monuments become layers of weathered limestone, marks, and extraordinary human scale.' },
+      cta: { eyebrow: 'Private Giza experience', heading: 'See the Pyramids without the guesswork.', copy: 'Your guide, route, and private transport arranged around the way you want to travel.', tourSlug: 'cairo-and-giza-pyramids', tourLabel: 'Explore the tour' },
+    },
+  },
+  {
+    title: 'What to pack for a Nile cruise',
+    slug: 'what-to-pack-nile-cruise',
+    image: siteImages.nile,
+    category: 'Travel Tips',
+    date: 'April 26, 2026',
+    excerpt: 'A thoughtful packing list for sunny days and elegant evenings.',
+    editorial: {
+      heroImage: 'https://images.unsplash.com/photo-1539768942893-daf53e448371?auto=format&fit=crop&w=2000&q=88',
+      heroAlt: 'A Nile cruise boat sailing between Luxor and Aswan at golden hour',
+      readTime: '6 min read',
+      heroDescription: 'The right preparation turns a good cruise into an effortless one. Pack for temple mornings, poolside afternoons, and smart evenings on the water.',
+      facts: [
+        { icon: 'Sun', label: 'Climate', value: 'Warm and sunny' },
+        { icon: 'Clock3', label: 'Trip length', value: '3 to 7 nights' },
+        { icon: 'Compass', label: 'Pace', value: 'Relaxed with excursions' },
+        { icon: 'ShieldCheck', label: 'Dress code', value: 'Smart casual evenings' },
+      ],
+      sidebarLinks: [
+        { href: '#clothing', label: 'What to wear' },
+        { href: '#essentials', label: 'Travel essentials' },
+        { href: '#evenings', label: 'Evening attire' },
+        { href: '#tips', label: 'Packing tips' },
+      ],
+      sidebarAction: { label: 'Ready to sail?', heading: 'Browse our curated Nile cruise itineraries.', tourSlug: 'luxor-to-aswan-cruise' },
+      sections: [
+        {
+          id: 'clothing', number: '01', eyebrow: 'What to wear', heading: 'Light layers for warm days',
+          lede: 'Nile cruise days alternate between air-conditioned comfort and sun-warmed temple courtyards. Build your wardrobe around breathable fabrics that transition easily.',
+          copy: ['Linen and cotton shirts, lightweight trousers, and a wide-brimmed hat form the core of a comfortable cruise wardrobe. Temperatures along the Nile can climb during midday, so loose-fitting clothing in light colours helps you stay cool during guided walks.', 'A light cardigan or shawl is useful for air-conditioned lounges and the occasional cool evening breeze on deck.'],
+        },
+        {
+          id: 'essentials', number: '02', eyebrow: 'Travel essentials', heading: 'The items that make the difference',
+          copy: ['Sun protection is essential along the Nile. Pack high-SPF sunscreen, polarised sunglasses, and a reusable water bottle to stay hydrated between excursions.', 'A compact daypack keeps your hands free during temple visits, while a portable charger ensures your phone stays ready for photographs.'],
+          list: ['High-SPF sunscreen and lip balm with SPF', 'Polarised sunglasses and a secure strap', 'Reusable water bottle', 'Compact daypack for shore excursions', 'Portable charger and universal adapter'],
+        },
+        {
+          id: 'evenings', number: '03', eyebrow: 'Evening attire', heading: 'Dress for dinner on the Nile',
+          copy: ['Evenings aboard a Nile cruise strike a balance between relaxed and polished. Most dining rooms welcome smart casual attire: a linen shirt, a neat dress, or tailored trousers with a blouse.', 'Pack one slightly dressier outfit for the captain\u2019s dinner or a special evening ashore. Comfortable dress shoes or loafers work better than formal heels on a moving deck.'],
+          image: { src: 'https://images.unsplash.com/photo-1548013146-72479768bada?auto=format&fit=crop&w=1400&q=86', alt: 'Evening light over the Nile with a cruise boat in the distance', caption: 'Evening light on the Nile' },
+        },
+      ],
+      checklist: [
+        { title: 'Check the weather window', detail: 'Winter evenings can be cool on deck; summer days demand extra sun protection.' },
+        { title: 'Pack for temple visits', detail: 'Cover shoulders and knees for religious and historical sites.' },
+        { title: 'Bring a power adapter', detail: 'Egypt uses European-style two-pin plugs (Type C/F).' },
+        { title: 'Keep medications handy', detail: 'Pack essentials in your daypack for shore excursions.' },
+      ],
+      cta: { eyebrow: 'Nile cruise journeys', heading: 'Let the river set the pace.', copy: 'Browse our curated Nile cruise itineraries and find the rhythm that suits you.', tourSlug: 'luxor-to-aswan-cruise', tourLabel: 'View Nile cruises' },
+    },
+  },
+  {
+    title: 'A local\'s guide to Old Cairo',
+    slug: 'locals-guide-old-cairo',
+    image: siteImages.cairo,
+    category: 'Culture',
+    date: 'March 09, 2026',
+    excerpt: 'Mosques, markets, coffee, and the small details worth slowing down for.',
+    editorial: {
+      heroImage: 'https://images.unsplash.com/photo-1572252009286-268acec5ca0a?auto=format&fit=crop&w=2000&q=88',
+      heroAlt: 'Narrow alleyway in Khan el-Khalili market with hanging lanterns',
+      readTime: '7 min read',
+      heroDescription: 'Old Cairo rewards the visitor who walks slowly. Between the historic mosques and the winding market lanes, the real character of the city reveals itself.',
+      facts: [
+        { icon: 'Sun', label: 'Best time', value: 'Morning or late afternoon' },
+        { icon: 'Clock3', label: 'Time to allow', value: 'Half to full day' },
+        { icon: 'Compass', label: 'Area', value: 'Historic Fatimid quarter' },
+        { icon: 'ShieldCheck', label: 'Style', value: 'Walking exploration' },
+      ],
+      sidebarLinks: [
+        { href: '#khan', label: 'Khan el-Khalili' },
+        { href: '#mosques', label: 'Historic mosques' },
+        { href: '#food', label: 'Local food & coffee' },
+        { href: '#hidden', label: 'Hidden details' },
+      ],
+      sidebarAction: { label: 'Want a local guide?', heading: 'Explore Cairo with a licensed Egyptologist.', tourSlug: 'cairo-and-giza-pyramids' },
+      sections: [
+        {
+          id: 'khan', number: '01', eyebrow: 'The great market', heading: 'Khan el-Khalili rewards the unhurried',
+          lede: 'Khan el-Khalili is more than a souvenir bazaar. It is a living network of workshops, caf\u00e9s, and alleyways where Cairo\u2019s artisan traditions continue alongside daily life.',
+          copy: ['Wander past the copper smiths, spice merchants, and textile shops without rushing. The best finds often appear in the quieter lanes where locals shop for household goods and everyday ingredients.', 'Stop at El Fishawy, the historic caf\u00e9 at the heart of the market, for mint tea and a moment to watch the flow of people.'],
+        },
+        {
+          id: 'mosques', number: '02', eyebrow: 'Historic mosques', heading: 'A city built on layers of faith',
+          copy: ['Al-Azhar Mosque, founded in 970 AD, stands at the cultural heart of Islamic Cairo. The surrounding university and library complex has shaped scholarship for over a millennium.', 'The Mosque of Sultan Hassan, near the Citadel, offers one of the most impressive interior spaces in the city. Its scale and geometric precision reflect centuries of Mamluk craftsmanship.'],
+          image: { src: 'https://images.unsplash.com/photo-1548013146-72479768bada?auto=format&fit=crop&w=1400&q=86', alt: 'Interior courtyard of a historic Cairo mosque with ornate arches', caption: 'Al-Azhar Mosque courtyard' },
+        },
+        {
+          id: 'food', number: '03', eyebrow: 'Local food & coffee', heading: 'Follow the flavours',
+          copy: ['Old Cairo\u2019s food scene stretches far beyond tourist menus. Seek out neighbourhood fuul and taameya stands for breakfast, then drift toward the spice市场的 aromas as the morning unfolds.', 'Turkish coffee, cardamom-spiced and thick, is a ritual here. Ask for qahwa arabiyya and take the time to let it cool slowly.'],
+          list: ['Fuul medames and taameya for a traditional breakfast', 'Koshary at a local favourite for a hearty lunch', 'Mint tea or Turkish coffee at a market caf\u00e9', 'Kunafa or basbousa for a sweet finish'],
+        },
+        {
+          id: 'hidden', number: '04', eyebrow: 'Hidden details', heading: 'Look for the small things',
+          copy: ['The best details in Old Cairo hide in plain sight: carved wooden mashrabiya screens, the sound of a coppersmith\u2019s hammer, and the fading calligraphy above a centuries-old doorway.', 'Allow yourself to get slightly lost. The layout of the old city rewards curiosity, and the most memorable moments often come when you step away from the planned route.'],
+        },
+      ],
+      quote: 'The old city does not give up its secrets all at once. It asks you to slow down, look up, and let the details find you.',
+      cta: { eyebrow: 'Explore Cairo', heading: 'See Old Cairo with a knowledgeable local guide.', copy: 'Our licensed guides know the stories behind the walls, the best stalls, and the quiet corners most visitors miss.', tourSlug: 'cairo-and-giza-pyramids', tourLabel: 'Explore Cairo tours' },
+    },
+  },
+  {
+    title: 'The best time to visit Egypt',
+    slug: 'best-time-visit-egypt',
+    image: siteImages.desert,
+    category: 'Travel Guide',
+    date: 'February 20, 2026',
+    excerpt: 'Season-by-season planning for the trip you imagine.',
+    editorial: {
+      heroImage: 'https://images.unsplash.com/photo-1503177119275-0aa32b3a9368?auto=format&fit=crop&w=2000&q=88',
+      heroAlt: 'Desert landscape with distant pyramids under a clear sky',
+      readTime: '6 min read',
+      heroDescription: 'Egypt is a year-round destination, but the season you choose shapes everything from crowd levels to what you pack.',
+      facts: [
+        { icon: 'Sun', label: 'Peak season', value: 'October \u2013 February' },
+        { icon: 'Clock3', label: 'Best balance', value: 'March & November' },
+        { icon: 'Compass', label: 'Red Sea', value: 'Good all year' },
+        { icon: 'ShieldCheck', label: 'Summer deals', value: 'June \u2013 August' },
+      ],
+      sidebarLinks: [
+        { href: '#autumn', label: 'Autumn (Oct \u2013 Dec)' },
+        { href: '#winter', label: 'Winter (Jan \u2013 Feb)' },
+        { href: '#spring', label: 'Spring (Mar \u2013 May)' },
+        { href: '#summer', label: 'Summer (Jun \u2013 Sep)' },
+      ],
+      sections: [
+        {
+          id: 'autumn', number: '01', eyebrow: 'October \u2013 December', heading: 'Autumn: the sweet spot',
+          lede: 'The months from October through December bring comfortable temperatures, clear skies, and a lively but manageable pace at major sites.',
+          copy: ['Daytime temperatures in Cairo typically sit between 25\u00B0C and 30\u00B0C, making temple visits and outdoor exploration pleasant from morning to late afternoon. Evenings are cool enough for a light layer.', 'This is the start of the cruise season on the Nile. The river is calm, the light is warm, and Luxor\u2019s temples glow beautifully at sunset.'],
+        },
+        {
+          id: 'winter', number: '02', eyebrow: 'January \u2013 February', heading: 'Winter: cool days, clear light',
+          copy: ['Winter in Egypt is mild by global standards, but cooler than the rest of the year. Cairo daytime temperatures hover around 18\u00B0C to 22\u00B0C, and evenings can feel brisk, especially along the Nile.', 'The clear winter light is ideal for photography, and major sites like the Pyramids and Luxor\u2019s Valley of the Kings are at their most comfortable for extended visits.'],
+          image: { src: 'https://images.unsplash.com/photo-1568322445389-f64ac2515020?auto=format&fit=crop&w=1400&q=86', alt: 'The Pyramids of Giza on a clear winter morning', caption: 'Winter light at the Pyramids' },
+        },
+        {
+          id: 'spring', number: '03', eyebrow: 'March \u2013 May', heading: 'Spring: warm days, fewer crowds',
+          copy: ['Spring brings rising temperatures and a thinner crowd of visitors. March and early April offer a comfortable middle ground before the full heat of summer arrives.', 'This is a strong season for Red Sea resorts, where the water temperature is ideal for diving and snorkelling. Combine a beach stay with a few days of sightseeing for a balanced itinerary.'],
+        },
+        {
+          id: 'summer', number: '04', eyebrow: 'June \u2013 September', heading: 'Summer: budget-friendly and bold',
+          copy: ['Summer temperatures in Cairo and Upper Egypt regularly exceed 35\u00B0C, making midday sightseeing challenging. However, the Red Sea coast remains pleasantly warm with cooling breezes.', 'Fewer visitors mean shorter queues, more flexible hotel availability, and often better rates. If you plan around the heat\u2014early mornings and late afternoons for temples, daytime for the coast\u2014summer can be surprisingly rewarding.'],
+          image: { src: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=1400&q=86', alt: 'Turquoise waters of the Red Sea under a bright summer sky', caption: 'Red Sea summer escape' },
+        },
+      ],
+      quote: 'There is no wrong time to visit Egypt. There is only the time that matches the pace and experience you are looking for.',
+      cta: { eyebrow: 'Plan your trip', heading: 'Not sure which season fits you best?', copy: 'Tell us your dates and interests. Our team will shape an itinerary around the weather, the crowds, and the moments that matter most.', customLabel: 'Plan my trip' },
+    },
+  },
+  {
+    title: 'Five Egyptian dishes you must try',
+    slug: 'five-egyptian-dishes',
+    image: siteImages.redSea,
+    category: 'Food',
+    date: 'January 14, 2026',
+    excerpt: 'From koshary to fresh seafood, taste the places you visit.',
+    editorial: {
+      heroImage: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=2000&q=88',
+      heroAlt: 'A vibrant plate of koshary topped with crispy onions and tomato sauce',
+      readTime: '5 min read',
+      heroDescription: 'Egyptian food is honest, generous, and deeply connected to the places where it is served. These five dishes are a starting point for a delicious journey.',
+      facts: [
+        { icon: 'Sun', label: 'Best setting', value: 'Street-side to fine dining' },
+        { icon: 'Clock3', label: 'Meal pace', value: 'Slow and social' },
+        { icon: 'Compass', label: 'Budget', value: 'Very affordable' },
+        { icon: 'ShieldCheck', label: 'Tip', value: 'Follow the locals' },
+      ],
+      sidebarLinks: [
+        { href: '#koshary', label: 'Koshary' },
+        { href: '#ful', label: 'Ful medames' },
+        { href: '#molokhia', label: 'Molokhia' },
+        { href: '#seafood', label: 'Fresh seafood' },
+        { href: '#desserts', label: 'Sweet endings' },
+      ],
+      sections: [
+        {
+          id: 'koshary', number: '01', eyebrow: 'The national staple', heading: 'Koshary: Cairo\u2019s most iconic bowl',
+          lede: 'Koshary is Egypt\u2019s beloved comfort food: a hearty mix of rice, lentils, macaroni, and chickpeas, topped with spiced tomato sauce and crispy fried onions.',
+          copy: ['Born in the busy streets of Cairo, koshary is served from dedicated shops where the assembly is quick and the flavour is deep. Each vendor has their own ratio and sauce recipe, so trying a few is part of the experience.', 'Add chilli, vinegar, or garlic sauce to taste. It is inexpensive, filling, and available almost everywhere.'],
+        },
+        {
+          id: 'ful', number: '02', eyebrow: 'Morning ritual', heading: 'Ful medames: breakfast like a local',
+          copy: ['Ful medames\u2014slow-cooked fava beans seasoned with cumin, lemon, and olive oil\u2014has been a staple of Egyptian meals for centuries. Served with fresh bread, it is the breakfast of choice across the country.', 'Look for the neighbourhood ful stand where locals gather in the morning. The beans are scooped from a large copper pot and customised with tahini, chopped tomatoes, or a drizzle of chilli oil.'],
+          image: { src: 'https://images.unsplash.com/photo-1548013146-72479768bada?auto=format&fit=crop&w=1400&q=86', alt: 'A traditional Egyptian breakfast spread with ful medames and fresh bread', caption: 'A traditional ful breakfast' },
+        },
+        {
+          id: 'molokhia', number: '03', eyebrow: 'A green classic', heading: 'Molokhia: the soup Egyptians grow up with',
+          copy: ['Molokhia is a rich, dark-green soup made from jute leaves, slow-simmered with garlic and coriander. It is served over rice or with bread and is one of the most deeply personal dishes in Egyptian home cooking.', 'The flavour is earthy and herbaceous. Every family has their own method\u2014some prefer it thick, others more brothy\u2014and it is often the dish that Egyptians miss most when they travel abroad.'],
+        },
+        {
+          id: 'seafood', number: '04', eyebrow: 'From the coast', heading: 'Fresh seafood along the Red Sea',
+          copy: ['Egypt\u2019s Red Sea coast offers some of the freshest fish in the region. Grilled hammour, shrimp with garlic, and calamari are staples in coastal towns like Hurghada and El Gouna.', 'Order simply prepared and let the quality of the fish speak for itself. A squeeze of lemon, a side of tahini, and warm bread are all you need.'],
+          image: { src: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=1400&q=86', alt: 'Grilled fish served with lemon and salad at a Red Sea restaurant', caption: 'Fresh catch on the Red Sea' },
+        },
+        {
+          id: 'desserts', number: '05', eyebrow: 'Sweet endings', heading: 'Finish with something sweet',
+          copy: ['No Egyptian meal is complete without a sweet note. Kunafa\u2014crispy shredded pastry filled with sweet cheese and soaked in syrup\u2014is a favourite, especially during warm months.', 'Basbousa, a semolina cake drenched in syrup and sometimes topped with coconut, pairs perfectly with strong Egyptian coffee.']
+        },
+      ],
+      quote: 'The best meals in Egypt are rarely planned. They happen when you follow a local\u2019s suggestion and sit down with an open appetite.',
+      cta: { eyebrow: 'Taste Egypt', heading: 'Let your trip be shaped by flavour.', copy: 'From street food tours to riverside dining, we can build an itinerary around the tastes you want to experience.', customLabel: 'Plan a food trip' },
+    },
+  },
+  {
+    title: 'Sunrise over Luxor\'s West Bank',
+    slug: 'sunrise-luxor-west-bank',
+    image: siteImages.temple,
+    category: 'Stories',
+    date: 'December 05, 2025',
+    excerpt: 'One perfect morning among tombs, valleys, and ancient silhouettes.',
+    editorial: {
+      heroImage: 'https://images.unsplash.com/photo-1548013146-72479768bada?auto=format&fit=crop&w=2000&q=88',
+      heroAlt: 'Golden sunrise light over the West Bank of Luxor with the Valley of the Kings in the distance',
+      readTime: '5 min read',
+      heroDescription: 'There is a particular quality to the first light on the West Bank. The limestone cliffs turn gold, the shadows stretch across the valley, and the ancient world feels closer than usual.',
+      facts: [
+        { icon: 'Sun', label: 'Best light', value: 'First 30 minutes' },
+        { icon: 'Clock3', label: 'Start time', value: 'Before dawn' },
+        { icon: 'Compass', label: 'Setting', value: 'Valley of the Kings' },
+        { icon: 'ShieldCheck', label: 'Style', value: 'Private early tour' },
+      ],
+      sidebarLinks: [
+        { href: '#morning', label: 'Before dawn' },
+        { href: '#valley', label: 'The Valley' },
+        { href: '#temples', label: 'Temple moments' },
+        { href: '#return', label: 'Returning at noon' },
+      ],
+      sidebarAction: { label: 'Experience Luxor?', heading: 'See the West Bank with a private guide.', tourSlug: 'luxor-day-tour' },
+      sections: [
+        {
+          id: 'morning', number: '01', eyebrow: 'Before dawn', heading: 'The drive across the river',
+          lede: 'The morning begins in darkness. A car crosses the Nile before sunrise, the city still quiet, the water black and smooth under the bridge.',
+          copy: ['The West Bank feels like a different country at this hour. The air is cooler, the roads are empty, and the limestone ridges ahead catch the first hints of light as you approach the valley.', 'This is the time to notice the landscape\u2014the dry wadis, the scattered mudbrick ruins, the sense of a place that has been visited for thousands of years and still feels remote.'],
+        },
+        {
+          id: 'valley', number: '02', eyebrow: 'The Valley', heading: 'When the light finds the tombs',
+          copy: ['The Valley of the Kings is built for early visits. The tomb corridors are cool and quiet before the day\u2019s first tour groups arrive, and the painted walls hold their colour better in low, even light.', 'Each tomb tells a different story. Some are vast and ornate, others narrow and personal. A good guide helps you read the scenes\u2014the journeys of the pharaohs, the symbols of protection, the carefully placed offerings.'],
+          image: { src: 'https://images.unsplash.com/photo-1539768942893-daf53e448371?auto=format&fit=crop&w=1400&q=86', alt: 'The entrance to a painted tomb in the Valley of the Kings at sunrise', caption: 'Valley of the Kings at dawn' },
+        },
+        {
+          id: 'temples', number: '03', eyebrow: 'Temple moments', heading: 'Hatshepsut and the cliffs',
+          copy: ['The Temple of Hatshepsut rises from the desert in clean, terraced lines against the sheer cliff face. In the early light, the geometry is sharp and the shadows are long.', 'Stand at the base and look up. The scale of the architecture against the natural rock wall is humbling\u2014a reminder that this was built not just to endure, but to impress across millennia.'],
+        },
+        {
+          id: 'return', number: '04', eyebrow: 'Returning at noon', heading: 'When the valley goes quiet again',
+          copy: ['By midday the West Bank empties as quickly as it filled. The tour buses pull away, the ticket offices close their shutters, and the silence returns to the valley.', 'This is the time to stop at a small café on the road back to Luxor, drink a cold hibiscus juice, and let the morning settle. The best travel days leave you with something you did not expect to feel.'],
+        },
+      ],
+      quote: 'The West Bank does not shout. It waits. And if you arrive early enough, you have it almost to yourself.',
+      cta: { eyebrow: 'Luxor experiences', heading: 'See the West Bank the way it deserves.', copy: 'Early-morning access, a private guide, and a pace that lets the Valley speak for itself.', tourSlug: 'luxor-day-tour', tourLabel: 'Explore Luxor tours' },
+    },
+  },
 ]
 
 export const events: Event[] = [
