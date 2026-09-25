@@ -26,6 +26,7 @@ The interface is designed with a flat, editorial, and premium aesthetic rather t
 The application is structured to handle a comprehensive travel booking and information experience. Main sections include:
 
 - **Tours & Destinations:** Browse curated `egypt-tours`, comprehensive `destinations`, and `special-offers`.
+- **All Trips:** `/trips` brings the listed one-day tours, multi-day journeys, Nile cruises, and shore excursions into one searchable, filterable catalogue.
 - **Custom Travel Planning:** A dedicated `make-your-trip` interactive feature for personalized itineraries.
 - **Additional Services:** `rent-car` functionality and an `egypt-travel-guide` for tourists.
 - **Content & Engagement:** `blogs`, `events`, and an interactive journey gallery.
@@ -69,7 +70,7 @@ web-source/
 | --- | --- |
 | `/search` | `q` (trimmed text, maximum 120 characters) |
 | `/egypt-tours/multi-days-tours`, `/egypt-tours/nile-cruises`, `/egypt-tours/shore-excursions` | `destination` (location present in that category); `duration` (duration present in that category); `price` (`under-200`, `200-400`, `over-400`); `sort` (`Recommended`, `Price: low to high`, `Price: high to low`); `page` (1-999, clamped to the available pages) |
-| `/make-your-trip` | `from`, `to`, and `date` (`YYYY-MM-DD`); `destination` (known destination slug); `tour` (known Tour slug or alias); `guests` (1-50); `step=2` only when valid `from` and `to` are present |
+| `/make-your-trip` | `from`, `to`, and `date` (`YYYY-MM-DD`); `destination` (known destination slug); `tour` (known Tour slug or alias); `guests` (1-50); `addons` (comma-separated indexes validated against the selected tour); `step=2` only when valid `from` and `to` are present |
 | `/rent-car/request` | `vehicle` (known car slug); `pickup` and `dropoff` (maximum 160 characters); `type` (`One Way` or `Round Trip`); `date` (`YYYY-MM-DD`) |
 
 Unexpected query values are ignored and fall back to safe frontend defaults.

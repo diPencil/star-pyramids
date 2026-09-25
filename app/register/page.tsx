@@ -1,2 +1,3 @@
-import { RegisterPage } from '@/components/extended-pages'
+import { RegisterPage } from '@/components/auth-pages'
+
 export default RegisterPage

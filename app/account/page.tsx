@@ -1,2 +1,2 @@
-import { AccountPage } from '@/components/extended-pages'
-export default function Page() { return <AccountPage section="overview" /> }
+import { CustomerAccountPage } from '@/components/account-portal'
+export default function Page() { return <CustomerAccountPage section="overview" /> }

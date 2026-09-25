@@ -1,9 +1,10 @@
 import { Analytics } from '@vercel/analytics/next'
 import { Alexandria, Montserrat } from 'next/font/google'
 import type { Metadata, Viewport } from 'next'
+import { BrandFavicon } from '@/components/brand-favicon'
 
 const montserrat = Montserrat({ subsets: ['latin'], variable: '--font-montserrat', display: 'swap' })
-const alexandria = Alexandria({ subsets: ['arabic'], weight: ['400', '500', '600', '700', '800'], variable: '--font-alexandria', display: 'swap' })
+const alexandria = Alexandria({ subsets: ['arabic'], weight: ['400', '500', '600', '700', '800'], variable: '--font-alexandria', display: 'swap', preload: false })
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -36,6 +37,7 @@ export default function RootLayout({
   return (
     <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body className={`${montserrat.variable} ${alexandria.variable} antialiased`}>
+        <BrandFavicon />
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>

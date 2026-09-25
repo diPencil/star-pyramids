@@ -68,9 +68,11 @@ persisted or secure production behavior.
 | Root metadata, fonts, and global layout | `app/layout.tsx` |
 | Homepage route | `app/page.tsx` |
 | Homepage composition and sections | `components/homepage.tsx` |
+| Unified trip catalogue and filters | `components/trips-page.tsx`; membership in `data/tours.ts` |
 | Header, footer, shell, search engine, tour listing, shared travel UI | `components/site.tsx` |
-| Content, account, auth-support, cars, policies, search, and detail pages | `components/extended-pages.tsx` |
-| Tour detail presentation | `components/tour-detail.tsx` |
+| Content, account, password recovery, cars, policies, search, and detail pages | `components/extended-pages.tsx` |
+| Login and registration experiences, social-auth previews, and registration fields | `components/auth-pages.tsx`; country metadata in `data/countries.ts` |
+| Tour detail presentation | `components/tour-detail.tsx` (packages and other tours); `components/day-tour-detail.tsx` (one-day tours); shared social video reels in `components/tour-video-gallery.tsx` |
 | Tour entities, canonical slugs, category collections, and rich tour content | `data/tours.ts` |
 | Shared frontend domain contracts | `data/types.ts` |
 | Locale, RTL, and currency state | `components/locale.tsx` |
@@ -89,6 +91,7 @@ genuinely route-specific behavior.
 | Routes | Implementation |
 | --- | --- |
 | `/` | `app/page.tsx` -> `components/homepage.tsx` |
+| `/trips` | `app/trips/page.tsx` -> `components/trips-page.tsx`; catalogue in `data/tours.ts` |
 | `/about`, `/contact`, `/faq`, `/accessible-travel`, `/egypt-travel-guide` | Thin route wrappers -> `components/extended-pages.tsx` |
 | `/blogs`, `/blogs/[slug]` | `components/extended-pages.tsx`; content in `data/content.ts` |
 | `/events`, `/events/[slug]` | `components/extended-pages.tsx`; content in `data/content.ts` |
@@ -96,12 +99,12 @@ genuinely route-specific behavior.
 | `/special-offers`, `/special-offers/[slug]` | `components/extended-pages.tsx`; content in `data/content.ts` |
 | `/egypt-tours/one-day-tours` | `components/site.tsx` (`OneDayToursRegions`) |
 | `/egypt-tours/multi-days-tours`, `/egypt-tours/nile-cruises`, `/egypt-tours/shore-excursions` | `components/site.tsx` (`TourListing`) |
-| `/egypt-tours/[slug]` | Entities in `data/tours.ts`; route validation in `app/egypt-tours/[slug]/page.tsx`; presentation in `components/tour-detail.tsx` |
+| `/egypt-tours/[slug]` | Entities in `data/tours.ts`; route validation in `app/egypt-tours/[slug]/page.tsx`; presentation in `components/tour-detail.tsx` or `components/day-tour-detail.tsx` by category |
 | `/make-your-trip` | Route-local interactive planner in `app/make-your-trip/page.tsx` |
 | `/rent-car`, `/rent-car/request` | `components/extended-pages.tsx`; car data in `data/content.ts` |
 | `/search` | `components/extended-pages.tsx`; index in `data/content.ts` |
-| `/login` | Route-local client prototype in `app/login/page.tsx` |
-| `/register`, `/forgot-password` | `components/extended-pages.tsx` |
+| `/login`, `/register` | Thin route wrappers -> `components/auth-pages.tsx`; country metadata in `data/countries.ts` |
+| `/forgot-password` | `components/extended-pages.tsx` |
 | `/account`, `/account/profile`, `/account/bookings`, `/account/favorites` | `components/extended-pages.tsx` (`AccountPage`) |
 | `/privacy`, `/terms` | `components/extended-pages.tsx`; copy in `data/content.ts` |
 
@@ -162,3 +165,13 @@ Every completed task should state:
 - which checks were run and their outcomes;
 - what could not be verified, if anything;
 - any remaining risk, mock behavior, migration, or follow-up.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

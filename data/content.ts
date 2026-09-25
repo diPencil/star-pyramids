@@ -7,22 +7,120 @@ export const siteImages = {
   temple: 'https://images.unsplash.com/photo-1548013146-72479768bada?auto=format&fit=crop&w=1200&q=85',
   desert: 'https://images.unsplash.com/photo-1503177119275-0aa32b3a9368?auto=format&fit=crop&w=1200&q=85',
   redSea: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=1200&q=85',
+  whiteDesert: 'https://upload.wikimedia.org/wikipedia/commons/3/34/WhiteDesertEgypt%40FarafraOasis2007jan6-05_byDanielCsorfoly.JPG',
+  whiteDesertMushroom: 'https://upload.wikimedia.org/wikipedia/commons/9/9f/Weisse_W%C3%BCste.jpg',
 }
 
 export const destinations: Destination[] = [
-  { title: 'Cairo & Giza', slug: 'cairo-giza', image: siteImages.pyramids, copy: 'Ancient wonders, lively streets, and the heart of modern Egypt.' },
-  { title: 'Luxor', slug: 'luxor', image: siteImages.temple, copy: 'Walk through the world’s greatest open-air museum.' },
-  { title: 'Aswan', slug: 'aswan', image: siteImages.nile, copy: 'Slow Nile days, Nubian culture, and timeless landscapes.' },
-  { title: 'Hurghada', slug: 'hurghada', image: siteImages.redSea, copy: 'Warm water, colorful reefs, and effortless Red Sea escapes.' },
-  { title: 'White Desert', slug: 'white-desert', image: siteImages.desert, copy: 'A surreal landscape carved by wind and time.' },
-  { title: 'Sharm El Sheikh', slug: 'sharm-el-sheikh', image: siteImages.redSea, copy: 'A bright coastal retreat with desert adventures nearby.' },
+  {
+    title: 'Cairo & Giza', slug: 'cairo-giza', image: siteImages.pyramids, copy: 'Ancient wonders, lively streets, and the heart of modern Egypt.',
+    detail: {
+      heroImage: siteImages.pyramids, heroAlt: 'The Great Sphinx and the Pyramids of Giza', eyebrow: 'Capital energy, ancient scale',
+      intro: 'Cairo and Giza hold Egypt\'s biggest contrasts in one place: monumental archaeology, layered neighborhoods, river light, and streets that move at their own irresistible pace.',
+      facts: [{ label: 'Suggested stay', value: '2-3 days' }, { label: 'Best rhythm', value: 'Early starts' }, { label: 'Travel style', value: 'Culture + city' }, { label: 'Pair it with', value: 'Saqqara' }],
+      bestFor: ['First-time Egypt trips', 'History lovers', 'Food and street life', 'Private guided days'],
+      experiences: [
+        { title: 'Read the Giza Plateau slowly', copy: 'Move beyond the postcard viewpoint and experience the pyramids, Sphinx, and desert horizon as one connected landscape.', image: siteImages.pyramids, alt: 'The Great Sphinx and pyramids at Giza' },
+        { title: 'Follow the lanes of historic Cairo', copy: 'Stone gateways, mosques, workshops, and lantern-lit market alleys reveal the city at a more human scale.', image: 'https://images.unsplash.com/photo-1707172889437-dc6f210ea44a?auto=format&fit=crop&w=1400&q=86', alt: 'A historic market street in Cairo' },
+        { title: 'Meet the modern capital', copy: 'Balance the ancient sites with Nile views, contemporary neighborhoods, and an evening shaped around local flavor.', image: '/egypt-hero.png', alt: 'Egyptian architecture in warm desert light' },
+      ],
+      rhythm: [{ label: 'Morning', title: 'Begin with the monuments', copy: 'Use the cooler, quieter hours for Giza or Saqqara and leave room to walk between viewpoints.' }, { label: 'Afternoon', title: 'Cross into the city story', copy: 'Choose one museum or historic district rather than racing through a long checklist.' }, { label: 'Evening', title: 'Let Cairo change pace', copy: 'End with a Nile-side dinner, a market walk, or city lights from a calm viewpoint.' }],
+      practical: [{ title: 'Build around traffic', copy: 'Group nearby sights together and avoid planning cross-city transfers between every stop.' }, { title: 'Dress for the day', copy: 'Comfortable shoes, sun protection, and modest layers make long sightseeing days easier.' }, { title: 'Use local context', copy: 'A private guide turns disconnected monuments into one clear story and simplifies movement.' }],
+      tourSlugs: ['cairo-and-giza-pyramids', 'egyptian-museum-old-cairo', 'old-cairo-and-khan-el-khalili'],
+    },
+  },
+  {
+    title: 'Luxor', slug: 'luxor', image: siteImages.temple, copy: 'Walk through the world\'s greatest open-air museum.',
+    detail: {
+      heroImage: 'https://images.unsplash.com/photo-1711547789606-a496af0b3582?auto=format&fit=crop&w=2000&q=88', heroAlt: 'The avenue of ram-headed sphinxes at Karnak Temple in Luxor', eyebrow: 'Temples, tombs, Nile light',
+      intro: 'Luxor is best experienced as two complementary worlds: the monumental temples of the East Bank and the intimate tombs and desert valleys of the West Bank.',
+      facts: [{ label: 'Suggested stay', value: '2-3 days' }, { label: 'Best rhythm', value: 'Sunrise starts' }, { label: 'Travel style', value: 'Archaeology' }, { label: 'Pair it with', value: 'Nile cruise' }],
+      bestFor: ['Ancient history', 'Photography', 'Nile journeys', 'Slow cultural travel'],
+      experiences: [
+        { title: 'Enter Karnak at human pace', copy: 'Let the processional avenues and immense column halls reveal their scale gradually.', image: 'https://images.unsplash.com/photo-1711547789606-a496af0b3582?auto=format&fit=crop&w=1400&q=86', alt: 'Ancient statues leading toward Karnak Temple' },
+        { title: 'Cross to the West Bank', copy: 'Tombs, desert cliffs, and temple ruins create a quieter counterpoint to the city across the Nile.', image: '/egypt-hero.png', alt: 'Ancient Egyptian temple columns in warm light' },
+        { title: 'Save an evening for the river', copy: 'A slower Nile moment gives the day space to settle after the density of the archaeological sites.', image: siteImages.nile, alt: 'Warm evening light over the Nile landscape' },
+      ],
+      rhythm: [{ label: 'Day one', title: 'East Bank foundations', copy: 'Build the story with Karnak and Luxor Temple, then return after the harshest midday light.' }, { label: 'Day two', title: 'West Bank depth', copy: 'Start early for the valleys and choose fewer tombs with more time in each.' }, { label: 'Extra time', title: 'Travel beyond Luxor', copy: 'Add Dendera, Abydos, or a Nile sailing experience when your itinerary allows.' }],
+      practical: [{ title: 'Start before the heat', copy: 'Early departures improve the light, comfort, and pace of exposed archaeological visits.' }, { title: 'Split the banks', copy: 'Treat the East and West Banks as separate chapters instead of compressing everything into one rush.' }, { title: 'Protect the sites', copy: 'Follow photography rules and avoid touching painted surfaces inside tombs and temples.' }],
+      tourSlugs: ['luxor-east-west-bank', 'valley-of-the-kings-day-tour', 'dendera-and-abydos-day-trip'],
+    },
+  },
+  {
+    title: 'Aswan', slug: 'aswan', image: siteImages.nile, copy: 'Slow Nile days, Nubian culture, and timeless landscapes.',
+    detail: {
+      heroImage: 'https://images.unsplash.com/photo-1655163394362-97de2d3c5c85?auto=format&fit=crop&w=2000&q=88', heroAlt: 'A Nubian village beside the Nile in Aswan', eyebrow: 'Nubian warmth, island rhythm',
+      intro: 'Aswan softens the pace of an Egypt journey. Granite islands, colorful Nubian communities, and quiet stretches of Nile invite you to look longer and move more slowly.',
+      facts: [{ label: 'Suggested stay', value: '2 days' }, { label: 'Best rhythm', value: 'Slow mornings' }, { label: 'Travel style', value: 'Nile + culture' }, { label: 'Pair it with', value: 'Abu Simbel' }],
+      bestFor: ['Nile scenery', 'Cultural connection', 'Couples', 'Unhurried itineraries'],
+      experiences: [
+        { title: 'Arrive by water', copy: 'A boat approach to the islands makes the river part of the experience rather than simply the view.', image: 'https://images.unsplash.com/photo-1655163394179-8b30a553dd6c?auto=format&fit=crop&w=1400&q=86', alt: 'Traditional Nubian houses beside the Nile' },
+        { title: 'Meet Nubian Aswan', copy: 'Color, hospitality, and local stories give the city a character distinct from anywhere else in Egypt.', image: 'https://images.unsplash.com/photo-1655163394362-97de2d3c5c85?auto=format&fit=crop&w=1400&q=86', alt: 'Nubian riverside architecture in Aswan' },
+        { title: 'Make space for stillness', copy: 'A felucca, garden visit, or unhurried sunset can become the most memorable part of the stay.', image: siteImages.nile, alt: 'A calm Nile landscape near Aswan' },
+      ],
+      rhythm: [{ label: 'Morning', title: 'Island temples and clear light', copy: 'Begin with a water crossing and one major site while the day still feels calm.' }, { label: 'Afternoon', title: 'Culture at close range', copy: 'Spend time with Nubian heritage, local craft, and the river communities around the city.' }, { label: 'Evening', title: 'Sail without a checklist', copy: 'Let the wind and sunset set the pace for a simple final hour on the Nile.' }],
+      practical: [{ title: 'Keep the schedule light', copy: 'Aswan rewards breathing room; two strong experiences often feel better than five rushed stops.' }, { title: 'Plan Abu Simbel separately', copy: 'Treat the long excursion as its own day and protect recovery time afterward.' }, { title: 'Respect local homes', copy: 'Ask before photographing people and choose community experiences that feel reciprocal.' }],
+      tourSlugs: ['aswan-and-the-nubian-village', 'philae-temple-felucca-ride', 'abu-simbel-day-trip'],
+    },
+  },
+  {
+    title: 'Hurghada', slug: 'hurghada', image: siteImages.redSea, copy: 'Warm water, colorful reefs, and effortless Red Sea escapes.',
+    detail: {
+      heroImage: siteImages.redSea, heroAlt: 'Divers exploring the clear Red Sea near Hurghada', eyebrow: 'Reef color, desert horizons',
+      intro: 'Hurghada gives a classic Egypt itinerary room to breathe, pairing clear Red Sea water with island days, desert landscapes, and an easy resort rhythm.',
+      facts: [{ label: 'Suggested stay', value: '3-4 days' }, { label: 'Best rhythm', value: 'Sea days' }, { label: 'Travel style', value: 'Coast + adventure' }, { label: 'Pair it with', value: 'Desert safari' }],
+      bestFor: ['Snorkeling', 'Family downtime', 'Diving', 'Winter sun'],
+      experiences: [
+        { title: 'Meet the reef responsibly', copy: 'Choose guided snorkeling or diving that protects coral and matches the confidence of every traveler.', image: 'https://images.unsplash.com/photo-1581088053806-9ea7682a41e8?auto=format&fit=crop&w=1400&q=86', alt: 'Colorful coral and fish in the Red Sea' },
+        { title: 'Give an island day room', copy: 'Open water, bright sand, and a slower boat rhythm are the natural reset after a city-heavy itinerary.', image: siteImages.redSea, alt: 'Divers exploring clear Red Sea water' },
+        { title: 'Turn toward the desert', copy: 'The inland landscape adds contrast with wide horizons, mountain silhouettes, and sunset light.', image: siteImages.desert, alt: 'Egyptian desert landscape at sunset' },
+      ],
+      rhythm: [{ label: 'Day one', title: 'Settle into the water', copy: 'Keep arrival day easy with a beach afternoon or gentle house-reef swim.' }, { label: 'Day two', title: 'Go beyond the shoreline', copy: 'Choose a full snorkeling, diving, or island experience with a trusted operator.' }, { label: 'Day three', title: 'Add the desert contrast', copy: 'Balance the coast with an inland safari or leave the day completely unstructured.' }],
+      practical: [{ title: 'Match the activity level', copy: 'Share swimming confidence and equipment needs before selecting a boat or dive plan.' }, { title: 'Protect the reef', copy: 'Use reef-conscious practices, keep distance from coral, and follow your guide\'s route.' }, { title: 'Keep a buffer day', copy: 'Wind and sea conditions can change, so flexibility helps protect your best water experience.' }],
+      tourSlugs: ['hurghada-red-sea-escape', 'giftun-island-snorkeling-trip', 'hurghada-desert-safari'],
+    },
+  },
+  {
+    title: 'White Desert', slug: 'white-desert', image: siteImages.whiteDesert, copy: 'A surreal landscape carved by wind and time.',
+    detail: {
+      heroImage: siteImages.whiteDesert, heroAlt: 'Mushroom-shaped chalk formations in Egypt\'s White Desert', eyebrow: 'Silence, chalk, open sky',
+      intro: 'The White Desert is less about ticking off sights and more about entering a different scale of time: sculpted formations, shifting light, and a night sky far from the city.',
+      facts: [{ label: 'Suggested stay', value: '2 days' }, { label: 'Best rhythm', value: 'Overnight escape' }, { label: 'Travel style', value: '4x4 + camp' }, { label: 'Pair it with', value: 'Bahariya' }],
+      bestFor: ['Landscape photography', 'Adventure', 'Stargazing', 'Repeat Egypt visitors'],
+      experiences: [
+        { title: 'Cross the changing desert', copy: 'The route matters as much as the destination, moving through different textures, colors, and geological forms.', image: siteImages.whiteDesert, alt: 'A wide route through the White Desert near Farafra' },
+        { title: 'Walk among natural sculptures', copy: 'Wind-shaped chalk formations turn the landscape into an open-air gallery best explored slowly.', image: siteImages.whiteDesertMushroom, alt: 'Mushroom-shaped limestone formations in the White Desert' },
+        { title: 'Stay for the night sky', copy: 'Sunset, camp, and first light reveal three completely different versions of the same landscape.', image: siteImages.whiteDesert, alt: 'Chalk formations beneath the open Western Desert sky' },
+      ],
+      rhythm: [{ label: 'Departure', title: 'Leave the city behind', copy: 'Build in rest stops and let the landscape transition gradually on the drive west.' }, { label: 'Sunset', title: 'Arrive before the color changes', copy: 'Use the softer final light for walking, photography, and choosing a calm camp setting.' }, { label: 'Morning', title: 'Wake with the desert', copy: 'Keep the first hour unhurried before beginning the return journey.' }],
+      practical: [{ title: 'Travel with specialists', copy: 'Use experienced local drivers and guides who understand desert routes and conditions.' }, { title: 'Pack for temperature shifts', copy: 'Light layers, sun protection, and a warm evening layer cover the changing desert day.' }, { title: 'Leave no trace', copy: 'Carry waste out, avoid damaging formations, and keep camp impact as light as possible.' }],
+      tourSlugs: ['white-desert-adventure'],
+    },
+  },
+  {
+    title: 'Sharm El Sheikh', slug: 'sharm-el-sheikh', image: siteImages.redSea, copy: 'A bright coastal retreat with desert adventures nearby.',
+    detail: {
+      heroImage: siteImages.redSea, heroAlt: 'Divers in clear Red Sea water near Sharm El Sheikh', eyebrow: 'Red Sea clarity, Sinai drama',
+      intro: 'Sharm El Sheikh combines easy resort comfort with serious underwater experiences and the stark mountain landscapes of southern Sinai.',
+      facts: [{ label: 'Suggested stay', value: '3-5 days' }, { label: 'Best rhythm', value: 'Water first' }, { label: 'Travel style', value: 'Reef + Sinai' }, { label: 'Pair it with', value: 'Ras Mohammed' }],
+      bestFor: ['Diving', 'Snorkeling', 'Resort stays', 'Sinai adventure'],
+      experiences: [
+        { title: 'Explore beneath the surface', copy: 'Reef walls, clear water, and guided access make the underwater landscape the destination\'s defining experience.', image: siteImages.redSea, alt: 'Scuba divers surrounded by Red Sea fish' },
+        { title: 'Choose a protected marine day', copy: 'A thoughtfully paced snorkeling route lets both confident swimmers and beginners enjoy the coast.', image: 'https://images.unsplash.com/photo-1581088053806-9ea7682a41e8?auto=format&fit=crop&w=1400&q=86', alt: 'Colorful coral reef in the Red Sea' },
+        { title: 'Turn inland to Sinai', copy: 'Mountain routes and desert evenings create a powerful contrast to the bright resort coastline.', image: siteImages.desert, alt: 'A dramatic desert landscape in Egypt' },
+      ],
+      rhythm: [{ label: 'Day one', title: 'Ease into the coast', copy: 'Use the first day for a relaxed swim, equipment check, and simple waterfront evening.' }, { label: 'Day two', title: 'Commit to the marine day', copy: 'Plan your strongest reef or diving experience while energy and attention are high.' }, { label: 'Extra day', title: 'See another side of Sinai', copy: 'Choose a mountain, desert, or cultural route to balance the time spent on the water.' }],
+      practical: [{ title: 'Book for your experience level', copy: 'Be clear about diving certification and swimming confidence before choosing the route.' }, { title: 'Respect marine rules', copy: 'Follow protected-area guidance and keep fins, hands, and equipment away from coral.' }, { title: 'Plan recovery time', copy: 'Leave space between demanding water activities and any long-distance Sinai excursion.' }],
+      tourSlugs: ['sharm-el-sheikh-diving-day', 'ras-mohamed-snorkeling-trip', 'st-catherine-mount-sinai'],
+    },
+  },
 ]
 
 export const cars: Car[] = [
-  { title: 'Toyota Corolla', slug: 'toyota-corolla', image: siteImages.cairo, seats: '4 seats', transmission: 'Automatic', dailyPrice: 45, copy: 'Reliable comfort for city transfers and day trips.' },
-  { title: 'Hyundai H1 Van', slug: 'hyundai-h1-van', image: siteImages.pyramids, seats: '8 seats', transmission: 'Automatic', dailyPrice: 75, copy: 'Spacious private transport for families and groups.' },
-  { title: 'Mercedes E-Class', slug: 'mercedes-e-class', image: siteImages.nile, seats: '3 seats', transmission: 'Automatic', dailyPrice: 110, copy: 'Quiet, polished travel for executive transfers.' },
-  { title: 'Toyota Hiace', slug: 'toyota-hiace', image: siteImages.temple, seats: '14 seats', transmission: 'Manual', dailyPrice: 95, copy: 'A practical choice for larger groups and excursions.' },
+  { title: 'Toyota Corolla', slug: 'toyota-corolla', image: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1200&q=88', seats: '4 seats', transmission: 'Automatic', dailyPrice: 45, copy: 'Reliable comfort for city transfers and day trips.' },
+  { title: 'Hyundai H1 Van', slug: 'hyundai-h1-van', image: 'https://images.unsplash.com/photo-1549924231-f129b911e442?auto=format&fit=crop&w=1200&q=88', seats: '8 seats', transmission: 'Automatic', dailyPrice: 75, copy: 'Spacious private transport for families and groups.' },
+  { title: 'Mercedes E-Class', slug: 'mercedes-e-class', image: 'https://images.unsplash.com/photo-1503736334956-4c8f8e92946d?auto=format&fit=crop&w=1200&q=88', seats: '3 seats', transmission: 'Automatic', dailyPrice: 110, copy: 'Quiet, polished travel for executive transfers.' },
+  { title: 'Toyota Hiace', slug: 'toyota-hiace', image: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=1200&q=88', seats: '14 seats', transmission: 'Manual', dailyPrice: 95, copy: 'A practical choice for larger groups and excursions.' },
 ]
 
 export const blogs: Blog[] = [
@@ -349,15 +447,63 @@ export const blogs: Blog[] = [
 ]
 
 export const events: Event[] = [
-  { title: 'Eid Holidays in Egypt', slug: 'eid-holidays-egypt', image: siteImages.cairo, date: 'March 20–30, 2027', location: 'Cairo, Luxor & Aswan', copy: 'Celebrate Egypt’s warmth, food, and living traditions across three iconic cities.' },
-  { title: 'New Year on the Nile', slug: 'new-year-nile', image: siteImages.nile, date: 'December 28, 2026 – January 04, 2027', location: 'Luxor to Aswan', copy: 'Welcome the new year with temple lights, calm river days, and golden sunsets.' },
-  { title: 'Cairo Jazz Festival Escape', slug: 'cairo-jazz-festival', image: siteImages.pyramids, date: 'October 15–18, 2026', location: 'Cairo', copy: 'Pair the city’s best music weekend with a curated Cairo cultural escape.' },
+  { title: 'Eid Holidays in Egypt', slug: 'eid-holidays-egypt', image: siteImages.cairo, date: 'March 20-30, 2027', location: 'Cairo, Luxor & Aswan', category: 'Seasonal journey', copy: 'Celebrate Egypt\'s warmth, food, and living traditions across three iconic cities.', intro: 'A privately coordinated Eid journey linking Cairo\'s festive streets with the temples, river landscapes, and slower rhythm of Upper Egypt.',
+    highlights: [
+      { title: 'Celebrate in Cairo', description: 'Experience the city during Eid with landmark visits, historic neighborhoods, and time for local food and evening atmosphere.' },
+      { title: 'Continue through Upper Egypt', description: 'Move from Luxor\'s monumental temples to Aswan\'s islands and Nubian character in one connected route.' },
+      { title: 'Travel with local support', description: 'Private transfers and guided sightseeing keep the multi-city journey clear, comfortable, and well paced.' },
+    ],
+    program: [
+      { day: 'Day 1-2', title: 'Cairo arrival & Eid sights', description: 'Settle in, explore the Giza Pyramids and the Sphinx, and feel the Eid lights at Khan El Khalili bazaar.' },
+      { day: 'Day 3-4', title: 'Islamic & Coptic Cairo', description: 'Citadel and historic mosques, old churches, and traditional Eid foods with a local host.' },
+      { day: 'Day 5-6', title: 'Luxor temples', description: 'Fly to Luxor for Karnak and Luxor Temple, then the Valley of the Kings and Hatshepsut Temple.' },
+      { day: 'Day 7-9', title: 'Aswan & the Nile', description: 'Philae Temple by motorboat, felucca sailing, a Nubian village visit, and the High Dam.' },
+      { day: 'Day 10-11', title: 'Farewell', description: 'A last souq morning and relaxed departure transfer.' },
+    ],
+    included: ['Eid-season airport meet and greet', 'Private transfers with driver', 'Daily guided sightseeing per program', 'Domestic flight Cairo to Luxor'],
+    excluded: ['International flights', 'Egypt entry visa', 'Meals and personal expenses unless listed', 'Tips for guides and drivers'],
+    addOns: [{ title: 'Hot air balloon over Luxor' }, { title: 'Abu Simbel day trip' }, { title: 'Extra night in Cairo' }],
+  },
+  { title: 'New Year on the Nile', slug: 'new-year-nile', image: siteImages.nile, date: 'December 28, 2026 - January 04, 2027', location: 'Luxor to Aswan', category: 'Nile celebration', copy: 'Welcome the new year with temple lights, calm river days, and golden sunsets.', intro: 'An eight-day Nile celebration shaped around ancient sites, relaxed sailing, and a New Year\'s Eve gala as the river carries you from Luxor to Aswan.',
+    highlights: [
+      { title: 'Celebrate on the river', description: 'Mark New Year\'s Eve on board with a gala dinner and midnight countdown during the southbound sailing.' },
+      { title: 'Follow the temple route', description: 'Explore Luxor, Edfu, Kom Ombo, and Philae with guided visits woven into the cruise rhythm.' },
+      { title: 'Keep time for the Nile', description: 'Balance the archaeological program with golden-hour sailing and calmer moments on deck.' },
+    ],
+    program: [
+      { day: 'Day 1', title: 'Embark in Luxor', description: 'Board the cruise ship, settle into the cabin, and enjoy an evening visit to Luxor Temple.' },
+      { day: 'Day 2', title: 'Karnak & the West Bank', description: 'Morning at Karnak Temple complex, then the Valley of the Kings and Hatshepsut Temple.' },
+      { day: 'Day 3', title: 'Edfu & sailing south', description: 'Temple of Horus at Edfu by carriage, then a relaxed sailing afternoon toward Kom Ombo.' },
+      { day: 'Day 4', title: 'New Year\'s Eve gala', description: 'Sunset visit to Kom Ombo dual temple, followed by the gala dinner and midnight countdown on board.' },
+      { day: 'Day 5-6', title: 'Aswan & Philae', description: 'High Dam, unfinished obelisk, island Temple of Philae, and felucca sailing around Elephantine.' },
+      { day: 'Day 7-8', title: 'Farewell & disembark', description: 'Slow final morning on the river, disembarkation, and onward transfer.' },
+    ],
+    included: ['7-night full-board Nile cruise', 'New Year\'s Eve gala dinner on board', 'Guided shore visits per program', 'Port transfers in Luxor and Aswan'],
+    excluded: ['International and domestic flights', 'Egypt entry visa', 'Drinks beyond meals and personal expenses', 'Crew and guide tips'],
+    addOns: [{ title: 'Abu Simbel extension' }, { title: 'Cabin upgrade to suite' }, { title: 'Cairo stopover package' }],
+  },
+  { title: 'Cairo Jazz Festival Escape', slug: 'cairo-jazz-festival', image: 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=1800&q=88', date: 'October 15-18, 2026', location: 'Cairo', category: 'Music & city break', copy: 'Pair the city\'s best music weekend with a curated Cairo cultural escape.', intro: 'A four-day Cairo break where live music leads the rhythm and private cultural visits reveal the city between the opening and closing performances.',
+    highlights: [
+      { title: 'Festival nights', description: 'A hosted music weekend built around the listed opening, headline, and closing concerts.' },
+      { title: 'Cairo between sets', description: 'Use the daytime for the Citadel, historic streets, and a guided visit to the Giza Plateau.' },
+      { title: 'A coordinated city escape', description: 'Private transfers and a local host connect the concert schedule with the cultural program.' },
+    ],
+    program: [
+      { day: 'Day 1', title: 'Arrival & opening night', description: 'Settle in, then head out for the festival opening concert with a local host.' },
+      { day: 'Day 2', title: 'Concerts & the Citadel', description: 'Daytime visit to the Citadel and historic streets, evening headline concerts.' },
+      { day: 'Day 3', title: 'Pyramids day & closing concert', description: 'Morning at the Giza Plateau and Sphinx, farewell evening at the festival closing show.' },
+      { day: 'Day 4', title: 'Farewell', description: 'Slow morning, final market stroll, and departure transfer.' },
+    ],
+    included: ['Jazz festival passes for listed concerts', 'Private transfers with driver', 'Guided Giza pyramids visit', 'Local host throughout'],
+    excluded: ['Accommodation and most meals', 'International flights and visa', 'Personal expenses', 'Tips'],
+    addOns: [{ title: 'Nile dinner cruise' }, { title: 'Sound & Light show' }, { title: 'Extra Cairo night' }],
+  },
 ]
 
 export const offers: Offer[] = [
-  { title: 'Stay longer, discover more', slug: 'stay-longer-discover-more', image: siteImages.nile, badge: 'Save 15%', copy: 'Add two nights to any multi-day itinerary and receive a special upgrade.' },
-  { title: 'Private family Egypt escape', slug: 'private-family-escape', image: siteImages.pyramids, badge: 'Family', copy: 'Complimentary airport transfer and a child-friendly Cairo experience.' },
-  { title: 'Nile & Red Sea combination', slug: 'nile-red-sea-combination', image: siteImages.redSea, badge: 'Limited', copy: 'Combine an iconic Nile cruise with a relaxed beach stay.' },
+  { title: 'Stay longer, discover more', slug: 'stay-longer-discover-more', image: siteImages.nile, badge: 'Save 15%', copy: 'Add two nights to any multi-day itinerary and receive a special upgrade.', highlights: ['Two additional nights', 'A special journey upgrade', 'Made for multi-day itineraries'] },
+  { title: 'Private family Egypt escape', slug: 'private-family-escape', image: siteImages.pyramids, badge: 'Family', copy: 'Complimentary airport transfer and a child-friendly Cairo experience.', highlights: ['Complimentary airport transfer', 'Child-friendly Cairo experience', 'Designed for private family travel'] },
+  { title: 'Nile & Red Sea combination', slug: 'nile-red-sea-combination', image: siteImages.redSea, badge: 'Limited', copy: 'Combine an iconic Nile cruise with a relaxed beach stay.', highlights: ['Iconic Nile cruise', 'Relaxed Red Sea stay', 'One coordinated itinerary'] },
 ]
 
 export const faqs = [

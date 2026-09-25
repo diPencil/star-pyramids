@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 680" role="img" aria-labelledby="title description">
+  <title id="title">STAR PYRAMIDS private vehicle</title>
+  <desc id="description">A clean side view illustration of a private travel vehicle.</desc>
+  <rect width="1200" height="680" fill="#eef3ff"/>
+  <path d="M0 525h1200v155H0z" fill="#dce5f7"/>
+  <circle cx="174" cy="112" r="46" fill="#ff9718" opacity=".2"/>
+  <path d="M245 414l83-137c17-28 48-45 81-45h280c35 0 68 15 91 41l118 141h62c44 0 80 36 80 80v42H151v-39c0-46 37-83 83-83z" fill="#2152df"/>
+  <path d="M384 278h277c24 0 47 10 63 28l89 108H316l68-136z" fill="#0e214d"/>
+  <path d="M420 300h119v94H366l54-94zm146 0h91c14 0 28 6 37 17l64 77H566v-94z" fill="#c8e5f4"/>
+  <path d="M151 474h889v62H151z" fill="#173aa0"/>
+  <circle cx="342" cy="527" r="79" fill="#101827"/>
+  <circle cx="342" cy="527" r="37" fill="#f6f8fc"/>
+  <circle cx="849" cy="527" r="79" fill="#101827"/>
+  <circle cx="849" cy="527" r="37" fill="#f6f8fc"/>
+  <path d="M190 447h90v22h-90zm773 0h47v22h-47z" fill="#ff9718"/>
+  <text x="600" y="630" text-anchor="middle" font-family="Arial, sans-serif" font-size="30" font-weight="700" fill="#0e214d">PRIVATE TRAVEL FLEET</text>
+</svg>

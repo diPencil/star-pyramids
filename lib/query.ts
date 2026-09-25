@@ -1,5 +1,5 @@
 import { destinations, findCar } from '@/data/content'
-import { findTour } from '@/data/tours'
+import { dayTourTerms, findTour } from '@/data/tours'
 import type { Car, Tour } from '@/data/types'
 
 type QueryReader = {
@@ -41,7 +41,11 @@ export type MakeTripQuery = {
   to: string
   destination: string
   guests: number
+  adults: number
+  children: number
+  infants: number
   tour?: Tour
+  addOns: string[]
 }
 
 export const parseMakeTripQuery = (params: QueryReader): MakeTripQuery => {
@@ -52,6 +56,10 @@ export const parseMakeTripQuery = (params: QueryReader): MakeTripQuery => {
   const destination = destinations.some((item) => item.slug === destinationSlug) ? destinationSlug : ''
   const tourSlug = readText(params, 'tour', 120)
   const tour = tourSlug ? findTour(tourSlug) : undefined
+  const availableAddOns = tour?.category === 'one-day-tours' ? tour.dayDetail?.addOns ?? dayTourTerms.addOns : tour?.detail?.addOns ?? []
+  const addOns = [...new Set(readText(params, 'addons', 80).split(',').filter((value) => /^(0|[1-9]\d*)$/.test(value)).map(Number))]
+    .filter((index) => index < availableAddOns.length)
+    .map((index) => availableAddOns[index].title)
   const step = params.get('step') === '2' && from !== '' && to !== '' ? 2 : 1
 
   return {
@@ -60,7 +68,11 @@ export const parseMakeTripQuery = (params: QueryReader): MakeTripQuery => {
     to,
     destination,
     guests: readPositiveInt(params, 'guests', 1, 50),
+    adults: readPositiveInt(params, 'adults', 0, 50),
+    children: readPositiveInt(params, 'children', 0, 50),
+    infants: readPositiveInt(params, 'infants', 0, 50),
     tour,
+    addOns,
   }
 }
 
