@@ -14,13 +14,14 @@ import { formatPrice, LocaleProvider, useLocale } from '@/components/locale'
 import { catalogTours, findTour } from '@/data/tours'
 import { countries, countryFlag, defaultCountry } from '@/data/countries'
 import { localizeTourDuration, localizeTourLocation } from '@/lib/tour-format'
+import { estimateCart, isValidPreferredDate } from '@/lib/booking'
 import { useCart } from '@/lib/cart'
 import { useInquiries, useBrandSettings, useLiveTours, readImpersonation, stopImpersonation, type ImpersonatedCustomer } from '@/lib/admin-store'
 import { usePagination } from '@/components/admin/admin-pagination'
 import { bookings as adminBookings, type BookingRow } from '@/components/admin/admin-data'
 import {
   readCustomerProfile, saveCustomerProfile, updateCustomerBooking, useCustomerBookings, useCustomerFavorites,
-  useCustomerProfile, type CustomerBooking, type CustomerBookingStatus, type CustomerProfile,
+  useCustomerProfile, type CustomerBooking, type CustomerBookingOrigin, type CustomerBookingStatus, type CustomerProfile,
 } from '@/lib/customer-account'
 import { clearMessageDraft, readMessageDraft, saveMessageDraft } from '@/lib/customer-account'
 import {
@@ -53,11 +54,11 @@ function mapAdminBooking(booking: BookingRow): CustomerBooking {
     createdAt: booking.date,
     status: booking.status === 'confirmed' ? 'confirmed' : booking.status === 'cancelled' ? 'cancelled' : 'request_received',
     paymentStatus: booking.status === 'confirmed' ? 'paid' : 'pending',
-    paymentMethod: 'arrival',
     total: booking.total,
     currency: 'USD',
     contact: { name: booking.customer, email: '', phone: '' },
     notes: '',
+    origin: 'demo',
     lines: [{
       key: booking.id, tourSlug: '', title: booking.tour, image: '', date: booking.date,
       adults: booking.guests, children: 0, infants: 0, addons: [], addonTotal: 0,
@@ -216,7 +217,41 @@ function Metric({ Icon, value, label, note, tone }: { Icon: typeof Star; value: 
 }
 
 function BookingStatus({ booking, ar }: { booking: CustomerBooking; ar: boolean }) {
+  // Browser-local previews are not part of any server lifecycle: they were
+  // never received, confirmed, or processed by STAR PYRAMIDS.
+  if ((booking.origin ?? 'demo') === 'local' && booking.status !== 'cancelled') {
+    return <span className="customer-status local"><Clock3 size={13} />{ar ? 'معاينة محلية' : 'Local preview'}</span>
+  }
   return <span className={`customer-status ${booking.status}`}>{booking.status === 'confirmed' || booking.status === 'completed' ? <CheckCircle2 size={13} /> : <Clock3 size={13} />}{ar ? bookingStatusCopy[booking.status].ar : bookingStatusCopy[booking.status].en}</span>
+}
+
+function OriginChip({ origin, ar }: { origin: CustomerBookingOrigin | undefined; ar: boolean }) {
+  const resolved = origin ?? 'demo'
+  return <em className={`origin-chip ${resolved}`}>{resolved === 'local' ? (ar ? 'معاينة محلية' : 'Local preview') : (ar ? 'سجل تجريبي' : 'Demo record')}</em>
+}
+
+/** Prefer a valid stored line date, then a parseable creation date. Never throws on malformed storage. */
+function displayBookingDate(booking: CustomerBooking, ar: boolean): string {
+  const lineDate = booking.lines.find((line) => isValidPreferredDate(line.date))?.date
+  if (lineDate) return lineDate
+  const created = new Date(booking.createdAt)
+  if (!Number.isNaN(created.getTime())) return created.toLocaleDateString(ar ? 'ar-EG' : 'en-GB')
+  return booking.lines[0]?.date || '—'
+}
+
+/**
+ * No payment policy (including pay-on-arrival) has been established.
+ * Only an explicitly stored card method on demo fixtures is named;
+ * everything else — always for local previews — stays unclaimed.
+ */
+function displayPaymentMethod(booking: CustomerBooking, ar: boolean): string {
+  if (booking.paymentMethod === 'card') return ar ? 'بطاقة بنكية' : 'Card'
+  return ar ? 'تُؤكد لاحقًا' : 'To be confirmed'
+}
+
+function displayPaymentStatus(booking: CustomerBooking, ar: boolean): string {
+  if (booking.paymentStatus === 'paid') return ar ? 'مدفوع' : 'Paid'
+  return ar ? 'قيد التأكيد' : 'Pending'
 }
 
 function BookingCard({ booking }: { booking: CustomerBooking }) {
@@ -227,9 +262,9 @@ function BookingCard({ booking }: { booking: CustomerBooking }) {
   return <article className="customer-booking-row">
     <Link href={`/account/bookings/detail?ref=${encodeURIComponent(booking.reference)}`}><img src={first?.image || '/egypt-hero.png'} alt="" /></Link>
     <div className="customer-booking-copy">
-      <div className="customer-booking-top"><span>{booking.reference}</span><BookingStatus booking={booking} ar={ar} /></div>
+      <div className="customer-booking-top"><span>{booking.reference}</span><OriginChip origin={booking.origin} ar={ar} /><BookingStatus booking={booking} ar={ar} /></div>
       <h3><Link href={`/account/bookings/detail?ref=${encodeURIComponent(booking.reference)}`}>{first?.title || (ar ? 'رحلة مخصصة' : 'Custom journey')}</Link></h3>
-      <div className="customer-booking-meta"><span><CalendarDays size={14} />{first?.date || new Date(booking.createdAt).toLocaleDateString(ar ? 'ar-EG' : 'en-GB')}</span><span><Users size={14} />{travelers} {ar ? 'مسافرين' : 'travelers'}</span><span><PackageCheck size={14} />{booking.lines.length} {ar ? 'رحلات' : 'trip items'}</span></div>
+      <div className="customer-booking-meta"><span><CalendarDays size={14} />{displayBookingDate(booking, ar)}</span><span><Users size={14} />{travelers} {ar ? 'مسافرين' : 'travelers'}</span><span><PackageCheck size={14} />{booking.lines.length} {ar ? 'رحلات' : 'trip items'}</span></div>
     </div>
     <div className="customer-booking-total"><small>{ar ? 'الإجمالي' : 'Total'}</small><strong>{formatPrice(booking.total, currency, locale)}</strong><span className="customer-booking-links"><Link href={`/account/bookings/detail?ref=${encodeURIComponent(booking.reference)}`}>{ar ? 'عرض التفاصيل' : 'View details'} <ArrowRight size={14} /></Link><Link href="/account/messages" onClick={() => saveMessageDraft({ reference: booking.reference, title: first?.title ?? '' })}>{ar ? 'اسأل عن الحجز' : 'Ask about booking'} <ArrowRight size={14} /></Link></span></div>
   </article>
@@ -246,6 +281,7 @@ function OverviewSection() {
   const inquiries = useVisibleInquiries()
   const chatMessages = useCustomerChatMessages()
   const cart = useCart()
+  const cartEstimate = useMemo(() => estimateCart(cart.items), [cart.items])
   const latestBooking = bookings[0]
   const liveTours = useLiveTours(catalogTours)
   const savedTours = favorites.slugs.map((slug) => liveTours.find((tour) => tour.slug === slug)).filter((tour) => Boolean(tour)).slice(0, 3)
@@ -258,7 +294,7 @@ function OverviewSection() {
     <div className="customer-metrics">
       <Metric Icon={ShoppingBag} value={bookings.length} label={ar ? 'الحجوزات' : 'Bookings'} note={ar ? 'كل الطلبات' : 'All requests'} tone="blue" />
       <Metric Icon={Heart} value={favorites.slugs.length} label={ar ? 'المحفوظة' : 'Saved'} note={ar ? 'أفكار للرحلة' : 'Trip ideas'} tone="orange" />
-      <Metric Icon={ShoppingCart} value={cart.lines} label={ar ? 'في السلة' : 'In cart'} note={cart.lines ? formatPrice(cart.subtotal, currency, locale) : (ar ? 'السلة فارغة' : 'Cart is empty')} tone="green" />
+      <Metric Icon={ShoppingCart} value={cart.lines} label={ar ? 'في السلة' : 'In cart'} note={cart.lines ? formatPrice(cartEstimate.subtotal, currency, locale) : (ar ? 'السلة فارغة' : 'Cart is empty')} tone="green" />
       <Metric Icon={MessageCircle} value={inquiries.length + (chatMessages.length ? 1 : 0)} label={ar ? 'المحادثات' : 'Conversations'} note={chatMessages.length ? (ar ? 'دعم مباشر نشط' : 'Active support chat') : (ar ? 'طلبات مسجلة' : 'Recorded enquiries')} tone="violet" />
     </div>
     <div className="customer-overview-grid">
@@ -364,9 +400,10 @@ function BookingDetailSection({ reference, autoPrint = false }: { reference: str
   const linesTotal = booking.lines.reduce((sum, line) => sum + line.total, 0)
   const canCancel = !impersonated && (booking.status === 'request_received' || booking.status === 'confirmed') && !cancelled
   const activeStatus = cancelled ? 'cancelled' : booking.status
-  const createdOn = new Date(booking.createdAt).toLocaleDateString(ar ? 'ar-EG' : 'en-GB')
+  const createdOn = displayBookingDate(booking, ar)
+  const isLocal = (booking.origin ?? 'demo') === 'local'
   const steps = [
-    { done: true, label: ar ? 'تم الاستلام' : 'Received', date: createdOn },
+    { done: true, label: isLocal ? (ar ? 'محفوظ في هذا المتصفح' : 'Saved in this browser') : (ar ? 'تم الاستلام' : 'Received'), date: createdOn },
     { done: booking.status !== 'request_received' || cancelled, label: ar ? 'التأكيد والدفع' : 'Confirmation & payment', date: booking.status !== 'request_received' ? createdOn : '—' },
     { done: activeStatus === 'completed', label: ar ? 'اكتمال الرحلة' : 'Trip completed', date: activeStatus === 'completed' ? createdOn : '—' },
     ...(activeStatus === 'cancelled' ? [{ done: true, label: ar ? 'ملغي' : 'Cancelled', date: '—' }] : []),
@@ -379,12 +416,13 @@ function BookingDetailSection({ reference, autoPrint = false }: { reference: str
 
   return <>
     <section className="customer-account-block">
-      <header><div><span>{booking.reference}</span><h2>{booking.lines[0]?.title || (ar ? 'تفاصيل الحجز' : 'Booking details')}</h2></div><BookingStatus booking={{ ...booking, status: activeStatus }} ar={ar} /></header>
+      <header><div><span>{booking.reference}</span><h2>{booking.lines[0]?.title || (ar ? 'تفاصيل الحجز' : 'Booking details')}</h2></div><span className="customer-booking-flags"><OriginChip origin={booking.origin} ar={ar} /><BookingStatus booking={{ ...booking, status: activeStatus }} ar={ar} /></span></header>
+      {booking.origin === 'local' && <p className="customer-local-note" role="note"><FlaskConical size={15} />{ar ? 'معاينة طلب محلية محفوظة في هذا المتصفح فقط. لم تُرسل أو تُؤكد أو تُدفع.' : 'Local request preview saved in this browser only. It has not been submitted, confirmed, or paid.'}</p>}
       <div className="customer-detail-grid">
         <div><small>{ar ? 'تاريخ السفر' : 'Travel date'}</small><strong>{booking.lines[0]?.date || createdOn}</strong></div>
         <div><small>{ar ? 'المسافرون' : 'Travelers'}</small><strong>{travelers}</strong></div>
-        <div><small>{ar ? 'طريقة الدفع' : 'Payment method'}</small><strong>{booking.paymentMethod === 'arrival' ? (ar ? 'الدفع عند الوصول' : 'Pay on arrival') : (ar ? 'بطاقة بنكية' : 'Card')}</strong></div>
-        <div><small>{ar ? 'حالة الدفع' : 'Payment status'}</small><strong>{booking.paymentStatus === 'paid' ? (ar ? 'مدفوع' : 'Paid') : booking.paymentStatus === 'pay_on_arrival' ? (ar ? 'عند الوصول' : 'On arrival') : (ar ? 'قيد التأكيد' : 'Pending')}</strong></div>
+        <div><small>{ar ? 'طريقة الدفع' : 'Payment method'}</small><strong>{displayPaymentMethod(booking, ar)}</strong></div>
+        <div><small>{ar ? 'حالة الدفع' : 'Payment status'}</small><strong>{displayPaymentStatus(booking, ar)}</strong></div>
       </div>
       <div className="customer-detail-actions">
         <Link href="/account/messages" className="account-icon-action" onClick={() => saveMessageDraft({ reference: booking.reference, title: booking.lines[0]?.title ?? '' })}><MessageCircle size={17} />{ar ? 'اسأل عن الحجز' : 'Ask about booking'}</Link>
@@ -450,7 +488,7 @@ function BookingTableRow({ booking, index }: { booking: CustomerBooking; index: 
   return <tr>
     <td className="customer-row-number">{index}</td>
     <td><span className="customer-trip-cell"><Link href={detailHref}><img src={first?.image || '/egypt-hero.png'} alt="" /></Link><span><strong><Link href={detailHref}>{first?.title || (ar ? 'رحلة مخصصة' : 'Custom journey')}</Link></strong><small>{booking.reference} · {booking.lines.length} {ar ? 'بنود' : 'items'}</small></span></span></td>
-    <td>{first?.date || new Date(booking.createdAt).toLocaleDateString(ar ? 'ar-EG' : 'en-GB')}</td>
+    <td>{displayBookingDate(booking, ar)}</td>
     <td>{travelers}</td>
     <td><strong>{formatPrice(booking.total, currency, locale)}</strong></td>
     <td><BookingStatus booking={booking} ar={ar} /></td>
@@ -463,9 +501,11 @@ function BookingsSection() {
   const ar = locale === 'ar'
   const bookings = useVisibleBookings()
   const [filter, setFilter] = useState<'all' | CustomerBookingStatus>('all')
-  const visible = filter === 'all' ? bookings : bookings.filter((booking) => booking.status === filter)
+  // Lifecycle tabs describe server-side states, so browser-local previews
+  // (never received by STAR PYRAMIDS) appear only under 'All'.
+  const visible = filter === 'all' ? bookings : bookings.filter((booking) => (booking.origin ?? 'demo') !== 'local' && booking.status === filter)
   const paging = usePagination(visible)
-  return <section className="customer-account-block customer-full-block"><div className="customer-filterbar"><div role="tablist" aria-label={ar ? 'فلترة الحجوزات' : 'Filter bookings'}>{(['all', 'request_received', 'confirmed', 'completed', 'cancelled'] as const).map((status) => <button type="button" key={status} className={filter === status ? 'active' : ''} onClick={() => setFilter(status)}>{status === 'all' ? (ar ? 'الكل' : 'All') : (ar ? bookingStatusCopy[status].ar : bookingStatusCopy[status].en)}</button>)}</div><Link href="/trips"><Plus size={16} />{ar ? 'حجز رحلة' : 'Book a trip'}</Link></div>{visible.length ? <><div className="customer-table-wrap"><table className="customer-table"><thead><tr><th>#</th><th>{ar ? 'الرحلة' : 'Trip'}</th><th>{ar ? 'التاريخ' : 'Date'}</th><th>{ar ? 'المسافرون' : 'Travelers'}</th><th>{ar ? 'الإجمالي' : 'Total'}</th><th>{ar ? 'الحالة' : 'Status'}</th><th></th></tr></thead><tbody>{paging.pageRows.map((booking, index) => <BookingTableRow key={booking.reference} booking={booking} index={paging.from + index} />)}</tbody></table></div><CustomerPagination page={paging.page} pageCount={paging.pageCount} onPage={paging.setPage} pageSize={paging.pageSize} onPageSize={paging.setPageSize} from={paging.from} to={paging.to} total={paging.total} /></> : <EmptyState Icon={ShoppingBag} title={ar ? 'لا توجد حجوزات في هذه الحالة' : 'No bookings in this view'} copy={ar ? 'أي حجز تكمله من صفحة الدفع سيظهر هنا تلقائيًا.' : 'Any booking completed through checkout will appear here automatically.'} href="/trips" action={ar ? 'تصفح الرحلات' : 'Browse trips'} />}</section>
+  return <section className="customer-account-block customer-full-block"><div className="customer-filterbar"><div role="tablist" aria-label={ar ? 'فلترة الحجوزات' : 'Filter bookings'}>{(['all', 'request_received', 'confirmed', 'completed', 'cancelled'] as const).map((status) => <button type="button" key={status} className={filter === status ? 'active' : ''} onClick={() => setFilter(status)}>{status === 'all' ? (ar ? 'الكل' : 'All') : (ar ? bookingStatusCopy[status].ar : bookingStatusCopy[status].en)}</button>)}</div><Link href="/trips"><Plus size={16} />{ar ? 'حجز رحلة' : 'Book a trip'}</Link></div>{visible.length ? <><div className="customer-table-wrap"><table className="customer-table"><thead><tr><th>#</th><th>{ar ? 'الرحلة' : 'Trip'}</th><th>{ar ? 'التاريخ' : 'Date'}</th><th>{ar ? 'المسافرون' : 'Travelers'}</th><th>{ar ? 'الإجمالي' : 'Total'}</th><th>{ar ? 'الحالة' : 'Status'}</th><th></th></tr></thead><tbody>{paging.pageRows.map((booking, index) => <BookingTableRow key={booking.reference} booking={booking} index={paging.from + index} />)}</tbody></table></div><CustomerPagination page={paging.page} pageCount={paging.pageCount} onPage={paging.setPage} pageSize={paging.pageSize} onPageSize={paging.setPageSize} from={paging.from} to={paging.to} total={paging.total} /></> : <EmptyState Icon={ShoppingBag} title={ar ? 'لا توجد حجوزات في هذه الحالة' : 'No bookings in this view'} copy={ar ? 'أي طلب حجز تنشئه من صفحة الدفع سيظهر هنا تلقائيًا.' : 'Any booking request created at checkout will appear here automatically.'} href="/trips" action={ar ? 'تصفح الرحلات' : 'Browse trips'} />}</section>
 }
 
 function FavoritesSection() {
@@ -493,9 +533,9 @@ function PaymentsSection() {
             <td className="customer-row-number">{paging.from + index}</td>
             <td><strong>{booking.reference}</strong></td>
             <td>{booking.lines[0]?.title || (ar ? 'رحلة مخصصة' : 'Custom journey')}</td>
-            <td>{new Date(booking.createdAt).toLocaleDateString(ar ? 'ar-EG' : 'en-GB')}</td>
-            <td>{booking.paymentMethod === 'arrival' ? (ar ? 'عند الوصول' : 'On arrival') : (ar ? 'بطاقة' : 'Card')}</td>
-            <td><span className={`customer-payment-state ${booking.paymentStatus}`}>{booking.paymentStatus === 'pay_on_arrival' ? (ar ? 'عند الوصول' : 'On arrival') : booking.paymentStatus === 'paid' ? (ar ? 'مدفوع' : 'Paid') : (ar ? 'قيد التأكيد' : 'Pending')}</span></td>
+            <td>{displayBookingDate(booking, ar)}</td>
+            <td>{displayPaymentMethod(booking, ar)}</td>
+            <td><span className={`customer-payment-state ${booking.paymentStatus}`}>{displayPaymentStatus(booking, ar)}</span></td>
             <td><strong>{formatPrice(booking.total, currency, locale)}</strong></td>
             <td><span className="customer-table-actions">
               <Link href={'/account/bookings/detail?ref=' + encodeURIComponent(booking.reference)} aria-label={ar ? 'عرض الحجز' : 'View booking'} title={ar ? 'عرض الحجز' : 'View booking'}><Eye size={16} /></Link>
