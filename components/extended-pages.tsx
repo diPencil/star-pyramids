@@ -3,13 +3,14 @@
 import Link from 'next/link'
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { ArrowRight, CalendarCheck, CalendarDays, Camera, Check, Clock3, Compass, CarFront, Gift, Headphones, Mail, MapPin, MessageCircle, Minus, Phone, Plus, Search, Send, ShieldCheck, Sparkles, Star, Sun, Ticket, Users, type LucideIcon } from 'lucide-react'
+import { ArrowRight, CalendarCheck, CalendarDays, Camera, Check, CircleAlert, Clock3, Compass, CarFront, Gift, Headphones, Mail, MapPin, MessageCircle, Minus, Phone, Plus, Search, Send, ShieldCheck, Sparkles, Star, Sun, Ticket, Users, type LucideIcon } from 'lucide-react'
 import { blogs, cars, destinations, events, faqs, offers, policies, siteImages, allSearchItems, findBlog, findCar, findDestination, findEvent, findOffer } from '@/data/content'
 import { isCustomSlug, useBrandSettings, useLiveCollection, useLiveFind, useLiveTours } from '@/lib/admin-store'
 import { phoneHref, whatsappHref } from '@/data/company'
 import { findTour, getTourOffer, seasonalOfferDeadline, seasonalTours } from '@/data/tours'
 import type { Blog, Car, Event, Offer, Tour } from '@/data/types'
 import { parseCarRequestQuery, parseSearchQuery } from '@/lib/query'
+import { CAR_LOCATION_MAX, CAR_NOTE_MAX, clearCarPreview, hasCarErrors, readCarPreview, recordCarRequestPreview, validateCarRequest, type CarFieldErrors, type CarRequestDraft, type CarRequestPreview } from '@/lib/car-request'
 import { countries, defaultCountry } from '@/data/countries'
 import { arabicCountryNames } from './auth-pages'
 import { ImpersonationBanner } from './impersonation-banner'
@@ -126,8 +127,8 @@ function CarsPageContent() {
   const ar = locale === 'ar'
   const liveCars = useLiveCollection('cars', cars)
   const featured = liveCars[2] ?? liveCars[0]
-  const maxSeats = Math.max(...liveCars.map((car) => Number.parseInt(car.seats, 10) || 0))
-  if (!featured) return null
+  const maxSeats = liveCars.length ? Math.max(...liveCars.map((car) => Number.parseInt(car.seats, 10) || 0)) : 0
+  if (!featured) return <main><div className="container"><section className="section"><div className="section-heading"><span className="eyebrow">{ar ? 'الأسطول' : 'Our fleet'}</span><h2>{ar ? 'لا توجد سيارات متاحة حاليًا' : 'No vehicles listed right now'}</h2><p>{ar ? 'عُد لاحقًا أو تواصل معنا وسنساعدك في ترتيب انتقالك.' : 'Check back later or contact us and we will help arrange your transfer.'}</p><Link href="/contact" className="primary-btn">{ar ? 'تواصل معنا' : 'Contact us'} <ArrowRight size={16} /></Link></div></section></div></main>
   return <main>
     <PageShowcaseHero image={featured.image} eyebrow={ar ? 'سائقون خصوصيون وأسطول حديث' : 'Private drivers & modern fleet'} title={ar ? 'تنقّل في مصر براحة تامة' : 'Move through Egypt with ease'} intro={ar ? 'استقبال من المطار ورحلات يومية وخطوط بين المدن مع سائق خاص وسيارات حديثة مكيفة.' : 'Airport pickups, day trips, and multi-city routes with a private driver and modern air-conditioned cars.'} primaryLabel={ar ? 'استكشف الأسطول' : 'Explore the fleet'} primaryHref="#fleet" secondaryLabel={ar ? 'اطلب هذه السيارة' : 'Request this vehicle'} secondaryHref={`/rent-car/request?vehicle=${featured.slug}`} railLabel={ar ? 'سيارة مميزة' : 'Featured vehicle'} railTitle={featured.title} railHref={`/rent-car/request?vehicle=${featured.slug}`} railMeta={[{ Icon: Users, label: featured.seats }, { Icon: CarFront, label: featured.transmission }]} statsLabel={ar ? 'ملخص الأسطول' : 'Fleet summary'} stats={[{ value: liveCars.length, label: ar ? 'خيارات سيارات' : 'Fleet choices' }, { value: maxSeats, label: ar ? 'مقعدًا كحد أقصى' : 'Seats maximum' }]}/>
     <div className="container">
@@ -160,29 +161,82 @@ export function CarCard({ car }: { car: Car }) {
       <h3>{car.title}</h3>
       <p>{car.copy}</p>
       {car.credit && <small className="fleet-credit"><a href={car.credit.url} target="_blank" rel="noreferrer">{car.credit.label}</a></small>}
-      <Link href={`/rent-car/request?vehicle=${car.slug}`} className="primary-btn fleet-cta">{ar ? 'احجز هذه السيارة' : 'Request this car'} <ArrowRight size={16} /></Link>
+      <Link href={`/rent-car/request?vehicle=${car.slug}`} className="primary-btn fleet-cta">{ar ? 'اطلب هذه السيارة' : 'Request this car'} <ArrowRight size={16} /></Link>
     </div>
   </article>
 }
 
-type CarRequestValues = { vehicleSlug: string; tripType: '' | 'One Way' | 'Round Trip'; pickup: string; dropoff: string; date: string; passengers: string; notes: string }
+type CarRequestValues = { vehicleSlug: string; tripType: '' | 'One Way' | 'Round Trip'; pickup: string; dropoff: string; pickupDate: string; returnDate: string; passengers: string; fullName: string; email: string; phone: string; notes: string }
 
-function CarRequestForm({ values, onChange, onDone }: { values: CarRequestValues; onChange: (patch: Partial<CarRequestValues>) => void; onDone: () => void }) {
+function carTodayLocal(): string {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
+
+function focusCarField(id: string) {
+  const el = document.getElementById(id)
+  if (el) {
+    if (!el.hasAttribute('tabindex') && !/^(INPUT|SELECT|TEXTAREA|BUTTON|A)$/.test(el.tagName)) el.setAttribute('tabindex', '-1')
+    el.focus({ preventScroll: false })
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }
+}
+
+function CarRequestForm({ values, errors, summary, onChange, onSubmit }: { values: CarRequestValues; errors: CarFieldErrors; summary: string; onChange: (patch: Partial<CarRequestValues>) => void; onSubmit: (e: React.FormEvent) => void }) {
   const { currency, locale } = useLocale()
   const ar = locale === 'ar'
   const liveCars = useLiveCollection('cars', cars)
-  const today = new Date().toISOString().slice(0, 10)
-  return <form className="contact-form" onSubmit={(e) => { e.preventDefault(); onDone() }}>
+  const today = carTodayLocal()
+  const errText = (field: keyof CarFieldErrors): string => {
+    const code = errors[field]
+    if (!code) return ''
+    if (field === 'passengers' && values.passengers.trim() === '') return ar ? 'أدخل عدد الركاب.' : 'Enter the number of passengers.'
+    const en: Record<string, string> = {
+      vehicle: code === 'required' ? 'Select a vehicle.' : 'Select a vehicle from the fleet list.',
+      tripType: 'Choose One Way or Round Trip.',
+      pickup: code === 'required' ? 'Enter the pick-up location.' : `Pick-up location must be ${CAR_LOCATION_MAX} characters or fewer.`,
+      dropoff: code === 'required' ? 'Enter the drop-off location.' : `Drop-off location must be ${CAR_LOCATION_MAX} characters or fewer.`,
+      pickupDate: code === 'required' ? 'Enter your preferred pick-up date.' : 'Enter a valid preferred pick-up date (today or later).',
+      returnDate: code === 'required' ? 'Enter your preferred return date.' : 'Enter a valid preferred return date on or after the pick-up date.',
+      passengers: 'Passengers must be a whole number from 1 to 50.',
+      name: code === 'required' ? 'Enter your full name.' : 'Enter a name with at least 2 letters.',
+      email: code === 'required' ? 'Enter your email address.' : 'Enter a valid email address (name@example.com).',
+      phone: code === 'required' ? 'Enter your phone number.' : 'Enter a valid phone number (at least 7 digits).',
+      notes: `Notes must be ${CAR_NOTE_MAX} characters or fewer.`,
+    }
+    const arText: Record<string, string> = {
+      vehicle: code === 'required' ? 'اختر السيارة.' : 'اختر سيارة من قائمة الأسطول.',
+      tripType: 'اختر ذهاب فقط أو ذهاب وعودة.',
+      pickup: code === 'required' ? 'أدخل مكان الاستلام.' : `يجب ألا يتجاوز مكان الاستلام ${CAR_LOCATION_MAX} حرفًا.`,
+      dropoff: code === 'required' ? 'أدخل مكان الوصول.' : `يجب ألا يتجاوز مكان الوصول ${CAR_LOCATION_MAX} حرفًا.`,
+      pickupDate: code === 'required' ? 'أدخل تاريخ الاستلام المفضل.' : 'أدخل تاريخ استلام مفضلًا صالحًا (اليوم أو بعده).',
+      returnDate: code === 'required' ? 'أدخل تاريخ العودة المفضل.' : 'أدخل تاريخ عودة مفضلًا صالحًا في تاريخ الاستلام أو بعده.',
+      passengers: 'يجب أن يكون عدد الركاب رقمًا صحيحًا من 1 إلى 50.',
+      name: code === 'required' ? 'أدخل اسمك الكامل.' : 'أدخل اسمًا من حرفين على الأقل.',
+      email: code === 'required' ? 'أدخل بريدك الإلكتروني.' : 'أدخل بريدًا إلكترونيًا صالحًا (name@example.com).',
+      phone: code === 'required' ? 'أدخل رقم هاتفك.' : 'أدخل رقم هاتف صالحًا (7 أرقام على الأقل).',
+      notes: `يجب ألا تتجاوز الملاحظات ${CAR_NOTE_MAX} حرف.`,
+    }
+    return ar ? arText[field] : en[field]
+  }
+  return <form className="contact-form" onSubmit={onSubmit} noValidate>
+    {summary !== '' && <p className="co-error" role="alert" style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 6px' }}><CircleAlert size={15} />{summary}</p>}
     <div className="form-grid">
-      <label className="full">{ar ? 'السيارة' : 'Vehicle'}<select required value={values.vehicleSlug} onChange={(e) => onChange({ vehicleSlug: e.target.value })}><option value="">{ar ? 'اختر السيارة' : 'Select a vehicle'}</option>{liveCars.map((c) => <option key={c.slug} value={c.slug}>{c.title} ({formatPrice(c.dailyPrice, currency, locale)}{ar ? ' / يوم' : ' / day'})</option>)}</select></label>
-      <div className="full req-trip-type"><span id="req-trip-label">{ar ? 'نوع الرحلة' : 'Trip type'}</span><div role="radiogroup" aria-labelledby="req-trip-label">{(['One Way', 'Round Trip'] as const).map((opt) => <button key={opt} type="button" role="radio" aria-checked={values.tripType === opt} className={values.tripType === opt ? 'active' : ''} onClick={() => onChange({ tripType: values.tripType === opt ? '' : opt })}>{opt === 'One Way' ? (ar ? 'ذهاب فقط' : 'One Way') : (ar ? 'ذهاب وعودة' : 'Round Trip')}</button>)}</div></div>
-      <label className="full">{ar ? 'مكان الاستلام' : 'Pick-up location'}<input required placeholder={ar ? 'المطار أو الفندق أو المدينة' : 'Airport, hotel, or city'} value={values.pickup} onChange={(e) => onChange({ pickup: e.target.value })} /></label>
-      <label className="full">{ar ? 'مكان الوصول' : 'Drop-off location'}<input required placeholder={ar ? 'إلى أين تريد الذهاب؟' : 'Where are you going?'} value={values.dropoff} onChange={(e) => onChange({ dropoff: e.target.value })} /></label>
-      <label>{ar ? 'تاريخ الاستلام' : 'Pick-up date'}<input required type="date" min={today} value={values.date} onChange={(e) => onChange({ date: e.target.value })} /></label>
-      <label>{ar ? 'عدد الركاب' : 'Passengers'}<input required type="number" min="1" max="50" placeholder="2" value={values.passengers} onChange={(e) => onChange({ passengers: e.target.value })} /></label>
-      <label className="full">{ar ? 'ملاحظات' : 'Notes'}<textarea placeholder={ar ? 'حدثنا عن خط سيرك' : 'Tell us about your route'} value={values.notes} onChange={(e) => onChange({ notes: e.target.value })} /></label>
+      <label className="full" htmlFor="car-vehicle">{ar ? 'السيارة' : 'Vehicle'} <em className="req" aria-hidden="true">*</em><select id="car-vehicle" required value={values.vehicleSlug} onChange={(e) => onChange({ vehicleSlug: e.target.value })} aria-invalid={Boolean(errors.vehicle)} aria-describedby={errors.vehicle ? 'car-vehicle-error' : undefined}><option value="">{ar ? 'اختر السيارة' : 'Select a vehicle'}</option>{liveCars.map((c) => <option key={c.slug} value={c.slug}>{c.title} ({formatPrice(c.dailyPrice, currency, locale)}{ar ? ' / يوم' : ' / day'})</option>)}</select>{errors.vehicle && <span className="field-error" id="car-vehicle-error" role="alert">{errText('vehicle')}</span>}</label>
+      <div className="full req-trip-type"><span id="req-trip-label">{ar ? 'نوع الرحلة' : 'Trip type'} <em className="req" aria-hidden="true">*</em></span><div role="radiogroup" aria-labelledby="req-trip-label" aria-describedby={errors.tripType ? 'car-triptype-error' : undefined}>{(['One Way', 'Round Trip'] as const).map((opt) => <button key={opt} type="button" role="radio" aria-checked={values.tripType === opt} className={values.tripType === opt ? 'active' : ''} onClick={() => onChange({ tripType: values.tripType === opt ? '' : opt })}>{opt === 'One Way' ? (ar ? 'ذهاب فقط' : 'One Way') : (ar ? 'ذهاب وعودة' : 'Round Trip')}</button>)}</div>{errors.tripType && <span className="field-error" id="car-triptype-error" role="alert">{errText('tripType')}</span>}</div>
+      <label className="full" htmlFor="car-pickup">{ar ? 'مكان الاستلام' : 'Pick-up location'} <em className="req" aria-hidden="true">*</em><input id="car-pickup" required placeholder={ar ? 'المطار أو الفندق أو المدينة' : 'Airport, hotel, or city'} maxLength={CAR_LOCATION_MAX} value={values.pickup} onChange={(e) => onChange({ pickup: e.target.value })} aria-invalid={Boolean(errors.pickup)} aria-describedby={errors.pickup ? 'car-pickup-error' : undefined} />{errors.pickup && <span className="field-error" id="car-pickup-error" role="alert">{errText('pickup')}</span>}</label>
+      <label className="full" htmlFor="car-dropoff">{ar ? 'مكان الوصول' : 'Drop-off location'} <em className="req" aria-hidden="true">*</em><input id="car-dropoff" required placeholder={ar ? 'إلى أين تريد الذهاب؟' : 'Where are you going?'} maxLength={CAR_LOCATION_MAX} value={values.dropoff} onChange={(e) => onChange({ dropoff: e.target.value })} aria-invalid={Boolean(errors.dropoff)} aria-describedby={errors.dropoff ? 'car-dropoff-error' : undefined} />{errors.dropoff && <span className="field-error" id="car-dropoff-error" role="alert">{errText('dropoff')}</span>}</label>
+      <label htmlFor="car-pickup-date">{ar ? 'تاريخ الاستلام المفضل' : 'Preferred pick-up date'} <em className="req" aria-hidden="true">*</em><input id="car-pickup-date" required type="date" min={today} dir="ltr" value={values.pickupDate} onChange={(e) => onChange({ pickupDate: e.target.value })} aria-invalid={Boolean(errors.pickupDate)} aria-describedby={errors.pickupDate ? 'car-pickup-date-error' : undefined} />{errors.pickupDate && <span className="field-error" id="car-pickup-date-error" role="alert">{errText('pickupDate')}</span>}</label>
+      {values.tripType === 'Round Trip'
+        ? <label htmlFor="car-return-date">{ar ? 'تاريخ العودة المفضل' : 'Preferred return date'} <em className="req" aria-hidden="true">*</em><input id="car-return-date" required type="date" min={values.pickupDate || today} dir="ltr" value={values.returnDate} onChange={(e) => onChange({ returnDate: e.target.value })} aria-invalid={Boolean(errors.returnDate)} aria-describedby={errors.returnDate ? 'car-return-date-error' : undefined} />{errors.returnDate && <span className="field-error" id="car-return-date-error" role="alert">{errText('returnDate')}</span>}</label>
+        : <label htmlFor="car-passengers">{ar ? 'عدد الركاب' : 'Passengers'} <em className="req" aria-hidden="true">*</em><input id="car-passengers" required type="number" min="1" max="50" placeholder="2" dir="ltr" value={values.passengers} onChange={(e) => onChange({ passengers: e.target.value })} aria-invalid={Boolean(errors.passengers)} aria-describedby={errors.passengers ? 'car-passengers-error' : undefined} />{errors.passengers && <span className="field-error" id="car-passengers-error" role="alert">{errText('passengers')}</span>}</label>}
+      {values.tripType === 'Round Trip' && <label className="full" htmlFor="car-passengers-rt">{ar ? 'عدد الركاب' : 'Passengers'} <em className="req" aria-hidden="true">*</em><input id="car-passengers-rt" required type="number" min="1" max="50" placeholder="2" dir="ltr" value={values.passengers} onChange={(e) => onChange({ passengers: e.target.value })} aria-invalid={Boolean(errors.passengers)} aria-describedby={errors.passengers ? 'car-passengers-error' : undefined} />{errors.passengers && <span className="field-error" id="car-passengers-error" role="alert">{errText('passengers')}</span>}</label>}
+      <label className="full" htmlFor="car-name">{ar ? 'الاسم الكامل' : 'Full name'} <em className="req" aria-hidden="true">*</em><input id="car-name" required placeholder={ar ? 'اكتب اسمك الكامل' : 'Your full name'} maxLength={80} autoComplete="name" value={values.fullName} onChange={(e) => onChange({ fullName: e.target.value })} aria-invalid={Boolean(errors.name)} aria-describedby={errors.name ? 'car-name-error' : undefined} />{errors.name && <span className="field-error" id="car-name-error" role="alert">{errText('name')}</span>}</label>
+      <label htmlFor="car-email">{ar ? 'البريد الإلكتروني' : 'Email'} <em className="req" aria-hidden="true">*</em><input id="car-email" required type="email" placeholder="you@example.com" maxLength={120} autoComplete="email" dir="ltr" value={values.email} onChange={(e) => onChange({ email: e.target.value })} aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? 'car-email-error' : undefined} />{errors.email && <span className="field-error" id="car-email-error" role="alert">{errText('email')}</span>}</label>
+      <label htmlFor="car-phone">{ar ? 'رقم الهاتف' : 'Phone'} <em className="req" aria-hidden="true">*</em><input id="car-phone" required type="tel" placeholder="+20 ..." maxLength={24} autoComplete="tel" dir="ltr" value={values.phone} onChange={(e) => onChange({ phone: e.target.value })} aria-invalid={Boolean(errors.phone)} aria-describedby={errors.phone ? 'car-phone-error' : undefined} />{errors.phone && <span className="field-error" id="car-phone-error" role="alert">{errText('phone')}</span>}</label>
+      <label className="full" htmlFor="car-notes">{ar ? 'ملاحظات (اختياري)' : 'Notes (optional)'}<textarea id="car-notes" placeholder={ar ? 'حدثنا عن خط سيرك' : 'Tell us about your route'} maxLength={CAR_NOTE_MAX + 1} value={values.notes} onChange={(e) => onChange({ notes: e.target.value })} aria-invalid={Boolean(errors.notes)} aria-describedby={errors.notes ? 'car-notes-error' : 'car-notes-hint'} />{errors.notes && <span className="field-error" id="car-notes-error" role="alert">{errText('notes')}</span>}<small id="car-notes-hint" style={{ color: 'var(--muted)', fontWeight: 500 }}>{values.notes.length}/{CAR_NOTE_MAX}</small></label>
     </div>
-    <button className="primary-btn" type="submit">{ar ? 'أرسل الطلب' : 'Send request'} <ArrowRight size={17} /></button>
+    <button className="primary-btn" type="submit">{ar ? 'تجهيز الطلب' : 'Prepare request'} <ArrowRight size={17} /></button>
   </form>
 }
 
@@ -194,25 +248,140 @@ function CarRequestContent() {
   const brand = useBrandSettings()
   const params = useSearchParams()
   const initial = parseCarRequestQuery(params)
-  const [values, setValues] = useState<CarRequestValues>({ vehicleSlug: initial.vehicle?.slug ?? '', tripType: initial.tripType ?? '', pickup: initial.pickup, dropoff: initial.dropoff, date: initial.date, passengers: '', notes: '' })
-  const [sent, setSent] = useState(false)
-  const [reference, setReference] = useState('')
+  const rawVehicleSlug = (() => {
+    const raw = (params.get('vehicle') ?? '').trim().slice(0, 80)
+    return /^[a-z0-9-]{1,80}$/.test(raw) ? raw : ''
+  })()
   const { currency, locale } = useLocale()
   const ar = locale === 'ar'
+  const liveCars = useLiveCollection('cars', cars)
+  const [values, setValues] = useState<CarRequestValues>({ vehicleSlug: initial.vehicle?.slug ?? rawVehicleSlug, tripType: initial.tripType ?? '', pickup: initial.pickup, dropoff: initial.dropoff, pickupDate: initial.date, returnDate: '', passengers: '', fullName: '', email: '', phone: '', notes: '' })
+  const [placed, setPlaced] = useState<CarRequestPreview | null>(null)
+  const [storedBanner, setStoredBanner] = useState<CarRequestPreview | null>(null)
+  // Stable identity of the currently saved browser-local preview. Set when a
+  // preview is created or a stored one is resumed; cleared only on discard.
+  // Edit keeps it, so preparing the preview again re-records the SAME request.
+  const [activeRef, setActiveRef] = useState<string | null>(null)
+  const [errors, setErrors] = useState<CarFieldErrors>({})
+  const [summary, setSummary] = useState('')
   const patch = (p: Partial<CarRequestValues>) => setValues((v) => ({ ...v, ...p }))
-  const vehicle = useLiveFind('cars', cars, values.vehicleSlug)
-  const step = sent ? 3 : vehicle ? 2 : 1
+  const vehicle = liveCars.find((car) => car.slug === values.vehicleSlug)
+  const step = placed ? 3 : vehicle ? 2 : 1
   const notSet = ar ? 'لم يحدد' : 'Not set'
   const tripLabel = values.tripType === '' ? notSet : values.tripType === 'One Way' ? (ar ? 'ذهاب فقط' : 'One Way') : (ar ? 'ذهاب وعودة' : 'Round Trip')
-  const steps = [ar ? 'اختيار السيارة' : 'Choose vehicle', ar ? 'تفاصيل الرحلة' : 'Trip details', ar ? 'تأكيد الطلب' : 'Confirmation']
-  const done = () => { setReference(`REQ-${Date.now().toString(36).toUpperCase().slice(-6)}`); setSent(true) }
+  const steps = [ar ? 'اختيار السيارة' : 'Choose vehicle', ar ? 'تفاصيل الرحلة' : 'Trip details', ar ? 'معاينة الطلب' : 'Request preview']
+  const hasQuerySignal = Boolean(initial.vehicle || rawVehicleSlug || initial.pickup || initial.dropoff || initial.date || initial.tripType)
+
+  // Resume: prefill the form from the single versioned browser-local preview
+  // when the URL carries no request signal of its own. Refresh only reads and
+  // restores here — it never generates a reference. Malformed data is ignored.
+  useEffect(() => {
+    if (hasQuerySignal) return
+    const stored = readCarPreview()
+    if (!stored) return
+    const d = stored.draft
+    setValues({ vehicleSlug: d.vehicleSlug, tripType: d.tripType, pickup: d.pickup, dropoff: d.dropoff, pickupDate: d.preferredPickupDate, returnDate: d.preferredReturnDate, passengers: String(d.passengers), fullName: d.contact.fullName, email: d.contact.email, phone: d.contact.phone, notes: d.notes })
+    setActiveRef(stored.localRef)
+    setStoredBanner(stored)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const buildDraft = (): CarRequestDraft => {
+    const pax = values.passengers.trim()
+    return {
+      vehicleSlug: values.vehicleSlug,
+      tripType: values.tripType,
+      pickup: values.pickup.trim(),
+      dropoff: values.dropoff.trim(),
+      preferredPickupDate: values.pickupDate,
+      preferredReturnDate: values.tripType === 'Round Trip' ? values.returnDate : '',
+      passengers: pax === '' ? Number.NaN : Number(pax),
+      notes: values.notes.trim().slice(0, CAR_NOTE_MAX + 1),
+      contact: { fullName: values.fullName.trim(), email: values.email.trim(), phone: values.phone.trim() },
+      currency,
+    }
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const raw = buildDraft()
+    const errs = validateCarRequest(raw)
+    if (!vehicle) errs.vehicle = 'invalid'
+    setErrors(errs)
+    if (hasCarErrors(errs)) {
+      setSummary(ar ? 'تعذر إنشاء المعاينة. راجع الحقول الموضحة أدناه.' : 'Could not create the preview. Review the highlighted fields below.')
+      const ids: Record<keyof CarFieldErrors, string> = { vehicle: 'car-vehicle', tripType: 'req-trip-label', pickup: 'car-pickup', dropoff: 'car-dropoff', pickupDate: 'car-pickup-date', returnDate: 'car-return-date', passengers: values.tripType === 'Round Trip' ? 'car-passengers-rt' : 'car-passengers', name: 'car-name', email: 'car-email', phone: 'car-phone', notes: 'car-notes' }
+      const order: Array<keyof CarFieldErrors> = ['vehicle', 'tripType', 'pickup', 'dropoff', 'pickupDate', 'returnDate', 'passengers', 'name', 'email', 'phone', 'notes']
+      for (const field of order) {
+        if (errs[field]) {
+          focusCarField(ids[field])
+          break
+        }
+      }
+      return
+    }
+    const preview = recordCarRequestPreview({ ...raw, notes: raw.notes.slice(0, CAR_NOTE_MAX) }, activeRef)
+    setErrors({})
+    setSummary('')
+    setStoredBanner(null)
+    setActiveRef(preview.localRef)
+    setPlaced(preview)
+    window.setTimeout(() => focusCarField('car-preview-title'), 50)
+  }
+
+  const handleEdit = () => {
+    setPlaced(null)
+    window.setTimeout(() => focusCarField('car-vehicle'), 50)
+  }
+
+  const handleDiscard = () => {
+    clearCarPreview()
+    setPlaced(null)
+    setStoredBanner(null)
+    setActiveRef(null)
+  }
+
+  const renderPreview = (preview: CarRequestPreview) => {
+    const d = preview.draft
+    const previewCar = liveCars.find((car) => car.slug === d.vehicleSlug)
+    const dateRows = d.tripType === 'Round Trip' && d.preferredReturnDate !== ''
+      ? [{ label: ar ? 'تاريخ العودة المفضل' : 'Preferred return date', value: d.preferredReturnDate, ltr: true }]
+      : []
+    return <div className="form-success large">
+      <Check size={42} />
+      <h1 id="car-preview-title" tabIndex={-1}>{ar ? 'تم إنشاء معاينة لطلب السيارة' : 'Car request preview created'}</h1>
+      <span className="req-ref" dir="ltr">{ar ? 'المرجع المحلي: ' : 'Local ref: '}{preview.localRef}</span>
+      <div className="req-summary-rows" style={{ maxWidth: 520, margin: '18px auto', textAlign: 'start' }}>
+        <div><span>{ar ? 'السيارة المطلوبة' : 'Requested vehicle'}</span><strong>{previewCar?.title ?? d.vehicleSlug}</strong></div>
+        <div><span>{ar ? 'النوع' : 'Trip type'}</span><strong>{d.tripType === 'One Way' ? (ar ? 'ذهاب فقط' : 'One Way') : d.tripType === 'Round Trip' ? (ar ? 'ذهاب وعودة' : 'Round Trip') : notSet}</strong></div>
+        <div><span>{ar ? 'من' : 'From'}</span><strong>{d.pickup}</strong></div>
+        <div><span>{ar ? 'إلى' : 'To'}</span><strong>{d.dropoff}</strong></div>
+        <div><span>{ar ? 'تاريخ الاستلام المفضل' : 'Preferred pick-up date'}</span><strong dir="ltr">{d.preferredPickupDate}</strong></div>
+        {dateRows.map((row) => <div key={row.label}><span>{row.label}</span><strong dir="ltr">{row.value}</strong></div>)}
+        <div><span>{ar ? 'الركاب' : 'Passengers'}</span><strong>{d.passengers}</strong></div>
+        <div><span>{ar ? 'الاسم الكامل' : 'Full name'}</span><strong>{d.contact.fullName}</strong></div>
+        <div><span>{ar ? 'البريد الإلكتروني' : 'Email'}</span><strong dir="ltr">{d.contact.email}</strong></div>
+        <div><span>{ar ? 'رقم الهاتف' : 'Phone'}</span><strong dir="ltr">{d.contact.phone}</strong></div>
+        {d.notes !== '' && <div><span>{ar ? 'ملاحظات' : 'Notes'}</span><strong style={{ whiteSpace: 'pre-wrap' }}>{d.notes}</strong></div>}
+      </div>
+      <p><CircleAlert size={15} style={{ verticalAlign: '-2px', marginInlineEnd: 6 }} />{ar ? 'محفوظ في هذا المتصفح فقط. لم يتم إرسال هذا الطلب إلى STAR PYRAMIDS.' : 'Saved in this browser only. This request has not been submitted to STAR PYRAMIDS.'}</p>
+      <p>{ar ? 'لم يتم حجز أي سيارة ولم يتم التحقق من التوافر أو تأكيد أي سعر.' : 'No vehicle has been reserved, no availability was checked, and no rate was confirmed.'}</p>
+      <div className="car-success-actions">
+        <button type="button" className="outline-btn" onClick={handleEdit}>{ar ? 'تعديل الطلب' : 'Edit request'}</button>
+        <Link className="primary-btn" href="/rent-car">{ar ? 'استعرض السيارات' : 'Explore cars'}</Link>
+        <Link className="outline-btn" href="/contact">{ar ? 'تواصل مع فريقنا' : 'Contact our team'}</Link>
+      </div>
+      <p><button type="button" className="text-link" style={{ border: 0, background: 'none', cursor: 'pointer', padding: 0, font: 'inherit', textDecoration: 'underline' }} onClick={handleDiscard}>{ar ? 'تجاهل المعاينة المحلية' : 'Discard local preview'}</button></p>
+    </div>
+  }
+
   return <>
     <Breadcrumb items={ar ? ['تأجير السيارات', 'طلب سيارة'] : ['Rent Car', 'Request a vehicle']} />
     <main className="container car-request-page">
       <header className="car-request-head">
         <span className="eyebrow">{ar ? 'نقل خاص' : 'Private transport'}</span>
         <h1>{ar ? 'أخبرنا كيف تريد التنقل.' : 'Tell us how you want to move.'}</h1>
-        <p>{ar ? 'من الاستقبال السريع في المطار إلى سيارة ملازمة لبرنامجك بالكامل، سنوفر لك السيارة والسائق المناسبين.' : 'From a quick airport transfer to a full-itinerary vehicle, we will match you with the right car and driver.'}</p>
+        <p>{ar ? 'املأ تفاصيل طلبك وسنجهز لك معاينة محلية يمكنك مراجعتها قبل التواصل معنا.' : 'Fill in your request details and we will prepare a local preview you can review before contacting us.'}</p>
       </header>
       <ol className="stepper req-stepper" aria-label={ar ? 'مراحل طلب السيارة' : 'Vehicle request progress'}>
         {steps.map((label, i) => {
@@ -227,20 +396,9 @@ function CarRequestContent() {
           </li>
         })}
       </ol>
-      {sent
-        ? <div className="form-success large">
-          <Check size={42} />
-          <h1>{ar ? 'تم استلام طلبك' : 'Your request is on its way'}</h1>
-          <span className="req-ref">{ar ? 'رقم الطلب: ' : 'Request no. '}{reference}</span>
-          <div className="req-summary-rows">
-            {vehicle && <div><span>{ar ? 'السيارة' : 'Vehicle'}</span><strong>{vehicle.title}</strong></div>}
-            <div><span>{ar ? 'من' : 'From'}</span><strong>{values.pickup || notSet}</strong></div>
-            <div><span>{ar ? 'إلى' : 'To'}</span><strong>{values.dropoff || notSet}</strong></div>
-            <div><span>{ar ? 'التاريخ' : 'Date'}</span><strong>{values.date || notSet}</strong></div>
-          </div>
-          <p>{ar ? 'سيؤكد فريق النقل سيارتك وخط سيرك قريبًا.' : 'Our transport team will confirm your vehicle and route shortly.'}</p>
-          <div className="car-success-actions"><Link className="primary-btn" href="/">{ar ? 'الرئيسية' : 'Back home'}</Link><Link className="outline-btn" href="/rent-car">{ar ? 'استعرض سيارات أخرى' : 'Browse more vehicles'}</Link></div>
-        </div>
+      {storedBanner !== null && placed === null && <div className="car-form-card" role="note" style={{ padding: 18, marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between' }}><p style={{ margin: 0, color: 'var(--muted)', fontSize: 14 }}>{ar ? 'لديك معاينة محلية محفوظة في هذا المتصفح.' : 'You have a saved local preview in this browser.'} <span dir="ltr">({storedBanner.localRef})</span></p><div style={{ display: 'flex', gap: 10 }}><button type="button" className="outline-btn" onClick={() => { setActiveRef(storedBanner.localRef); setPlaced(storedBanner) }}>{ar ? 'عرض المعاينة' : 'View preview'}</button><button type="button" className="text-link" style={{ border: 0, background: 'none', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => { clearCarPreview(); setStoredBanner(null); setActiveRef(null) }}>{ar ? 'تجاهل' : 'Discard'}</button></div></div>}
+      {placed
+        ? renderPreview(placed)
         : <div className="car-request-layout">
           <aside className="car-summary-card" aria-label={ar ? 'ملخص الطلب' : 'Request summary'}>
             <div>
@@ -252,14 +410,15 @@ function CarRequestContent() {
                 <div><span>{ar ? 'النوع' : 'Trip type'}</span><strong>{tripLabel}</strong></div>
                 <div><span>{ar ? 'من' : 'From'}</span><strong>{values.pickup || notSet}</strong></div>
                 <div><span>{ar ? 'إلى' : 'To'}</span><strong>{values.dropoff || notSet}</strong></div>
-                <div><span>{ar ? 'التاريخ' : 'Date'}</span><strong>{values.date || notSet}</strong></div>
+                <div><span>{ar ? 'تاريخ الاستلام المفضل' : 'Preferred pick-up date'}</span><strong dir="ltr">{values.pickupDate || notSet}</strong></div>
+                {values.tripType === 'Round Trip' && <div><span>{ar ? 'تاريخ العودة المفضل' : 'Preferred return date'}</span><strong dir="ltr">{values.returnDate || notSet}</strong></div>}
                 <div><span>{ar ? 'الركاب' : 'Passengers'}</span><strong>{values.passengers || notSet}</strong></div>
               </div>
               <p><ShieldCheck size={15} />{ar ? 'شامل سائق خاص وتكييف' : 'Private driver and A/C included'}</p>
               <a className="req-wa" href={whatsappHref(brand.whatsapp)} target="_blank" rel="noreferrer">{ar ? 'تواصل عبر واتساب' : 'Chat on WhatsApp'}</a>
             </div>
           </aside>
-          <div className="car-form-card"><CarRequestForm values={values} onChange={patch} onDone={done} /></div>
+          <div className="car-form-card"><CarRequestForm values={values} errors={errors} summary={summary} onChange={patch} onSubmit={handleSubmit} /></div>
         </div>}
     </main>
   </>

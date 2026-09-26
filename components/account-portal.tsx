@@ -3,10 +3,10 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import {
-  ArrowRight, Bell, CalendarDays, Check, CheckCircle2, ChevronDown, ChevronRight,
+  ArrowRight, ArrowLeft, Ban, Bell, CalendarDays, CarFront, Check, CheckCircle2, ChevronDown, ChevronRight,
   CircleDollarSign, Clock3, CreditCard, ExternalLink, Globe2, Heart, HelpCircle,
   CheckCheck, Download, Eye, EyeOff, FileText, FlaskConical, ImagePlus, KeyRound, Laptop, LayoutDashboard, LockKeyhole, LogOut, Mail, Menu,
-  MessageCircle, PackageCheck, Paperclip, Plus, Printer, ReceiptText, Search, Send,
+  MessageCircle, PackageCheck, Paperclip, Pencil, Plus, Printer, ReceiptText, Search, Send,
   Settings2, ShieldCheck, ShoppingBag, ShoppingCart, Star, Trash2, UserRound,
   Users, WalletCards, X,
 } from 'lucide-react'
@@ -16,7 +16,11 @@ import { countries, countryFlag, defaultCountry } from '@/data/countries'
 import { localizeTourDuration, localizeTourLocation } from '@/lib/tour-format'
 import { estimateCart, isValidPreferredDate } from '@/lib/booking'
 import { useCart } from '@/lib/cart'
-import { useInquiries, useBrandSettings, useLiveTours, readImpersonation, stopImpersonation, type ImpersonatedCustomer } from '@/lib/admin-store'
+import { useInquiries, useBrandSettings, useLiveCollection, useLiveTours, readImpersonation, stopImpersonation, type ImpersonatedCustomer } from '@/lib/admin-store'
+import { cars } from '@/data/content'
+import { clearCarPreview, useCarRequestPreview, type CarRequestPreview } from '@/lib/car-request'
+import { useCustomerEffectiveCarRequest } from '@/lib/car-request-amendments'
+import { RequestAmendmentBadge, RequestAmendmentsSection } from './account-car-change'
 import { usePagination } from '@/components/admin/admin-pagination'
 import { bookings as adminBookings, type BookingRow } from '@/components/admin/admin-data'
 import {
@@ -31,7 +35,7 @@ import {
 import { whatsappHref } from '@/data/company'
 import { WhatsAppGlyph } from '@/components/whatsapp-chat'
 
-export type AccountSection = 'overview' | 'bookings' | 'favorites' | 'payments' | 'messages' | 'profile' | 'settings' | 'change-password'
+export type AccountSection = 'overview' | 'bookings' | 'car-requests' | 'favorites' | 'payments' | 'messages' | 'profile' | 'settings' | 'change-password'
 
 export function useImpersonated() {
   const [impersonated, setImpersonated] = useState<ImpersonatedCustomer | null>(null)
@@ -88,6 +92,7 @@ export function useVisibleInquiries() {
 const sectionLinks = [
   { id: 'overview', href: '/account', Icon: LayoutDashboard, en: 'Overview', ar: 'نظرة عامة' },
   { id: 'bookings', href: '/account/bookings', Icon: ShoppingBag, en: 'My bookings', ar: 'حجوزاتي' },
+  { id: 'car-requests', href: '/account/car-requests', Icon: CarFront, en: 'Car Requests', ar: 'طلبات السيارات' },
   { id: 'favorites', href: '/account/favorites', Icon: Heart, en: 'Saved trips', ar: 'الرحلات المحفوظة' },
   { id: 'payments', href: '/account/payments', Icon: WalletCards, en: 'Payments', ar: 'المدفوعات' },
   { id: 'messages', href: '/account/messages', Icon: MessageCircle, en: 'Messages', ar: 'الرسائل' },
@@ -98,6 +103,7 @@ const sectionLinks = [
 const sectionHeadings: Record<AccountSection, { en: string; ar: string; subEn: string; subAr: string }> = {
   overview: { en: 'Your travel desk', ar: 'مكتب رحلتك', subEn: 'Everything you need before, during, and after your Egypt journey.', subAr: 'كل ما تحتاجه قبل رحلتك إلى مصر وأثناءها وبعدها.' },
   bookings: { en: 'Bookings', ar: 'الحجوزات', subEn: 'Track requests, confirmations, travelers, and trip details.', subAr: 'تابع الطلبات والتأكيدات والمسافرين وتفاصيل الرحلات.' },
+  'car-requests': { en: 'Car Requests', ar: 'طلبات السيارات', subEn: 'Review and manage your saved vehicle requests.', subAr: 'راجع طلبات السيارات المحفوظة وأدرها بسهولة.' },
   favorites: { en: 'Saved trips', ar: 'الرحلات المحفوظة', subEn: 'Keep ideas together until you are ready to book.', subAr: 'اجمع أفكار رحلتك في مكان واحد لحين الحجز.' },
   payments: { en: 'Payments & receipts', ar: 'المدفوعات والإيصالات', subEn: 'A clear record of payment status for every booking.', subAr: 'سجل واضح لحالة الدفع الخاصة بكل حجز.' },
   messages: { en: 'Messages', ar: 'الرسائل', subEn: 'Keep your questions and travel conversations connected to each trip.', subAr: 'احتفظ بأسئلتك ومحادثات السفر مرتبطة بكل رحلة.' },
@@ -117,7 +123,7 @@ function CustomerAvatar({ avatar, initials, className, name }: { avatar: string;
   return <span className={className}>{initials}{avatar && <img src={avatar} alt={name} onError={(event) => { if (!event.currentTarget.src.endsWith('/placeholder-user.jpg')) event.currentTarget.src = '/placeholder-user.jpg'; else event.currentTarget.remove() }} />}</span>
 }
 
-export function AccountShell({ section, children }: { section: AccountSection; children: ReactNode }) {
+export function AccountShell({ section, children, headLeading }: { section: AccountSection; children: ReactNode; headLeading?: ReactNode }) {
   const { locale, setLocale, currency, setCurrency } = useLocale()
   const ar = locale === 'ar'
   const impersonated = useImpersonated()
@@ -131,6 +137,7 @@ export function AccountShell({ section, children }: { section: AccountSection; c
   const unreadMessages = chatMessages.filter((message) => message.sender === 'agent' && !message.readByCustomer).length
   const favorites = useCustomerFavorites()
   const cart = useCart()
+  const carPreview = useCarRequestPreview()
   const liveTours = useLiveTours(catalogTours)
   const heading = sectionHeadings[section]
   const initials = profile.fullName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'SP'
@@ -154,7 +161,7 @@ export function AccountShell({ section, children }: { section: AccountSection; c
         <nav aria-label={ar ? 'قائمة الحساب' : 'Account navigation'}>
           {sectionLinks.map(({ id, href, Icon, en, ar: arLabel }) => {
             const active = section === id || (section === 'change-password' && id === 'settings')
-            return <Link key={id} href={href} onClick={() => setMobileOpen(false)} className={active ? 'active' : ''} aria-current={active ? 'page' : undefined}><Icon size={18} /><span>{ar ? arLabel : en}</span>{id === 'bookings' && bookings.length > 0 && <b>{bookings.length}</b>}{id === 'favorites' && favorites.slugs.length > 0 && <b>{favorites.slugs.length}</b>}{id === 'messages' && unreadMessages > 0 && <b>{unreadMessages}</b>}</Link>
+            return <Link key={id} href={href} onClick={() => setMobileOpen(false)} className={active ? 'active' : ''} aria-current={active ? 'page' : undefined}><Icon size={18} /><span>{ar ? arLabel : en}</span>{id === 'bookings' && bookings.length > 0 && <b>{bookings.length}</b>}{id === 'car-requests' && carPreview && <b>1</b>}{id === 'favorites' && favorites.slugs.length > 0 && <b>{favorites.slugs.length}</b>}{id === 'messages' && unreadMessages > 0 && <b>{unreadMessages}</b>}</Link>
           })}
         </nav>
         <div className="customer-side-summary">
@@ -203,7 +210,7 @@ export function AccountShell({ section, children }: { section: AccountSection; c
         <p className="customer-demo-notice" role="note"><FlaskConical size={16} /><span><strong>{ar ? 'حساب تجريبي' : 'Demo account'}</strong>{ar ? 'بوابة العملاء تعمل حاليًا في وضع المعاينة. البيانات والحجوزات والرسائل المعروضة هنا بيانات توضيحية وليست مرتبطة بحساب عميل حقيقي.' : 'This customer portal is currently running in preview mode. Account data, bookings and messages shown here are demonstration data and are not connected to a live customer account.'}</span></p>
         <header className="customer-account-head">
           <div><span>{ar ? 'حساب STAR PYRAMIDS' : 'STAR PYRAMIDS account'}</span><h1>{ar ? heading.ar : heading.en}</h1><p>{ar ? heading.subAr : heading.subEn}</p></div>
-          <div className="customer-account-head-actions"><Link href="/trips" className="account-icon-action"><Search size={17} />{ar ? 'استكشف الرحلات' : 'Explore trips'}</Link><Link href="/contact" className="account-icon-action primary"><HelpCircle size={17} />{ar ? 'اطلب مساعدة' : 'Get help'}</Link></div>
+          <div className="customer-account-head-actions">{headLeading}<Link href="/trips" className="account-icon-action"><Search size={17} />{ar ? 'استكشف الرحلات' : 'Explore trips'}</Link><Link href="/contact" className="account-icon-action primary"><HelpCircle size={17} />{ar ? 'اطلب مساعدة' : 'Get help'}</Link></div>
         </header>
         {children}
         </section>
@@ -506,6 +513,243 @@ function BookingsSection() {
   const visible = filter === 'all' ? bookings : bookings.filter((booking) => (booking.origin ?? 'demo') !== 'local' && booking.status === filter)
   const paging = usePagination(visible)
   return <section className="customer-account-block customer-full-block"><div className="customer-filterbar"><div role="tablist" aria-label={ar ? 'فلترة الحجوزات' : 'Filter bookings'}>{(['all', 'request_received', 'confirmed', 'completed', 'cancelled'] as const).map((status) => <button type="button" key={status} className={filter === status ? 'active' : ''} onClick={() => setFilter(status)}>{status === 'all' ? (ar ? 'الكل' : 'All') : (ar ? bookingStatusCopy[status].ar : bookingStatusCopy[status].en)}</button>)}</div><Link href="/trips"><Plus size={16} />{ar ? 'حجز رحلة' : 'Book a trip'}</Link></div>{visible.length ? <><div className="customer-table-wrap"><table className="customer-table"><thead><tr><th>#</th><th>{ar ? 'الرحلة' : 'Trip'}</th><th>{ar ? 'التاريخ' : 'Date'}</th><th>{ar ? 'المسافرون' : 'Travelers'}</th><th>{ar ? 'الإجمالي' : 'Total'}</th><th>{ar ? 'الحالة' : 'Status'}</th><th></th></tr></thead><tbody>{paging.pageRows.map((booking, index) => <BookingTableRow key={booking.reference} booking={booking} index={paging.from + index} />)}</tbody></table></div><CustomerPagination page={paging.page} pageCount={paging.pageCount} onPage={paging.setPage} pageSize={paging.pageSize} onPageSize={paging.setPageSize} from={paging.from} to={paging.to} total={paging.total} /></> : <EmptyState Icon={ShoppingBag} title={ar ? 'لا توجد حجوزات في هذه الحالة' : 'No bookings in this view'} copy={ar ? 'أي طلب حجز تنشئه من صفحة الدفع سيظهر هنا تلقائيًا.' : 'Any booking request created at checkout will appear here automatically.'} href="/trips" action={ar ? 'تصفح الرحلات' : 'Browse trips'} />}</section>
+}
+
+/**
+ * Customer car requests (Phase E.4). Presentation model over the SINGLE
+ * browser-local preview from lib/car-request.ts — never admin DEMO fixtures,
+ * never admin overlays, statuses, notes, or assignments. Shaped so future
+ * backend records can map into the same sections (overview / journey /
+ * contact / notes / state notice) without redesigning this UI.
+ */
+function carRequestVehicleTitle(liveCars: { slug: string; title: string }[], slug: string): string {
+  return liveCars.find((car) => car.slug === slug)?.title ?? slug
+}
+
+function carTripLabel(tripType: string, ar: boolean): string {
+  if (tripType === 'One Way') return ar ? 'ذهاب فقط' : 'One Way'
+  if (tripType === 'Round Trip') return ar ? 'ذهاب وعودة' : 'Round Trip'
+  return ar ? 'لم يحدد' : 'Not set'
+}
+
+/** Customer-friendly display date only (e.g. "27 Sep 2026"). Stored ISO is never modified. */
+function formatCarDate(iso: string, ar: boolean): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso
+  const parsed = new Date(`${iso}T00:00:00`)
+  if (Number.isNaN(parsed.getTime())) return iso
+  if (ar) return parsed.toLocaleDateString('ar-EG', { day: 'numeric', month: 'short', year: 'numeric' })
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  return `${parsed.getDate()} ${months[parsed.getMonth()]} ${parsed.getFullYear()}`
+}
+
+function passengerCountLabel(count: number, ar: boolean): string {
+  if (!ar) return count === 1 ? '1 passenger' : `${count} passengers`
+  if (count === 1) return 'مسافر واحد'
+  if (count === 2) return 'مسافران'
+  if (count <= 10) return `${count} مسافرين`
+  return `${count} مسافر`
+}
+
+function CustomerConfirmDialog({ open, title, copy, confirmLabel, onConfirm, onClose }: {
+  open: boolean
+  title: string
+  copy: string
+  confirmLabel: string
+  onConfirm: () => void
+  onClose: () => void
+}) {
+  const { locale } = useLocale()
+  const ar = locale === 'ar'
+  const panelRef = useRef<HTMLDivElement>(null)
+  const confirmRef = useRef<HTMLButtonElement>(null)
+  const restoreRef = useRef<Element | null>(null)
+  useEffect(() => {
+    if (!open) return
+    restoreRef.current = document.activeElement
+    confirmRef.current?.focus()
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onClose()
+        return
+      }
+      if (event.key === 'Tab' && panelRef.current) {
+        const items = Array.from(
+          panelRef.current.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+          ),
+        )
+        if (!items.length) return
+        const first = items[0]
+        const last = items[items.length - 1]
+        const active = document.activeElement
+        if (event.shiftKey && (active === first || !panelRef.current.contains(active))) {
+          event.preventDefault()
+          last.focus()
+        } else if (!event.shiftKey && active === last) {
+          event.preventDefault()
+          first.focus()
+        }
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      if (restoreRef.current instanceof HTMLElement) restoreRef.current.focus()
+    }
+  }, [open, onClose])
+  if (!open) return null
+  return (
+    <div className="language-backdrop" role="presentation" onMouseDown={onClose}>
+      <div ref={panelRef} className="language-modal" role="dialog" aria-modal="true" aria-label={title} onMouseDown={(event) => event.stopPropagation()}>
+        <div className="language-modal-head">
+          <h2>{title}</h2>
+          <button type="button" className="language-close" onClick={onClose} aria-label={ar ? 'إغلاق الحوار' : 'Close dialog'}><X size={18} /></button>
+        </div>
+        <p style={{ margin: '12px 0 0', color: '#667085', fontSize: 13, lineHeight: 1.7 }}>{copy}</p>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap', marginTop: 18 }}>
+          <button type="button" className="account-icon-action" onClick={onClose}>{ar ? 'تراجع' : 'Keep it'}</button>
+          <button ref={confirmRef} type="button" className="account-icon-action danger" onClick={onConfirm}>{confirmLabel}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function useDiscardCarPreview() {
+  const [open, setOpen] = useState(false)
+  const discard = () => {
+    clearCarPreview()
+    setOpen(false)
+  }
+  return { open, setOpen, discard }
+}
+
+function CarRequestsSection() {
+  const { locale } = useLocale()
+  const ar = locale === 'ar'
+  // Effective view: original preview plus any demo-approved amendment override.
+  const effective = useCustomerEffectiveCarRequest()
+  const liveCars = useLiveCollection('cars', cars)
+  const { open, setOpen, discard } = useDiscardCarPreview()
+
+  if (!effective) {
+    return <section className="customer-account-block customer-full-block"><EmptyState Icon={CarFront} title={ar ? 'لا توجد طلبات سيارات بعد' : 'No car requests yet'} copy={ar ? 'ابدأ طلب سيارة أو وسيلة انتقال وسيظهر هنا.' : 'Plan your transfer or vehicle request and it will appear here.'} href="/rent-car" action={ar ? 'استكشف السيارات' : 'Browse rental cars'} /></section>
+  }
+
+  const preview = effective.preview
+  const draft = preview.draft
+  const vehicleTitle = carRequestVehicleTitle(liveCars, draft.vehicleSlug)
+  const vehicleImage = liveCars.find((car) => car.slug === draft.vehicleSlug)?.image || '/egypt-hero.png'
+  const detailHref = `/account/car-requests/detail?ref=${encodeURIComponent(preview.localRef)}`
+  const showReturn = draft.tripType === 'Round Trip' && draft.preferredReturnDate !== ''
+  const viewLabel = ar ? 'عرض الطلب' : 'View request'
+  const changeLabel = ar ? 'طلب تعديل' : 'Request changes'
+  const discardLabel = ar ? 'تجاهل المعاينة' : 'Discard preview'
+  return <>
+    <section className="customer-account-block customer-full-block">
+      <div className="customer-table-wrap"><table className="customer-table">
+        <thead><tr><th>#</th><th>{ar ? 'السيارة' : 'Vehicle'}</th><th>{ar ? 'المسار' : 'Route'}</th><th>{ar ? 'التواريخ' : 'Dates'}</th><th>{ar ? 'المسافرون' : 'Passengers'}</th><th>{ar ? 'الحالة' : 'Status'}</th><th></th></tr></thead>
+        <tbody><tr>
+          <td className="customer-row-number">1</td>
+          <td><span className="customer-trip-cell"><img src={vehicleImage} alt="" /><span><strong><Link href={detailHref}>{vehicleTitle}</Link></strong><small><span dir="ltr">{preview.localRef}</span> · {carTripLabel(draft.tripType, ar)}{effective.amended && <> · {ar ? 'محدّث بموافقة' : 'Updated on approval'}</>}</small></span></span></td>
+          <td><span dir="ltr">{draft.pickup} → {draft.dropoff}</span></td>
+          <td><span dir="ltr">{formatCarDate(draft.preferredPickupDate, ar)}</span>{showReturn && <><br /><small style={{ color: '#667283' }}><span dir="ltr">{formatCarDate(draft.preferredReturnDate, ar)}</span></small></>}</td>
+          <td>{passengerCountLabel(draft.passengers, ar)}</td>
+          <td><span className="customer-status local"><Clock3 size={13} />{ar ? 'معاينة محلية' : 'Local preview'}</span><RequestAmendmentBadge requestRef={preview.localRef} /></td>
+          <td><span className="customer-table-actions">
+            <Link href={detailHref} aria-label={viewLabel} title={viewLabel}><Eye size={16} /></Link>
+            <Link href={`/account/car-requests/change?ref=${encodeURIComponent(preview.localRef)}`} aria-label={changeLabel} title={changeLabel}><Pencil size={16} /></Link>
+            <button type="button" className="danger" onClick={() => setOpen(true)} aria-label={discardLabel} title={discardLabel}><Ban size={16} /></button>
+          </span></td>
+        </tr></tbody>
+      </table></div>
+      <div style={{ padding: '14px 18px 18px' }}>
+        <p className="car-request-notice" role="note"><FlaskConical size={15} /><span>{ar ? 'محفوظ في هذا المتصفح فقط. لم يتم إرسال هذا الطلب إلى STAR PYRAMIDS.' : 'Saved in this browser only. This request has not been submitted to STAR PYRAMIDS.'}</span></p>
+      </div>
+    </section>
+    <CustomerConfirmDialog open={open} onClose={() => setOpen(false)} onConfirm={discard} title={ar ? 'تجاهل المعاينة المحلية؟' : 'Discard local preview?'} copy={ar ? 'سيؤدي هذا إلى إزالة معاينة الطلب المحفوظة في هذا المتصفح فقط. لن يتأثر أي شيء آخر.' : 'This removes only the browser-local request preview. Nothing else is affected.'} confirmLabel={ar ? 'تجاهل المعاينة' : 'Discard preview'} />
+  </>
+}
+
+function CarRequestDetailSection({ reference }: { reference: string }) {
+  const { locale } = useLocale()
+  const ar = locale === 'ar'
+  const effective = useCustomerEffectiveCarRequest()
+  const liveCars = useLiveCollection('cars', cars)
+  const { open, setOpen, discard } = useDiscardCarPreview()
+
+  const matched = effective && effective.preview.localRef === reference ? effective : null
+  if (!matched) {
+    return <EmptyState Icon={CarFront} title={ar ? 'طلب السيارة غير موجود' : 'Car request not found'} copy={ar ? 'ربما تم تجاهله أو أنه محفوظ في متصفح مختلف.' : 'It may have been discarded or saved in a different browser.'} href="/account/car-requests" action={ar ? 'عودة لطلبات السيارات' : 'Back to car requests'} />
+  }
+
+  const draft: CarRequestPreview['draft'] = matched.preview.draft
+  const vehicleTitle = carRequestVehicleTitle(liveCars, draft.vehicleSlug)
+  return <>
+    <section className="customer-account-block">
+      <header><div><span>{ar ? 'طلب سيارة' : 'Car request'}</span><h2>{vehicleTitle}</h2></div><span className="customer-status local"><Clock3 size={13} />{ar ? 'معاينة محلية' : 'Local preview'}</span></header>
+      <p className="car-request-notice" role="note"><FlaskConical size={15} /><span><span dir="ltr">{matched.preview.localRef}</span>{ar ? ' · محفوظ في هذا المتصفح فقط. لم يتم إرسال هذا الطلب إلى STAR PYRAMIDS.' : ' · Saved in this browser only. This request has not been submitted to STAR PYRAMIDS.'}{matched.amended && (ar ? ' · يشمل تعديلات تمت الموافقة عليها.' : ' · Includes approved changes.')}</span></p>
+      <div className="customer-detail-grid">
+        <div><small>{ar ? 'السيارة المطلوبة' : 'Requested vehicle'}</small><strong>{vehicleTitle}</strong></div>
+        <div><small>{ar ? 'النوع' : 'Trip type'}</small><strong>{carTripLabel(draft.tripType, ar)}</strong></div>
+        <div><small>{ar ? 'الركاب' : 'Passengers'}</small><strong>{draft.passengers}</strong></div>
+      </div>
+    </section>
+
+    <section className="customer-account-block">
+      <header><div><span>{ar ? 'المسار' : 'Route'}</span><h2>{ar ? 'الرحلة' : 'Journey'}</h2></div></header>
+      <div className="customer-detail-grid">
+        <div><small>{ar ? 'نقطة الانطلاق' : 'Pickup'}</small><strong>{draft.pickup}</strong></div>
+        <div><small>{ar ? 'الوجهة' : 'Drop-off'}</small><strong>{draft.dropoff}</strong></div>
+        <div><small>{ar ? 'تاريخ الانطلاق' : 'Pick-up date'}</small><strong dir="ltr">{formatCarDate(draft.preferredPickupDate, ar)}</strong></div>
+        <div><small>{ar ? 'تاريخ العودة' : 'Return date'}</small><strong dir="ltr">{draft.tripType === 'Round Trip' && draft.preferredReturnDate ? formatCarDate(draft.preferredReturnDate, ar) : '—'}</strong></div>
+      </div>
+    </section>
+
+    <section className="customer-account-block">
+      <header><div><span>{ar ? 'التواصل' : 'Contact'}</span><h2>{ar ? 'بيانات التواصل' : 'Contact details'}</h2></div></header>
+      <div className="customer-detail-grid">
+        <div><small>{ar ? 'الاسم الكامل' : 'Full name'}</small><strong>{draft.contact.fullName}</strong></div>
+        <div><small>{ar ? 'البريد الإلكتروني' : 'Email'}</small><strong dir="ltr">{draft.contact.email}</strong></div>
+        <div><small>{ar ? 'رقم الهاتف' : 'Phone'}</small><strong dir="ltr">{draft.contact.phone}</strong></div>
+      </div>
+    </section>
+
+    <section className="customer-account-block">
+      <header><div><span>{ar ? 'إضافي' : 'Additional'}</span><h2>{ar ? 'طلب إضافي' : 'Additional request'}</h2></div></header>
+      {draft.notes !== '' ? <p style={{ margin: 0, fontSize: 13, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{draft.notes}</p> : <p style={{ margin: 0, color: '#667085', fontSize: 12 }}>{ar ? 'لا توجد ملاحظات إضافية.' : 'No additional notes.'}</p>}
+    </section>
+
+    <RequestAmendmentsSection requestRef={matched.preview.localRef} />
+
+    <section className="customer-account-block">
+      <header><div><span>{ar ? 'الحالة' : 'State'}</span><h2>{ar ? 'حالة الطلب' : 'Request state'}</h2></div></header>
+      <p style={{ margin: '0 0 8px', fontSize: 13, lineHeight: 1.7 }}>{ar ? 'محفوظ في هذا المتصفح فقط. لم يتم إرسال هذا الطلب إلى STAR PYRAMIDS.' : 'Saved in this browser only. This request has not been submitted to STAR PYRAMIDS.'}</p>
+      <p style={{ margin: 0, color: '#667085', fontSize: 12, lineHeight: 1.7 }}>{ar ? 'لم يتم حجز أي سيارة ولم يتم التحقق من التوافر أو تأكيد أي سعر.' : 'No vehicle has been reserved, no availability was checked, and no rate was confirmed.'}</p>
+      <div className="customer-detail-actions">
+        <Link href={`/account/car-requests/change?ref=${encodeURIComponent(matched.preview.localRef)}`} className="account-icon-action"><Pencil size={16} />{ar ? 'طلب تعديل' : 'Request changes'}</Link>
+        <Link href="/rent-car" className="account-icon-action"><CarFront size={16} />{ar ? 'استكشف السيارات' : 'Browse cars'}</Link>
+        <button type="button" className="account-icon-action danger" onClick={() => setOpen(true)}><Ban size={16} />{ar ? 'تجاهل المعاينة' : 'Discard preview'}</button>
+      </div>
+    </section>
+    <CustomerConfirmDialog open={open} onClose={() => setOpen(false)} onConfirm={discard} title={ar ? 'تجاهل المعاينة المحلية؟' : 'Discard local preview?'} copy={ar ? 'سيؤدي هذا إلى إزالة معاينة الطلب المحفوظة في هذا المتصفح فقط. لن يتأثر أي شيء آخر.' : 'This removes only the browser-local request preview. Nothing else is affected.'} confirmLabel={ar ? 'تجاهل المعاينة' : 'Discard preview'} />
+  </>
+}
+
+export function CarRequestDetailPage({ reference }: { reference: string }) {
+  return <LocaleProvider><CarRequestDetailHeader reference={reference} /></LocaleProvider>
+}
+
+function CarRequestDetailHeader({ reference }: { reference: string }) {
+  const { locale } = useLocale()
+  const ar = locale === 'ar'
+  return (
+    <AccountShell
+      section="car-requests"
+      headLeading={<Link href="/account/car-requests" className="account-icon-action">{ar ? <ArrowRight size={16} /> : <ArrowLeft size={16} />}{ar ? 'عودة لطلبات السيارات' : 'Back to car requests'}</Link>}
+    ><CarRequestDetailSection reference={reference} /></AccountShell>
+  )
 }
 
 function FavoritesSection() {
@@ -853,5 +1097,5 @@ function ChangePasswordSection() {
 }
 
 export function CustomerAccountPage({ section = 'overview' }: { section?: AccountSection }) {
-  return <LocaleProvider><AccountShell section={section}>{section === 'overview' ? <OverviewSection /> : section === 'bookings' ? <BookingsSection /> : section === 'favorites' ? <FavoritesSection /> : section === 'payments' ? <PaymentsSection /> : section === 'messages' ? <MessagesSection /> : section === 'settings' ? <SettingsSection /> : section === 'change-password' ? <ChangePasswordSection /> : <PersonalProfileSection />}</AccountShell></LocaleProvider>
+  return <LocaleProvider><AccountShell section={section}>{section === 'overview' ? <OverviewSection /> : section === 'bookings' ? <BookingsSection /> : section === 'car-requests' ? <CarRequestsSection /> : section === 'favorites' ? <FavoritesSection /> : section === 'payments' ? <PaymentsSection /> : section === 'messages' ? <MessagesSection /> : section === 'settings' ? <SettingsSection /> : section === 'change-password' ? <ChangePasswordSection /> : <PersonalProfileSection />}</AccountShell></LocaleProvider>
 }

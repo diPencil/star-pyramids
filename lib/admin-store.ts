@@ -38,6 +38,8 @@ export type AdminOverrides = {
   destinations: Destination[]
   customers: AdminCustomer[]
   customerProfiles: Record<string, CustomerProfilePatch>
+  carOverrides: Record<string, Car>
+  hiddenCars: string[]
   tourOverrides: Record<string, Tour>
   tourDeals: Record<string, TourDeal>
 }
@@ -45,7 +47,7 @@ export type AdminOverrides = {
 const KEY = 'sp-admin-overrides-v1'
 export const CUSTOM_PREFIX = 'custom-'
 
-const empty: AdminOverrides = { version: 1, offers: [], events: [], blogs: [], cars: [], destinations: [], customers: [], customerProfiles: {}, tourOverrides: {}, tourDeals: {} }
+const empty: AdminOverrides = { version: 1, offers: [], events: [], blogs: [], cars: [], destinations: [], customers: [], customerProfiles: {}, carOverrides: {}, hiddenCars: [], tourOverrides: {}, tourDeals: {} }
 
 export function isCustomSlug(slug: string) {
   return slug.startsWith(CUSTOM_PREFIX)
@@ -75,6 +77,8 @@ export function readOverrides(): AdminOverrides {
       destinations: Array.isArray(parsed.destinations) ? parsed.destinations : [],
       customers: Array.isArray(parsed.customers) ? parsed.customers : [],
       customerProfiles: parsed.customerProfiles && typeof parsed.customerProfiles === 'object' ? parsed.customerProfiles : {},
+      carOverrides: sanitizeCarOverrides(parsed.carOverrides),
+      hiddenCars: Array.isArray(parsed.hiddenCars) ? parsed.hiddenCars.filter((slug): slug is string => typeof slug === 'string') : [],
       tourOverrides: parsed.tourOverrides && typeof parsed.tourOverrides === 'object' ? parsed.tourOverrides : {},
       tourDeals: parsed.tourDeals && typeof parsed.tourDeals === 'object' ? parsed.tourDeals : {},
     }
@@ -103,6 +107,82 @@ export function removeCustomItem(collection: OverrideCollection, slug: string) {
   const data = readOverrides()
   const list = (data[collection] as { slug: string }[]).filter((entry) => entry.slug !== slug)
   writeOverrides({ ...data, [collection]: list })
+}
+
+/**
+ * Canonical vehicle edits must never mutate `data/content.ts`. They persist
+ * as local admin overrides keyed by slug and merge over the canonical fleet
+ * (see `useLiveCollection`). Custom vehicles edit in place via saveCustomItem.
+ */
+function sanitizeCarOverride(value: unknown): Car | null {
+  if (typeof value !== 'object' || value === null) return null
+  const raw = value as Partial<Car>
+  if (typeof raw.slug !== 'string' || !/^[a-z0-9-]{1,80}$/.test(raw.slug)) return null
+  if (typeof raw.title !== 'string' || !raw.title.trim()) return null
+  const dailyPrice = typeof raw.dailyPrice === 'number' && Number.isFinite(raw.dailyPrice) ? raw.dailyPrice : 0
+  return {
+    title: raw.title.trim().slice(0, 120),
+    slug: raw.slug,
+    image: typeof raw.image === 'string' ? raw.image.slice(0, 2000) : '',
+    seats: typeof raw.seats === 'string' ? raw.seats.trim().slice(0, 40) : '',
+    transmission: typeof raw.transmission === 'string' ? raw.transmission.slice(0, 40) : 'Automatic',
+    dailyPrice,
+    copy: typeof raw.copy === 'string' ? raw.copy.slice(0, 2000) : raw.title.trim(),
+  }
+}
+
+function sanitizeCarOverrides(value: unknown): Record<string, Car> {
+  if (typeof value !== 'object' || value === null) return {}
+  const out: Record<string, Car> = {}
+  for (const [slug, entry] of Object.entries(value as Record<string, unknown>)) {
+    const clean = sanitizeCarOverride(entry)
+    if (clean && clean.slug === slug) out[slug] = clean
+  }
+  return out
+}
+
+export function saveCarOverride(car: Car) {
+  const clean = sanitizeCarOverride(car)
+  if (!clean) return
+  const data = readOverrides()
+  writeOverrides({ ...data, carOverrides: { ...data.carOverrides, [clean.slug]: clean } })
+}
+
+export function removeCarOverride(slug: string) {
+  const data = readOverrides()
+  const carOverrides = { ...data.carOverrides }
+  delete carOverrides[slug]
+  writeOverrides({ ...data, carOverrides })
+}
+
+/**
+ * Website visibility (not availability). Hidden vehicles stay in admin but are
+ * excluded from public fleet/request surfaces on this browser via
+ * `useLiveCollection`. Canonical vehicles are never deletable; hiding covers
+ * the operational need.
+ */
+export function isCarHidden(slug: string): boolean {
+  if (typeof window === 'undefined') return false
+  return readOverrides().hiddenCars.includes(slug)
+}
+
+export function setCarHidden(slug: string, hidden: boolean) {
+  const data = readOverrides()
+  const hiddenCars = hidden
+    ? (data.hiddenCars.includes(slug) ? data.hiddenCars : [...data.hiddenCars, slug])
+    : data.hiddenCars.filter((entry) => entry !== slug)
+  writeOverrides({ ...data, hiddenCars })
+}
+
+export function useHiddenCars(): string[] {
+  const [hidden, setHidden] = useState<string[]>([])
+  useEffect(() => {
+    const sync = () => setHidden(readOverrides().hiddenCars)
+    sync()
+    window.addEventListener('sp-overrides', sync)
+    return () => window.removeEventListener('sp-overrides', sync)
+  }, [])
+  return hidden
 }
 
 export function setCustomerActive(slug: string, active: boolean) {
@@ -257,15 +337,55 @@ export function useTourOverride(slug: string, fallback: Tour): Tour {
   return tour
 }
 
-export function useLiveCollection<T>(collection: OverrideCollection, base: readonly T[]): T[] {
-  const [customs, setCustoms] = useState<T[]>([])
+/**
+ * Pure fleet merge: canonical base + admin customs, canonical overrides
+ * applied by slug, hidden slugs excluded unless requested. Exported for
+ * focused verification; `useLiveCollection` is the reactive entry point.
+ */
+export function mergeCarFleet(
+  base: readonly Car[],
+  customs: readonly Car[],
+  overrides: Record<string, Car>,
+  hiddenCars: readonly string[],
+  includeHidden: boolean,
+): Car[] {
+  const merged = customs.length ? [...customs, ...base] : [...base]
+  const withOverrides = merged.map((car) =>
+    car && typeof car.slug === 'string' && overrides[car.slug] ? { ...car, ...overrides[car.slug] } : car,
+  )
+  return includeHidden ? withOverrides : withOverrides.filter((car) => !hiddenCars.includes(car.slug))
+}
+
+/** Local canonical override for one vehicle slug, if any. */
+export function useCarOverride(slug: string): Car | undefined {
+  const [override, setOverride] = useState<Car | undefined>(undefined)
   useEffect(() => {
-    const sync = () => setCustoms(readOverrides()[collection] as T[])
+    const sync = () => setOverride(readOverrides().carOverrides[slug])
+    sync()
+    window.addEventListener('sp-overrides', sync)
+    return () => window.removeEventListener('sp-overrides', sync)
+  }, [slug])
+  return override
+}
+
+export function useLiveCollection<T>(collection: OverrideCollection, base: readonly T[], options?: { includeHidden?: boolean }): T[] {
+  const [customs, setCustoms] = useState<T[]>([])
+  const [carMeta, setCarMeta] = useState(() => ({ overrides: empty.carOverrides, hidden: empty.hiddenCars }))
+  useEffect(() => {
+    const sync = () => {
+      const data = readOverrides()
+      setCustoms(data[collection] as T[])
+      setCarMeta({ overrides: data.carOverrides, hidden: data.hiddenCars })
+    }
     sync()
     window.addEventListener('sp-overrides', sync)
     return () => window.removeEventListener('sp-overrides', sync)
   }, [collection])
-  return customs.length ? [...customs, ...base] : (base as T[])
+  const includeHidden = options?.includeHidden ?? false
+  return useMemo(() => {
+    if (collection !== 'cars') return customs.length ? [...customs, ...base] : [...base]
+    return mergeCarFleet(base as unknown as Car[], customs as unknown as Car[], carMeta.overrides, carMeta.hidden, includeHidden) as unknown as T[]
+  }, [customs, base, collection, includeHidden, carMeta])
 }
 
 export function useLiveFind<T extends { slug: string }>(

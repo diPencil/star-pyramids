@@ -1,59 +1,68 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { ArrowLeft } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
-import { AdminText, Card } from '@/components/admin/admin-ui'
-import { useAdminLocale } from '@/components/admin/admin-locale'
-import { saveCustomItem, slugify } from '@/lib/admin-store'
-import { ImageField } from '@/components/admin/image-field'
+import { AdminEmpty, AdminText } from '@/components/admin/admin-ui'
+import { VehicleForm } from '@/components/admin/vehicle-form'
+import { isCustomSlug, removeCarOverride, saveCarOverride, saveCustomItem, useCarOverride, useLiveCollection } from '@/lib/admin-store'
+import { cars } from '@/data/content'
 import type { Car } from '@/data/types'
 
-export default function NewCarPage() {
-  const ar = useAdminLocale() === 'ar'
+function NewCarInner() {
   const router = useRouter()
-  const [title, setTitle] = useState('')
-  const [seats, setSeats] = useState('4 seats')
-  const [transmission, setTransmission] = useState('Automatic')
-  const [dailyPrice, setDailyPrice] = useState('45')
-  const [image, setImage] = useState('')
-  const [copy, setCopy] = useState('')
-  const [error, setError] = useState('')
+  const params = useSearchParams()
+  const slug = params.get('slug')
+  // Include hidden vehicles so a hidden car can still be found and edited.
+  const liveCars = useLiveCollection('cars', cars, { includeHidden: true })
+  const editing = slug ? liveCars.find((car) => car.slug === slug) : undefined
 
-  const save = () => {
-    if (!title.trim()) { setError(ar ? 'اكتب اسم السيارة.' : 'Enter the vehicle name.'); return }
-    const item: Car = {
-      title: title.trim(),
-      slug: slugify(title),
-      image: image.trim(),
-      seats: seats.trim(),
-      transmission,
-      dailyPrice: Number(dailyPrice) || 0,
-      copy: copy.trim() || title.trim(),
-    }
-    saveCustomItem('cars', item)
+  const save = (car: Car) => {
+    // Canonical rows persist a local override; data/content.ts is never mutated.
+    if (isCustomSlug(car.slug)) saveCustomItem('cars', car)
+    else saveCarOverride(car)
     router.push('/admin/cars')
   }
 
+  if (slug && !editing) {
+    return <>
+      <PageHead eyebrow="Fleet" title="Edit vehicle" titleAr="تعديل سيارة" actions={<Link className="sp-btn" href="/admin/cars"><ArrowLeft size={16} /> <AdminText en="Back" ar="رجوع" /></Link>} />
+      <AdminEmpty title={<AdminText en="Vehicle not found" ar="السيارة غير موجودة" />} />
+    </>
+  }
+
+  const isCanonicalEdit = !!editing && !isCustomSlug(editing.slug)
+  // Reset is offered only while a local override actually exists.
+  const hasOverride = isCanonicalEdit && useCarOverride(editing?.slug ?? '') !== undefined
+
   return <>
-    <PageHead eyebrow="Fleet" title="New vehicle" titleAr="سيارة جديدة" sub="Published to the fleet and request forms" subAr="تنشر في الأسطول ونماذج الطلب" actions={<button type="button" className="sp-btn dark" onClick={save}><AdminText en="Add vehicle" ar="إضافة السيارة" /></button>} />
-    <Card title={<AdminText en="Vehicle details" ar="بيانات السيارة" />}>
-      <div className="sp-form">
-        <div className="sp-form-2">
-          <label><AdminText en="Name" ar="الاسم" /><input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Toyota Corolla" /></label>
-          <label><AdminText en="Capacity" ar="السعة" /><input value={seats} onChange={(e) => setSeats(e.target.value)} placeholder="4 seats" /></label>
-        </div>
-        <div className="sp-form-2">
-          <label><AdminText en="Transmission" ar="ناقل الحركة" /><select value={transmission} onChange={(e) => setTransmission(e.target.value)}><option>Automatic</option><option>Manual</option></select></label>
-          <label><AdminText en="Daily rate (USD)" ar="السعر اليومي (USD)" /><input type="number" value={dailyPrice} onChange={(e) => setDailyPrice(e.target.value)} /></label>
-        </div>
-        <ImageField value={image} onChange={setImage} />
-        <label><AdminText en="Description" ar="الوصف" /><textarea rows={3} value={copy} onChange={(e) => setCopy(e.target.value)} /></label>
-      </div>
-      {error && <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>}
-      <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-        <button type="button" className="sp-btn primary" onClick={save}><AdminText en="Add vehicle" ar="إضافة السيارة" /></button>
-      </div>
-    </Card>
+    <PageHead
+      eyebrow="Fleet"
+      title={editing ? 'Edit vehicle' : 'New vehicle'}
+      titleAr={editing ? 'تعديل سيارة' : 'سيارة جديدة'}
+      sub={editing ? (isCanonicalEdit ? 'Local override — canonical data stays untouched' : undefined) : 'Published to the fleet and request forms'}
+      subAr={editing ? (isCanonicalEdit ? 'تجاوز محلي — البيانات الأصلية لا تتغير' : undefined) : 'تنشر في الأسطول ونماذج الطلب'}
+      actions={<>
+        <Link className="sp-btn" href="/admin/cars"><ArrowLeft size={16} /> <AdminText en="Back" ar="رجوع" /></Link>
+        {hasOverride && (
+          <button type="button" className="sp-delete-btn" onClick={() => { if (editing) { removeCarOverride(editing.slug); router.push('/admin/cars') } }}>
+            <AdminText en="Reset to default" ar="إعادة للافتراضي" />
+          </button>
+        )}
+      </>}
+    />
+    {editing
+      ? <VehicleForm key={editing.slug} initial={editing} submitLabel={<AdminText en="Save changes" ar="حفظ التغييرات" />} onSubmit={save} />
+      : <VehicleForm submitLabel={<AdminText en="Add vehicle" ar="إضافة السيارة" />} onSubmit={save} />}
   </>
+}
+
+export default function NewCarPage() {
+  return (
+    <Suspense>
+      <NewCarInner />
+    </Suspense>
+  )
 }

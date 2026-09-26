@@ -110,13 +110,15 @@ export function AdminTableTools({
   onQueryChange,
   placeholder = 'Search records...',
   children,
+  className,
 }: {
   query: string
   onQueryChange: (value: string) => void
   placeholder?: string
   children?: React.ReactNode
+  className?: string
 }) {
-  return <div className="sp-table-tools">
+  return <div className={cn('sp-table-tools', className)}>
     <label className="sp-table-search">
       <Search size={16} aria-hidden="true" />
       <input value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder={placeholder} aria-label={placeholder} />
