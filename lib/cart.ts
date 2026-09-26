@@ -14,6 +14,10 @@ export type CartItem = {
   adultUnit: number
   childUnit: number
   infantUnit: number
+  /**
+   * Frontend estimate in USD base units, formatted at display time with the
+   * active currency. The backend remains authoritative for final pricing.
+   */
   total: number
 }
 

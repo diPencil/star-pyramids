@@ -9,6 +9,7 @@ import "leaflet/dist/leaflet.css"
 import { ArrowRight, CalendarDays, Check, ChevronDown, Clock3, Heart, MapPin, Minus, Plus, Share2, ShieldCheck, Star, Users } from "lucide-react"
 import { getRelatedTours, getTravelerUnitPrices, normalizeTourPricePeriods } from "@/data/tours"
 import { addToCart } from "@/lib/cart"
+import { useCustomerFavorites } from "@/lib/customer-account"
 import { useTourOverride } from "@/lib/admin-store"
 import { cruiseArabicCopy } from "@/data/cruise-ar"
 import { shoreArabicCopy } from "@/data/shore-ar"
@@ -42,7 +43,7 @@ const arabicUi: Record<string, string> = {
   'Price on request': 'السعر حسب الطلب', 'Make your journey your own': 'خصص رحلتك',
   Prices: 'الأسعار', 'Cruise Prices': 'أسعار الرحلة النيلية', 'Tour Prices': 'أسعار الرحلة',
   'Gallery of Exciting Journeys': 'فيديوهات من رحلاتنا', 'Related Tours': 'رحلات ذات صلة',
-  'View all': 'شاهد الكل', From: 'يبدأ من', 'per person': 'للشخص', 'Choose your date': 'اختر التاريخ',
+  'View all': 'شاهد الكل', From: 'يبدأ من', 'per person': 'للشخص', 'Preferred date': 'التاريخ المفضل',
   Travelers: 'المسافرون', Total: 'الإجمالي التقديري', 'Estimated total': 'الإجمالي التقديري',
   'Plan this trip': 'خطط لهذه الرحلة', 'Plan this cruise': 'استفسر عن الرحلة',
   Share: 'مشاركة', Saved: 'محفوظ', Favorites: 'المفضلة', 'Ask a question': 'اسألنا',
@@ -165,7 +166,8 @@ export function TourDetailPage({ tour: initialTour }: { tour: Tour }) {
   const [adults, setAdults] = useState(2)
   const [children, setChildren] = useState(0)
   const [infants, setInfants] = useState(0)
-  const [favorite, setFavorite] = useState(false)
+  const favorites = useCustomerFavorites()
+  const favorite = favorites.has(tour.slug)
   const [activeTab, setActiveTab] = useState("Overview")
   const [travelDate, setTravelDate] = useState("")
   const router = useRouter()
@@ -191,7 +193,7 @@ export function TourDetailPage({ tour: initialTour }: { tour: Tour }) {
   const total = adults * unitPrice + children * childUnit + infants * infantUnit + addonsTotal
   const downloadItinerary = () => {
     if (!detail) return
-    const text = [title, `${ui('Duration')}: ${duration}`, `${ui('From')}: ${formatPrice(price, currency, locale)} ${ui('per person')}`, detail.itineraryNote ?? "", ui('Itinerary'), ...detail.itinerary.map((item) => `${item.day}: ${item.title}\n${item.description}`), ...(detail.included?.length ? [ui("What's Included?"), ...detail.included] : []), "", "https://starpyramids.com/make-your-trip"].join("\n\n")
+    const text = [title, `${ui('Duration')}: ${duration}`, `${ui('From')}: ${formatPrice(price, currency, locale)} ${ui('per person')}`, detail.itineraryNote ?? "", ui('Itinerary'), ...detail.itinerary.map((item) => `${item.day}: ${item.title}\n${item.description}`), ...(detail.included?.length ? [ui("What's Included?"), ...detail.included] : []), ...(detail.excluded?.length ? [ui("What's Excluded?"), ...detail.excluded] : []), ...(detail.addOns?.length ? [ui('Add-ons'), ...detail.addOns.map((addon) => addon.price === undefined ? `${addon.title} (${ui('Price on request')})` : `${addon.title} — ${formatPrice(addon.price, currency, locale)}`)] : []), "", "https://starpyramids.com/make-your-trip"].join("\n\n")
     const blob = new Blob([text], { type: "text/plain" })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
@@ -206,7 +208,7 @@ export function TourDetailPage({ tour: initialTour }: { tour: Tour }) {
   return <>
     <div className="tour-breadcrumb container"><Link href="/">{ui('Home')}</Link><span>/</span><Link href={`/egypt-tours/${tour.category}`}>{ui('Egypt Tours')}</Link><span>/</span><span>{title}</span></div>
     <main className="tour-detail-page container">
-      <header className="tour-detail-header"><div><span className="eyebrow">{ui(isShore ? 'Shore excursion journey' : tour.category === 'nile-cruises' ? 'Nile cruise journey' : tour.category === 'multi-days-tours' ? 'Multi-day Egypt journey' : 'Egypt travel experience')}</span><h1>{title}</h1>{reviewAverage!==null&&<div className="tour-rating"><Star size={16} fill="currentColor"/> {reviewAverage.toFixed(1)} <span>{ui('Guest reviews')}</span></div>}</div><button className={`tour-favorite ${favorite ? "active" : ""}`} onClick={()=>setFavorite(!favorite)} aria-label={ui('Favorites')}><Heart size={20} fill={favorite ? "currentColor" : "none"}/></button></header>
+      <header className="tour-detail-header"><div><span className="eyebrow">{ui(isShore ? 'Shore excursion journey' : tour.category === 'nile-cruises' ? 'Nile cruise journey' : tour.category === 'multi-days-tours' ? 'Multi-day Egypt journey' : 'Egypt travel experience')}</span><h1>{title}</h1>{reviewAverage!==null&&<div className="tour-rating"><Star size={16} fill="currentColor"/> {reviewAverage.toFixed(1)} <span>{ui('Guest reviews')}</span></div>}</div><button className={`tour-favorite ${favorite ? "active" : ""}`} onClick={()=>favorites.toggle(tour.slug)} aria-label={ui('Favorites')}><Heart size={20} fill={favorite ? "currentColor" : "none"}/></button></header>
       <div className="tour-detail-layout">
         <section className="tour-detail-main">
           <div className="tour-gallery"><div className="tour-gallery-main"><Image src={gallery[selectedImage]} alt={galleryAlt(selectedImage)} fill priority sizes="(max-width: 900px) 100vw, 65vw"/>{gallery.length>1&&<><button aria-label={locale === 'ar' ? 'الصورة السابقة' : 'Previous image'} className="gallery-arrow left" onClick={()=>setSelectedImage((selectedImage + gallery.length - 1) % gallery.length)}>‹</button><button aria-label={locale === 'ar' ? 'الصورة التالية' : 'Next image'} className="gallery-arrow right" onClick={()=>setSelectedImage((selectedImage + 1) % gallery.length)}>›</button></>}</div>{gallery.length>1&&<div className="tour-thumbs">{gallery.map((image,index)=><button key={image} className={selectedImage===index ? "active" : ""} onClick={()=>setSelectedImage(index)} aria-label={locale === 'ar' ? `عرض الصورة ${index + 1}` : `Show image ${index + 1}: ${galleryAlt(index)}`} aria-pressed={selectedImage === index}><Image src={image} alt="" fill sizes="90px"/></button>)}</div>}{Boolean(tour.photoCredits?.length)&&<p className="tour-photo-credits">{tour.photoCredits?.map((credit,index)=><span key={credit.url}>{index>0 && ', '}<a href={credit.url} target="_blank" rel="noopener noreferrer">{credit.label}</a></span>)}</p>}</div>
@@ -229,11 +231,11 @@ export function TourDetailPage({ tour: initialTour }: { tour: Tour }) {
         <aside className="tour-booking-card">
           <div className="booking-top"><div><small>{ui(isShore ? 'Indicative price' : 'From')}</small><strong>{formatPrice(unitPrice, currency, locale)}</strong><span>{ui('per person')} · {heads} {locale === 'ar' ? 'مسافر' : heads === 1 ? 'traveler' : 'travelers'}</span></div>{reviewAverage!==null&&<span className="booking-rating"><Star size={14} fill="currentColor"/> {reviewAverage.toFixed(1)}</span>}</div>
           <div className="booking-divider"/>
-          <label><CalendarDays size={17}/>{ui(isShore ? 'Ship call date' : 'Choose your date')}<input type="date" value={travelDate} onChange={(e)=>setTravelDate(e.target.value)}/></label>
+          <label><CalendarDays size={17}/>{ui(isShore ? 'Ship call date' : 'Preferred date')}<input type="date" value={travelDate} onChange={(e)=>setTravelDate(e.target.value)}/></label>
           <div className="guest-rows">{([['adults', adults, setAdults, ui('Adults'), ui('Ages 12+'), 1], ['children', children, setChildren, ui('Children'), ui('Ages 3-11'), 0], ['infants', infants, setInfants, ui('Infants'), ui('Under 3'), 0]] as const).map(([key, value, set, label, ages, min]) => <div key={key} className="guest-row"><span><Users size={15}/><b>{label}</b><small>{ages}</small></span><div><button type="button" aria-label={label} onClick={() => set(Math.max(min, value - 1))}><Minus size={14}/></button><b>{value}</b><button type="button" aria-label={label} onClick={() => set(Math.min(50, value + 1))}><Plus size={14}/></button></div></div>)}</div>
           <div className="booking-total"><span>{ui(isShore ? 'Final quote on request' : 'Estimated total')}{!isShore && (hasUnpricedAddons ? (locale === 'ar' ? ' + إضافات حسب الطلب' : ' + add-ons on request') : selectedAddons.length ? (locale === 'ar' ? ` (يشمل ${selectedAddons.length} إضافات)` : ` (incl. ${selectedAddons.length} add-on${selectedAddons.length===1?'':'s'})`) : '')}</span>{!isShore&&<strong>{formatPrice(total, currency, locale)}</strong>}</div>
           {isShore ? <Link href={`/make-your-trip?tour=${encodeURIComponent(tour.slug)}&adults=${adults}&children=${children}&infants=${infants}&guests=${heads}${travelDate?`&date=${encodeURIComponent(travelDate)}`:''}${selectedAddons.length?`&addons=${selectedAddons.join(',')}`:''}`} className="primary-btn booking-cta">{ui('Enquire about this excursion')} <ArrowRight size={17}/></Link> : <button type="button" className="primary-btn booking-cta" onClick={() => { addToCart({ tourSlug: tour.slug, title, image: gallery[0], date: travelDate, adults, children, infants, addons: selectedAddons.map((i) => detail?.addOns?.[i]?.title ?? ''), addonTotal: addonsTotal, adultUnit: unitPrice, childUnit, infantUnit, total }); router.push('/cart') }}>{ui('Book now')} <ArrowRight size={17}/></button>}
-          <div className="booking-side-row"><button type="button" className="outline-btn booking-half" onClick={shareTour} aria-label={ui('Share')}><Share2 size={16}/> {ui('Share')}</button><button type="button" className="outline-btn booking-half" onClick={() => setFavorite(!favorite)} aria-pressed={favorite} aria-label={ui('Favorites')}><Heart size={16} fill={favorite ? "#f7951d" : "none"} color={favorite ? "#f7951d" : "currentColor"}/> {favorite ? ui('Saved') : ui('Favorites')}</button></div>
+          <div className="booking-side-row"><button type="button" className="outline-btn booking-half" onClick={shareTour} aria-label={ui('Share')}><Share2 size={16}/> {ui('Share')}</button><button type="button" className="outline-btn booking-half" onClick={() => favorites.toggle(tour.slug)} aria-pressed={favorite} aria-label={ui('Favorites')}><Heart size={16} fill={favorite ? "#f7951d" : "none"} color={favorite ? "#f7951d" : "currentColor"}/> {favorite ? ui('Saved') : ui('Favorites')}</button></div>
           <AskQuestionButton tourSlug={tour.slug} tourTitle={title} label={ui('Ask a question')} />
           <small className="booking-note"><ShieldCheck size={14}/> {ui(isShore ? 'Price, inclusions, meeting point, and return time are confirmed against your ship call before booking.' : tour.category === 'nile-cruises' ? 'Prices shown are indicative. Confirm the sailing year, availability, and final quote with our team.' : tour.category === 'multi-days-tours' ? 'Final price and package terms are confirmed before booking.' : 'Free cancellation up to 24 hours before departure')}</small>
         </aside>
