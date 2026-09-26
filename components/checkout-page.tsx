@@ -10,8 +10,6 @@ import { recordCustomerBooking } from '@/lib/customer-account'
 
 type PayMethod = 'card' | 'arrival'
 
-const onlyDigits = (v: string) => v.replace(/\D/g, '')
-
 export function CheckoutPage() {
   const { currency, locale } = useLocale()
   const ar = locale === 'ar'
@@ -20,18 +18,14 @@ export function CheckoutPage() {
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [notes, setNotes] = useState('')
-  const [method, setMethod] = useState<PayMethod>('card')
-  const [cardNumber, setCardNumber] = useState('')
-  const [cardName, setCardName] = useState('')
-  const [expiry, setExpiry] = useState('')
-  const [cvc, setCvc] = useState('')
+  // Card payments are intentionally unavailable until a secure payment gateway is integrated.
+  // 'arrival' is the only live prototype method; no card credentials are collected or stored.
+  const method: PayMethod = 'arrival'
   const [placed, setPlaced] = useState<{ reference: string; total: number; lines: CartItem[] } | null>(null)
-
-  const cardValid = method !== 'card' || (onlyDigits(cardNumber).length === 16 && cardName.trim() !== '' && /^(0[1-9]|1[0-2])\/\d{2}$/.test(expiry) && onlyDigits(cvc).length >= 3)
 
   const placeOrder = (e: FormEvent) => {
     e.preventDefault()
-    if (!items.length || !cardValid) return
+    if (!items.length) return
     const reference = `SP-${Date.now().toString(36).toUpperCase().slice(-6)}`
     recordCustomerBooking({
       reference,
@@ -58,13 +52,13 @@ export function CheckoutPage() {
       </header>
       {placed ? <div className="form-success large">
         <Check size={42} />
-        <h1>{ar ? 'تم استلام طلبك' : 'Your booking is received'}</h1>
-        <span className="req-ref">{ar ? 'رقم الحجز: ' : 'Booking ref: '}{placed.reference}</span>
+        <h1>{ar ? 'تم إنشاء معاينة طلب الحجز' : 'Booking request preview created'}</h1>
+        <span className="req-ref">{ar ? 'المرجع المحلي: ' : 'Local ref: '}{placed.reference}</span>
         <div className="req-summary-rows">
           {placed.lines.map((l) => <div key={l.key}><span>{l.title}</span><strong>{formatPrice(l.total, currency, locale)}</strong></div>)}
           <div><span>{ar ? 'الإجمالي' : 'Total'}</span><strong>{formatPrice(placed.total, currency, locale)}</strong></div>
         </div>
-        <p>{ar ? 'سنتواصل معك قريبًا لتأكيد التفاصيل.' : 'We will contact you shortly to confirm the details.'}</p>
+        <p>{ar ? 'هذا المرجع موجود في هذا المتصفح فقط ولم يُرسل إلى STAR PYRAMIDS. اذكره عند التواصل مع فريقنا.' : 'This reference exists only in this browser and has not been submitted to STAR PYRAMIDS. Quote it when you contact our team.'}</p>
         <div className="car-success-actions"><Link className="primary-btn" href="/account/bookings">{ar ? 'متابعة الحجز' : 'Track booking'}</Link><Link className="outline-btn" href="/trips">{ar ? 'تصفح المزيد من الرحلات' : 'Browse more trips'}</Link></div>
       </div> : !items.length ? <div className="cart-empty">
         <h2>{ar ? 'لا توجد عناصر لإتمامها' : 'Nothing to check out'}</h2>
@@ -81,22 +75,16 @@ export function CheckoutPage() {
           </div>
           <h2>{ar ? 'طريقة الدفع' : 'Payment method'}</h2>
           <div className="pay-methods" role="radiogroup" aria-label={ar ? 'طريقة الدفع' : 'Payment method'}>
-            <label className={method === 'card' ? 'active' : ''}><input type="radio" name="pay" checked={method === 'card'} onChange={() => setMethod('card')} /><CreditCard size={18} /><span><b>{ar ? 'بطاقة بنكية' : 'Credit / debit card'}</b><small>{ar ? 'دفع آمن عبر الإنترنت' : 'Secure online payment'}</small></span></label>
-            <label className={method === 'arrival' ? 'active' : ''}><input type="radio" name="pay" checked={method === 'arrival'} onChange={() => setMethod('arrival')} /><Banknote size={18} /><span><b>{ar ? 'الدفع عند الوصول' : 'Pay on arrival'}</b><small>{ar ? 'ادفع نقدًا أو بالبطاقة عند بدء الرحلة' : 'Pay by cash or card when your trip starts'}</small></span></label>
+            <label className="active"><input type="radio" name="pay" checked readOnly /><Banknote size={18} /><span><b>{ar ? 'الدفع عند الوصول' : 'Pay on arrival'}</b><small>{ar ? 'ادفع نقدًا أو بالبطاقة عند بدء الرحلة' : 'Pay by cash or card when your trip starts'}</small></span></label>
+            <label aria-disabled="true"><input type="radio" name="pay" disabled /><CreditCard size={18} /><span><b>{ar ? 'بطاقة بنكية عبر الإنترنت' : 'Credit / debit card online'}</b><small>{ar ? 'سيتاح الدفع بالبطاقة بعد ربط بوابة دفع آمنة.' : 'Online card payment will be available after secure payment gateway integration.'}</small></span></label>
           </div>
-          {method === 'card' && <div className="form-grid">
-            <label className="full">{ar ? 'رقم البطاقة' : 'Card number'}<input required inputMode="numeric" value={cardNumber} onChange={(e) => setCardNumber(onlyDigits(e.target.value).slice(0, 16).replace(/(\d{4})(?=\d)/g, '$1 '))} placeholder="1234 5678 9012 3456" maxLength={19} /></label>
-            <label className="full">{ar ? 'الاسم على البطاقة' : 'Name on card'}<input required value={cardName} onChange={(e) => setCardName(e.target.value)} maxLength={80} /></label>
-            <label>{ar ? 'تاريخ الانتهاء (شهر/سنة)' : 'Expiry (MM/YY)'}<input required value={expiry} onChange={(e) => { const d = onlyDigits(e.target.value).slice(0, 4); setExpiry(d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d) }} placeholder="MM/YY" maxLength={5} /></label>
-            <label>{ar ? 'رمز الأمان' : 'CVC'}<input required inputMode="numeric" value={cvc} onChange={(e) => setCvc(onlyDigits(e.target.value).slice(0, 4))} placeholder="123" maxLength={4} /></label>
-          </div>}
           <p className="co-demo-note"><ShieldCheck size={15} />{ar ? 'وضع تجريبي: لن يتم خصم أي مبلغ. يُفعَّل الدفع الحقيقي بربط بوابة دفع.' : 'Demo checkout: no real charge is made. Live payments activate with a payment gateway.'}</p>
         </div>
         <aside className="cart-summary">
           <h2>{ar ? 'ملخص الطلب' : 'Order summary'}</h2>
           {items.map((item) => <div key={item.key} className="cart-summary-row"><span>{item.title}, {item.adults + item.children + item.infants} {ar ? 'ضيوف' : 'guest(s)'}</span><strong>{formatPrice(item.total, currency, locale)}</strong></div>)}
           <div className="cart-summary-row total"><span>{ar ? 'الإجمالي' : 'Total'}</span><strong>{formatPrice(subtotal, currency, locale)}</strong></div>
-          <button type="submit" className="primary-btn" disabled={!cardValid}>{ar ? 'تأكيد الحجز' : 'Place booking'} <ArrowRight size={17} /></button>
+          <button type="submit" className="primary-btn">{ar ? 'إرسال طلب الحجز' : 'Request booking'} <ArrowRight size={17} /></button>
         </aside>
       </form>}
     </main>

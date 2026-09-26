@@ -50,7 +50,7 @@ export function CustomerDetailContent({ customerKey }: { customerKey: string }) 
       actions={<>
         <Link className="sp-btn" href="/admin/customers"><ArrowLeft size={16} /> <AdminText en="Back" ar="رجوع" /></Link>
         <Link className="sp-btn" href={`/admin/customers/${encodeURIComponent(key)}/edit`}><Pencil size={16} /> <AdminText en="Edit" ar="تعديل" /></Link>
-        <button type="button" className="sp-btn primary" onClick={() => startImpersonation({ name, email: email || undefined, avatar })}><Users size={16} /> <AdminText en="Login as user" ar="الدخول بحسابه" /></button>
+        <button type="button" className="sp-btn primary" onClick={() => startImpersonation({ name, email: email || undefined, avatar })}><Users size={16} /> <AdminText en="Preview as user (demo)" ar="معاينة كعميل (تجريبي)" /></button>
       </>}
     />
     <AdminStats items={[

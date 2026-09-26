@@ -457,3 +457,4 @@ html.sp-admin-root::-webkit-scrollbar-button { display: none; width: 0; height: 
 html.sp-admin-root::-webkit-scrollbar-track { background: #e8edf7; }
 html.sp-admin-root::-webkit-scrollbar-thumb { background: var(--sp-blue); border-radius: 999px; border: 2px solid #e8edf7; }
 html.sp-admin-root::-webkit-scrollbar-thumb:hover { background: var(--sp-orange); }
+.sp-prototype-note{display:flex;align-items:flex-start;gap:10px;margin:0 0 16px;padding:11px 16px;border:1px solid #f3d9ae;border-inline-start:4px solid var(--sp-orange);border-radius:12px;background:#fff8ec;color:#5b4a1e;font-size:12px;line-height:1.6}.sp-prototype-note svg{flex:none;margin-top:1px;color:var(--sp-orange)}.sp-prototype-note strong{display:block;color:#7a4a00;font-size:11.5px}

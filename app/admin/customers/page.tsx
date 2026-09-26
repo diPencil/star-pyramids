@@ -95,7 +95,7 @@ export default function CustomersPage() {
               <td><AdminTableActions>
                 <AdminIconAction icon={Eye} label={ar ? `عرض ${row.name}` : `View ${row.name}`} href={`/admin/customers/${encodeURIComponent(row.kind === 'custom' ? row.customer.slug : row.key)}`} />
                 <AdminIconAction icon={Pencil} label={ar ? `تعديل ${row.name}` : `Edit ${row.name}`} href={`/admin/customers/${encodeURIComponent(row.kind === 'custom' ? row.customer.slug : row.key)}/edit`} />
-                <AdminIconAction icon={LogIn} label={ar ? `الدخول بحساب ${row.name}` : `Login as ${row.name}`} onClick={() => loginAs(row)} />
+                <AdminIconAction icon={LogIn} label={ar ? `معاينة تجريبية بحساب ${row.name}` : `Preview as ${row.name} (demo)`} onClick={() => loginAs(row)} />
                 <AdminIconAction icon={active ? UserX : UserCheck} label={active ? (ar ? `تعطيل ${row.name}` : `Deactivate ${row.name}`) : (ar ? `تفعيل ${row.name}` : `Activate ${row.name}`)} tone={active ? 'danger' : 'success'} onClick={() => toggleActive(row)} />
                 {row.kind === 'custom' && <button type="button" className="sp-delete-btn" onClick={() => removeCustomItem('customers', row.customer.slug)}><AdminText en="Delete" ar="حذف" /></button>}
               </AdminTableActions></td>

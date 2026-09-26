@@ -9,6 +9,7 @@ import {
   CarFront,
   ChevronDown,
   ExternalLink,
+  FlaskConical,
   Globe2,
   LayoutDashboard,
   LogOut,
@@ -30,15 +31,18 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { readAdminProfile, type AdminProfile } from '@/lib/admin-store'
-import { currentUser } from './admin-data'
+import { bookings, conversations, currentUser } from './admin-data'
 import { Avatar } from './admin-ui'
+
+const demoBookingCount = String(bookings.length)
+const demoUnreadCount = String(conversations.reduce((sum, thread) => sum + thread.unread, 0))
 
 const groups = [
   {
     label: 'القائمة',
     items: [
       { href: '/admin/dashboard', icon: LayoutDashboard, en: 'Dashboard', ar: 'لوحة المؤشرات' },
-      { href: '/admin/bookings', icon: ShoppingCart, en: 'Bookings', ar: 'الحجوزات', badge: '6' },
+      { href: '/admin/bookings', icon: ShoppingCart, en: 'Bookings', ar: 'الحجوزات', badge: demoBookingCount },
       { href: '/admin/trips', icon: Map, en: 'Trips', ar: 'الرحلات' },
       { href: '/admin/destinations', icon: MapPinned, en: 'Destinations', ar: 'الوجهات' },
       { href: '/admin/events', icon: CalendarCheck, en: 'Events', ar: 'الفعاليات' },
@@ -51,7 +55,7 @@ const groups = [
   {
     label: 'التواصل',
     items: [
-      { href: '/admin/inbox', icon: MessageCircle, en: 'Inbox', ar: 'صندوق المراسلة', badge: '2' },
+      { href: '/admin/inbox', icon: MessageCircle, en: 'Inbox', ar: 'صندوق المراسلة', badge: demoUnreadCount },
       { href: '/admin/emails', icon: Mail, en: 'Emails', ar: 'البريد' },
     ],
   },
@@ -267,7 +271,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </header>
-        <main className="sp-content">{children}</main>
+        <main className="sp-content">
+          <p className="sp-prototype-note" role="note"><FlaskConical size={16} /><span><strong>{ar ? 'لوحة تجريبية' : 'Prototype admin'}</strong>{ar ? 'تعمل هذه اللوحة ببيانات توضيحية محلية. تبقى معظم التغييرات في هذا المتصفح فقط، وبعض تجاوزات المحتوى تظهر أيضًا على صفحات الموقع العامة في هذا الجهاز فقط.' : 'This dashboard runs on local demonstration data. Most changes stay in this browser only; content overrides also preview on the public pages on this device only.'}</span></p>
+          {children}
+        </main>
       </div>
       {languageOpen && (
         <AdminLanguageModal

@@ -219,6 +219,10 @@ const tabs = [
   { id: 'facebook-auth', icon: FacebookIcon, en: 'Facebook Login', ar: 'تسجيل الدخول بفيسبوك', sub: 'Customer account authentication', subAr: 'مصادقة حسابات العملاء' },
 ] as const
 
+function SecretPrototypeNote() {
+  return <p className="sp-integration-note"><ShieldCheck size={15} /> <AdminText en="Prototype only — do not enter real credentials. Secure secret storage requires backend integration." ar="نسخة تجريبية فقط — لا تدخل بيانات اعتماد حقيقية. يتطلب التخزين الآمن للأسرار تكامل الواجهة الخلفية." /></p>
+}
+
 function IntegrationStatus({ label }: { label?: React.ReactNode }) {
   return <span className="sp-integration-status"><i aria-hidden="true" />{label ?? <AdminText en="Backend pending" ar="الباك إند معلق" />}</span>
 }
@@ -315,10 +319,11 @@ export default function SettingsPage() {
                       <label><AdminText en="Business Account ID" ar="معرف حساب الأعمال" /><input placeholder={ar ? 'أدخل معرف WABA' : 'Enter WABA ID'} /></label>
                     </div>
                     <label><AdminText en="Phone Number ID" ar="معرف رقم الهاتف" /><input placeholder={ar ? 'أدخل معرف رقم الهاتف' : 'Enter Phone Number ID'} /></label>
-                    <label><AdminText en="Access token" ar="رمز الوصول" /><input type="password" placeholder={ar ? 'يحفظ بأمان في الخلفية' : 'Stored securely by the backend'} autoComplete="off" /></label>
+                    <label><AdminText en="Access token" ar="رمز الوصول" /><input type="password" placeholder={ar ? 'معطل في النسخة التجريبية' : 'Disabled in prototype'} autoComplete="off" disabled /></label>
                     <label><AdminText en="Webhook callback" ar="رابط Webhook" /><input value="https://starpyramids.com/api/integrations/whatsapp/webhook" readOnly /></label>
-                    <label><AdminText en="Verify token" ar="رمز التحقق" /><input type="password" placeholder={ar ? 'يولد ويحفظ في الخلفية' : 'Generated and stored by the backend'} autoComplete="off" /></label>
+                    <label><AdminText en="Verify token" ar="رمز التحقق" /><input type="password" placeholder={ar ? 'معطل في النسخة التجريبية' : 'Disabled in prototype'} autoComplete="off" disabled /></label>
                   </div>
+                  <SecretPrototypeNote />
                   <div className="sp-integration-actions">
                     <button type="button" className="sp-btn primary" disabled={!whatsappEnabled} onClick={() => backendAction('Meta Embedded Signup is prepared. The backend OAuth callback is required to complete the connection.', 'تسجيل Meta المدمج مجهز. يلزم رد OAuth الخلفي لإتمام الربط.')}><PlugZap size={17} /> <AdminText en="Connect with Meta" ar="الربط مع Meta" /></button>
                     <button type="button" className="sp-btn" disabled={!whatsappEnabled} onClick={() => backendAction('Connection testing will run through the backend without exposing the access token in the browser.', 'سيعمل اختبار الاتصال عبر الخلفية دون كشف رمز الوصول في المتصفح.')}><AdminText en="Test connection" ar="اختبار الاتصال" /></button>
@@ -340,7 +345,7 @@ export default function SettingsPage() {
               <section className="sp-integration-panel">
                 <div className="sp-form">
                   <div className="sp-form-2">
-                    <label><AdminText en="Browser API key" ar="مفتاح API للمتصفح" /><input type="password" placeholder={ar ? 'أدخل مفتاحا مقيدا بالنطاق' : 'Enter a domain-restricted API key'} autoComplete="off" /></label>
+                    <label><AdminText en="Browser API key" ar="مفتاح API للمتصفح" /><input type="password" placeholder={ar ? 'معطل في النسخة التجريبية' : 'Disabled in prototype'} autoComplete="off" disabled /></label>
                     <label><AdminText en="Map ID" ar="معرف الخريطة" /><input placeholder={ar ? 'معرف خريطة جوجل اختياري' : 'Optional Google Map ID'} /></label>
                   </div>
                   <div className="sp-form-2">
@@ -352,6 +357,7 @@ export default function SettingsPage() {
                     <label><AdminText en="Enabled services" ar="الخدمات المفعلة" /><select defaultValue="maps-places"><option value="maps-places">{ar ? 'الخرائط + الأماكن' : 'Maps + Places'}</option><option value="maps">{ar ? 'الخرائط فقط' : 'Maps only'}</option><option value="maps-places-geocoding">{ar ? 'الخرائط + الأماكن + الترميز' : 'Maps + Places + Geocoding'}</option></select></label>
                   </div>
                 </div>
+                <SecretPrototypeNote />
                 <div className="sp-map-config-preview"><MapPinned size={32} /><strong>{brand.address}</strong><span><AdminText en="Map preview becomes live after a valid restricted API key is connected." ar="تصبح معاينة الخريطة حية بعد ربط مفتاح مقيد صالح." /></span></div>
                 <div className="sp-integration-actions">
                   <button type="button" className="sp-btn primary" disabled={!mapsEnabled} onClick={() => backendAction('Google Maps settings are ready. Saving and validating the key requires the backend settings endpoint.', 'إعدادات خرائط جوجل جاهزة. يتطلب الحفظ والتحقق نقطة الإعدادات الخلفية.')}><AdminText en="Save configuration" ar="حفظ الإعدادات" /></button>
@@ -373,7 +379,7 @@ export default function SettingsPage() {
               <section className="sp-integration-panel">
                 <div className="sp-form">
                   <label><AdminText en="Google OAuth Client ID" ar="معرف عميل Google OAuth" /><input placeholder={ar ? 'أدخل معرف عميل Google OAuth' : 'Enter Google OAuth Client ID'} /></label>
-                  <label><AdminText en="Google OAuth Client Secret" ar="سر عميل Google OAuth" /><input type="password" placeholder={ar ? 'يحفظ بأمان في الخلفية' : 'Stored securely by the backend'} autoComplete="off" /></label>
+                  <label><AdminText en="Google OAuth Client Secret" ar="سر عميل Google OAuth" /><input type="password" placeholder={ar ? 'معطل في النسخة التجريبية' : 'Disabled in prototype'} autoComplete="off" disabled /></label>
                   <label><AdminText en="Authorized JavaScript origin" ar="مصدر JavaScript المعتمد" /><input value="https://starpyramids.com" readOnly /></label>
                   <label><AdminText en="Authorized redirect URI" ar="رابط إعادة التوجيه المعتمد" /><input value="https://starpyramids.com/api/auth/callback/google" readOnly /></label>
                   <label><AdminText en="Requested scopes" ar="النطاقات المطلوبة" /><input value="openid email profile" readOnly /></label>
@@ -382,6 +388,7 @@ export default function SettingsPage() {
                   <button type="button" className="sp-btn primary" disabled={!googleAuthEnabled} onClick={() => backendAction('Google OAuth is prepared. The backend callback and secure session handling are required for a real login.', 'Google OAuth مجهز. يلزم رد الخلفية وإدارة جلسات آمنة لتسجيل حقيقي.')}><LogIn size={17} /> <AdminText en="Connect Google" ar="ربط جوجل" /></button>
                   <button type="button" className="sp-btn" disabled={!googleAuthEnabled} onClick={() => backendAction('A real Google sign-in test will be available after the OAuth callback is implemented.', 'سيتاح اختبار دخول حقيقي بجوجل بعد تنفيذ رد OAuth.')}><AdminText en="Test login" ar="اختبار الدخول" /></button>
                 </div>
+                <SecretPrototypeNote />
                 <p className="sp-integration-note"><KeyRound size={15} /> <AdminText en="The client secret and login tokens must never be exposed in frontend code." ar="يجب ألا يكشف سر العميل ورموز الدخول في كود الواجهة أبدا." /></p>
               </section>
               {notice && <p className="sp-integration-feedback" role="status"><CheckCircle2 size={16} />{notice}</p>}
@@ -399,7 +406,7 @@ export default function SettingsPage() {
                 <div className="sp-form">
                   <div className="sp-form-2">
                     <label><AdminText en="Facebook App ID" ar="معرف تطبيق فيسبوك" /><input placeholder={ar ? 'أدخل معرف تطبيق فيسبوك' : 'Enter Facebook App ID'} /></label>
-                    <label><AdminText en="Facebook App Secret" ar="سر تطبيق فيسبوك" /><input type="password" placeholder={ar ? 'يحفظ بأمان في الخلفية' : 'Stored securely by the backend'} autoComplete="off" /></label>
+                    <label><AdminText en="Facebook App Secret" ar="سر تطبيق فيسبوك" /><input type="password" placeholder={ar ? 'معطل في النسخة التجريبية' : 'Disabled in prototype'} autoComplete="off" disabled /></label>
                   </div>
                   <label><AdminText en="Valid OAuth redirect URI" ar="رابط إعادة توجيه OAuth الصالح" /><input value="https://starpyramids.com/api/auth/callback/facebook" readOnly /></label>
                   <label><AdminText en="Data deletion callback" ar="رابط حذف البيانات" /><input value="https://starpyramids.com/api/auth/facebook/data-deletion" readOnly /></label>
@@ -409,6 +416,7 @@ export default function SettingsPage() {
                   <button type="button" className="sp-btn primary" disabled={!facebookAuthEnabled} onClick={() => backendAction('Facebook Login is prepared. The backend callback and secure session handling are required for a real login.', 'تسجيل فيسبوك مجهز. يلزم رد الخلفية وإدارة جلسات آمنة لتسجيل حقيقي.')}><LogIn size={17} /> <AdminText en="Connect Facebook" ar="ربط فيسبوك" /></button>
                   <button type="button" className="sp-btn" disabled={!facebookAuthEnabled} onClick={() => backendAction('A real Facebook login test will be available after the OAuth callback is implemented.', 'سيتاح اختبار دخول حقيقي بفيسبوك بعد تنفيذ رد OAuth.')}><AdminText en="Test login" ar="اختبار الدخول" /></button>
                 </div>
+                <SecretPrototypeNote />
                 <p className="sp-integration-note"><KeyRound size={15} /> <AdminText en="Keep the App Secret on the server and configure the production domain in Meta." ar="أبق سر التطبيق في الخادم واضبط نطاق الإنتاج في Meta." /></p>
               </section>
               {notice && <p className="sp-integration-feedback" role="status"><CheckCircle2 size={16} />{notice}</p>}
@@ -436,7 +444,7 @@ export default function SettingsPage() {
                 <label><AdminText en="SMTP Username" ar="اسم مستخدم SMTP" /><input defaultValue="sales@starpyramids.com" /></label>
               </div>
               <div className="sp-form-2">
-                <label><AdminText en="SMTP Password" ar="كلمة مرور SMTP" /><input type="password" placeholder={ar ? 'مضبوطة - اترك فارغا للاحتفاظ' : 'Configured - leave blank to keep existing'} /></label>
+                <label><AdminText en="SMTP Password" ar="كلمة مرور SMTP" /><input type="password" placeholder={ar ? 'معطل في النسخة التجريبية' : 'Disabled in prototype'} disabled /></label>
                 <label><AdminText en="Timeout" ar="المهلة" /><input defaultValue="30" /></label>
               </div>
               <div className="sp-form-2">
@@ -454,8 +462,9 @@ export default function SettingsPage() {
               </div>
               <div className="sp-form-2">
                 <label><AdminText en="Incoming Username" ar="اسم المستخدم الوارد" /><input defaultValue="sales@starpyramids.com" /></label>
-                <label><AdminText en="Incoming Password" ar="كلمة المرور الواردة" /><input type="password" placeholder={ar ? 'مضبوطة - اترك فارغا للاحتفاظ' : 'Configured - leave blank to keep existing'} /></label>
+                <label><AdminText en="Incoming Password" ar="كلمة المرور الواردة" /><input type="password" placeholder={ar ? 'معطل في النسخة التجريبية' : 'Disabled in prototype'} disabled /></label>
               </div>
+              <SecretPrototypeNote />
               <label><AdminText en="Mailbox / Folder" ar="الصندوق / المجلد" /><input defaultValue="INBOX" /></label>
               <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
                 <button type="button" className="sp-btn" onClick={() => setSaved(true)}><AdminText en="Test Incoming Mail" ar="اختبار البريد الوارد" /></button>

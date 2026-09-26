@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent,
 import {
   ArrowRight, Bell, CalendarDays, Check, CheckCircle2, ChevronDown, ChevronRight,
   CircleDollarSign, Clock3, CreditCard, ExternalLink, Globe2, Heart, HelpCircle,
-  CheckCheck, Download, Eye, EyeOff, FileText, ImagePlus, KeyRound, Laptop, LayoutDashboard, LockKeyhole, LogOut, Mail, Menu,
+  CheckCheck, Download, Eye, EyeOff, FileText, FlaskConical, ImagePlus, KeyRound, Laptop, LayoutDashboard, LockKeyhole, LogOut, Mail, Menu,
   MessageCircle, PackageCheck, Paperclip, Plus, Printer, ReceiptText, Search, Send,
   Settings2, ShieldCheck, ShoppingBag, ShoppingCart, Star, Trash2, UserRound,
   Users, WalletCards, X,
@@ -148,7 +148,7 @@ export function AccountShell({ section, children }: { section: AccountSection; c
       </Link>
         <div className="customer-profile-mini">
           <CustomerAvatar avatar={profile.avatar} initials={initials} className="customer-avatar" name={profile.fullName} />
-          <div><strong>{profile.fullName}</strong><small>{profile.email}</small></div>
+          <div><strong>{profile.fullName}<em className="customer-demo-chip">{ar ? 'تجريبي' : 'Demo'}</em></strong><small>{profile.email}</small></div>
         </div>
         <nav aria-label={ar ? 'قائمة الحساب' : 'Account navigation'}>
           {sectionLinks.map(({ id, href, Icon, en, ar: arLabel }) => {
@@ -199,6 +199,7 @@ export function AccountShell({ section, children }: { section: AccountSection; c
           <button type="button" onClick={() => stopImpersonation()}><LogOut size={15} />{ar ? 'إنهاء المعاينة' : 'Exit preview'}</button>
         </div>}
         <section className="customer-account-main">
+        <p className="customer-demo-notice" role="note"><FlaskConical size={16} /><span><strong>{ar ? 'حساب تجريبي' : 'Demo account'}</strong>{ar ? 'بوابة العملاء تعمل حاليًا في وضع المعاينة. البيانات والحجوزات والرسائل المعروضة هنا بيانات توضيحية وليست مرتبطة بحساب عميل حقيقي.' : 'This customer portal is currently running in preview mode. Account data, bookings and messages shown here are demonstration data and are not connected to a live customer account.'}</span></p>
         <header className="customer-account-head">
           <div><span>{ar ? 'حساب STAR PYRAMIDS' : 'STAR PYRAMIDS account'}</span><h1>{ar ? heading.ar : heading.en}</h1><p>{ar ? heading.subAr : heading.subEn}</p></div>
           <div className="customer-account-head-actions"><Link href="/trips" className="account-icon-action"><Search size={17} />{ar ? 'استكشف الرحلات' : 'Explore trips'}</Link><Link href="/contact" className="account-icon-action primary"><HelpCircle size={17} />{ar ? 'اطلب مساعدة' : 'Get help'}</Link></div>
