@@ -919,11 +919,17 @@ export const catalogTours: readonly Tour[] = (
   Object.keys(tourCategories) as TourCategory[]
 ).flatMap(getToursByCategory)
 
-export const getToursBySlugs = (slugs: readonly string[]) => slugs.map((slug) => {
-  const tour = findTour(slug)
-  if (!tour) throw new Error(`Unknown tour slug in catalog: ${slug}`)
-  return tour
-})
+export const getToursBySlugs = (slugs: readonly string[]) => {
+  const seen = new Set<string>()
+  const resolved: Tour[] = []
+  for (const slug of slugs) {
+    const tour = findTour(slug)
+    if (!tour || seen.has(tour.slug)) continue
+    seen.add(tour.slug)
+    resolved.push(tour)
+  }
+  return resolved
+}
 
 export const seasonalOfferDeadline = '2026-12-31T23:59:59'
 

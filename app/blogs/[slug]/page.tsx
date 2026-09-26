@@ -1,8 +1,15 @@
+import { notFound } from 'next/navigation'
 import { BlogDetailPage } from '@/components/extended-pages'
-import { blogs } from '@/data/content'
+import { blogs, findBlog } from '@/data/content'
 
 export function generateStaticParams() {
   return blogs.map((item) => ({ slug: item.slug }))
 }
 
-export default async function Page({ params }: { params: Promise<{ slug: string }> }) { return <BlogDetailPage slug={(await params).slug} /> }
+export default async function Page({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params
+  // Admin-prototype items use the shared `custom-` prefix (see CUSTOM_PREFIX in lib/admin-store)
+  // and resolve client-side via live overrides; only canonical misses are real 404s.
+  if (!findBlog(slug) && !slug.startsWith('custom-')) notFound()
+  return <BlogDetailPage slug={slug} />
+}
