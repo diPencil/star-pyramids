@@ -24,7 +24,7 @@ import {
   type OpsActivity,
 } from '@/lib/car-request-ops'
 
-function ActivityLabels({ activity, ar }: { activity: OpsActivity; ar: boolean }) {
+function ActivityLabels({ activity }: { activity: OpsActivity }) {
   switch (activity.kind) {
     case 'fixture-loaded':
       return <AdminText en="Demo fixture loaded — not a customer submission" ar="تم تحميل بيانات تجريبية — ليست طلب عميل" />
@@ -286,7 +286,7 @@ export function CarRequestDetailContent({ requestId }: { requestId: string }) {
           <li key={entry.id} className={entry.fixture ? 'is-fixture' : entry.kind === 'confirmed' || entry.kind === 'cancelled' ? 'is-key' : ''}>
             <span className="sp-timeline-dot" aria-hidden="true" />
             <div>
-              <strong><ActivityLabels activity={entry} ar={ar} /></strong>
+              <strong><ActivityLabels activity={entry} /></strong>
               {entry.note && entry.kind !== 'assigned-vehicle-changed' && entry.kind !== 'cancelled' && (
                 <small dir="auto">{entry.note}</small>
               )}

@@ -358,13 +358,26 @@ export function submitAmendment(amendmentRef: string): { amendment: CarRequestAm
 }
 
 /** Discards a DRAFT only. Pending/approved/rejected history is never deleted here. */
-export function discardAmendmentDraft(amendmentRef: string): { ok: true } | { error: AmendmentError } {
-  const store = readAmendmentsStore()
+export function discardAmendmentDraft(amendmentRef: string): { ok: true } | { error: AmendmentError } {  const store = readAmendmentsStore()
   const existing = store.amendments.find((entry) => entry.amendmentRef === amendmentRef)
   if (!existing) return { error: 'unknown-amendment' }
   if (existing.status !== 'draft') return { error: 'not-editable' }
   writeAmendmentsStore({ version: 1, amendments: store.amendments.filter((entry) => entry.amendmentRef !== amendmentRef) })
   return { ok: true }
+}
+
+/**
+ * Removes ALL amendments of one original request. Used ONLY together with an
+ * explicit, confirmed original-request discard (the dialog names the count),
+ * so history is never destroyed silently. Pending amendments block the
+ * original discard upstream instead of reaching this function.
+ */
+export function removeAmendmentsForRequest(requestRef: string): number {
+  const store = readAmendmentsStore()
+  const doomed = store.amendments.filter((entry) => entry.requestRef === requestRef)
+  if (!doomed.length) return 0
+  writeAmendmentsStore({ version: 1, amendments: store.amendments.filter((entry) => entry.requestRef !== requestRef) })
+  return doomed.length
 }
 
 export type StaffDecision = { action: 'approve' | 'reject'; reason?: string }

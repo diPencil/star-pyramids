@@ -19,7 +19,7 @@ import { useCart } from '@/lib/cart'
 import { useInquiries, useBrandSettings, useLiveCollection, useLiveTours, readImpersonation, stopImpersonation, type ImpersonatedCustomer } from '@/lib/admin-store'
 import { cars } from '@/data/content'
 import { clearCarPreview, useCarRequestPreview, type CarRequestPreview } from '@/lib/car-request'
-import { useCustomerEffectiveCarRequest } from '@/lib/car-request-amendments'
+import { useCustomerEffectiveCarRequest, removeAmendmentsForRequest, useAmendments } from '@/lib/car-request-amendments'
 import { RequestAmendmentBadge, RequestAmendmentsSection } from './account-car-change'
 import { usePagination } from '@/components/admin/admin-pagination'
 import { bookings as adminBookings, type BookingRow } from '@/components/admin/admin-data'
@@ -554,7 +554,8 @@ function CustomerConfirmDialog({ open, title, copy, confirmLabel, onConfirm, onC
   open: boolean
   title: string
   copy: string
-  confirmLabel: string
+  /** Omitted = blocking notice mode: no destructive confirm is offered. */
+  confirmLabel?: string
   onConfirm: () => void
   onClose: () => void
 }) {
@@ -566,7 +567,8 @@ function CustomerConfirmDialog({ open, title, copy, confirmLabel, onConfirm, onC
   useEffect(() => {
     if (!open) return
     restoreRef.current = document.activeElement
-    confirmRef.current?.focus()
+    if (confirmRef.current) confirmRef.current.focus()
+    else panelRef.current?.focus()
     const onKey = (event: globalThis.KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault()
@@ -601,7 +603,7 @@ function CustomerConfirmDialog({ open, title, copy, confirmLabel, onConfirm, onC
   if (!open) return null
   return (
     <div className="language-backdrop" role="presentation" onMouseDown={onClose}>
-      <div ref={panelRef} className="language-modal" role="dialog" aria-modal="true" aria-label={title} onMouseDown={(event) => event.stopPropagation()}>
+      <div ref={panelRef} tabIndex={-1} className="language-modal" role="dialog" aria-modal="true" aria-label={title} onMouseDown={(event) => event.stopPropagation()}>
         <div className="language-modal-head">
           <h2>{title}</h2>
           <button type="button" className="language-close" onClick={onClose} aria-label={ar ? 'إغلاق الحوار' : 'Close dialog'}><X size={18} /></button>
@@ -609,20 +611,35 @@ function CustomerConfirmDialog({ open, title, copy, confirmLabel, onConfirm, onC
         <p style={{ margin: '12px 0 0', color: '#667085', fontSize: 13, lineHeight: 1.7 }}>{copy}</p>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap', marginTop: 18 }}>
           <button type="button" className="account-icon-action" onClick={onClose}>{ar ? 'تراجع' : 'Keep it'}</button>
-          <button ref={confirmRef} type="button" className="account-icon-action danger" onClick={onConfirm}>{confirmLabel}</button>
+          {confirmLabel && <button ref={confirmRef} type="button" className="account-icon-action danger" onClick={onConfirm}>{confirmLabel}</button>}
         </div>
       </div>
     </div>
   )
 }
 
-function useDiscardCarPreview() {
+/**
+ * Original-request discard with amendment-history protection.
+ * - A pending amendment BLOCKS the discard (explained, no confirm offered).
+ * - Draft/decided history is removed together with the request, but only
+ *   after an explicit confirmation that names the amendment count.
+ * Documented rule: history is never destroyed silently.
+ */
+function useDiscardCarPreview(requestRef: string) {
   const [open, setOpen] = useState(false)
+  const amendments = useAmendments()
+  const related = amendments.filter((entry) => entry.requestRef === requestRef)
+  const pending = related.find((entry) => entry.status === 'pending') ?? null
   const discard = () => {
+    if (pending) {
+      setOpen(false)
+      return
+    }
+    if (requestRef) removeAmendmentsForRequest(requestRef)
     clearCarPreview()
     setOpen(false)
   }
-  return { open, setOpen, discard }
+  return { open, setOpen, discard, pending, relatedCount: related.length }
 }
 
 function CarRequestsSection() {
@@ -631,7 +648,7 @@ function CarRequestsSection() {
   // Effective view: original preview plus any demo-approved amendment override.
   const effective = useCustomerEffectiveCarRequest()
   const liveCars = useLiveCollection('cars', cars)
-  const { open, setOpen, discard } = useDiscardCarPreview()
+  const { open, setOpen, discard, pending: pendingDiscard, relatedCount: discardRelated } = useDiscardCarPreview(effective?.preview.localRef ?? '')
 
   if (!effective) {
     return <section className="customer-account-block customer-full-block"><EmptyState Icon={CarFront} title={ar ? 'لا توجد طلبات سيارات بعد' : 'No car requests yet'} copy={ar ? 'ابدأ طلب سيارة أو وسيلة انتقال وسيظهر هنا.' : 'Plan your transfer or vehicle request and it will appear here.'} href="/rent-car" action={ar ? 'استكشف السيارات' : 'Browse rental cars'} /></section>
@@ -668,7 +685,18 @@ function CarRequestsSection() {
         <p className="car-request-notice" role="note"><FlaskConical size={15} /><span>{ar ? 'محفوظ في هذا المتصفح فقط. لم يتم إرسال هذا الطلب إلى STAR PYRAMIDS.' : 'Saved in this browser only. This request has not been submitted to STAR PYRAMIDS.'}</span></p>
       </div>
     </section>
-    <CustomerConfirmDialog open={open} onClose={() => setOpen(false)} onConfirm={discard} title={ar ? 'تجاهل المعاينة المحلية؟' : 'Discard local preview?'} copy={ar ? 'سيؤدي هذا إلى إزالة معاينة الطلب المحفوظة في هذا المتصفح فقط. لن يتأثر أي شيء آخر.' : 'This removes only the browser-local request preview. Nothing else is affected.'} confirmLabel={ar ? 'تجاهل المعاينة' : 'Discard preview'} />
+    <CustomerConfirmDialog
+      open={open}
+      onClose={() => setOpen(false)}
+      onConfirm={discard}
+      title={ar ? 'تجاهل المعاينة المحلية؟' : 'Discard local preview?'}
+      copy={pendingDiscard
+        ? (ar ? `لا يمكن التجاهل الآن: التعديل ${pendingDiscard.amendmentRef} قيد المراجعة. بتّ فيه أولًا من صفحة التعديل.` : `Cannot discard now: change ${pendingDiscard.amendmentRef} is under review. Decide it from the change page first.`)
+        : discardRelated > 0
+          ? (ar ? `سيؤدي هذا إلى إزالة المعاينة المحلية ومعها ${discardRelated} من سجلات التعديل المرتبطة. لن يتأثر أي شيء آخر.` : `This removes the local preview plus its ${discardRelated} linked change record(s). Nothing else is affected.`)
+          : (ar ? 'سيؤدي هذا إلى إزالة معاينة الطلب المحفوظة في هذا المتصفح فقط. لن يتأثر أي شيء آخر.' : 'This removes only the browser-local request preview. Nothing else is affected.')}
+      confirmLabel={pendingDiscard ? undefined : (ar ? 'تجاهل المعاينة' : 'Discard preview')}
+    />
   </>
 }
 
@@ -677,9 +705,9 @@ function CarRequestDetailSection({ reference }: { reference: string }) {
   const ar = locale === 'ar'
   const effective = useCustomerEffectiveCarRequest()
   const liveCars = useLiveCollection('cars', cars)
-  const { open, setOpen, discard } = useDiscardCarPreview()
-
   const matched = effective && effective.preview.localRef === reference ? effective : null
+  const { open, setOpen, discard, pending: pendingDiscard, relatedCount: discardRelated } = useDiscardCarPreview(reference)
+
   if (!matched) {
     return <EmptyState Icon={CarFront} title={ar ? 'طلب السيارة غير موجود' : 'Car request not found'} copy={ar ? 'ربما تم تجاهله أو أنه محفوظ في متصفح مختلف.' : 'It may have been discarded or saved in a different browser.'} href="/account/car-requests" action={ar ? 'عودة لطلبات السيارات' : 'Back to car requests'} />
   }
@@ -733,7 +761,18 @@ function CarRequestDetailSection({ reference }: { reference: string }) {
         <button type="button" className="account-icon-action danger" onClick={() => setOpen(true)}><Ban size={16} />{ar ? 'تجاهل المعاينة' : 'Discard preview'}</button>
       </div>
     </section>
-    <CustomerConfirmDialog open={open} onClose={() => setOpen(false)} onConfirm={discard} title={ar ? 'تجاهل المعاينة المحلية؟' : 'Discard local preview?'} copy={ar ? 'سيؤدي هذا إلى إزالة معاينة الطلب المحفوظة في هذا المتصفح فقط. لن يتأثر أي شيء آخر.' : 'This removes only the browser-local request preview. Nothing else is affected.'} confirmLabel={ar ? 'تجاهل المعاينة' : 'Discard preview'} />
+    <CustomerConfirmDialog
+      open={open}
+      onClose={() => setOpen(false)}
+      onConfirm={discard}
+      title={ar ? 'تجاهل المعاينة المحلية؟' : 'Discard local preview?'}
+      copy={pendingDiscard
+        ? (ar ? `لا يمكن التجاهل الآن: التعديل ${pendingDiscard.amendmentRef} قيد المراجعة. بتّ فيه أولًا من صفحة التعديل.` : `Cannot discard now: change ${pendingDiscard.amendmentRef} is under review. Decide it from the change page first.`)
+        : discardRelated > 0
+          ? (ar ? `سيؤدي هذا إلى إزالة المعاينة المحلية ومعها ${discardRelated} من سجلات التعديل المرتبطة. لن يتأثر أي شيء آخر.` : `This removes the local preview plus its ${discardRelated} linked change record(s). Nothing else is affected.`)
+          : (ar ? 'سيؤدي هذا إلى إزالة معاينة الطلب المحفوظة في هذا المتصفح فقط. لن يتأثر أي شيء آخر.' : 'This removes only the browser-local request preview. Nothing else is affected.')}
+      confirmLabel={pendingDiscard ? undefined : (ar ? 'تجاهل المعاينة' : 'Discard preview')}
+    />
   </>
 }
 

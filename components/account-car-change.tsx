@@ -168,7 +168,7 @@ function DiffRows({ original, proposed, ar, vehicleTitle }: {
           <small>{ar ? AMENDABLE_FIELD_COPY[field].ar : AMENDABLE_FIELD_COPY[field].en}</small>
           <strong>
             <span style={{ color: '#667085', textDecoration: 'line-through' }} dir="auto">{diffDisplayValue(field, original, vehicleTitle, ar)}</span>
-            {' → '}
+            {ar ? ' ← ' : ' → '}
             <span dir="auto">{diffDisplayValue(field, proposed, vehicleTitle, ar)}</span>
           </strong>
         </div>
