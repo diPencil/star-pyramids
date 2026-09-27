@@ -1,5 +1,5 @@
-import { findDestination, siteImages } from './content'
-import type { DealFeedItem, Tour, TourCategory, TourOfferView, TourPriceRow, TourVariant } from './types'
+import { destinations, findDestination, siteImages } from './content'
+import type { DealFeedItem, Destination, MultiDayCategory, Tour, TourCategory, TourOfferView, TourPriceRow, TourVariant } from './types'
 
 export const tourImages = [
   '/egypt-hero.png',
@@ -132,7 +132,7 @@ const portSaidDayTours: Tour[] = [
 
 const multiDayTours: Tour[] = [
   {
-    ...multiDay, slug: '4-days-cairo-experience', title: '4 Days Cairo Experience', location: 'Cairo, Giza', price: 125.4, duration: '4 Days', image: cairoPackageImage,
+    ...multiDay, slug: '4-days-cairo-experience', categorySlugs: ['cairo-city-breaks', 'pyramids-tours', 'culture-tours'], title: '4 Days Cairo Experience', location: 'Cairo, Giza', price: 125.4, duration: '4 Days', image: cairoPackageImage,
     gallery: [cairoPackageImage, cairoStreetsImage],
     summary: 'Four days to discover Giza and the many layers of Cairo at a comfortable private pace.',
     detail: { ...proposedPackage,
@@ -155,7 +155,7 @@ const multiDayTours: Tour[] = [
     },
   },
   {
-    ...multiDay, slug: '5-days-cairo-luxor', title: '5 Days Cairo & Luxor', location: 'Cairo, Giza, Luxor', price: 189, duration: '5 Days', image: cairoPackageImage,
+    ...multiDay, slug: '5-days-cairo-luxor', categorySlugs: ['pyramids-tours', 'egypt-classic-tours', 'culture-tours'], title: '5 Days Cairo & Luxor', location: 'Cairo, Giza, Luxor', price: 189, duration: '5 Days', image: cairoPackageImage,
     gallery: [cairoPackageImage, luxorPackageImage, siteImages.nile],
     summary: 'Connect the pyramids and the capital with the great temples and tombs of Luxor.',
     detail: { ...proposedPackage,
@@ -176,7 +176,7 @@ const multiDayTours: Tour[] = [
     },
   },
   {
-    ...multiDay, slug: '7-days-egypt-discovery', title: '7 Days Egypt Discovery', location: 'Cairo, Luxor, Aswan', price: 245, duration: '7 Days', image: luxorPackageImage,
+    ...multiDay, slug: '7-days-egypt-discovery', categorySlugs: ['egypt-classic-tours', 'culture-tours'], title: '7 Days Egypt Discovery', location: 'Cairo, Luxor, Aswan', price: 245, duration: '7 Days', image: luxorPackageImage,
     gallery: [luxorPackageImage, cairoPackageImage, aswanPackageImage, siteImages.nile],
     summary: 'A week-long introduction to Egypt, from the capital to Upper Egypt.',
     detail: { ...proposedPackage,
@@ -199,7 +199,7 @@ const multiDayTours: Tour[] = [
     },
   },
   {
-    ...multiDay, slug: '8-days-cairo-nile-red-sea', title: '8 Days Cairo, Nile & Red Sea', location: 'Cairo, Nile Valley, Red Sea', price: 380, duration: '8 Days', image: redSeaPackageImage,
+    ...multiDay, slug: '8-days-cairo-nile-red-sea', categorySlugs: ['egypt-classic-tours', 'culture-tours'], title: '8 Days Cairo, Nile & Red Sea', location: 'Cairo, Nile Valley, Red Sea', price: 380, duration: '8 Days', image: redSeaPackageImage,
     gallery: [redSeaPackageImage, cairoPackageImage, luxorPackageImage, siteImages.nile],
     summary: 'Combine the pyramids, Nile heritage, and time to unwind beside the Red Sea.',
     detail: { ...proposedPackage,
@@ -223,7 +223,7 @@ const multiDayTours: Tour[] = [
     },
   },
   {
-    ...multiDay, slug: '10-days-classic-egypt-journey', title: '10 Days Classic Egypt Journey', location: 'Cairo, Luxor, Aswan', price: 125.4, duration: '10 Days', image: cairoPackageImage,
+    ...multiDay, slug: '10-days-classic-egypt-journey', categorySlugs: ['egypt-classic-tours', 'culture-tours'], title: '10 Days Classic Egypt Journey', location: 'Cairo, Luxor, Aswan', price: 125.4, duration: '10 Days', image: cairoPackageImage,
     gallery: [cairoPackageImage, luxorPackageImage, aswanPackageImage, siteImages.nile],
     summary: 'A longer classic route through Cairo, the temples of Luxor, and the easy rhythm of Aswan.',
     detail: { ...proposedPackage,
@@ -249,7 +249,7 @@ const multiDayTours: Tour[] = [
     },
   },
   {
-    ...multiDay, slug: 'cairo-luxor-and-aswan-adventure', title: 'Cairo, Luxor and Aswan Adventure', location: 'Cairo, Luxor, Aswan', price: 189, duration: '10 Days', image: aswanPackageImage,
+    ...multiDay, slug: 'cairo-luxor-and-aswan-adventure', categorySlugs: ['egypt-classic-tours', 'culture-tours', 'adventure-tours'], title: 'Cairo, Luxor and Aswan Adventure', location: 'Cairo, Luxor, Aswan', price: 189, duration: '10 Days', image: aswanPackageImage,
     gallery: [aswanPackageImage, cairoPackageImage, luxorPackageImage, siteImages.nile],
     summary: 'An active, privately paced journey through three of Egypt\'s most compelling regions.',
     detail: { ...proposedPackage,
@@ -604,6 +604,7 @@ const featuredTours: Tour[] = [
   {
     ...multiDay,
     slug: 'explore-the-wonders-of-egypt-during-the-new-year',
+    categorySlugs: ['christmas-new-year-offers', 'egypt-classic-tours', 'culture-tours'],
     aliases: ['new-year-egypt-tour'],
     title: 'Explore the wonders of Egypt during the New Year',
     location: 'Cairo, Luxor',
@@ -655,7 +656,7 @@ const featuredTours: Tour[] = [
       ],
     },
   },
-  { ...multiDay, slug: 'riding-in-the-new-year-in-egypt-and-jordan', title: 'Riding in the New Year in Egypt and Jordan', location: 'Giza', price: 189, duration: '2 Days', image: tourImages[2],
+  { ...multiDay, slug: 'riding-in-the-new-year-in-egypt-and-jordan', categorySlugs: ['christmas-new-year-offers', 'pyramids-tours', 'cairo-city-breaks'], title: 'Riding in the New Year in Egypt and Jordan', location: 'Giza', price: 189, duration: '2 Days', image: tourImages[2],
     detail: { ...proposedPackage,
       overview: ['Ring in the New Year between the Pyramids of Giza and the Nile. This two-day private escape pairs Cairo\'s headline sights with a festive New Year\'s Eve dinner cruise.', 'The program below is especially suited to travelers spending the New Year holiday in Cairo and Giza; extensions to Jordan are planned separately with our team.'],
       highlights: [
@@ -672,7 +673,7 @@ const featuredTours: Tour[] = [
       locations: ['Cairo', 'Giza'],
     },
   },
-  { ...multiDay, slug: 'a-9-days-cairo-and-nile-cruise', title: 'A 9 Days Cairo and Nile Cruise', location: 'Luxor', price: 245, duration: '9 Days', image: tourImages[3],
+  { ...multiDay, slug: 'a-9-days-cairo-and-nile-cruise', categorySlugs: ['egypt-classic-tours', 'culture-tours'], title: 'A 9 Days Cairo and Nile Cruise', location: 'Luxor', price: 245, duration: '9 Days', image: tourImages[3],
     detail: { ...proposedPackage,
       overview: ['Nine days combining the icons of Cairo and Giza with a full-board Nile cruise between Luxor and Aswan.', 'Begin with the pyramids and the capital\'s cultural layers, then sail south through Edfu and Kom Ombo toward Aswan at an unhurried cruise pace.'],
       highlights: [
@@ -696,7 +697,7 @@ const featuredTours: Tour[] = [
       locations: ['Cairo', 'Giza', 'Luxor', 'Edfu', 'Kom Ombo', 'Aswan'],
     },
   },
-  { ...multiDay, slug: 'enjoy-your-8-days-new-year-trip', title: 'Enjoy your 8 Days New Year trip', location: 'Aswan', price: 380, duration: '8 Days', image: tourImages[0],
+  { ...multiDay, slug: 'enjoy-your-8-days-new-year-trip', categorySlugs: ['christmas-new-year-offers', 'egypt-classic-tours', 'culture-tours'], title: 'Enjoy your 8 Days New Year trip', location: 'Aswan', price: 380, duration: '8 Days', image: tourImages[0],
     detail: { ...proposedPackage,
       overview: ['Celebrate the New Year across Egypt: the pyramids and living neighborhoods of Cairo, the temple heartland of Luxor, and the slow Nile rhythm of Aswan.', 'The route balances guided sightseeing with free time, ending in Aswan for a relaxed start to the new year.'],
       highlights: [
@@ -719,8 +720,8 @@ const featuredTours: Tour[] = [
       locations: ['Cairo', 'Giza', 'Luxor', 'Aswan'],
     },
   },
-  { ...oneDay, slug: 'cairo-and-giza-pyramids', title: 'Cairo and Giza Pyramids', location: 'Cairo', price: 125.4, duration: 'About 4 Hours', image: tourImages[1] },
-  { ...multiDay, slug: 'white-desert-adventure', title: 'White Desert Adventure', location: 'White Desert', price: 189, duration: '2 Days', image: tourImages[2],
+  { ...oneDay, slug: 'cairo-and-giza-pyramids', destinationSlug: 'cairo', title: 'Cairo and Giza Pyramids', location: 'Cairo', price: 125.4, duration: 'About 4 Hours', image: tourImages[1] },
+  { ...multiDay, slug: 'white-desert-adventure', categorySlugs: ['desert-tours', 'adventure-tours'], title: 'White Desert Adventure', location: 'White Desert', price: 189, duration: '2 Days', image: tourImages[2],
     detail: { ...proposedPackage,
       overview: ['A two-day escape from Cairo to the surreal chalk landscapes of the White Desert, with a night camping under the desert sky.', 'Travel by private 4x4 with a desert driver, walk among wind-carved formations, and enjoy freshly cooked meals at camp.'],
       highlights: [
@@ -745,15 +746,26 @@ const preservedDetailRoutes: Tour[] = [
   { ...oneDay, slug: 'luxor-day-tour', title: 'Luxor temples and Valley of the Kings', location: 'Luxor', price: 220, duration: 'Full Day', image: siteImages.temple },
 ]
 
+/**
+ * Catalogue ownership: a one-day tour belongs to exactly one discovery
+ * destination via `Tour.destinationSlug` (assigned where the listing is
+ * composed, so new tours in a city array cannot forget it). Admin tour
+ * overrides carry the field; older stored overrides fall back to canonical
+ * through the resolvers below. `Destination.detail.tourSlugs` remains a
+ * hand-curated related-links list for editorial destination pages only.
+ */
+const withOneDayDestination = (destinationSlug: string, list: Tour[]): Tour[] =>
+  list.map((tour) => ({ ...tour, destinationSlug: tour.destinationSlug ?? destinationSlug }))
+
 const listingTours: readonly Tour[] = [
-  ...cairoDayTours,
-  ...gizaDayTours,
-  ...alexandriaDayTours,
-  ...luxorDayTours,
-  ...aswanDayTours,
-  ...hurghadaDayTours,
-  ...sharmDayTours,
-  ...portSaidDayTours,
+  ...withOneDayDestination('cairo', cairoDayTours),
+  ...withOneDayDestination('giza', gizaDayTours),
+  ...withOneDayDestination('alexandria', alexandriaDayTours),
+  ...withOneDayDestination('luxor', luxorDayTours),
+  ...withOneDayDestination('aswan', aswanDayTours),
+  ...withOneDayDestination('hurghada', hurghadaDayTours),
+  ...withOneDayDestination('sharm-el-sheikh', sharmDayTours),
+  ...withOneDayDestination('port-said', portSaidDayTours),
   ...multiDayTours,
   ...nileCruises,
   ...shoreExcursions,
@@ -772,16 +784,81 @@ export const tourCategories: Record<TourCategory, { title: string; intro: string
   'shore-excursions': { title: 'Shore Excursions', intro: 'Make the most of every port with expertly planned Egypt shore trips.', variant: 'shore' },
 }
 
-export const dayTourRegions = [
-  { name: 'Cairo', nameAr: 'القاهرة', slug: 'cairo', copy: 'Museums, mosques and markets in the buzzing heart of Egypt.', tourSlugs: cairoDayTours.map((tour) => tour.slug) },
-  { name: 'Giza', nameAr: 'الجيزة', slug: 'giza', copy: 'The Pyramids, the Sphinx and the secrets of the ancient necropolis.', tourSlugs: gizaDayTours.map((tour) => tour.slug) },
-  { name: 'Alexandria', nameAr: 'الإسكندرية', slug: 'alexandria', copy: 'Mediterranean breeze, Greco-Roman history and seaside charm.', tourSlugs: alexandriaDayTours.map((tour) => tour.slug) },
-  { name: 'Luxor', nameAr: 'الأقصر', slug: 'luxor', copy: 'Temples, tombs and the world\'s greatest open-air museum.', tourSlugs: luxorDayTours.map((tour) => tour.slug) },
-  { name: 'Aswan', nameAr: 'أسوان', slug: 'aswan', copy: 'Nubian culture, island temples and slow Nile days.', tourSlugs: aswanDayTours.map((tour) => tour.slug) },
-  { name: 'Hurghada', nameAr: 'الغردقة', slug: 'hurghada', copy: 'Reefs, islands and desert adventures on the Red Sea.', tourSlugs: hurghadaDayTours.map((tour) => tour.slug) },
-  { name: 'Sharm El Sheikh', nameAr: 'شرم الشيخ', slug: 'sharm-el-sheikh', copy: 'World-class diving and Sinai mountain escapes.', tourSlugs: sharmDayTours.map((tour) => tour.slug) },
-  { name: 'Port Said', nameAr: 'بورسعيد', slug: 'port-said', copy: 'The Suez Canal, colonial streets and Mediterranean ports.', tourSlugs: portSaidDayTours.map((tour) => tour.slug) },
-] as const
+/** Resolved one-day destination slug. Explicit `null` clears a canonical assignment; missing fields backfill canonical (legacy overrides). Malformed values resolve to undefined. */
+export const getTourDestinationSlug = (tour: Tour, canonical: Tour | undefined = findTour(tour.slug)): string | undefined => {
+  const raw: unknown = tour.destinationSlug
+  if (raw === null) return undefined
+  if (typeof raw === 'string') return raw
+  const fallback: unknown = canonical?.destinationSlug
+  return typeof fallback === 'string' ? fallback : undefined
+}
+
+/** Resolved multi-day category slugs. Explicit arrays (even empty) win; missing fields backfill canonical. Malformed entries are dropped. */
+export const getTourCategorySlugs = (tour: Tour, canonical: Tour | undefined = findTour(tour.slug)): readonly string[] => {
+  const clean = (value: unknown): readonly string[] =>
+    Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : []
+  const raw = clean(tour.categorySlugs)
+  if (tour.categorySlugs !== undefined) return raw
+  return clean(canonical?.categorySlugs)
+}
+
+/** ONE authoritative one-day selector: destination → one-day tours. Pass live tours for admin-synced views. */
+export const getOneDayToursForDestination = (list: readonly Tour[], destinationSlug: string): Tour[] =>
+  list.filter((tour) => tour.category === 'one-day-tours' && getTourDestinationSlug(tour) === destinationSlug)
+
+/** ONE authoritative multi-day selector: category → multi-day tours. Pass live tours for admin-synced views. */
+export const getMultiDayToursForCategory = (list: readonly Tour[], categorySlug: string): Tour[] =>
+  list.filter((tour) => tour.category === 'multi-days-tours' && getTourCategorySlugs(tour).includes(categorySlug))
+
+const byDisplayOrder = (aOrder: number | undefined, bOrder: number | undefined, aTitle: string, bTitle: string) =>
+  (aOrder ?? 999) - (bOrder ?? 999) || (aTitle < bTitle ? -1 : aTitle > bTitle ? 1 : 0)
+
+/** Published one-day discovery destinations in admin-controlled order. Callers drop empty ones for landing sections. */
+export const getPublishedOneDayDestinations = (list: readonly Destination[]): Destination[] =>
+  list
+    .filter((item) => item.showInOneDayTours === true && item.isPublished !== false)
+    .sort((a, b) => byDisplayOrder(a.displayOrder, b.displayOrder, a.title, b.title))
+
+/** Published (active) multi-day categories in admin-controlled order. Callers drop empty ones for landing sections. */
+export const getPublishedMultiDayCategories = (list: readonly MultiDayCategory[]): MultiDayCategory[] =>
+  [...list]
+    .filter((category) => category.active)
+    .sort((a, b) => byDisplayOrder(a.order, b.order, a.name, b.name))
+
+// Backend integration point: these categories map 1:1 to a future
+// `multi_day_categories` table (slug PK, EN/AR names, EN/AR copy, image, display
+// order, active flag) with a `tour_multi_day_category` join table backing
+// Tour.categorySlugs (many-to-many). No API calls yet; the selectors below keep
+// category lookup and category → tours resolution centralized.
+export const multiDayCategories: readonly MultiDayCategory[] = [
+  { slug: 'desert-tours', name: 'Desert Tours', nameAr: 'رحلات الصحراء', copy: 'White Desert camps, oasis routes, and nights under desert skies.', copyAr: 'مخيمات الصحراء البيضاء وطرق الواحات وليالٍ تحت سماء الصحراء.', image: siteImages.desert, order: 1, active: true },
+  { slug: 'pyramids-tours', name: 'Pyramids Tours', nameAr: 'رحلات الأهرامات', copy: 'Multi-day journeys built around Giza, Saqqara, and ancient Memphis.', copyAr: 'رحلات لعدة أيام تدور حول الجيزة وسقارة وممفيس القديمة.', image: siteImages.pyramids, order: 2, active: true },
+  { slug: 'easter-tours', name: 'Easter Tours', nameAr: 'رحلات عيد القيامة', copy: 'Spring-time journeys through Egypt timed for the Easter holiday.', copyAr: 'رحلات ربيعية في مصر مصممة لعطلة عيد القيامة.', image: siteImages.temple, order: 3, active: true },
+  { slug: 'luxor-city-breaks', name: 'Luxor City Breaks', nameAr: 'عطلات الأقصر القصيرة', copy: 'Short Luxor escapes: temples, tombs, and the Nile in a few days.', copyAr: 'عطلات قصيرة في الأقصر: معابد ومقابر والنيل في أيام قليلة.', image: luxorPackageImage, order: 4, active: true },
+  { slug: 'luxury-packages', name: 'Luxury Packages', nameAr: 'الباقات الفاخرة', copy: 'Premium stays, private guides, and Egypt at its most comfortable.', copyAr: 'إقامات راقية ومرشدون خصوصيون ومصر بأقصى درجات الراحة.', image: siteImages.nile, order: 5, active: true },
+  { slug: 'wheelchair-accessible', name: 'Wheelchair Accessible', nameAr: 'رحلات مناسبة لمستخدمي الكراسي المتحركة', copy: 'Step-free friendly routes with accessible transport and pacing.', copyAr: 'مسارات مناسبة للكراسي المتحركة مع نقل وإيقاع مريح.', image: siteImages.cairo, order: 6, active: true },
+  { slug: 'honeymoon', name: 'Honeymoon', nameAr: 'شهر العسل', copy: 'Romantic Egypt journeys for newlyweds: Nile sunsets and quiet seas.', copyAr: 'رحلات رومانسية في مصر للعرسان: غروب النيل وهدوء البحر.', image: siteImages.redSea, order: 7, active: true },
+  { slug: 'egypt-spiritual-tours', name: 'Egypt Spiritual Tours', nameAr: 'الرحلات الروحانية في مصر', copy: 'Temples, monasteries, and silent desert places for inner journeys.', copyAr: 'معابد وأديرة وأماكن صحراوية هادئة لرحلات داخلية.', image: siteImages.whiteDesert, order: 8, active: true },
+  { slug: 'egypt-small-group-tours', name: 'Egypt Small Group Tours', nameAr: 'رحلات المجموعات الصغيرة في مصر', copy: 'Share the journey with a few fellow travelers and a local guide.', copyAr: 'شارك الرحلة مع عدد قليل من المسافرين ومرشد محلي.', image: cairoStreetsImage, order: 9, active: true },
+  { slug: 'egypt-classic-tours', name: 'Egypt Classic Tours', nameAr: 'رحلات مصر الكلاسيكية', copy: 'The essential Egypt circuit: Cairo, Luxor, Aswan, and the Nile.', copyAr: 'مسار مصر الأساسي: القاهرة والأقصر وأسوان والنيل.', image: cairoPackageImage, order: 10, active: true },
+  { slug: 'christmas-new-year-offers', name: 'Christmas & New Year Offers', nameAr: 'عروض الكريسماس ورأس السنة', copy: 'Celebrate the festive season among pyramids, temples, and the Nile.', copyAr: 'احتفل بموسم الأعياد بين الأهرامات والمعابد والنيل.', image: siteImages.pyramids, order: 11, active: true },
+  { slug: 'cairo-city-breaks', name: 'Cairo City Breaks', nameAr: 'عطلات القاهرة القصيرة', copy: 'Short Cairo escapes: Giza, museums, old streets, and Nile evenings.', copyAr: 'عطلات قصيرة في القاهرة: الجيزة والمتاحف والشوارع القديمة وأمسيات النيل.', image: tourImages[3], order: 12, active: true },
+  { slug: 'culture-tours', name: 'Culture Tours', nameAr: 'الرحلات الثقافية', copy: 'Museums, temples, crafts, and living traditions across Egypt.', copyAr: 'متاحف ومعابد وحرف وتقاليد حية في جميع أنحاء مصر.', image: aswanPackageImage, order: 13, active: true },
+  { slug: 'adventure-tours', name: 'Adventure Tours', nameAr: 'رحلات المغامرات', copy: 'Active journeys: deserts, treks, sails, and off-track Egypt.', copyAr: 'رحلات نشطة: صحارى ودروب وإبحار ومصر خارج المسارات.', image: siteImages.whiteDesertMushroom, order: 14, active: true },
+]
+
+export const getMultiDayCategoryBySlug = (slug: string): MultiDayCategory | undefined =>
+  multiDayCategories.find((category) => category.slug === slug)
+
+export const getMultiDayToursByCategorySlug = (slug: string): Tour[] =>
+  getMultiDayToursForCategory(getToursByCategory('multi-days-tours'), slug)
+
+export const getPopulatedMultiDayCategories = (): { category: MultiDayCategory; tours: Tour[] }[] =>
+  getPublishedMultiDayCategories(multiDayCategories)
+    .map((category) => ({ category, tours: getMultiDayToursByCategorySlug(category.slug) }))
+    .filter((entry) => entry.tours.length > 0)
+
+export const multiDayCategoryRouteSlugs = multiDayCategories.map((category) => category.slug)
 
 const tourByRouteSlug = new Map<string, Tour>()
 for (const tour of tours) {
@@ -789,6 +866,15 @@ for (const tour of tours) {
     if (tourByRouteSlug.has(routeSlug)) throw new Error(`Duplicate tour route slug: ${routeSlug}`)
     tourByRouteSlug.set(routeSlug, tour)
   }
+}
+
+const multiDayCategorySlugSet = new Set(multiDayCategories.map((category) => category.slug))
+const destinationSlugSet = new Set(destinations.map((item) => item.slug))
+for (const tour of tours) {
+  for (const categorySlug of tour.categorySlugs ?? []) {
+    if (!multiDayCategorySlugSet.has(categorySlug)) throw new Error(`Unknown multi-day category slug "${categorySlug}" on tour "${tour.slug}"`)
+  }
+  if (tour.destinationSlug !== undefined && tour.destinationSlug !== null && !destinationSlugSet.has(tour.destinationSlug)) throw new Error(`Unknown destination slug "${tour.destinationSlug}" on tour "${tour.slug}"`)
 }
 
 export const findTour = (slug: string) => tourByRouteSlug.get(slug)
@@ -914,6 +1000,12 @@ export const getRelatedTours = (tour: Tour, limit = 4): Tour[] => {
     .slice(0, limit)
     .map(({ item }) => item)
 }
+
+/** Every assignable one-day tour: listed + featured (excludes legacy preserved detail-only routes). Single base for public discovery and admin assignment. */
+export const assignableOneDayTours: readonly Tour[] = [
+  ...getToursByCategory('one-day-tours'),
+  ...featuredTours.filter((tour) => tour.category === 'one-day-tours'),
+]
 
 export const catalogTours: readonly Tour[] = (
   Object.keys(tourCategories) as TourCategory[]

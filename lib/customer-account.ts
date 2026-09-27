@@ -8,7 +8,7 @@ import { catalogTours } from '@/data/tours'
 import { readInquiries, saveInquiry } from '@/lib/admin-store'
 
 export type CustomerBookingStatus = 'request_received' | 'confirmed' | 'completed' | 'cancelled'
-export type CustomerPaymentStatus = 'pending' | 'pay_on_arrival' | 'paid' | 'refunded'
+export type CustomerPaymentStatus = 'pending' | 'pay_on_arrival' | 'paid' | 'refunded' | 'rejected'
 /** Where a booking record came from. Local previews must never look like confirmed history. */
 export type CustomerBookingOrigin = 'local' | 'demo'
 
@@ -195,7 +195,7 @@ function subscribe(listener: () => void) {
 }
 
 const BOOKING_STATUSES: readonly CustomerBookingStatus[] = ['request_received', 'confirmed', 'completed', 'cancelled']
-const PAYMENT_STATUSES: readonly CustomerPaymentStatus[] = ['pending', 'pay_on_arrival', 'paid', 'refunded']
+const PAYMENT_STATUSES: readonly CustomerPaymentStatus[] = ['pending', 'pay_on_arrival', 'paid', 'refunded', 'rejected']
 
 function safeMoney(value: unknown): number {
   const n = typeof value === 'number' ? value : Number(value)

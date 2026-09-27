@@ -1,11 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { ArrowRight, CalendarCheck, CalendarDays, Camera, Check, CircleAlert, Clock3, Compass, CarFront, Gift, Headphones, Mail, MapPin, MessageCircle, Minus, Phone, Plus, Search, Send, ShieldCheck, Sparkles, Star, Sun, Ticket, Users, type LucideIcon } from 'lucide-react'
+import { ArrowRight, CalendarCheck, CalendarDays, Camera, Check, CircleAlert, Clock3, Compass, CarFront, Gift, Headphones, Mail, MapPin, MessageCircle, Minus, Phone, Plus, Search, Send, Share2, ShieldCheck, Sparkles, Star, Sun, Ticket, Users, type LucideIcon } from 'lucide-react'
 import { blogs, cars, destinations, events, faqs, offers, policies, siteImages, allSearchItems, findBlog, findCar, findDestination, findEvent, findOffer } from '@/data/content'
-import { isCustomSlug, useBrandSettings, useLiveCollection, useLiveFind, useLiveTours } from '@/lib/admin-store'
+import { isCustomSlug, useBrandSettings, useLiveCollection, useLiveDestinations, useLiveEvents, useLiveFind, useLiveTours } from '@/lib/admin-store'
+import { eventCity, eventMapQuery, eventPriceLabel, eventStatusLabel, getEventStatus, getPublishedEvents, getRelatedEvents, isEventPublished, parseLegacyEventRange, resolveEventRange } from '@/lib/events'
+import { EventRequestForm } from './event-request-form'
 import { phoneHref, whatsappHref } from '@/data/company'
 import { findTour, getTourOffer, seasonalOfferDeadline, seasonalTours } from '@/data/tours'
 import type { Blog, Car, Event, Offer, Tour } from '@/data/types'
@@ -424,14 +426,15 @@ function CarRequestContent() {
   </>
 }
 
-export function DestinationsPage() { const { locale } = useLocale(); const ar = locale === 'ar'; const liveDestinations = useLiveCollection('destinations', destinations); return <SiteShell><EditorialHero eyebrow={ar ? 'الصورة الكاملة' : 'See the full picture'} title={ar ? 'كل وجهة تحكي قصة مختلفة عن مصر' : 'Every destination tells a different Egypt story'} copy={ar ? 'ابنِ رحلتك حول الأماكن التي تثير فضولك، من العواصم القديمة للصحارى البيضاء والشواطئ المرجانية.' : 'Build a trip around the places that make you curious, from ancient capitals to salt-white deserts and coral-blue seas.'} image={siteImages.desert} href="/make-your-trip" action={ar ? 'ابنِ خط سيرك' : 'Build my route'}/><main className="section container"><div className="destination-large-grid">{liveDestinations.map(item=><article className="destination-large" key={item.slug}><img src={item.image} alt={item.title}/><div><span className="eyebrow">{ar ? 'اكتشف مصر' : 'Discover Egypt'}</span><h2>{item.title}</h2><p>{item.copy}</p><Link href={`/destinations/${item.slug}`} className="text-link">{ar ? 'استكشف الوجهة' : 'Explore destination'} <ArrowRight size={15}/></Link></div></article>)}</div></main></SiteShell> }
+export function DestinationsPage() { const { locale } = useLocale(); const ar = locale === 'ar'; const liveDestinations = useLiveDestinations(destinations).filter((d) => d.showInDestinations !== false && d.isPublished !== false); return <SiteShell><EditorialHero eyebrow={ar ? 'الصورة الكاملة' : 'See the full picture'} title={ar ? 'كل وجهة تحكي قصة مختلفة عن مصر' : 'Every destination tells a different Egypt story'} copy={ar ? 'ابنِ رحلتك حول الأماكن التي تثير فضولك، من العواصم القديمة للصحارى البيضاء والشواطئ المرجانية.' : 'Build a trip around the places that make you curious, from ancient capitals to salt-white deserts and coral-blue seas.'} image={siteImages.desert} href="/make-your-trip" action={ar ? 'ابنِ خط سيرك' : 'Build my route'}/><main className="section container"><div className="destination-large-grid">{liveDestinations.map(item=><article className="destination-large" key={item.slug}><img src={item.image} alt={item.title}/><div><span className="eyebrow">{ar ? 'اكتشف مصر' : 'Discover Egypt'}</span><h2>{item.title}</h2><p>{item.copy}</p><Link href={`/destinations/${item.slug}`} className="text-link">{ar ? 'استكشف الوجهة' : 'Explore destination'} <ArrowRight size={15}/></Link></div></article>)}</div></main></SiteShell> }
 
 const destinationFactIcons = [Clock3, Sun, Compass, MapPin]
 
 export function DestinationDetailPage({ slug }: { slug: string }) {
   const { locale } = useLocale()
   const ar = locale === 'ar'
-  const item = useLiveFind('destinations', destinations, slug)
+  const liveItem = useLiveFind('destinations', destinations, slug)
+  const item = liveItem && liveItem.isPublished !== false ? liveItem : undefined
   if (!item) return <DetailNotFound title={ar ? 'الوجهة غير موجودة' : 'Destination not found'} copy={ar ? 'الوجهة التي تبحث عنها سلكت طريقًا آخر.' : 'The destination you were looking for has taken a different route.'} backHref="/destinations" backLabel={ar ? 'استكشف الوجهات' : 'Explore destinations'}/>
   const detail = item.detail
   const relatedTours = detail.tourSlugs.map(findTour).filter((tour): tour is Tour => Boolean(tour))
@@ -737,20 +740,9 @@ export function BlogDetailPage({ slug }: { slug: string }) {
   return <SiteShell><Breadcrumb items={[ar ? 'المدونة' : 'Blogs',item.title]}/><main className="article-page container"><div className="article-header"><span className="eyebrow">{item.category}, {item.date}</span><h1>{item.title}</h1><p>{item.excerpt}</p></div><img className="article-cover" src={item.image} alt={item.title}/><div className="article-body"><p>Egypt rewards travelers who look a little closer. The great landmarks are only the beginning; the real rhythm of a journey appears in the streets, the meals, the conversations, and the quiet spaces between one stop and the next.</p><h2>Make room for the unexpected</h2><p>Leave space in your itinerary for a second cup of tea, a local market, and the kind of discovery that never appears in a checklist. Our team can help you find that balance.</p><blockquote>Travel slowly enough to notice what makes a place itself.</blockquote><Link href="/make-your-trip" className="primary-btn">{ar ? 'استلهم لرحلتك' : 'Use this inspiration'} <ArrowRight size={16}/></Link></div></main></SiteShell>
 }
 
-const EVENT_MONTHS: Record<string, number> = { january: 0, february: 1, march: 2, april: 3, may: 4, june: 5, july: 6, august: 7, september: 8, october: 9, november: 10, december: 11 }
-
+/** Legacy aliases now backed by the structured helpers in `@/lib/events`. */
 function parseEventRange(date: string): { start: Date | null; end: Date | null } {
-  const clean = date.replace(/(\d+)(st|nd|rd|th)/g, '$1')
-  const tailYear = (clean.match(/(\d{4})\s*$/) || [])[1]
-  const parts = [...clean.matchAll(/([A-Za-z]+)\s+(\d{1,2})(?:\s*,?\s*(\d{4}))?/g)]
-    .map((m) => ({ month: EVENT_MONTHS[m[1].toLowerCase()], day: Number(m[2]), year: m[3] ? Number(m[3]) : null }))
-    .filter((p) => p.month !== undefined)
-  if (!parts.length) return { start: null, end: null }
-  const fallbackYear = tailYear ? Number(tailYear) : new Date().getFullYear()
-  const start = new Date(parts[0].year ?? fallbackYear, parts[0].month, parts[0].day)
-  if (parts.length > 1) return { start, end: new Date(parts[1].year ?? fallbackYear, parts[1].month, parts[1].day) }
-  const secondDay = (clean.match(/[–—-]\s*(\d{1,2})/) || [])[1]
-  return { start, end: secondDay ? new Date(parts[0].year ?? fallbackYear, parts[0].month, Number(secondDay)) : start }
+  return parseLegacyEventRange(date)
 }
 
 function eventStatus(end: Date | null, ar: boolean, timestamp = Date.now()): string | null {
@@ -760,22 +752,42 @@ function eventStatus(end: Date | null, ar: boolean, timestamp = Date.now()): str
   return end >= today ? (ar ? 'قادم' : 'Upcoming') : (ar ? 'انتهى' : 'Past')
 }
 
+const EVENT_IMAGE_FALLBACK = '/placeholder.jpg'
+
+function eventImageSrc(image: string | undefined): string {
+  return image && image.trim() ? image : EVENT_IMAGE_FALLBACK
+}
+
+function onEventImageError(e: React.SyntheticEvent<HTMLImageElement>) {
+  const el = e.currentTarget
+  if (!el.src.endsWith('/placeholder.jpg')) el.src = '/placeholder.jpg'
+}
+
 export function EventCard({ item }: { item: Event }) {
   const { locale } = useLocale()
   const ar = locale === 'ar'
-  const range = parseEventRange(item.date)
+  const range = resolveEventRange(item)
   const badge = range.start ? { day: String(range.start.getDate()).padStart(2, '0'), mon: range.start.toLocaleString(ar ? 'ar-EG' : 'en-US', { month: 'short' }) } : null
+  const status = getEventStatus(item)
+  const statusLabel = eventStatusLabel(status, ar)
+  const title = ar && item.titleAr ? item.titleAr : item.title
+  const copy = ar && item.copyAr ? item.copyAr : item.copy
+  const venue = ar && item.locationAr ? item.locationAr : eventCity(item)
+  const category = ar && item.categoryAr ? item.categoryAr : item.category
   return <article className="event-card">
-    <Link href={`/events/${item.slug}`} className="event-card-img" aria-label={item.title}>
-      <img src={item.image} alt={item.title} loading="lazy" />
+    <Link href={`/events/${item.slug}`} className="event-card-img" aria-label={title}>
+      <img src={eventImageSrc(item.image)} alt={title} loading="lazy" onError={onEventImageError} />
       {badge && <span className="event-date-badge"><b>{badge.day}</b><small>{badge.mon}</small></span>}
+      {statusLabel && <span className={`event-card-status is-${status}`}>{statusLabel}</span>}
     </Link>
     <div className="event-card-body">
       <p className="event-card-date"><CalendarDays size={14} />{item.date}</p>
-      <h3><Link href={`/events/${item.slug}`}>{item.title}</Link></h3>
-      <p className="event-card-venue"><MapPin size={14} />{item.location}</p>
-      <p>{item.copy}</p>
-      <Link href={`/events/${item.slug}`} className="event-card-cta">{ar ? 'التفاصيل وحجز المقاعد' : 'Details & seats'} <ArrowRight size={15} /></Link>
+      {category && <p className="event-card-category">{category}</p>}
+      <h3><Link href={`/events/${item.slug}`}>{title}</Link></h3>
+      <p className="event-card-venue"><MapPin size={14} />{venue}</p>
+      <p>{copy}</p>
+      <p className="event-card-price">{eventPriceLabel(item, ar)}</p>
+      <Link href={`/events/${item.slug}`} className="event-card-cta">{ar ? 'التفاصيل وطلب الحضور' : 'Details & request'} <ArrowRight size={15} /></Link>
     </div>
   </article>
 }
@@ -784,19 +796,60 @@ export function EventsPage() {
   return <SiteShell><EventsPageContent /></SiteShell>
 }
 
+const EVENTS_PAGE_SIZE = 6
+
 function EventsPageContent() {
   const { locale } = useLocale()
   const ar = locale === 'ar'
-  const liveEvents = useLiveCollection('events', events)
-  const sorted = [...liveEvents].map((item) => ({ item, range: parseEventRange(item.date) })).sort((a, b) => (a.range.start?.getTime() ?? 0) - (b.range.start?.getTime() ?? 0))
-  const today = new Date(new Date().setHours(0, 0, 0, 0))
-  const upcoming = sorted.filter(({ range }) => !range.end || range.end >= today).length
-  const cities = new Set(liveEvents.flatMap((e) => e.location.split(/[,&]| to /).map((s) => s.trim()).filter(Boolean))).size
-  const featured = sorted.find(({ range }) => !range.end || range.end >= today)?.item ?? sorted[0]?.item ?? liveEvents[0]
-  if (!featured) return null
+  const liveEvents = useLiveEvents(events)
+  const published = useMemo(() => getPublishedEvents(liveEvents), [liveEvents])
+  const [query, setQuery] = useState('')
+  const [category, setCategory] = useState('all')
+  const [city, setCity] = useState('all')
+  const [state, setState] = useState<'all' | 'upcoming' | 'past'>('all')
+  const [sort, setSort] = useState<'soonest' | 'latest' | 'name'>('soonest')
+  const [page, setPage] = useState(1)
+
+  const categories = useMemo(() => [...new Set(published.map((e) => (ar && e.categoryAr ? e.categoryAr : e.category)).filter(Boolean))] as string[], [published, ar])
+  const cities = useMemo(() => [...new Set(published.map((e) => eventCity({ city: ar ? e.cityAr ?? e.city : e.city, location: ar ? e.locationAr ?? e.location : e.location })))].filter(Boolean), [published, ar])
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    const now = Date.now()
+    const rows = published.filter((item) => {
+      const title = ar && item.titleAr ? item.titleAr : item.title
+      const copy = ar && item.copyAr ? item.copyAr : item.copy
+      if (q && !`${title} ${copy} ${item.location} ${item.city ?? ''} ${item.category ?? ''}`.toLowerCase().includes(q)) return false
+      const itemCategory = ar && item.categoryAr ? item.categoryAr : item.category
+      if (category !== 'all' && itemCategory !== category) return false
+      const itemCity = eventCity({ city: ar ? item.cityAr ?? item.city : item.city, location: ar ? item.locationAr ?? item.location : item.location })
+      if (city !== 'all' && itemCity !== city) return false
+      const st = getEventStatus(item, now)
+      if (state === 'upcoming' && !(st === 'upcoming' || st === 'ongoing')) return false
+      if (state === 'past' && st !== 'past') return false
+      return true
+    })
+    const withTime = rows.map((item) => ({ item, t: resolveEventRange(item).start?.getTime() ?? Number.MAX_SAFE_INTEGER }))
+    if (sort === 'name') withTime.sort((a, b) => (ar && a.item.titleAr ? a.item.titleAr : a.item.title).localeCompare(ar && b.item.titleAr ? b.item.titleAr : b.item.title, ar ? 'ar' : 'en'))
+    else if (sort === 'latest') withTime.sort((a, b) => b.t - a.t)
+    else withTime.sort((a, b) => a.t - b.t)
+    return withTime.map((r) => r.item)
+  }, [published, query, category, city, state, sort, ar])
+
+  const now = Date.now()
+  const upcomingCount = published.filter((e) => { const s = getEventStatus(e, now); return s === 'upcoming' || s === 'ongoing' }).length
+  const cityCount = new Set(published.map((e) => eventCity(e))).size
+  const sortedAll = useMemo(() => [...published].map((item) => ({ item, t: resolveEventRange(item).start?.getTime() ?? Number.MAX_SAFE_INTEGER })).sort((a, b) => a.t - b.t), [published])
+  const featured = sortedAll.find(({ item }) => { const s = getEventStatus(item, now); return s === 'upcoming' || s === 'ongoing' })?.item ?? sortedAll[0]?.item
+
+  useEffect(() => { setPage(1) }, [query, category, city, state, sort])
+  const pageCount = Math.max(1, Math.ceil(filtered.length / EVENTS_PAGE_SIZE))
+  const safePage = Math.min(page, pageCount)
+  const pageRows = filtered.slice((safePage - 1) * EVENTS_PAGE_SIZE, safePage * EVENTS_PAGE_SIZE)
+
   return <main>
     <section className="events-page-hero">
-      <img src={featured.image} alt="" />
+      <img src={featured ? eventImageSrc(featured.image) : EVENT_IMAGE_FALLBACK} alt="" onError={onEventImageError} />
       <div className="events-page-hero-shade" />
       <div className="container events-page-hero-content">
         <div className="events-page-hero-copy">
@@ -805,71 +858,115 @@ function EventsPageContent() {
           <p>{ar ? 'احتفالات وعطلات ثقافية وتجارب محدودة التوقيت، مرتبة لتعيش مصر في أكثر لحظاتها حيوية.' : 'Celebrations, cultural escapes, and limited-time experiences shaped around Egypt at its most alive.'}</p>
           <div className="events-page-hero-actions">
             <a href="#events-list" className="primary-btn">{ar ? 'استكشف الفعاليات' : 'Explore upcoming events'} <ArrowRight size={17} /></a>
-            <Link href={`/events/${featured.slug}`} className="events-hero-link">{ar ? 'تفاصيل الفعالية القادمة' : 'View the next event'} <ArrowRight size={16} /></Link>
+            {featured && <Link href={`/events/${featured.slug}`} className="events-hero-link">{ar ? 'تفاصيل الفعالية القادمة' : 'View the next event'} <ArrowRight size={16} /></Link>}
           </div>
         </div>
         <div className="events-hero-rail">
-          <Link href={`/events/${featured.slug}`} className="events-next-event">
+          {featured ? <Link href={`/events/${featured.slug}`} className="events-next-event">
             <span>{ar ? 'الفعالية القادمة' : 'Next event'}</span>
-            <strong>{featured.title}</strong>
-            <small><CalendarDays size={14} />{featured.date}<i aria-hidden="true"/><MapPin size={14} />{featured.location}</small>
-          </Link>
+            <strong>{ar && featured.titleAr ? featured.titleAr : featured.title}</strong>
+            <small><CalendarDays size={14} />{featured.date}<i aria-hidden="true"/><MapPin size={14} />{ar && featured.locationAr ? featured.locationAr : featured.location}</small>
+          </Link> : <p className="events-next-empty">{ar ? 'لا توجد فعاليات منشورة حاليًا.' : 'No published events right now.'}</p>}
           <div className="events-hero-stats" aria-label={ar ? 'ملخص الفعاليات' : 'Events summary'}>
-            <span><b>{upcoming}</b>{ar ? 'فعاليات قادمة' : 'Upcoming events'}</span>
-            <span><b>{cities}</b>{ar ? 'مدن مصرية' : 'Egyptian cities'}</span>
+            <span><b>{upcomingCount}</b>{ar ? 'فعاليات قادمة' : 'Upcoming events'}</span>
+            <span><b>{cityCount}</b>{ar ? 'مدن مصرية' : 'Egyptian cities'}</span>
           </div>
         </div>
       </div>
     </section>
-    <div id="events-list" className="section container"><div className="event-grid">{sorted.map(({ item }) => <EventCard item={item} key={item.slug} />)}</div></div>
+    <div id="events-list" className="section container">
+      {published.length === 0 ? (
+        <div className="account-empty events-empty" role="status">
+          <h3>{ar ? 'لا توجد فعاليات منشورة حاليًا' : 'No published events right now'}</h3>
+          <p>{ar ? 'تابعنا قريبًا لاكتشاف أجندة الفعاليات القادمة في مصر.' : 'Check back soon for upcoming events across Egypt.'}</p>
+          <Link href="/make-your-trip" className="primary-btn">{ar ? 'خطط رحلتك' : 'Make your trip'} <ArrowRight size={17} /></Link>
+        </div>
+      ) : (
+        <>
+          <div className="events-discovery" role="search" aria-label={ar ? 'البحث في الفعاليات' : 'Search events'}>
+            <label className="events-discovery-search"><Search size={17} /><input value={query} onChange={(e) => setQuery(e.target.value.slice(0, 120))} placeholder={ar ? 'ابحث عن فعالية أو مدينة...' : 'Search events or cities...'} aria-label={ar ? 'بحث' : 'Search'} /></label>
+            <div className="events-discovery-filters">
+              <label>{ar ? 'التصنيف' : 'Category'}<select value={category} onChange={(e) => setCategory(e.target.value)}>{[<option key="all" value="all">{ar ? 'كل التصنيفات' : 'All categories'}</option>, ...categories.map((c) => <option key={c} value={c}>{c}</option>)]}</select></label>
+              <label>{ar ? 'المدينة' : 'City'}<select value={city} onChange={(e) => setCity(e.target.value)}>{[<option key="all" value="all">{ar ? 'كل المدن' : 'All cities'}</option>, ...cities.map((c) => <option key={c} value={c}>{c}</option>)]}</select></label>
+              <label>{ar ? 'الحالة' : 'Status'}<select value={state} onChange={(e) => setState(e.target.value as typeof state)}><option value="all">{ar ? 'الكل' : 'All'}</option><option value="upcoming">{ar ? 'القادمة' : 'Upcoming'}</option><option value="past">{ar ? 'السابقة' : 'Past'}</option></select></label>
+              <label>{ar ? 'الترتيب' : 'Sort'}<select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}><option value="soonest">{ar ? 'الأقرب' : 'Soonest'}</option><option value="latest">{ar ? 'الأبعد' : 'Latest'}</option><option value="name">{ar ? 'الاسم' : 'Name'}</option></select></label>
+            </div>
+          </div>
+          <p className="events-results-count" role="status">{ar ? `${filtered.length} فعالية` : `${filtered.length} event${filtered.length === 1 ? '' : 's'}`}</p>
+          {pageRows.length ? <div className="event-grid">{pageRows.map((item) => <EventCard item={item} key={item.slug} />)}</div> : (
+            <div className="account-empty events-empty" role="status">
+              <h3>{ar ? 'لا توجد نتائج مطابقة' : 'No matching events'}</h3>
+              <p>{ar ? 'جرب تغيير البحث أو الفلاتر.' : 'Try changing the search or filters.'}</p>
+              <button type="button" className="primary-btn" onClick={() => { setQuery(''); setCategory('all'); setCity('all'); setState('all') }}>{ar ? 'إعادة التعيين' : 'Reset filters'}</button>
+            </div>
+          )}
+          {pageCount > 1 && <nav className="pagination" aria-label={ar ? 'صفحات الفعاليات' : 'Events pages'}>{Array.from({ length: pageCount }, (_, i) => i + 1).map((n) => <button key={n} type="button" disabled={n === safePage} onClick={() => setPage(n)} aria-current={n === safePage ? 'page' : undefined}>{n}</button>)}</nav>}
+        </>
+      )}
+    </div>
   </main>
 }
 
 export function EventDetailPage({ slug }: { slug: string }) {
   const { locale } = useLocale()
   const ar = locale === 'ar'
-  const item = useLiveFind('events', events, slug)
-  const [name, setName] = useState('')
-  const [phone, setPhone] = useState('')
-  const [seats, setSeats] = useState(2)
-  const [sent, setSent] = useState(false)
-  const [reference, setReference] = useState('')
-  const [countryCode, setCountryCode] = useState(defaultCountry.code)
-  const [email, setEmail] = useState('')
+  const liveEvents = useLiveEvents(events, { includeHidden: true })
+  const item = liveEvents.find((e) => e.slug === slug)
   const [now, setNow] = useState<number | null>(null)
-  const selectedCountry = countries.find((c) => c.code === countryCode) ?? defaultCountry
-  const range = parseEventRange(item?.date ?? '')
+  const [shared, setShared] = useState(false)
+  const range = resolveEventRange({ startDate: item?.startDate, endDate: item?.endDate, date: item?.date ?? '' })
+  const rangeKey = range.start?.getTime() ?? 0
   useEffect(() => {
-    if (!range.start) return
+    if (!rangeKey) return
     setNow(Date.now())
     const id = window.setInterval(() => setNow(Date.now()), 1000)
     return () => window.clearInterval(id)
-  }, [range.start?.getTime()])
+  }, [rangeKey])
   if (!item) return <DetailNotFound title={ar ? 'الفعالية غير موجودة' : 'Event not found'} copy={ar ? 'الفعالية التي تبحث عنها سلكت طريقًا آخر.' : 'The event you were looking for has taken a different route.'} backHref="/events" backLabel={ar ? 'شاهد كل الفعاليات' : 'See all events'}/>
-  const status = now === null ? null : eventStatus(range.end, ar, now)
+  if (item.isPublished === false) return <SiteShell><main className="container section"><div className="account-empty" role="status"><h1>{ar ? 'هذه الفعالية مخفية حاليًا' : 'This event is currently hidden'}</h1><p>{ar ? 'تصفح الفعاليات المنشورة الأخرى.' : 'Browse the other published events.'}</p><Link href="/events" className="primary-btn">{ar ? 'شاهد كل الفعاليات' : 'See all events'}</Link></div></main></SiteShell>
+  const title = ar && item.titleAr ? item.titleAr : item.title
+  const copy = ar && item.copyAr ? item.copyAr : item.copy
+  const intro = ar && item.introAr ? item.introAr : item.intro ?? copy
+  const venue = ar && item.locationAr ? item.locationAr : item.location
+  const category = ar && item.categoryAr ? item.categoryAr : item.category
+  const included = ar && item.includedAr?.length ? item.includedAr : item.included
+  const excluded = ar && item.excludedAr?.length ? item.excludedAr : item.excluded
+  const status = getEventStatus(item, now ?? Date.now())
+  const statusLabel = now === null ? null : eventStatusLabel(status, ar)
   const msLeft = range.start && now !== null ? Math.max(0, range.start.getTime() - now) : 0
   const cd = [Math.floor(msLeft / 86400000), Math.floor(msLeft / 3600000) % 24, Math.floor(msLeft / 60000) % 60, Math.floor(msLeft / 1000) % 60]
   const cdLabels = ar ? ['أيام', 'ساعات', 'دقائق', 'ثوانٍ'] : ['Days', 'Hours', 'Mins', 'Secs']
-  const related = useLiveCollection('events', events).filter((e) => e.slug !== slug)
-  const reserve = (e: { preventDefault: () => void }) => { e.preventDefault(); setReference(`EV-${Date.now().toString(36).toUpperCase().slice(-6)}`); setSent(true) }
+  const related = getRelatedEvents(item, getPublishedEvents(liveEvents), 2)
+  const hasProgram = Boolean(item.program?.length)
+  const mapQ = eventMapQuery(item)
+  const timeLine = [item.startTime, item.endTime].filter(Boolean).join(' - ')
+  const share = async () => {
+    const url = typeof window !== 'undefined' ? window.location.href : `/events/${item.slug}`
+    try {
+      if (navigator.share) { await navigator.share({ title, url }) ; return }
+      await navigator.clipboard.writeText(url)
+    } catch { try { await navigator.clipboard.writeText(url) } catch { /* clipboard unavailable */ } }
+    setShared(true)
+    window.setTimeout(() => setShared(false), 2000)
+  }
   return <SiteShell><main className="event-detail-page">
-    <div className="container event-breadcrumb"><Link href="/">{ar ? 'الرئيسية' : 'Home'}</Link><span>›</span><Link href="/events">{ar ? 'الفعاليات' : 'Events'}</Link><span>›</span><span aria-current="page">{item.title}</span></div>
+    <Breadcrumb items={[ar ? 'الفعاليات' : 'Events', title]} />
     <section className="event-detail-hero container">
-      <img src={item.image} alt={item.title} />
+      <img src={eventImageSrc(item.image)} alt={title} onError={onEventImageError} />
       <div className="event-detail-shade" />
       <div className="event-detail-content">
         <div className="event-detail-main">
-          <span className="event-detail-kicker"><Ticket size={15}/>{item.category ?? (ar ? 'فعالية موسمية' : 'Seasonal event')}</span>
-          <h1>{item.title}</h1>
-          <p>{item.intro ?? item.copy}</p>
-          <div className="event-detail-pills"><span><CalendarDays size={15} />{item.date}</span><span><MapPin size={15} />{item.location}</span>{status && <span className="event-status">{status}</span>}</div>
-          <div className="event-detail-actions"><a href="#event-book" className="primary-btn">{ar ? 'اطلب حجزك' : 'Request your place'} <ArrowRight size={17} /></a><a href="#event-program" className="event-detail-text-link">{ar ? 'شاهد البرنامج' : 'Explore the program'} <ArrowRight size={16}/></a></div>
+          <span className="event-detail-kicker"><Ticket size={15}/>{category ?? (ar ? 'فعالية موسمية' : 'Seasonal event')}</span>
+          <h1>{title}</h1>
+          <p>{intro}</p>
+          <div className="event-detail-pills"><span><CalendarDays size={15} />{item.date}</span><span><MapPin size={15} />{venue}</span>{timeLine && <span><Clock3 size={15} />{timeLine}</span>}<span className="event-price-pill">{eventPriceLabel(item, ar)}</span>{statusLabel && <span className="event-status">{statusLabel}</span>}</div>
+          <div className="event-detail-actions"><a href="#event-book" className="primary-btn">{ar ? 'اطلب مكانك' : 'Request your place'} <ArrowRight size={17} /></a>{hasProgram && <a href="#event-program" className="event-detail-text-link">{ar ? 'شاهد البرنامج' : 'Explore the program'} <ArrowRight size={16}/></a>}<button type="button" className="event-detail-text-link event-share-btn" onClick={share} aria-live="polite"><Share2 size={16} />{shared ? (ar ? 'تم نسخ الرابط' : 'Link copied') : (ar ? 'مشاركة' : 'Share')}</button></div>
         </div>
         <aside className="event-hero-summary" aria-label={ar ? 'ملخص الفعالية' : 'Event at a glance'}>
           <span>{ar ? 'ملخص الفعالية' : 'Event at a glance'}</span>
           <dl>
-            <div><dt><CalendarDays size={17}/>{ar ? 'الموعد' : 'When'}</dt><dd>{item.date}</dd></div>
-            <div><dt><MapPin size={17}/>{ar ? 'الوجهة' : 'Where'}</dt><dd>{item.location}</dd></div>
+            <div><dt><CalendarDays size={17}/>{ar ? 'الموعد' : 'When'}</dt><dd>{item.date}{timeLine ? ` · ${timeLine}` : ''}</dd></div>
+            <div><dt><MapPin size={17}/>{ar ? 'الوجهة' : 'Where'}</dt><dd>{item.venueName ?? venue}{item.city ? ` · ${ar && item.cityAr ? item.cityAr : item.city}` : ''}</dd></div>
             <div><dt><Compass size={17}/>{ar ? 'شكل الرحلة' : 'Format'}</dt><dd>{item.program?.length ?? 0} {ar ? 'محطات في البرنامج' : 'program chapters'}</dd></div>
           </dl>
           <Link href="/events">{ar ? 'عرض كل الفعاليات' : 'View all events'} <ArrowRight size={15}/></Link>
@@ -880,63 +977,59 @@ export function EventDetailPage({ slug }: { slug: string }) {
       <div className="event-main">
         <section className="event-about">
           <span className="eyebrow">{ar ? 'عن الفعالية' : 'About this event'}</span>
-          <h2>{item.copy}</h2>
-          <p className="event-lede">{item.intro ?? item.copy}</p>
+          <h2>{copy}</h2>
+          {intro !== copy && <p className="event-lede">{intro}</p>}
+          {item.gallery && item.gallery.length > 0 && <div className="event-gallery" role="list" aria-label={ar ? 'صور الفعالية' : 'Event photos'}>{item.gallery.map((src) => <img key={src} role="listitem" src={eventImageSrc(src)} alt={title} loading="lazy" onError={onEventImageError} />)}</div>}
         </section>
         {item.highlights && item.highlights.length > 0 && <section className="event-experience">
           <span className="eyebrow">{ar ? 'ليه الرحلة دي مميزة' : 'Why this journey works'}</span>
-          <div className="event-experience-grid">{item.highlights.map((highlight, index) => <article key={highlight.title}><span>{String(index + 1).padStart(2, '0')}</span><Sparkles size={20}/><h3>{highlight.title}</h3><p>{highlight.description}</p></article>)}</div>
+          <div className="event-experience-grid">{item.highlights.map((highlight, index) => <article key={highlight.title}><span>{String(index + 1).padStart(2, '0')}</span><Sparkles size={20}/><h3>{ar && highlight.titleAr ? highlight.titleAr : highlight.title}</h3><p>{ar && highlight.descriptionAr ? highlight.descriptionAr : highlight.description}</p></article>)}</div>
         </section>}
-        {range.start && now !== null && msLeft > 0 && <section className="event-countdown-wrap">
+        {range.start && now !== null && msLeft > 0 && (status === 'upcoming') && <section className="event-countdown-wrap" aria-label={ar ? 'العد التنازلي' : 'Countdown'}>
           <span className="eyebrow">{ar ? 'العد التنازلي لبداية الفعالية' : 'Countdown to the event'}</span>
-          <div className="event-countdown">{cd.map((v, i) => <span key={cdLabels[i]}><b>{String(v).padStart(2, '0')}</b><small>{cdLabels[i]}</small></span>)}</div>
+          <div className="event-countdown" role="timer">{cd.map((v, i) => <span key={cdLabels[i]}><b>{String(v).padStart(2, '0')}</b><small>{cdLabels[i]}</small></span>)}</div>
         </section>}
-        {item.program && item.program.length > 0 && <section id="event-program" className="event-program">
+        {hasProgram && <section id="event-program" className="event-program">
           <span className="eyebrow">{ar ? 'برنامج الفعالية' : 'Event program'}</span>
           <h2>{ar ? 'يوم بيوم' : 'Day by day'}</h2>
-          <div className="event-program-list">{item.program.map((d) => <article key={d.day}><span className="event-program-day">{d.day}</span><div><h3>{d.title}</h3><p>{d.description}</p></div></article>)}</div>
+          <div className="event-program-list">{item.program!.map((d) => <article key={`${d.day}-${d.title}`}><span className="event-program-day">{d.day}</span><div><h3>{d.title}</h3><p>{d.description}</p></div></article>)}</div>
         </section>}
-        {(item.included?.length || item.excluded?.length) && <section className="event-inclusions">
+        {(included?.length || excluded?.length) && <section className="event-inclusions">
           <span className="eyebrow">{ar ? 'المشمول والمستبعد' : 'Included & excluded'}</span>
           <h2>{ar ? 'اعرف بالضبط إيه الموجود في الترتيب.' : 'Know exactly what the arrangement covers.'}</h2>
           <div className="event-inclusion-grid">
-            {item.included && item.included.length > 0 && <article><h3>{ar ? 'مشمول' : "What's included"}</h3><ul className="check-list">{item.included.map((x) => <li key={x}><Check size={16} />{x}</li>)}</ul></article>}
-            {item.excluded && item.excluded.length > 0 && <article><h3>{ar ? 'غير مشمول' : 'Not included'}</h3><ul className="excluded-list">{item.excluded.map((x) => <li key={x}><Minus size={16} />{x}</li>)}</ul></article>}
+            {included && included.length > 0 && <article><h3>{ar ? 'مشمول' : "What's included"}</h3><ul className="check-list">{included.map((x) => <li key={x}><Check size={16} />{x}</li>)}</ul></article>}
+            {excluded && excluded.length > 0 && <article><h3>{ar ? 'غير مشمول' : 'Not included'}</h3><ul className="excluded-list">{excluded.map((x) => <li key={x}><Minus size={16} />{x}</li>)}</ul></article>}
           </div>
         </section>}
         {item.addOns && item.addOns.length > 0 && <section className="event-addons-wrap">
           <span className="eyebrow">{ar ? 'إضافات اختيارية' : 'Optional add-ons'}</span>
           <h2>{ar ? 'زوّد تجربتك' : 'Enhance your experience'}</h2>
-          <ul className="event-addons">{item.addOns.map((a) => <li key={a.title}><Plus size={15} />{a.title}</li>)}</ul>
+          <ul className="event-addons">{item.addOns.map((a) => <li key={a.title}><Plus size={15} />{a.title}{typeof a.price === 'number' ? ` · ${a.price}` : ''}</li>)}</ul>
         </section>}
         <section className="event-venue">
           <span className="eyebrow">{ar ? 'مكان الانعقاد' : 'Venue & area'}</span>
-          <h2>{item.location}</h2>
-          <iframe title={ar ? `خريطة ${item.location}` : `${item.location} map`} src={`https://maps.google.com/maps?q=${encodeURIComponent(item.location)}%20Egypt&t=&z=6&ie=UTF8&iwloc=&output=embed`} loading="lazy" className="location-map" />
-          <p>{ar ? 'البرنامج التفصيلي والتذاكر يُؤكدان مع فريقنا قبل الحجز.' : 'The detailed program and tickets are confirmed with our team before booking.'}</p>
+          <h2>{item.venueName ?? venue}</h2>
+          {item.address && <p>{ar && item.addressAr ? item.addressAr : item.address}</p>}
+          <iframe title={ar ? `خريطة ${venue}` : `${venue} map`} src={`https://maps.google.com/maps?q=${encodeURIComponent(mapQ)}&t=&z=11&ie=UTF8&iwloc=&output=embed`} loading="lazy" className="location-map" />
+          <p>{ar ? 'طلب الحضور مبدئي وقيد المراجعة. لا يوجد دفع أو تذكرة مؤكدة هنا.' : 'Attendance requests are preliminary and pending review. No payment or confirmed ticket here.'}</p>
         </section>
+        {(item.organizerName || item.organizerPhone || item.organizerWhatsapp || item.organizerEmail) && <section className="event-organizer">
+          <span className="eyebrow">{ar ? 'المنظم والتواصل' : 'Organizer & contact'}</span>
+          <h2>{ar && item.organizerNameAr ? item.organizerNameAr : item.organizerName ?? (ar ? 'تواصل' : 'Contact')}</h2>
+          <ul className="event-organizer-list">
+            {item.organizerPhone && <li><Phone size={15} /><a href={`tel:${item.organizerPhone.replace(/\s/g, '')}`}>{item.organizerPhone}</a></li>}
+            {item.organizerWhatsapp && <li><MessageCircle size={15} /><a href={`https://wa.me/${item.organizerWhatsapp.replace(/\D/g, '')}`} target="_blank" rel="noreferrer">WhatsApp</a></li>}
+            {item.organizerEmail && <li><Mail size={15} /><a href={`mailto:${item.organizerEmail}`}>{item.organizerEmail}</a></li>}
+          </ul>
+        </section>}
         {related.length > 0 && <section className="event-related">
           <div className="section-title-row"><h2>{ar ? 'فعاليات أخرى' : 'More events'}</h2><Link href="/events" className="text-link">{ar ? 'شاهد الكل' : 'View all'} <ArrowRight size={15} /></Link></div>
           <div className="event-grid two">{related.map((e) => <EventCard item={e} key={e.slug} />)}</div>
         </section>}
       </div>
-      <aside id="event-book" className="event-book">
-        {sent ? <div className="form-success"><Check size={34} /><h2>{ar ? 'تم استلام طلبك' : 'Your request is received'}</h2><span className="req-ref">{ar ? 'رقم الطلب: ' : 'Request no. '}{reference}</span><p>{ar ? 'سيؤكد فريقنا مقاعدك قريبًا.' : 'Our team will confirm your seats shortly.'}</p></div> : <>
-          <span className="eyebrow">{ar ? 'حجز المقاعد' : 'Reserve seats'}</span>
-          <h2>{item.title}</h2>
-          <p className="event-book-meta"><CalendarDays size={14} />{item.date}</p>
-          <form className="contact-form" onSubmit={reserve}>
-            <div className="form-grid">
-              <label className="full">{ar ? 'الاسم الكامل' : 'Full name'}<input required value={name} onChange={(e) => setName(e.target.value)} placeholder={ar ? 'اكتب اسمك الكامل' : 'Your full name'} maxLength={80} /></label>
-              <label className="full">{ar ? 'الجنسية' : 'Nationality'}<select required value={countryCode} onChange={(e) => setCountryCode(e.target.value)}>{countries.map((c) => <option key={c.code} value={c.code}>{ar ? arabicCountryNames[c.code] ?? c.name : c.name}</option>)}</select></label>
-              <label className="full">{ar ? 'رقم الموبايل' : 'Mobile number'}<span className="req-phone"><span className="req-dial" aria-hidden="true">{selectedCountry.dialCode}</span><input required type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={ar ? 'رقم الموبايل' : 'Mobile number'} maxLength={18} /></span></label>
-              <label className="full">{ar ? 'البريد الإلكتروني' : 'Email'}<input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" maxLength={120} /></label>
-            </div>
-            <div className="guest-row"><span><Users size={15} /><b>{ar ? 'المقاعد' : 'Seats'}</b></span><div><button type="button" aria-label={ar ? 'المقاعد' : 'Seats'} disabled={seats <= 1} onClick={() => setSeats(Math.max(1, seats - 1))}><Minus size={14} /></button><b aria-live="polite">{seats}</b><button type="button" aria-label={ar ? 'المقاعد' : 'Seats'} disabled={seats >= 20} onClick={() => setSeats(Math.min(20, seats + 1))}><Plus size={14} /></button></div></div>
-            <button className="primary-btn" type="submit">{ar ? 'تأكيد الحجز' : 'Confirm booking'} <ArrowRight size={17} /></button>
-          </form>
-          <p className="event-book-note"><ShieldCheck size={14} />{ar ? 'بدون دفع الآن. الدفع يُؤكد مع فريقنا.' : 'No payment now. Payment is confirmed with our team.'}</p>
-        </>}
+      <aside id="event-book" className="event-book" aria-label={ar ? 'طلب حضور الفعالية' : 'Event request'}>
+        <EventRequestForm event={item} />
       </aside>
     </div>
   </main></SiteShell>
@@ -1007,7 +1100,7 @@ export function GuidePage() { const { locale } = useLocale(); const ar = locale 
 
 export function AccessiblePage() { const { locale } = useLocale(); const ar = locale === 'ar'; return <SiteShell><EditorialHero eyebrow={ar ? 'سفر للجميع' : 'Travel for everyone'} title={ar ? 'سفر ميسّر في مصر' : 'Accessible travel in Egypt'} copy={ar ? 'مساعدة إضافية وإيقاع مكيّف ونصيحة صادقة ليستمتع كل ضيف بمصر براحة.' : 'Extra assistance, adapted pacing, and honest advice so every guest can enjoy Egypt comfortably.'} image={siteImages.pyramids} href="/contact" action={ar ? 'اسأل عن المساعدة' : 'Ask about assistance'} /><main><section className="section container split-editorial"><div><span className="eyebrow">{ar ? 'خصم 5%' : '5% discount'}</span><h2>{ar ? 'عناية إضافية، علينا.' : 'Extra care, on us.'}</h2><p>{ar ? 'ضيوفنا من ذوي الاحتياجات الخاصة يحصلون على خصم 5% على كل البرامج. أخبرنا باحتياجاتك وسنكيّف السيارات والإيقاع والغرف والمزارات.' : 'Guests requiring accessibility assistance receive 5% off all our tour packages. Tell us what you need and we will adapt vehicles, pacing, hotel rooms, and sightseeing to match.'}</p><div className="detail-highlights">{(ar ? ['سيارات مجهزة', 'خيارات بدون سلالم', 'مرشدون صبورون ومدربون'] : ['Adapted vehicles', 'Step-free options', 'Patient, trained guides']).map(x => <span key={x}><Check size={16} />{x}</span>)}</div></div><img src={siteImages.temple} alt={ar ? 'سفر ميسّر في مصر' : 'Accessible travel in Egypt'} /></section><HelpCTA /></main></SiteShell> } export function FAQPage() { const [open,setOpen] = useState(0); const { locale } = useLocale(); const ar = locale === 'ar'; return <SiteShell><EditorialHero eyebrow={ar ? 'أسئلة وإجابات' : 'Questions, answered'} title={ar ? 'خطط لمصر براحة أكبر' : 'A smoother way to plan Egypt'} copy={ar ? 'اعثر على إجابات واضحة للأسئلة الشائعة، ثم كلمنا عندما تكون جاهزًا للتفاصيل.' : 'Find clear answers to common questions, then talk to our team when you are ready for the details.'} image={siteImages.temple} href="/contact" action={ar ? 'اسأل سؤالًا' : 'Ask a question'}/><main className="section container faq-page"><div className="faq-intro"><span className="eyebrow">{ar ? 'معلومات تهمك' : 'Good to know'}</span><h2>{ar ? 'قبل السفر' : 'Before you go'}</h2><p>{ar ? 'نؤمن أن التخطيط يجب أن يكون مرحبًا مثل الرحلة نفسها.' : 'We believe planning should feel as welcoming as the trip itself.'}</p></div><div className="faq-list">{faqs.map(([question,answer],i)=><div className={`faq-item ${open===i?'open':''}`} key={question}><button onClick={()=>setOpen(open===i?-1:i)}><span>{question}</span><b>{open===i?'−':'+'}</b></button>{open===i&&<p>{answer}</p>}</div>)}</div></main></SiteShell> }
 
-export function SearchPage() { const params=useSearchParams(); const initial=parseSearchQuery(params).q; const [query,setQuery]=useState(initial); useEffect(()=>setQuery(initial),[initial]); const { locale } = useLocale(); const ar = locale === 'ar'; const typeLabel = (t: string) => t === 'Blog' ? (ar ? 'مدونة' : t) : t === 'Event' ? (ar ? 'فعالية' : t) : t === 'Offer' ? (ar ? 'عرض' : t) : (ar ? 'وجهة' : t); const results=allSearchItems.filter(item=>`${item.title} ${item.copy}`.toLowerCase().includes(query.toLowerCase())); return <SiteShell><main className="search-page container"><div className="search-page-header"><span className="eyebrow">{ar ? 'استكشف الموقع' : 'Explore the site'}</span><h1>{ar ? 'اعثر على حكايتك القادمة في مصر' : 'Find your next Egypt story'}</h1><label><Search size={20}/><input autoFocus value={query} onChange={(e)=>setQuery(e.target.value.slice(0,120))} placeholder={ar ? 'ابحث عن رحلات ووجهات وحكايات...' : 'Search tours, destinations, stories...'} aria-label={ar ? 'بحث' : 'Search'}/></label></div><div className="search-results"><p>{ar ? `${results.length} نتيجة` : `${results.length} result${results.length===1?'':'s'}`}{query ? (ar ? ` عن "${query}"` : ` for "${query}"`) : ''}</p><div className="content-grid">{results.map(item=><article className="content-card" key={`${item.type}-${item.slug}`}><img className="content-image" src={item.image} alt={item.title}/><div className="content-card-body"><small>{typeLabel(item.type)}</small><h3>{item.title}</h3><p>{item.copy}</p><Link href={item.type==='Blog'?`/blogs/${item.slug}`:item.type==='Event'?`/events/${item.slug}`:item.type==='Offer'?`/special-offers/${item.slug}`:`/destinations/${item.slug}`} className="text-link">{ar ? 'استكشف' : 'Explore'} <ArrowRight size={15}/></Link></div></article>)}</div></div></main></SiteShell> }
+export function SearchPage() { const params=useSearchParams(); const initial=parseSearchQuery(params).q; const [query,setQuery]=useState(initial); useEffect(()=>setQuery(initial),[initial]); const { locale } = useLocale(); const ar = locale === 'ar'; const liveEvents = useLiveEvents(events); const typeLabel = (t: string) => t === 'Blog' ? (ar ? 'مدونة' : t) : t === 'Event' ? (ar ? 'فعالية' : t) : t === 'Offer' ? (ar ? 'عرض' : t) : (ar ? 'وجهة' : t); const staticResults=allSearchItems.filter(item=>`${item.title} ${item.copy}`.toLowerCase().includes(query.toLowerCase())); const liveCustomEvents = liveEvents.filter((e) => !allSearchItems.some((s) => s.slug === e.slug && s.type === 'Event') && isEventPublished(e) && `${e.title} ${e.copy}`.toLowerCase().includes(query.toLowerCase())).map((e) => ({ title: e.title, slug: e.slug, image: e.image, copy: e.copy, type: 'Event' as const })); const results=[...staticResults, ...liveCustomEvents]; return <SiteShell><main className="search-page container"><div className="search-page-header"><span className="eyebrow">{ar ? 'استكشف الموقع' : 'Explore the site'}</span><h1>{ar ? 'اعثر على حكايتك القادمة في مصر' : 'Find your next Egypt story'}</h1><label><Search size={20}/><input autoFocus value={query} onChange={(e)=>setQuery(e.target.value.slice(0,120))} placeholder={ar ? 'ابحث عن رحلات ووجهات وحكايات...' : 'Search tours, destinations, stories...'} aria-label={ar ? 'بحث' : 'Search'}/></label></div><div className="search-results"><p>{ar ? `${results.length} نتيجة` : `${results.length} result${results.length===1?'':'s'}`}{query ? (ar ? ` عن "${query}"` : ` for "${query}"`) : ''}</p><div className="content-grid">{results.map(item=><article className="content-card" key={`${item.type}-${item.slug}`}><img className="content-image" src={item.image} alt={item.title}/><div className="content-card-body"><small>{typeLabel(item.type)}</small><h3>{item.title}</h3><p>{item.copy}</p><Link href={item.type==='Blog'?`/blogs/${item.slug}`:item.type==='Event'?`/events/${item.slug}`:item.type==='Offer'?`/special-offers/${item.slug}`:`/destinations/${item.slug}`} className="text-link">{ar ? 'استكشف' : 'Explore'} <ArrowRight size={15}/></Link></div></article>)}</div></div></main></SiteShell> }
 
 export function PolicyPage({ type }: { type: 'privacy' | 'terms' }) { const { locale } = useLocale(); const ar = locale === 'ar'; const title=type==='privacy'?(ar?'سياسة الخصوصية':'Privacy Policy'):(ar?'الشروط والأحكام':'Terms and Conditions'); return <SiteShell><Breadcrumb items={[title]}/><main className="policy-page container"><span className="eyebrow">STAR PYRAMIDS Tours</span><h1>{title}</h1><p className="policy-lede">{ar ? 'واضحة ومحترمة وسهلة الفهم. هذه الملاحظات تشرح طريقة تعاملنا معك.' : 'Clear, respectful, and easy to understand. These notes explain how we work with you.'}</p>{policies[type].map(item=><section key={item.h}><h2>{item.h}</h2><p>{item.p}</p></section>)}</main></SiteShell> }
 export function ForgotPasswordPage() { const [sent,setSent]=useState(false); const { locale } = useLocale(); const ar = locale === 'ar'; return <SiteShell><main className="auth-page-centered"><div className="auth-card"><div className="auth-mobile-logo"><Link href="/"><span className="brand-copy"><strong>STAR PYRAMIDS</strong><small>SINCE 1970</small></span></Link></div>{sent?<div className="form-success"><Check size={34}/><h2>{ar?'معاينة الاستعادة':'Recovery preview'}</h2><p>{ar?'لم يتم إرسال أي بريد إلكتروني. استعادة الحساب غير مربوطة بالخلفية بعد — هذه معاينة فقط.':'No email has been sent. Account recovery is not connected to the backend yet — this is a preview only.'}</p><p className="auth-switch"><Link href="/login">{ar?'العودة إلى تسجيل الدخول':'Back to sign in'}</Link></p></div>:<><span className="eyebrow">{ar?'استعادة الحساب':'Account recovery'}</span><h1>{ar?'استعادة كلمة المرور':'Reset your password'}</h1><p>{ar?'أدخل بريدك لمعاينة خطوات الاستعادة.':'Enter your email to preview the recovery flow.'}</p><form className="contact-form" onSubmit={(e)=>{e.preventDefault();setSent(true)}}><label>{ar?'البريد الإلكتروني':'Email address'}<input required type="email" placeholder="you@example.com"/></label><button className="auth-submit" type="submit">{ar?'أرسل رابط الاستعادة':'Send reset link'}</button></form><p className="auth-switch">{ar?'هل تذكرت كلمة المرور؟':'Remembered your password?'} <Link href="/login">{ar?'سجّل دخولك':'Sign in'}</Link></p></>}</div></main></SiteShell> }

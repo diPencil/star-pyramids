@@ -1,80 +1,359 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { ArrowLeft, Plus, RotateCcw, Trash2 } from 'lucide-react'
+import Link from 'next/link'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
-import { saveCustomItem, slugify } from '@/lib/admin-store'
+import { isCustomSlug, readOverrides, removeCustomItem, removeEventOverride, saveCustomItem, saveEventOverride, slugify } from '@/lib/admin-store'
+import { sanitizeEvent } from '@/lib/events'
 import { ImageField } from '@/components/admin/image-field'
+import { events } from '@/data/content'
 import type { Event } from '@/data/types'
 
-const lines = (v: string) => v.split('\n').map((s) => s.trim()).filter(Boolean)
+type HighlightRow = { title: string; titleAr: string; description: string; descriptionAr: string }
+type ProgramRow = { day: string; title: string; description: string }
 
-export default function NewEventPage() {
+const cleanSlugInput = (value: string) =>
+  value.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').replace(/-+/g, '-').slice(0, 80)
+
+function RowList<T>({ rows, onChange, render, onAdd, addLabel }: {
+  rows: T[]
+  onChange: (rows: T[]) => void
+  render: (row: T, update: (patch: Partial<T>) => void, index: number) => React.ReactNode
+  onAdd: () => void
+  addLabel: React.ReactNode
+}) {
+  return (
+    <div className="sp-repeat-list">
+      {rows.map((row, index) => (
+        <article className="sp-repeat-card" key={index}>
+          <header className="sp-repeat-head"><strong>#{index + 1}</strong><button type="button" className="sp-icon-btn danger" onClick={() => onChange(rows.filter((_, i) => i !== index))} aria-label="Remove row"><Trash2 size={15} /></button></header>
+          {render(row, (patch) => onChange(rows.map((r, i) => (i === index ? { ...r, ...patch } : r))), index)}
+        </article>
+      ))}
+      <button type="button" className="sp-btn" onClick={onAdd}><Plus size={15} />{addLabel}</button>
+    </div>
+  )
+}
+
+function StringRows({ rows, onChange, onAdd, placeholder }: { rows: string[]; onChange: (rows: string[]) => void; onAdd: React.ReactNode; placeholder?: string }) {
+  return (
+    <div className="sp-repeat-list">
+      {rows.map((row, index) => (
+        <div className="sp-repeat-row" key={index}>
+          <input value={row} onChange={(e) => onChange(rows.map((r, i) => (i === index ? e.target.value : r)))} placeholder={placeholder} />
+          <button type="button" className="sp-icon-btn danger" onClick={() => onChange(rows.filter((_, i) => i !== index))} aria-label="Remove row"><Trash2 size={15} /></button>
+        </div>
+      ))}
+      <button type="button" className="sp-btn" onClick={() => onChange([...rows, ''])}><Plus size={15} />{onAdd}</button>
+    </div>
+  )
+}
+
+function EventForm() {
   const ar = useAdminLocale() === 'ar'
   const router = useRouter()
-  const [title, setTitle] = useState('')
-  const [location, setLocation] = useState('')
-  const [date, setDate] = useState('')
-  const [category, setCategory] = useState('')
-  const [image, setImage] = useState('')
-  const [copy, setCopy] = useState('')
-  const [highlights, setHighlights] = useState('')
-  const [program, setProgram] = useState('')
-  const [included, setIncluded] = useState('')
+  const params = useSearchParams()
+  const editSlug = params.get('slug') ?? ''
+
+  const source = useMemo(() => {
+    if (!editSlug) return null
+    const data = readOverrides()
+    const override = data.eventOverrides[editSlug]
+    if (override) return { item: override, origin: 'override' as const }
+    const custom = data.events.find((e) => e.slug === editSlug)
+    if (custom) return { item: custom, origin: 'custom' as const }
+    const canonical = events.find((e) => e.slug === editSlug)
+    if (canonical) return { item: canonical, origin: 'canonical' as const }
+    return { item: null, origin: 'missing' as const }
+  }, [editSlug])
+
+  const editing = Boolean(editSlug)
+  const missing = editing && (!source || source.item === null)
+  const initial: Event | null = source?.item ?? null
+
+  const [title, setTitle] = useState(initial?.title ?? '')
+  const [titleAr, setTitleAr] = useState(initial?.titleAr ?? '')
+  const [slug, setSlug] = useState(initial?.slug ?? '')
+  const [slugTouched, setSlugTouched] = useState(Boolean(initial))
+  const [category, setCategory] = useState(initial?.category ?? '')
+  const [categoryAr, setCategoryAr] = useState(initial?.categoryAr ?? '')
+  const [featured, setFeatured] = useState(Boolean(initial?.featured))
+  const [copy, setCopy] = useState(initial?.copy ?? '')
+  const [copyAr, setCopyAr] = useState(initial?.copyAr ?? '')
+  const [intro, setIntro] = useState(initial?.intro ?? '')
+  const [introAr, setIntroAr] = useState(initial?.introAr ?? '')
+  const [startDate, setStartDate] = useState(initial?.startDate ?? '')
+  const [endDate, setEndDate] = useState(initial?.endDate ?? '')
+  const [startTime, setStartTime] = useState(initial?.startTime ?? '')
+  const [endTime, setEndTime] = useState(initial?.endTime ?? '')
+  const [legacyDate, setLegacyDate] = useState(initial?.date ?? '')
+  const [venueName, setVenueName] = useState(initial?.venueName ?? '')
+  const [venueNameAr, setVenueNameAr] = useState(initial?.venueNameAr ?? '')
+  const [address, setAddress] = useState(initial?.address ?? '')
+  const [addressAr, setAddressAr] = useState(initial?.addressAr ?? '')
+  const [city, setCity] = useState(initial?.city ?? '')
+  const [cityAr, setCityAr] = useState(initial?.cityAr ?? '')
+  const [location, setLocation] = useState(initial?.location ?? '')
+  const [locationAr, setLocationAr] = useState(initial?.locationAr ?? '')
+  const [mapQuery, setMapQuery] = useState(initial?.mapQuery ?? '')
+  const [pricingType, setPricingType] = useState<'free' | 'paid' | 'request'>(initial?.pricingType ?? 'request')
+  const [price, setPrice] = useState(initial?.price != null ? String(initial.price) : '')
+  const [currency, setCurrency] = useState(initial?.currency ?? 'USD')
+  const [capacity, setCapacity] = useState(initial?.capacity != null ? String(initial.capacity) : '')
+  const [bookingDeadline, setBookingDeadline] = useState(initial?.bookingDeadline ?? '')
+  const [image, setImage] = useState(initial?.image ?? '')
+  const [gallery, setGallery] = useState<string[]>(initial?.gallery ? [...initial.gallery] : [])
+  const [highlights, setHighlights] = useState<HighlightRow[]>(initial?.highlights?.map((h) => ({ title: h.title, titleAr: h.titleAr ?? '', description: h.description, descriptionAr: h.descriptionAr ?? '' })) ?? [])
+  const [program, setProgram] = useState<ProgramRow[]>(initial?.program?.map((p) => ({ day: p.day, title: p.title, description: p.description })) ?? [])
+  const [included, setIncluded] = useState<string[]>(initial?.included ? [...initial.included] : [])
+  const [includedAr, setIncludedAr] = useState<string[]>(initial?.includedAr ? [...initial.includedAr] : [])
+  const [excluded, setExcluded] = useState<string[]>(initial?.excluded ? [...initial.excluded] : [])
+  const [excludedAr, setExcludedAr] = useState<string[]>(initial?.excludedAr ? [...initial.excludedAr] : [])
+  const [addOns, setAddOns] = useState<{ title: string; price: string }[]>(initial?.addOns?.map((a) => ({ title: a.title, price: a.price != null ? String(a.price) : '' })) ?? [])
+  const [organizerName, setOrganizerName] = useState(initial?.organizerName ?? '')
+  const [organizerPhone, setOrganizerPhone] = useState(initial?.organizerPhone ?? '')
+  const [organizerWhatsapp, setOrganizerWhatsapp] = useState(initial?.organizerWhatsapp ?? '')
+  const [organizerEmail, setOrganizerEmail] = useState(initial?.organizerEmail ?? '')
+  const [published, setPublished] = useState(initial?.isPublished !== false)
+  const [displayOrder, setDisplayOrder] = useState(initial?.displayOrder != null ? String(initial.displayOrder) : '')
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+
+  const autoSlug = useMemo(() => {
+    if (slugTouched || editing) return slug
+    return title.trim() ? slugify(title) : ''
+  }, [title, slugTouched, editing, slug])
+
+  const takenSlugs = useMemo(() => {
+    const data = readOverrides()
+    const set = new Set<string>([...events.map((e) => e.slug), ...data.events.map((e) => e.slug), ...Object.keys(data.eventOverrides)])
+    if (editing && editSlug) set.delete(editSlug)
+    return set
+  }, [editing, editSlug])
 
   const save = () => {
-    if (!title.trim() || !location.trim() || !date.trim()) {
+    setError('')
+    setNotice('')
+    const finalSlug = editing ? editSlug : cleanSlugInput(autoSlug || slugify(title || 'event'))
+    if (!title.trim() || !location.trim() || !legacyDate.trim()) {
       setError(ar ? 'العنوان والموقع والتاريخ حقول إلزامية.' : 'Title, location and date are required.')
       return
     }
-    const item: Event = {
-      title: title.trim(),
-      slug: slugify(title),
-      image: image.trim(),
-      date: date.trim(),
-      location: location.trim(),
-      copy: copy.trim() || title.trim(),
-      category: category.trim() || undefined,
-      intro: copy.trim() || undefined,
-      highlights: lines(highlights).map((row) => {
-        const [h, ...rest] = row.split('|')
-        return { title: h.trim(), description: rest.join('|').trim() }
-      }),
-      program: lines(program).map((row) => {
-        const [day, h, ...rest] = row.split('|')
-        return { day: (day ?? '').trim(), title: (h ?? '').trim(), description: rest.join('|').trim() }
-      }),
-      included: lines(included),
+    if (!/^[a-z0-9-]{1,80}$/.test(finalSlug)) {
+      setError(ar ? 'المعرف (slug) يجب أن يكون أحرفًا إنجليزية صغيرة وأرقامًا وشرطات.' : 'Slug must be lowercase letters, numbers and dashes.')
+      return
     }
-    saveCustomItem('events', item)
+    if (!editing && takenSlugs.has(finalSlug)) {
+      setError(ar ? 'هذا المعرف مستخدم بالفعل. اختر معرفًا مختلفًا.' : 'This slug is already taken. Choose a different one.')
+      return
+    }
+    const candidate = {
+      title: title.trim(), titleAr: titleAr.trim() || undefined, slug: finalSlug, image: image.trim(),
+      gallery: gallery.map((g) => g.trim()).filter(Boolean),
+      date: legacyDate.trim(), startDate: startDate.trim() || undefined, endDate: endDate.trim() || undefined,
+      startTime: startTime.trim() || undefined, endTime: endTime.trim() || undefined,
+      location: location.trim(), locationAr: locationAr.trim() || undefined,
+      venueName: venueName.trim() || undefined, venueNameAr: venueNameAr.trim() || undefined,
+      address: address.trim() || undefined, addressAr: addressAr.trim() || undefined,
+      city: city.trim() || undefined, cityAr: cityAr.trim() || undefined, mapQuery: mapQuery.trim() || undefined,
+      copy: copy.trim() || title.trim(), copyAr: copyAr.trim() || undefined,
+      category: category.trim() || undefined, categoryAr: categoryAr.trim() || undefined,
+      featured: featured || undefined, intro: intro.trim() || undefined, introAr: introAr.trim() || undefined,
+      pricingType, price: pricingType === 'paid' && price.trim() ? Number(price) : undefined,
+      currency: currency.trim().toUpperCase() || undefined,
+      capacity: capacity.trim() ? Number(capacity) : undefined,
+      bookingDeadline: bookingDeadline.trim() || undefined,
+      organizerName: organizerName.trim() || undefined, organizerPhone: organizerPhone.trim() || undefined,
+      organizerWhatsapp: organizerWhatsapp.trim() || undefined, organizerEmail: organizerEmail.trim() || undefined,
+      isPublished: published ? undefined : false,
+      displayOrder: displayOrder.trim() ? Number(displayOrder) : undefined,
+      highlights: highlights.filter((h) => h.title.trim() && h.description.trim()).map((h) => ({ title: h.title.trim(), titleAr: h.titleAr.trim() || undefined, description: h.description.trim(), descriptionAr: h.descriptionAr.trim() || undefined })),
+      program: program.filter((p) => p.day.trim() && p.title.trim()).map((p) => ({ day: p.day.trim(), title: p.title.trim(), description: p.description.trim() })),
+      included: included.map((s) => s.trim()).filter(Boolean),
+      includedAr: includedAr.map((s) => s.trim()).filter(Boolean),
+      excluded: excluded.map((s) => s.trim()).filter(Boolean),
+      excludedAr: excludedAr.map((s) => s.trim()).filter(Boolean),
+      addOns: addOns.filter((a) => a.title.trim()).map((a) => ({ title: a.title.trim(), price: a.price.trim() ? Number(a.price) : undefined })),
+    }
+    const clean = sanitizeEvent(candidate)
+    if (!clean) {
+      setError(ar ? 'تعذر حفظ الفعالية: تحقق من الحقول الإلزامية والتواريخ والأرقام.' : 'Could not save the event: check required fields, dates and numbers.')
+      return
+    }
+    if (pricingType === 'paid' && !(clean.price != null && clean.price >= 0)) {
+      setError(ar ? 'الفعالية المدفوعة تحتاج سعرًا صحيحًا.' : 'Paid events need a valid price.')
+      return
+    }
+    const isCanonical = events.some((e) => e.slug === finalSlug)
+    if (isCanonical) saveEventOverride(clean)
+    else saveCustomItem('events', clean)
+    setNotice(ar ? 'تم الحفظ محليًا على هذا المتصفح.' : 'Saved locally on this browser.')
     router.push('/admin/events')
   }
 
+  const resetOverride = () => {
+    if (!editing) return
+    removeEventOverride(editSlug)
+    router.push('/admin/events')
+  }
+
+  if (missing) {
+    return <>
+      <PageHead eyebrow="Events" title="Event not found" titleAr="الفعالية غير موجودة" sub="Unknown slug" subAr="معرف غير معروف" />
+      <Card title={<AdminText en="Unknown event" ar="فعالية غير معروفة" />}>
+        <p><AdminText en={`No event matches slug "${editSlug}".`} ar={`لا توجد فعالية بالمعرف "${editSlug}".`} /></p>
+        <p><Link className="sp-btn" href="/admin/events"><AdminText en="Back to events" ar="عودة للفعاليات" /></Link></p>
+      </Card>
+    </>
+  }
+
+  const isCanonicalEdit = editing && events.some((e) => e.slug === editSlug)
+  const showCustomNote = !editing || (editing && isCustomSlug(editSlug) && !isCanonicalEdit)
+
   return <>
-    <PageHead eyebrow="Events" title="New event" titleAr="فعالية جديدة" sub="Published to the events calendar and detail pages" subAr="تنشر في أجندة الفعاليات وصفحات التفاصيل" actions={<button type="button" className="sp-btn dark" onClick={save}><AdminText en="Publish event" ar="نشر الفعالية" /></button>} />
-    <Card title={<AdminText en="Event details" ar="بيانات الفعالية" />}>
+    <PageHead
+      eyebrow="Events"
+      title={editing ? 'Edit event' : 'New event'}
+      titleAr={editing ? 'تعديل فعالية' : 'فعالية جديدة'}
+      sub={editing ? `Local override for ${editSlug}` : 'Published to the events calendar and detail pages on this browser'}
+      subAr={editing ? `تجاوز محلي للمعرف ${editSlug}` : 'تنشر في أجندة الفعاليات وصفحات التفاصيل على هذا المتصفح'}
+      actions={<span style={{ display: 'flex', gap: 8 }}><Link className="sp-btn" href="/admin/events"><ArrowLeft size={16} /> <AdminText en="All events" ar="كل الفعاليات" /></Link><button type="button" className="sp-btn dark" onClick={save}><AdminText en={editing ? 'Save changes' : 'Publish event'} ar={editing ? 'حفظ التعديلات' : 'نشر الفعالية'} /></button></span>}
+    />
+    {showCustomNote && <Card title={<AdminText en="Browser preview note" ar="ملاحظة المعاينة" />}><p><AdminText en="This locally created event is available in this browser preview. A direct hard refresh/shareable production URL requires backend/build-time publishing." ar="هذه الفعالية المنشأة محليًا متاحة في معاينة هذا المتصفح. الرابط المباشر القابل للمشاركة بعد التحديث يتطلب نشرًا عبر الخلفية أو وقت البناء." /></p></Card>}
+    <Card title={<AdminText en="Basic" ar="أساسي" />}>
       <div className="sp-form">
         <div className="sp-form-2">
-          <label><AdminText en="Title" ar="العنوان" /><input value={title} onChange={(e) => setTitle(e.target.value)} /></label>
-          <label><AdminText en="Location" ar="الموقع" /><input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Cairo" /></label>
+          <label><AdminText en="Title EN *" ar="العنوان EN *" /><input value={title} onChange={(e) => { setTitle(e.target.value); if (!slugTouched && !editing) setSlug(slugify(e.target.value)) }} /></label>
+          <label><AdminText en="Title AR" ar="العنوان AR" /><input value={titleAr} onChange={(e) => setTitleAr(e.target.value)} /></label>
         </div>
         <div className="sp-form-2">
-          <label><AdminText en="Date" ar="التاريخ" /><input value={date} onChange={(e) => setDate(e.target.value)} placeholder="October 12th, 2026" /></label>
-          <label><AdminText en="Category" ar="التصنيف" /><input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Festival" /></label>
+          <label><AdminText en="Slug" ar="المعرف" /><input value={editing ? editSlug : autoSlug} disabled={editing} dir="ltr" onChange={(e) => { setSlugTouched(true); setSlug(cleanSlugInput(e.target.value)) }} placeholder="custom-..." />{!editing && <small><AdminText en="Lowercase letters, numbers, dashes. Must be unique." ar="أحرف صغيرة وأرقام وشرطات. يجب أن يكون فريدًا." /></small>}{editing && <small><AdminText en="Slug identity stays stable when editing." ar="يبقى المعرف ثابتًا عند التعديل." /></small>}</label>
+          <label><AdminText en="Category EN" ar="التصنيف EN" /><input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Festival" /></label>
         </div>
+        <div className="sp-form-2">
+          <label><AdminText en="Category AR" ar="التصنيف AR" /><input value={categoryAr} onChange={(e) => setCategoryAr(e.target.value)} /></label>
+          <label className="sp-check"><input type="checkbox" checked={featured} onChange={(e) => setFeatured(e.target.checked)} /> <AdminText en="Featured in hero" ar="مميزة في الواجهة" /></label>
+        </div>
+      </div>
+    </Card>
+    <Card title={<AdminText en="Content" ar="المحتوى" />}>
+      <div className="sp-form">
+        <div className="sp-form-2">
+          <label><AdminText en="Short copy EN" ar="وصف مختصر EN" /><textarea rows={2} value={copy} onChange={(e) => setCopy(e.target.value)} /></label>
+          <label><AdminText en="Short copy AR" ar="وصف مختصر AR" /><textarea rows={2} value={copyAr} onChange={(e) => setCopyAr(e.target.value)} /></label>
+        </div>
+        <div className="sp-form-2">
+          <label><AdminText en="Intro EN" ar="مقدمة EN" /><textarea rows={2} value={intro} onChange={(e) => setIntro(e.target.value)} /></label>
+          <label><AdminText en="Intro AR" ar="مقدمة AR" /><textarea rows={2} value={introAr} onChange={(e) => setIntroAr(e.target.value)} /></label>
+        </div>
+      </div>
+    </Card>
+    <Card title={<AdminText en="Schedule" ar="المواعيد" />}>
+      <div className="sp-form">
+        <div className="sp-form-2">
+          <label><AdminText en="Display date * (fallback)" ar="التاريخ المعروض * (احتياطي)" /><input value={legacyDate} onChange={(e) => setLegacyDate(e.target.value)} placeholder="October 15-18, 2026" /></label>
+          <div />
+        </div>
+        <div className="sp-form-2">
+          <label><AdminText en="Start date (YYYY-MM-DD)" ar="تاريخ البداية" /><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></label>
+          <label><AdminText en="End date (YYYY-MM-DD)" ar="تاريخ النهاية" /><input type="date" value={endDate} min={startDate || undefined} onChange={(e) => setEndDate(e.target.value)} /></label>
+        </div>
+        <div className="sp-form-2">
+          <label><AdminText en="Start time (HH:MM)" ar="وقت البداية" /><input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} /></label>
+          <label><AdminText en="End time (HH:MM)" ar="وقت النهاية" /><input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} /></label>
+        </div>
+      </div>
+    </Card>
+    <Card title={<AdminText en="Venue" ar="المكان" />}>
+      <div className="sp-form">
+        <div className="sp-form-2">
+          <label><AdminText en="Location display *" ar="الموقع المعروض *" /><input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Cairo" /></label>
+          <label><AdminText en="Location AR" ar="الموقع AR" /><input value={locationAr} onChange={(e) => setLocationAr(e.target.value)} /></label>
+        </div>
+        <div className="sp-form-2">
+          <label><AdminText en="Venue name EN" ar="اسم المكان EN" /><input value={venueName} onChange={(e) => setVenueName(e.target.value)} /></label>
+          <label><AdminText en="Venue name AR" ar="اسم المكان AR" /><input value={venueNameAr} onChange={(e) => setVenueNameAr(e.target.value)} /></label>
+        </div>
+        <div className="sp-form-2">
+          <label><AdminText en="Address EN" ar="العنوان EN" /><input value={address} onChange={(e) => setAddress(e.target.value)} /></label>
+          <label><AdminText en="Address AR" ar="العنوان AR" /><input value={addressAr} onChange={(e) => setAddressAr(e.target.value)} /></label>
+        </div>
+        <div className="sp-form-2">
+          <label><AdminText en="City EN" ar="المدينة EN" /><input value={city} onChange={(e) => setCity(e.target.value)} /></label>
+          <label><AdminText en="City AR" ar="المدينة AR" /><input value={cityAr} onChange={(e) => setCityAr(e.target.value)} /></label>
+        </div>
+        <label><AdminText en="Map query (safe search)" ar="استعلام الخريطة" /><input value={mapQuery} onChange={(e) => setMapQuery(e.target.value)} dir="ltr" placeholder="Cairo Egypt" /><small><AdminText en="Blank = venue + city, or first city. Never sends multi-city strings blindly." ar="فارغ = المكان + المدينة أو أول مدينة. لا يرسل نصوص المدن المتعددة مباشرة." /></small></label>
+      </div>
+    </Card>
+    <Card title={<AdminText en="Pricing" ar="الأسعار" />}>
+      <div className="sp-form">
+        <div className="sp-form-2">
+          <label><AdminText en="Pricing type" ar="نوع السعر" /><select value={pricingType} onChange={(e) => setPricingType(e.target.value as typeof pricingType)}><option value="request">{ar ? 'السعر عند الطلب' : 'Request price'}</option><option value="free">{ar ? 'مجاني' : 'Free'}</option><option value="paid">{ar ? 'مدفوع' : 'Paid'}</option></select></label>
+          <label><AdminText en="Currency" ar="العملة" /><input value={currency} onChange={(e) => setCurrency(e.target.value)} dir="ltr" placeholder="USD" maxLength={8} /></label>
+        </div>
+        <div className="sp-form-2">
+          <label><AdminText en="Price (paid only)" ar="السعر (للمدفوع فقط)" /><input type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} disabled={pricingType !== 'paid'} /></label>
+          <label><AdminText en="Capacity (optional)" ar="السعة (اختياري)" /><input type="number" min="1" step="1" value={capacity} onChange={(e) => setCapacity(e.target.value)} /></label>
+        </div>
+        <label><AdminText en="Booking deadline (YYYY-MM-DD, optional)" ar="آخر موعد للحجز (اختياري)" /><input type="date" value={bookingDeadline} onChange={(e) => setBookingDeadline(e.target.value)} /></label>
+      </div>
+    </Card>
+    <Card title={<AdminText en="Media" ar="الوسائط" />}>
+      <div className="sp-form">
         <ImageField value={image} onChange={setImage} />
-        <label><AdminText en="Description" ar="الوصف" /><textarea rows={3} value={copy} onChange={(e) => setCopy(e.target.value)} /></label>
-        <label><AdminText en="Highlights (one per line: title | description)" ar="أبرز النقاط (سطر لكل نقطة: العنوان | الوصف)" /><textarea rows={3} value={highlights} onChange={(e) => setHighlights(e.target.value)} /></label>
-        <label><AdminText en="Program (one per day: day | title | description)" ar="البرنامج (سطر لكل يوم: اليوم | العنوان | الوصف)" /><textarea rows={4} value={program} onChange={(e) => setProgram(e.target.value)} /></label>
-        <label><AdminText en="Included (one per line)" ar="المشمول (سطر لكل بند)" /><textarea rows={3} value={included} onChange={(e) => setIncluded(e.target.value)} /></label>
+        <div><strong><AdminText en="Gallery URLs (optional)" ar="روابط المعرض (اختياري)" /></strong><StringRows rows={gallery} onChange={setGallery} onAdd={<AdminText en="Add image URL" ar="إضافة رابط صورة" />} placeholder="https://..." /></div>
+      </div>
+    </Card>
+    <Card title={<AdminText en="Highlights" ar="أبرز النقاط" />}>
+      <RowList rows={highlights} onChange={setHighlights} onAdd={() => setHighlights([...highlights, { title: '', titleAr: '', description: '', descriptionAr: '' }])} addLabel={<AdminText en="Add highlight" ar="إضافة نقطة" />} render={(row, update) => <div className="sp-form"><div className="sp-form-2"><label><AdminText en="Title EN" ar="العنوان EN" /><input value={row.title} onChange={(e) => update({ title: e.target.value })} /></label><label><AdminText en="Title AR" ar="العنوان AR" /><input value={row.titleAr} onChange={(e) => update({ titleAr: e.target.value })} /></label></div><label><AdminText en="Description EN" ar="الوصف EN" /><textarea rows={2} value={row.description} onChange={(e) => update({ description: e.target.value })} /></label><label><AdminText en="Description AR" ar="الوصف AR" /><textarea rows={2} value={row.descriptionAr} onChange={(e) => update({ descriptionAr: e.target.value })} /></label></div>} />
+    </Card>
+    <Card title={<AdminText en="Program" ar="البرنامج" />}>
+      <RowList rows={program} onChange={setProgram} onAdd={() => setProgram([...program, { day: '', title: '', description: '' }])} addLabel={<AdminText en="Add program day" ar="إضافة يوم" />} render={(row, update) => <div className="sp-form"><div className="sp-form-2"><label><AdminText en="Day" ar="اليوم" /><input value={row.day} onChange={(e) => update({ day: e.target.value })} placeholder="Day 1" /></label><label><AdminText en="Title" ar="العنوان" /><input value={row.title} onChange={(e) => update({ title: e.target.value })} /></label></div><label><AdminText en="Description" ar="الوصف" /><textarea rows={2} value={row.description} onChange={(e) => update({ description: e.target.value })} /></label></div>} />
+    </Card>
+    <Card title={<AdminText en="Included / Excluded" ar="المشمول / المستبعد" />}>
+      <div className="sp-form">
+        <div><strong><AdminText en="Included EN" ar="المشمول EN" /></strong><StringRows rows={included} onChange={setIncluded} onAdd={<AdminText en="Add included item" ar="إضافة بند مشمول" />} /></div>
+        <div><strong><AdminText en="Included AR" ar="المشمول AR" /></strong><StringRows rows={includedAr} onChange={setIncludedAr} onAdd={<AdminText en="Add included item (AR)" ar="إضافة بند مشمول (AR)" />} /></div>
+        <div><strong><AdminText en="Excluded EN" ar="المستبعد EN" /></strong><StringRows rows={excluded} onChange={setExcluded} onAdd={<AdminText en="Add excluded item" ar="إضافة بند مستبعد" />} /></div>
+        <div><strong><AdminText en="Excluded AR" ar="المستبعد AR" /></strong><StringRows rows={excludedAr} onChange={setExcludedAr} onAdd={<AdminText en="Add excluded item (AR)" ar="إضافة بند مستبعد (AR)" />} /></div>
+      </div>
+    </Card>
+    <Card title={<AdminText en="Add-ons" ar="إضافات" />}>
+      <RowList rows={addOns} onChange={setAddOns} onAdd={() => setAddOns([...addOns, { title: '', price: '' }])} addLabel={<AdminText en="Add add-on" ar="إضافة خدمة" />} render={(row, update) => <div className="sp-form-2"><label><AdminText en="Title" ar="العنوان" /><input value={row.title} onChange={(e) => update({ title: e.target.value })} /></label><label><AdminText en="Price (blank = on request)" ar="السعر (فارغ = عند الطلب)" /><input type="number" min="0" step="0.01" value={row.price} onChange={(e) => update({ price: e.target.value })} /></label></div>} />
+    </Card>
+    <Card title={<AdminText en="Organizer" ar="المنظم" />}>
+      <div className="sp-form">
+        <div className="sp-form-2">
+          <label><AdminText en="Name" ar="الاسم" /><input value={organizerName} onChange={(e) => setOrganizerName(e.target.value)} /></label>
+          <label><AdminText en="Email" ar="البريد" /><input value={organizerEmail} onChange={(e) => setOrganizerEmail(e.target.value)} dir="ltr" placeholder="you@example.com" /></label>
+        </div>
+        <div className="sp-form-2">
+          <label><AdminText en="Phone" ar="الهاتف" /><input value={organizerPhone} onChange={(e) => setOrganizerPhone(e.target.value)} dir="ltr" /></label>
+          <label><AdminText en="WhatsApp" ar="واتساب" /><input value={organizerWhatsapp} onChange={(e) => setOrganizerWhatsapp(e.target.value)} dir="ltr" /></label>
+        </div>
+      </div>
+    </Card>
+    <Card title={<AdminText en="Publishing" ar="النشر" />}>
+      <div className="sp-form">
+        <div className="sp-form-2">
+          <label className="sp-check"><input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} /> <AdminText en="Published (visible on website)" ar="منشورة (ظاهرة على الموقع)" /></label>
+          <label><AdminText en="Display order" ar="ترتيب العرض" /><input type="number" step="1" value={displayOrder} onChange={(e) => setDisplayOrder(e.target.value)} placeholder="1" /></label>
+        </div>
       </div>
       {error && <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>}
-      <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-        <button type="button" className="sp-btn primary" onClick={save}><AdminText en="Publish event" ar="نشر الفعالية" /></button>
+      {notice && <p role="status" style={{ color: '#15803d' }}>{notice}</p>}
+      <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+        <button type="button" className="sp-btn primary" onClick={save}><AdminText en={editing ? 'Save changes' : 'Publish event'} ar={editing ? 'حفظ التعديلات' : 'نشر الفعالية'} /></button>
+        {editing && (source?.origin === 'override' || source?.origin === 'canonical') && events.some((e) => e.slug === editSlug) && <button type="button" className="sp-btn" onClick={resetOverride}><RotateCcw size={15} /> <AdminText en="Reset to canonical" ar="إعادة للنسخة الأصلية" /></button>}
       </div>
     </Card>
   </>
+}
+
+export default function NewEventPage() {
+  return <Suspense><EventForm /></Suspense>
 }

@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import type { Blog, Car, DealFeedItem, Destination, Event, Offer, Tour, TourDeal } from '@/data/types'
+import type { Blog, Car, DealFeedItem, Destination, Event, MultiDayCategory, Offer, Tour, TourDeal } from '@/data/types'
 import { COMPANY_ADDRESS, COMPANY_EMAIL, COMPANY_MAP_URL, COMPANY_PHONE_DISPLAY } from '@/data/company'
 
-export type OverrideCollection = 'offers' | 'events' | 'blogs' | 'cars' | 'destinations' | 'customers'
+export type OverrideCollection = 'offers' | 'events' | 'blogs' | 'cars' | 'destinations' | 'multiDayCategories' | 'customers'
 
 export type AdminCustomer = {
   slug: string
@@ -36,18 +36,23 @@ export type AdminOverrides = {
   blogs: Blog[]
   cars: Car[]
   destinations: Destination[]
+  multiDayCategories: MultiDayCategory[]
   customers: AdminCustomer[]
   customerProfiles: Record<string, CustomerProfilePatch>
   carOverrides: Record<string, Car>
   hiddenCars: string[]
   tourOverrides: Record<string, Tour>
   tourDeals: Record<string, TourDeal>
+  /** Canonical event edits by slug (replace-by-slug, never mutates data/content.ts). */
+  eventOverrides: Record<string, Event>
+  /** Hidden event slugs (canonical or custom). Excluded from public discovery on this browser. */
+  hiddenEvents: string[]
 }
 
 const KEY = 'sp-admin-overrides-v1'
 export const CUSTOM_PREFIX = 'custom-'
 
-const empty: AdminOverrides = { version: 1, offers: [], events: [], blogs: [], cars: [], destinations: [], customers: [], customerProfiles: {}, carOverrides: {}, hiddenCars: [], tourOverrides: {}, tourDeals: {} }
+const empty: AdminOverrides = { version: 1, offers: [], events: [], blogs: [], cars: [], destinations: [], multiDayCategories: [], customers: [], customerProfiles: {}, carOverrides: {}, hiddenCars: [], tourOverrides: {}, tourDeals: {}, eventOverrides: {}, hiddenEvents: [] }
 
 export function isCustomSlug(slug: string) {
   return slug.startsWith(CUSTOM_PREFIX)
@@ -74,13 +79,16 @@ export function readOverrides(): AdminOverrides {
       events: Array.isArray(parsed.events) ? parsed.events : [],
       blogs: Array.isArray(parsed.blogs) ? parsed.blogs : [],
       cars: Array.isArray(parsed.cars) ? parsed.cars : [],
-      destinations: Array.isArray(parsed.destinations) ? parsed.destinations : [],
+      destinations: sanitizeDestinations(parsed.destinations),
+      multiDayCategories: sanitizeMultiDayCategories(parsed.multiDayCategories),
       customers: Array.isArray(parsed.customers) ? parsed.customers : [],
       customerProfiles: parsed.customerProfiles && typeof parsed.customerProfiles === 'object' ? parsed.customerProfiles : {},
       carOverrides: sanitizeCarOverrides(parsed.carOverrides),
       hiddenCars: Array.isArray(parsed.hiddenCars) ? parsed.hiddenCars.filter((slug): slug is string => typeof slug === 'string') : [],
       tourOverrides: parsed.tourOverrides && typeof parsed.tourOverrides === 'object' ? parsed.tourOverrides : {},
       tourDeals: parsed.tourDeals && typeof parsed.tourDeals === 'object' ? parsed.tourDeals : {},
+      eventOverrides: sanitizeEventOverrides(parsed.eventOverrides),
+      hiddenEvents: Array.isArray(parsed.hiddenEvents) ? parsed.hiddenEvents.filter((slug): slug is string => typeof slug === 'string') : [],
     }
   } catch {
     return empty
@@ -183,6 +191,114 @@ export function useHiddenCars(): string[] {
     return () => window.removeEventListener('sp-overrides', sync)
   }, [])
   return hidden
+}
+
+/**
+ * Events prototype persistence (single effective architecture).
+ * Canonical events stay in `data/content.ts`; admin edits persist as
+ * `eventOverrides` keyed by slug (replace-by-slug at merge time), brand-new
+ * events persist as `events` customs via saveCustomItem, and visibility
+ * travels in `hiddenEvents`. Public landing/detail, admin list, and request
+ * availability all consume `useLiveEvents`, so one write updates every
+ * surface in the same browser. Malformed stored entries are dropped by the
+ * shared Event sanitizer in `@/lib/events` (lazy-imported to avoid a
+ * server-component cycle; admin-store stays the storage owner).
+ */
+function sanitizeEventOverrides(value: unknown): Record<string, Event> {
+  if (typeof value !== 'object' || value === null) return {}
+  const out: Record<string, Event> = {}
+  for (const [slug, entry] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof entry !== 'object' || entry === null) continue
+    const raw = entry as Partial<Event> & { slug?: unknown; title?: unknown }
+    if (raw.slug !== slug || typeof raw.title !== 'string' || !raw.title.trim()) continue
+    if (typeof (raw as { date?: unknown }).date !== 'string') continue
+    out[slug] = entry as Event
+  }
+  return out
+}
+
+export function saveEventOverride(event: Event) {
+  if (!event.slug || !event.title.trim()) return
+  const data = readOverrides()
+  writeOverrides({ ...data, eventOverrides: { ...data.eventOverrides, [event.slug]: event } })
+}
+
+export function removeEventOverride(slug: string) {
+  const data = readOverrides()
+  const eventOverrides = { ...data.eventOverrides }
+  delete eventOverrides[slug]
+  writeOverrides({ ...data, eventOverrides })
+}
+
+export function isEventHidden(slug: string): boolean {
+  if (typeof window === 'undefined') return false
+  return readOverrides().hiddenEvents.includes(slug)
+}
+
+export function setEventHidden(slug: string, hidden: boolean) {
+  const data = readOverrides()
+  const hiddenEvents = hidden
+    ? (data.hiddenEvents.includes(slug) ? data.hiddenEvents : [...data.hiddenEvents, slug])
+    : data.hiddenEvents.filter((entry) => entry !== slug)
+  writeOverrides({ ...data, hiddenEvents })
+}
+
+export function useHiddenEvents(): string[] {
+  const [hidden, setHidden] = useState<string[]>([])
+  useEffect(() => {
+    const sync = () => setHidden(readOverrides().hiddenEvents)
+    sync()
+    window.addEventListener('sp-overrides', sync)
+    return () => window.removeEventListener('sp-overrides', sync)
+  }, [])
+  return hidden
+}
+
+/** Reactive event-override map (canonical edits). */
+export function useEventOverrides(): Record<string, Event> {
+  const [overrides, setOverrides] = useState<Record<string, Event>>({})
+  useEffect(() => {
+    const sync = () => setOverrides(readOverrides().eventOverrides)
+    sync()
+    window.addEventListener('sp-overrides', sync)
+    return () => window.removeEventListener('sp-overrides', sync)
+  }, [])
+  return overrides
+}
+
+/**
+ * Single effective Events feed for public + admin surfaces.
+ * Merge: canonical base + customs (new slugs) + overrides (replace by slug),
+ * hidden excluded unless requested, ordered by displayOrder. Client-only
+ * (localStorage), hence the empty-first-paint then sync pattern shared with
+ * other live collections.
+ */
+export function useLiveEvents(base: readonly Event[], options?: { includeHidden?: boolean }): Event[] {
+  const customs = useLiveCollection('events', base)
+  const overrides = useEventOverrides()
+  const hidden = useHiddenEvents()
+  const includeHidden = options?.includeHidden ?? false
+  return useMemo(() => {
+    const customOnly = customs.filter((entry) => !base.some((b) => b.slug === entry.slug))
+    const baseSlugs = new Set(base.map((entry) => entry.slug))
+    const merged: Event[] = [
+      ...customOnly.filter((entry) => !baseSlugs.has(entry.slug)),
+      ...base.map((entry) => overrides[entry.slug] ?? entry),
+    ]
+    for (const custom of customOnly) {
+      if (baseSlugs.has(custom.slug)) {
+        const idx = merged.findIndex((entry) => entry.slug === custom.slug)
+        if (idx >= 0) merged[idx] = custom
+      }
+    }
+    const ordered = [...merged].sort((a, b) => (a.displayOrder ?? 9999) - (b.displayOrder ?? 9999))
+    return includeHidden ? ordered : ordered.filter((entry) => !hidden.includes(entry.slug))
+  }, [customs, base, overrides, hidden, includeHidden])
+}
+
+export function useLiveEvent(base: readonly Event[], slug: string, options?: { includeHidden?: boolean }): Event | undefined {
+  const list = useLiveEvents(base, options)
+  return list.find((entry) => entry.slug === slug)
 }
 
 export function setCustomerActive(slug: string, active: boolean) {
@@ -434,6 +550,138 @@ export function useLiveTours(base: readonly Tour[]): Tour[] {
       return { ...tour, deal: { percent: item.percent, endsAt: item.endsAt } }
     })
   }, [base, feed, overrides])
+}
+
+/**
+ * Catalogue prototype persistence: destinations and multi-day categories are
+ * managed as admin customs. A custom record with the same slug REPLACES the
+ * canonical record at merge time (never duplicated); brand-new slugs are
+ * prepended. Visibility (`isPublished` / `active`) and ordering travel inside
+ * the record, so no separate hidden lists are needed. Malformed stored entries
+ * are dropped defensively. Backend path: destinations, multi_day_categories,
+ * tour_multi_day_category tables; Tour.destinationSlug stays a plain FK.
+ */
+const cleanSlug = (value: unknown): string | null =>
+  typeof value === 'string' && /^[a-z0-9-]{1,80}$/.test(value) ? value : null
+
+const cleanText = (value: unknown, max: number): string | undefined =>
+  typeof value === 'string' && value.trim() ? value.trim().slice(0, max) : undefined
+
+const cleanFlag = (value: unknown): boolean | undefined =>
+  typeof value === 'boolean' ? value : undefined
+
+const cleanOrder = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isFinite(value) ? value : undefined
+
+export function sanitizeDestination(value: unknown): Destination | null {
+  if (typeof value !== 'object' || value === null) return null
+  const raw = value as Partial<Destination> & { detail?: unknown }
+  const slug = cleanSlug(raw.slug)
+  const title = cleanText(raw.title, 120)
+  if (!slug || !title) return null
+  if (typeof raw.detail !== 'object' || raw.detail === null) return null
+  const detail = raw.detail as Destination['detail']
+  if (!Array.isArray(detail.tourSlugs)) return null
+  return {
+    title,
+    slug,
+    image: typeof raw.image === 'string' ? raw.image.slice(0, 2000) : '',
+    copy: typeof raw.copy === 'string' ? raw.copy.slice(0, 2000) : title,
+    nameAr: cleanText(raw.nameAr, 120),
+    copyAr: cleanText(raw.copyAr, 2000),
+    showInOneDayTours: cleanFlag(raw.showInOneDayTours),
+    showInDestinations: cleanFlag(raw.showInDestinations),
+    isPublished: cleanFlag(raw.isPublished),
+    displayOrder: cleanOrder(raw.displayOrder),
+    detail: {
+      ...detail,
+      tourSlugs: detail.tourSlugs.filter((entry): entry is string => typeof entry === 'string'),
+    },
+  }
+}
+
+function sanitizeDestinations(value: unknown): Destination[] {
+  if (!Array.isArray(value)) return []
+  const out: Destination[] = []
+  for (const entry of value) {
+    const clean = sanitizeDestination(entry)
+    if (clean) out.push(clean)
+  }
+  return out
+}
+
+export function sanitizeMultiDayCategory(value: unknown): MultiDayCategory | null {
+  if (typeof value !== 'object' || value === null) return null
+  const raw = value as Partial<MultiDayCategory>
+  const slug = cleanSlug(raw.slug)
+  const name = cleanText(raw.name, 120)
+  const nameAr = cleanText(raw.nameAr, 120)
+  if (!slug || !name || !nameAr) return null
+  return {
+    slug,
+    name,
+    nameAr,
+    copy: typeof raw.copy === 'string' ? raw.copy.slice(0, 2000) : name,
+    copyAr: typeof raw.copyAr === 'string' ? raw.copyAr.slice(0, 2000) : nameAr,
+    image: typeof raw.image === 'string' ? raw.image.slice(0, 2000) : '',
+    order: cleanOrder(raw.order) ?? 999,
+    active: typeof raw.active === 'boolean' ? raw.active : true,
+  }
+}
+
+function sanitizeMultiDayCategories(value: unknown): MultiDayCategory[] {
+  if (!Array.isArray(value)) return []
+  const out: MultiDayCategory[] = []
+  for (const entry of value) {
+    const clean = sanitizeMultiDayCategory(entry)
+    if (clean) out.push(clean)
+  }
+  return out
+}
+
+/**
+ * Pure catalogue merge: canonical base + admin customs, customs win by slug,
+ * genuinely new slugs prepended. Exported for focused verification; the
+ * `useLive*` hooks below are the reactive entry points.
+ */
+export function mergeCatalogueBySlug<T extends { slug: string }>(base: readonly T[], customs: readonly T[]): T[] {
+  if (!customs.length) return [...base]
+  const customBySlug = new Map(customs.map((entry) => [entry.slug, entry]))
+  const baseSlugs = new Set(base.map((entry) => entry.slug))
+  return [
+    ...customs.filter((entry) => !baseSlugs.has(entry.slug)),
+    ...base.map((entry) => customBySlug.get(entry.slug) ?? entry),
+  ]
+}
+
+export function mergeDestinations(base: readonly Destination[], customs: readonly Destination[]): Destination[] {
+  return mergeCatalogueBySlug(base, customs)
+}
+
+export function mergeMultiDayCategories(base: readonly MultiDayCategory[], customs: readonly MultiDayCategory[]): MultiDayCategory[] {
+  return mergeCatalogueBySlug(base, customs)
+}
+
+function useLiveCatalogue<T extends { slug: string }>(collection: 'destinations' | 'multiDayCategories', base: readonly T[], merge: (base: readonly T[], customs: readonly T[]) => T[]): T[] {
+  const [customs, setCustoms] = useState<T[]>([])
+  useEffect(() => {
+    const sync = () => {
+      const data = readOverrides()
+      setCustoms(data[collection] as unknown as T[])
+    }
+    sync()
+    window.addEventListener('sp-overrides', sync)
+    return () => window.removeEventListener('sp-overrides', sync)
+  }, [collection])
+  return useMemo(() => merge(base, customs), [base, customs, merge])
+}
+
+export function useLiveDestinations(base: readonly Destination[]): Destination[] {
+  return useLiveCatalogue('destinations', base, mergeDestinations)
+}
+
+export function useLiveMultiDayCategories(base: readonly MultiDayCategory[]): MultiDayCategory[] {
+  return useLiveCatalogue('multiDayCategories', base, mergeMultiDayCategories)
 }
 
 export type AdminProfile = {

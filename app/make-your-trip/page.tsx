@@ -190,6 +190,7 @@ function PlannerInner() {
     return {
       destinationSlug: destination,
       tourSlug,
+      customTitle: '',
       requestedAddOns: initialQuery.addOns,
       timeMode: time,
       preferredFrom: isShore ? from.trim() : from.trim(),

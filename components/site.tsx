@@ -5,11 +5,11 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useRef, useState, type MouseEvent as CardMouseEvent } from 'react'
 import { CalendarDays, ChevronDown, Globe2, Heart, Menu, Search, Share2, ShoppingCart, X, ArrowRight, ArrowUp, Check, MapPin, Clock3, Users, CarFront, Mail, Phone, Star, Sun, Ship, Anchor, Package, Ticket, BadgePercent, Accessibility, BadgeCheck, Gift, Bell, Sparkles } from 'lucide-react'
 import { blogs, cars, destinations, events, faqs, offers, siteImages, policies, findBlog, findCar, findDestination, findEvent, findOffer } from '@/data/content'
-import { dayTourRegions, getCruiseTypeBySlug, getToursByCategory, getToursBySlugs, seasonalTours, tourCategories, tourImages } from '@/data/tours'
+import { assignableOneDayTours, getCruiseTypeBySlug, getMultiDayToursForCategory, getOneDayToursForDestination, getPublishedMultiDayCategories, getPublishedOneDayDestinations, getToursByCategory, multiDayCategories, seasonalTours, tourCategories, tourImages } from '@/data/tours'
 import { matchPriceBand, parseTourListingQuery, tourListingSorts, tourPriceBands, type TourListingQuery } from '@/lib/query'
 import { localizeTourDuration, localizeTourLocation } from '@/lib/tour-format'
 import { COMPANY_ADDRESS, phoneHref, whatsappHref } from '@/data/company'
-import { useBrandSettings } from '@/lib/admin-store'
+import { useBrandSettings, useLiveDestinations, useLiveMultiDayCategories, useLiveTours } from '@/lib/admin-store'
 import { useCart } from '@/lib/cart'
 import { useCustomerFavorites } from '@/lib/customer-account'
 import type { Tour, TourCategory, TourVariant } from '@/data/types'
@@ -20,6 +20,9 @@ import { FooterSocials, HeaderSocials } from './social-icons'
 import { LanguageModal, LanguageToggle } from './language-selector'
 
 export const images = tourImages
+
+const oneDayTourBase = assignableOneDayTours
+const multiDayTourBase = getToursByCategory('multi-days-tours')
 
 const copy = { en: { search:'Find places and things to do', signIn:'Sign in', home:'Home', tours:'Egypt Tours', rent:'Rent Car', about:'About Us', contact:'Contact Us', blogs:'Blogs', events:'Events', offer:'Special Offer', make:'Make Your Trip', language:'AR - EGP', switch:'العربية', promo:'Book any package tour and enjoy a FREE tour experience included along with it.' }, ar: { search:'ابحث عن الأماكن والأنشطة', signIn:'تسجيل الدخول', home:'الرئيسية', tours:'جولات مصر', rent:'تأجير السيارات', about:'من نحن', contact:'اتصل بنا', blogs:'المدونة', events:'الفعاليات', offer:'عروض خاصة', make:'خطط رحلتك', language:'EN - USD', switch:'English', promo:'احجز أي برنامج سياحي واستمتع بتجربة مجانية مشمولة معه.' } } as const
 
@@ -439,7 +442,7 @@ export function TourCategoryHero({ featuredLabel, featuredTitle, featuredHref, f
 
 export function OneDayToursRegions(){return <SiteShell><OneDayToursRegionsContent/></SiteShell>}
 
-function OneDayToursRegionsContent(){const {locale:dl}=useLocale(); const set=tourCategories['one-day-tours']; const meta=catMeta.day; const ar=dl==='ar'; const catTitle=ar?categoryCopy['one-day-tours'].titleAr:set.title; const catIntro=ar?categoryCopy['one-day-tours'].introAr:set.intro; const catEyebrow=ar?meta.eyebrowAr:meta.eyebrow; const regions=dayTourRegions.map((r)=>({...r,title:dl==='ar'?r.nameAr:r.name,items:getToursBySlugs(r.tourSlugs)})); const total=regions.reduce((n,r)=>n+r.items.length,0); const featured=regions.flatMap((region)=>region.items)[0]; return <><TourCategoryHero image={featured.image} eyebrow={catEyebrow} title={catTitle} intro={catIntro} primaryLabel={ar?'استكشف رحلات اليوم الواحد':'Explore day tours'} primaryHref="#one-day-regions" featuredLabel={ar?'رحلة يوم مميزة':'Featured day tour'} featuredTitle={ar&&featured.titleAr?featured.titleAr:featured.title} featuredHref={`/egypt-tours/${featured.slug}`} featuredLocation={ar?localizeTourLocation(featured.location):featured.location} featuredDuration={ar?localizeTourDuration(featured.duration):featured.duration} statsLabel={ar?'ملخص رحلات اليوم الواحد':'One-day tours summary'} stats={[{value:total,label:ar?'رحلات متاحة':'Tours available'},{value:regions.length,label:ar?'وجهات مصرية':'Egypt destinations'}]}/><Breadcrumb items={[dl==='ar'?'جولات مصر':'Egypt Tours',catTitle]}/><main id="one-day-regions" className="listing-page container"><nav className="category-pills region-nav" aria-label={dl==='ar'?'المحافظات':'Governorates'}>{regions.map(r=><a key={r.slug} href={'#'+r.slug}>{r.title}</a>)}</nav><p className="region-count">{dl==='ar'?<>تصفح <strong>{total}</strong> رحلة يوم واحد في <strong>{regions.length}</strong> محافظات</>:<>Browse <strong>{total}</strong> one-day tours across <strong>{regions.length}</strong> governorates</>}</p>{regions.map(r=><section key={r.slug} id={r.slug} className="region-block" aria-label={r.title}><div className="region-head"><div><span className="eyebrow">{catTitle}</span><h2>{r.title}</h2><p>{r.copy}</p></div><div className="region-badge-wrap"><span className="region-badge">{r.items.length} {dl==='ar'?'رحلات':'tours'}</span><Link href={`/egypt-tours/one-day-tours/${r.slug}`} className="region-see-more">{dl==='ar'?'شاهد الكل':'See more'} <ArrowRight size={14}/></Link></div></div><div className="compact-tour-grid region-tours">{r.items.map(t=><TourCard key={t.slug} tour={t} variant='day'/>)}</div></section>)}<HelpCTA/></main></>}
+function OneDayToursRegionsContent(){const {locale:dl}=useLocale(); const set=tourCategories['one-day-tours']; const meta=catMeta.day; const ar=dl==='ar'; const catTitle=ar?categoryCopy['one-day-tours'].titleAr:set.title; const catIntro=ar?categoryCopy['one-day-tours'].introAr:set.intro; const catEyebrow=ar?meta.eyebrowAr:meta.eyebrow; const liveDestinations=useLiveDestinations(destinations);const liveTours=useLiveTours(oneDayTourBase);const regions=getPublishedOneDayDestinations(liveDestinations).map((d)=>({slug:d.slug,title:dl==='ar'?(d.nameAr??d.title):d.title,copy:dl==='ar'?(d.copyAr??d.copy):d.copy,items:getOneDayToursForDestination(liveTours,d.slug)})).filter((r)=>r.items.length>0); const total=regions.reduce((n,r)=>n+r.items.length,0); const featured=regions.flatMap((region)=>region.items)[0]??liveTours[0]; return <><TourCategoryHero image={featured.image} eyebrow={catEyebrow} title={catTitle} intro={catIntro} primaryLabel={ar?'استكشف رحلات اليوم الواحد':'Explore day tours'} primaryHref="#one-day-regions" featuredLabel={ar?'رحلة يوم مميزة':'Featured day tour'} featuredTitle={ar&&featured.titleAr?featured.titleAr:featured.title} featuredHref={`/egypt-tours/${featured.slug}`} featuredLocation={ar?localizeTourLocation(featured.location):featured.location} featuredDuration={ar?localizeTourDuration(featured.duration):featured.duration} statsLabel={ar?'ملخص رحلات اليوم الواحد':'One-day tours summary'} stats={[{value:total,label:ar?'رحلات متاحة':'Tours available'},{value:regions.length,label:ar?'وجهات مصرية':'Egypt destinations'}]}/><Breadcrumb items={[dl==='ar'?'جولات مصر':'Egypt Tours',catTitle]}/><main id="one-day-regions" className="listing-page container"><nav className="category-pills region-nav" aria-label={dl==='ar'?'المحافظات':'Governorates'}>{regions.map(r=><a key={r.slug} href={'#'+r.slug}>{r.title}</a>)}</nav><p className="region-count">{dl==='ar'?<>تصفح <strong>{total}</strong> رحلة يوم واحد في <strong>{regions.length}</strong> محافظات</>:<>Browse <strong>{total}</strong> one-day tours across <strong>{regions.length}</strong> governorates</>}</p>{regions.map(r=><section key={r.slug} id={r.slug} className="region-block" aria-label={r.title}><div className="region-head"><div><span className="eyebrow">{catTitle}</span><h2>{r.title}</h2><p>{r.copy}</p></div><div className="region-badge-wrap"><span className="region-badge">{r.items.length} {dl==='ar'?'رحلات':'tours'}</span><Link href={`/egypt-tours/one-day-tours/${r.slug}`} className="region-see-more">{dl==='ar'?'شاهد الكل':'See more'} <ArrowRight size={14}/></Link></div></div><div className="compact-tour-grid region-tours">{r.items.slice(0,4).map(t=><TourCard key={t.slug} tour={t} variant='day'/>)}</div></section>)}<HelpCTA/></main></>}
 
 type RegionTourProps = {
   region: { name: string; nameAr: string; slug: string; copy: string; copyAr?: string; tourSlugs: readonly string[] }
@@ -505,6 +508,145 @@ function RegionTourContent({ region, tours, page, category = 'one-day-tours' }: 
   </>
 }
 
+function MultiDayToursCategoriesContent(){
+  const {locale:dl}=useLocale();
+  const set=tourCategories['multi-days-tours'];
+  const meta=catMeta.multi;
+  const ar=dl==='ar';
+  const catTitle=ar?categoryCopy['multi-days-tours'].titleAr:set.title;
+  const catIntro=ar?categoryCopy['multi-days-tours'].introAr:set.intro;
+  const catEyebrow=ar?meta.eyebrowAr:meta.eyebrow;
+  const liveCategories=useLiveMultiDayCategories(multiDayCategories);const liveMultiTours=useLiveTours(multiDayTourBase);const entries=getPublishedMultiDayCategories(liveCategories).map((category)=>({category,tours:getMultiDayToursForCategory(liveMultiTours,category.slug)})).filter((entry)=>entry.tours.length>0);
+  const total=entries.reduce((n,entry)=>n+entry.tours.length,0);
+  const featured=entries.flatMap((entry)=>entry.tours)[0]??liveMultiTours[0];
+  return <><TourCategoryHero image={featured.image} eyebrow={catEyebrow} title={catTitle} intro={catIntro} primaryLabel={ar?'استكشف رحلات متعددة الأيام':'Explore multi-day journeys'} primaryHref="#multi-day-categories" featuredLabel={ar?'رحلة مميزة':'Featured journey'} featuredTitle={ar&&featured.titleAr?featured.titleAr:featured.title} featuredHref={`/egypt-tours/${featured.slug}`} featuredLocation={ar?localizeTourLocation(featured.location):featured.location} featuredDuration={ar?localizeTourDuration(featured.duration):featured.duration} statsLabel={ar?'ملخص رحلات متعددة الأيام':'Multi-day tours summary'} stats={[{value:total,label:ar?'رحلات متاحة':'Journeys available'},{value:entries.length,label:ar?'فئات سفر':'Travel categories'}]}/><Breadcrumb items={[dl==='ar'?'جولات مصر':'Egypt Tours',catTitle]}/><main id="multi-day-categories" className="listing-page container"><nav className="category-pills region-nav" aria-label={dl==='ar'?'فئات السفر':'Travel categories'}>{entries.map(({category})=><a key={category.slug} href={'#'+category.slug}>{dl==='ar'?category.nameAr:category.name}</a>)}</nav><p className="region-count">{dl==='ar'?<>تصفح <strong>{total}</strong> رحلة متعددة الأيام في <strong>{entries.length}</strong> فئات سفر</>:<>Browse <strong>{total}</strong> multi-day journeys across <strong>{entries.length}</strong> travel categories</>}</p>{entries.map(({category,tours})=><section key={category.slug} id={category.slug} className="region-block" aria-label={dl==='ar'?category.nameAr:category.name}><div className="region-head"><div><span className="eyebrow">{catTitle}</span><h2>{dl==='ar'?category.nameAr:category.name}</h2><p>{dl==='ar'?category.copyAr:category.copy}</p></div><div className="region-badge-wrap"><span className="region-badge">{tours.length} {dl==='ar'?'رحلات':'tours'}</span><Link href={`/egypt-tours/multi-days-tours/${category.slug}`} className="region-see-more">{dl==='ar'?'شاهد المزيد':'See more'} <ArrowRight size={14}/></Link></div></div><div className="compact-tour-grid region-tours">{tours.slice(0,4).map(t=><TourCard key={t.slug} tour={t} variant='multi'/>)}</div></section>)}<HelpCTA/></main></>
+}
+
+export function MultiDayCategoryPage({ categorySlug }: { categorySlug: string }) {
+  return <SiteShell><Suspense><MultiDayCategoryContent categorySlug={categorySlug}/></Suspense></SiteShell>
+}
+
+function MultiDayCategoryContent({ categorySlug }: { categorySlug: string }) {
+  const { locale } = useLocale()
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const liveCategories = useLiveMultiDayCategories(multiDayCategories); const liveCatTours = useLiveTours(multiDayTourBase); const category = liveCategories.find((c) => c.slug === categorySlug); const tours = category ? getMultiDayToursForCategory(liveCatTours, category.slug) : []; const set = tourCategories['multi-days-tours']
+  const variant = set.variant
+  const meta = catMeta[variant]
+  const HeroIcon = meta.HeroIcon
+  const ar = locale === 'ar'
+  const parentTitle = ar ? categoryCopy['multi-days-tours'].titleAr : set.title
+  const categoryTitle = category ? (ar ? category.nameAr : category.name) : categorySlug
+  const categoryDesc = category ? (ar ? category.copyAr : category.copy) : ''
+  const sortLabel = (o: string) => o === 'Price: low to high' ? (ar ? 'السعر: من الأقل' : o) : o === 'Price: high to low' ? (ar ? 'السعر: من الأعلى' : o) : (ar ? 'الموصى بها' : o)
+  const destinationOptions = Array.from(new Set(tours.map((tour) => tour.location)))
+  const durationOptions = Array.from(new Set(tours.map((tour) => tour.duration)))
+  const query = parseTourListingQuery(searchParams, destinationOptions, durationOptions)
+  const [destination, setDestination] = useState(query.destination)
+  const [duration, setDuration] = useState(query.duration)
+  const [price, setPrice] = useState(query.price)
+  const [sortOpen, setSortOpen] = useState(false)
+  useEffect(() => { setDestination(query.destination); setDuration(query.duration); setPrice(query.price) }, [query.destination, query.duration, query.price])
+  const perPage = 6
+  const go = (next: TourListingQuery) => {
+    const params = new URLSearchParams()
+    if (next.destination) params.set('destination', next.destination)
+    if (next.duration) params.set('duration', next.duration)
+    if (next.price) params.set('price', next.price)
+    if (next.sort !== 'Recommended') params.set('sort', next.sort)
+    if (next.page > 1) params.set('page', String(next.page))
+    const qs = params.toString()
+    router.replace(pathname + (qs ? `?${qs}` : ''), { scroll: false })
+  }
+  const applyFilters = () => go({ destination, duration, price, sort: query.sort, page: 1 })
+  const resetFilters = () => { setDestination(''); setDuration(''); setPrice(''); go({ destination: '', duration: '', price: '', sort: query.sort, page: 1 }) }
+  const appliedCount = [query.destination, query.duration, query.price].filter(Boolean).length
+  const filtered = tours.filter((t) => (!query.destination || t.location === query.destination) && (!query.duration || t.duration === query.duration) && matchPriceBand(t.price, query.price))
+  const sorted = [...filtered].sort((a, b) => query.sort === 'Price: low to high' ? (a.price - b.price || (a.slug < b.slug ? -1 : 1)) : query.sort === 'Price: high to low' ? (b.price - a.price || (a.slug < b.slug ? -1 : 1)) : 0)
+  const totalPages = Math.max(1, Math.ceil(sorted.length / perPage))
+  const safePage = Math.min(Math.max(1, query.page), totalPages)
+  const paged = sorted.slice((safePage - 1) * perPage, safePage * perPage)
+
+  return <>
+    <Breadcrumb items={[ar ? 'جولات مصر' : 'Egypt Tours', parentTitle, categoryTitle]}/>{category && category.image ? <div className="mdc-cover"><img src={category.image} alt={categoryTitle}/></div> : null}
+    <main className="listing-page container">
+      <div className={`cat-hero ${variant}`}>
+        <span className="cat-hero-ic" aria-hidden="true"><HeroIcon size={34}/></span>
+        <div>
+          <span className="eyebrow">{ar ? meta.eyebrowAr : meta.eyebrow}</span>
+          <h1>{categoryTitle}</h1>
+          <p>{categoryDesc}</p>
+          <div className="cat-feats">{(ar ? meta.featsAr : meta.feats).map((feature) => <span key={feature.text}><feature.Icon size={14}/>{feature.text}</span>)}</div>
+        </div>
+      </div>
+      {!category || !category.active ? <div className="account-empty"><h3>{ar ? 'الفئة غير موجودة.' : 'Category not found.'}</h3><p>{ar ? 'الفئة التي تبحث عنها غير متاحة حاليا.' : 'The category you are looking for is not available right now.'}</p><Link href="/egypt-tours/multi-days-tours" className="primary-btn">{ar ? 'رحلات متعددة الأيام' : 'Multi day tours'}</Link></div> : tours.length ? <>
+        <CategoryFilter destination={destination} duration={duration} price={price} destinationOptions={destinationOptions} durationOptions={durationOptions} appliedCount={appliedCount} onDestination={setDestination} onDuration={setDuration} onPrice={setPrice} onSearch={applyFilters} onReset={resetFilters}/>
+        <div className="results-bar"><strong role="status">{ar ? `${sorted.length} رحلات متاحة` : `${sorted.length} tour${sorted.length === 1 ? '' : 's'} found`}</strong><div style={{ position: 'relative' }}><button type="button" onClick={() => setSortOpen(!sortOpen)} aria-expanded={sortOpen}>{ar ? 'ترتيب حسب: ' : 'Sort by: '}{sortLabel(query.sort)} <ChevronDown size={16}/></button>{sortOpen && <div className="tour-menu" style={{ left: 'auto', right: 0, top: 52, width: 250 }}>{tourListingSorts.map(o => <button key={o} type="button" onClick={() => { setSortOpen(false); go({ ...query, sort: o, page: 1 }) }} style={{ textAlign: ar ? 'right' : 'left', fontWeight: query.sort === o ? 800 : 400 }}>{sortLabel(o)}{query.sort === o ? ' ✓' : ''}</button>)}</div>}</div></div>
+        {paged.length ? <div className="listing-grid">{paged.map(t => <TourCard key={t.slug} tour={t} variant={variant}/>)}</div> : <div className="account-empty"><h3>{ar ? 'لا توجد رحلات تطابق الفلاتر.' : 'No tours match your filters.'}</h3><p>{ar ? 'جرّب وجهة مختلفة أو أعد ضبط الفلاتر لرؤية كل شيء.' : 'Try a different destination or reset the filters to see everything.'}</p><button type="button" className="primary-btn" onClick={resetFilters}>{ar ? 'إعادة ضبط الفلاتر' : 'Reset Filters'}</button></div>}
+        <nav className="pagination" aria-label={ar ? 'صفحات الرحلات' : 'Tour listing pages'}><button type="button" onClick={() => go({ ...query, page: Math.max(1, safePage - 1) })} aria-label={ar ? 'الصفحة السابقة' : 'Previous page'} disabled={safePage <= 1} style={safePage <= 1 ? { opacity: .5 } : undefined}>{ar ? '‹ السابق' : '‹ Back'}</button>{Array.from({ length: totalPages }, (_, i) => safePage === i + 1 ? <b key={i + 1} aria-current="page">{i + 1}</b> : <button key={i + 1} type="button" aria-label={ar ? `انتقل إلى الصفحة ${i + 1}` : `Go to page ${i + 1}`} onClick={() => go({ ...query, page: i + 1 })}>{i + 1}</button>)}<button type="button" onClick={() => go({ ...query, page: Math.min(totalPages, safePage + 1) })} aria-label={ar ? 'الصفحة التالية' : 'Next page'} disabled={safePage >= totalPages} style={safePage >= totalPages ? { opacity: .5 } : undefined}>{ar ? 'التالي ›' : 'Next ›'}</button></nav>
+      </> : <div className="account-empty"><h3>{ar ? 'لا توجد رحلات في هذه الفئة بعد.' : 'No journeys in this category yet.'}</h3><p>{ar ? 'نضيف رحلات جديدة باستمرار — عاود الزيارة قريباً.' : 'New journeys are added regularly — check back soon.'}</p></div>}
+      <HelpCTA/>
+    </main>
+  </>
+}
+
+export function OneDayDestinationPage({ slug }: { slug: string }) {
+  return <SiteShell><Suspense><OneDayDestinationContent slug={slug} /></Suspense></SiteShell>
+}
+
+function OneDayDestinationContent({ slug }: { slug: string }) {
+  const { locale } = useLocale()
+  const searchParams = useSearchParams()
+  const set = tourCategories['one-day-tours']
+  const variant = set.variant
+  const meta = catMeta.day
+  const HeroIcon = meta.HeroIcon
+  const ar = locale === 'ar'
+  const liveDestinations = useLiveDestinations(destinations)
+  const liveTours = useLiveTours(oneDayTourBase)
+  const destination = liveDestinations.find((item) => item.slug === slug && item.showInOneDayTours === true)
+  const tours = destination ? getOneDayToursForDestination(liveTours, destination.slug) : []
+  const perPage = 9
+  const queryPage = Number(searchParams.get('page'))
+  const requestedPage = Number.isInteger(queryPage) && queryPage > 0 && queryPage <= 999 ? queryPage : 1
+  const totalPages = Math.max(1, Math.ceil(tours.length / perPage))
+  const safePage = Math.max(1, Math.min(requestedPage, totalPages))
+  const paged = tours.slice((safePage - 1) * perPage, safePage * perPage)
+  const makeHref = (number: number) => `/egypt-tours/one-day-tours/${slug}${number > 1 ? `?page=${number}` : ''}`
+  const parentTitle = ar ? categoryCopy['one-day-tours'].titleAr : set.title
+  if (!destination || destination.isPublished === false) {
+    return <>
+      <Breadcrumb items={[ar ? 'جولات مصر' : 'Egypt Tours', parentTitle]} />
+      <main className="listing-page container"><div className="account-empty"><h3>{ar ? 'الوجهة غير موجودة.' : 'Destination not found.'}</h3><p>{ar ? 'الوجهة التي تبحث عنها غير متاحة حاليا.' : 'The destination you are looking for is not available right now.'}</p><Link href="/egypt-tours/one-day-tours" className="primary-btn">{ar ? 'رحلات اليوم الواحد' : 'One day tours'}</Link></div></main>
+    </>
+  }
+  const destTitle = ar ? (destination.nameAr ?? destination.title) : destination.title
+  const destDesc = ar ? (destination.copyAr ?? destination.copy) : destination.copy
+  return <>
+    <Breadcrumb items={[ar ? 'جولات مصر' : 'Egypt Tours', parentTitle, destTitle]} />
+    <main className="listing-page container">
+      <div className={`cat-hero ${variant}`}>
+        <span className="cat-hero-ic" aria-hidden="true"><HeroIcon size={34} /></span>
+        <div>
+          <span className="eyebrow">{ar ? meta.eyebrowAr : meta.eyebrow}</span>
+          <h1>{destTitle}</h1>
+          <p>{destDesc}</p>
+          <div className="cat-feats">{(ar ? meta.featsAr : meta.feats).map((feature) => <span key={feature.text}><feature.Icon size={14} />{feature.text}</span>)}</div>
+        </div>
+      </div>
+      <div className="results-bar"><span>{ar ? <>عرض <strong>{paged.length}</strong> من <strong>{tours.length}</strong> رحلة</> : <>Showing <strong>{paged.length}</strong> of <strong>{tours.length}</strong> tours</>}</span></div>
+      {paged.length ? <div className="compact-tour-grid region-tours">{paged.map((tour) => <TourCard key={tour.slug} tour={tour} variant={variant} />)}</div> : <p className="region-count">{ar ? 'لا توجد رحلات حالياً' : 'No tours available at the moment.'}</p>}
+      {totalPages > 1 && <nav className="pagination" aria-label={ar ? 'صفحات الرحلات' : 'Pagination'}>
+        <Link href={makeHref(safePage - 1)} className={safePage <= 1 ? 'disabled' : ''} aria-disabled={safePage <= 1} onClick={(event) => { if (safePage <= 1) event.preventDefault() }}><ArrowRight size={14} style={{ transform: 'rotate(180deg)' }} /> {ar ? 'السابق' : 'Previous'}</Link>
+        {Array.from({ length: totalPages }, (_, index) => index + 1).map((number) => <Link key={number} href={makeHref(number)} className={number === safePage ? 'active' : ''} aria-current={number === safePage ? 'page' : undefined}>{number}</Link>)}
+        <Link href={makeHref(safePage + 1)} className={safePage >= totalPages ? 'disabled' : ''} aria-disabled={safePage >= totalPages} onClick={(event) => { if (safePage >= totalPages) event.preventDefault() }}>{ar ? 'التالي' : 'Next'} <ArrowRight size={14} /></Link>
+      </nav>}
+    </main>
+  </>
+}
+
+export function MultiDayToursCategories(){return <SiteShell><MultiDayToursCategoriesContent/></SiteShell>}
 export const catMeta: Record<TourVariant, { eyebrow: string; eyebrowAr: string; HeroIcon: typeof Sun; feats: { Icon: typeof Sun; text: string }[]; featsAr: { Icon: typeof Sun; text: string }[] }> = {
   multi: { eyebrow: 'Take your time', eyebrowAr: 'خذ وقتك', HeroIcon: Package, feats: [{ Icon: MapPin, text: 'Multi-city routes' }, { Icon: Users, text: 'Private groups' }], featsAr: [{ Icon: MapPin, text: 'مسارات متعددة المدن' }, { Icon: Users, text: 'مجموعات خاصة' }] },
   day: { eyebrow: 'One day, zero rush', eyebrowAr: 'يوم واحد بدون استعجال', HeroIcon: Sun, feats: [{ Icon: Clock3, text: 'Hours, not days' }, { Icon: MapPin, text: 'Single city' }], featsAr: [{ Icon: Clock3, text: 'ساعات لا أيام' }, { Icon: MapPin, text: 'مدينة واحدة' }] },

@@ -1,2 +1,2 @@
-import { TourListing } from '@/components/site'
-export default function Page(){return <TourListing slug="multi-days-tours"/>}
+import { MultiDayToursCategories } from '@/components/site'
+export default function Page(){return <MultiDayToursCategories/>}

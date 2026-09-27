@@ -31,6 +31,7 @@ export const destinations: Destination[] = [
   },
   {
     title: 'Luxor', slug: 'luxor', image: siteImages.temple, copy: 'Walk through the world\'s greatest open-air museum.',
+    nameAr: 'الأقصر', copyAr: 'تمشَّ في أعظم متحف مفتوح في العالم.', showInOneDayTours: true, displayOrder: 4,
     detail: {
       heroImage: 'https://images.unsplash.com/photo-1711547789606-a496af0b3582?auto=format&fit=crop&w=2000&q=88', heroAlt: 'The avenue of ram-headed sphinxes at Karnak Temple in Luxor', eyebrow: 'Temples, tombs, Nile light',
       intro: 'Luxor is best experienced as two complementary worlds: the monumental temples of the East Bank and the intimate tombs and desert valleys of the West Bank.',
@@ -48,6 +49,7 @@ export const destinations: Destination[] = [
   },
   {
     title: 'Aswan', slug: 'aswan', image: siteImages.nile, copy: 'Slow Nile days, Nubian culture, and timeless landscapes.',
+    nameAr: 'أسوان', copyAr: 'أيام نيلية هادئة وثقافة نوبية ومناظر خالدة.', showInOneDayTours: true, displayOrder: 5,
     detail: {
       heroImage: 'https://images.unsplash.com/photo-1655163394362-97de2d3c5c85?auto=format&fit=crop&w=2000&q=88', heroAlt: 'A Nubian village beside the Nile in Aswan', eyebrow: 'Nubian warmth, island rhythm',
       intro: 'Aswan softens the pace of an Egypt journey. Granite islands, colorful Nubian communities, and quiet stretches of Nile invite you to look longer and move more slowly.',
@@ -65,6 +67,7 @@ export const destinations: Destination[] = [
   },
   {
     title: 'Hurghada', slug: 'hurghada', image: siteImages.redSea, copy: 'Warm water, colorful reefs, and effortless Red Sea escapes.',
+    nameAr: 'الغردقة', copyAr: 'مياه دافئة وشعاب ملونة وعطلات سهلة على البحر الأحمر.', showInOneDayTours: true, displayOrder: 6,
     detail: {
       heroImage: siteImages.redSea, heroAlt: 'Divers exploring the clear Red Sea near Hurghada', eyebrow: 'Reef color, desert horizons',
       intro: 'Hurghada gives a classic Egypt itinerary room to breathe, pairing clear Red Sea water with island days, desert landscapes, and an easy resort rhythm.',
@@ -99,6 +102,7 @@ export const destinations: Destination[] = [
   },
   {
     title: 'Sharm El Sheikh', slug: 'sharm-el-sheikh', image: siteImages.redSea, copy: 'A bright coastal retreat with desert adventures nearby.',
+    nameAr: 'شرم الشيخ', copyAr: 'منتجع ساحلي مشرق مع مغامرات صحراوية قريبة.', showInOneDayTours: true, displayOrder: 7,
     detail: {
       heroImage: siteImages.redSea, heroAlt: 'Divers in clear Red Sea water near Sharm El Sheikh', eyebrow: 'Red Sea clarity, Sinai drama',
       intro: 'Sharm El Sheikh combines easy resort comfort with serious underwater experiences and the stark mountain landscapes of southern Sinai.',
@@ -112,6 +116,66 @@ export const destinations: Destination[] = [
       rhythm: [{ label: 'Day one', title: 'Ease into the coast', copy: 'Use the first day for a relaxed swim, equipment check, and simple waterfront evening.' }, { label: 'Day two', title: 'Commit to the marine day', copy: 'Plan your strongest reef or diving experience while energy and attention are high.' }, { label: 'Extra day', title: 'See another side of Sinai', copy: 'Choose a mountain, desert, or cultural route to balance the time spent on the water.' }],
       practical: [{ title: 'Book for your experience level', copy: 'Be clear about diving certification and swimming confidence before choosing the route.' }, { title: 'Respect marine rules', copy: 'Follow protected-area guidance and keep fins, hands, and equipment away from coral.' }, { title: 'Plan recovery time', copy: 'Leave space between demanding water activities and any long-distance Sinai excursion.' }],
       tourSlugs: ['sharm-el-sheikh-diving-day', 'ras-mohamed-snorkeling-trip', 'st-catherine-mount-sinai'],
+    },
+  },
+  // One-day discovery cities without a full editorial story. They stay out of
+  // editorial surfaces (showInDestinations: false) but drive One Day Tours
+  // sections and destination pages. Membership is owned by Tour.destinationSlug;
+  // detail.tourSlugs below mirrors it so destination related-tours keep working.
+  {
+    title: 'Cairo', slug: 'cairo', image: siteImages.cairo, copy: 'Museums, mosques and markets in the buzzing heart of Egypt.',
+    nameAr: 'القاهرة', copyAr: 'متاحف ومساجد وأسواق في قلب مصر النابض.', showInOneDayTours: true, showInDestinations: false, displayOrder: 1,
+    detail: {
+      heroImage: siteImages.cairo, heroAlt: 'Historic streets of Cairo', eyebrow: 'One-day destination',
+      intro: 'Museums, mosques and markets in the buzzing heart of Egypt.',
+      facts: [{ label: 'Suggested stay', value: 'A day trip' }],
+      bestFor: [],
+      experiences: [],
+      rhythm: [],
+      practical: [],
+      tourSlugs: ['cairo-highlights-day-tour', 'egyptian-museum-old-cairo', 'old-cairo-and-khan-el-khalili', 'cairo-by-night-city-tour'],
+    },
+  },
+  {
+    title: 'Giza', slug: 'giza', image: siteImages.pyramids, copy: 'The Pyramids, the Sphinx and the secrets of the ancient necropolis.',
+    nameAr: 'الجيزة', copyAr: 'الأهرامات وأبو الهول وأسرار الجبانة القديمة.', showInOneDayTours: true, showInDestinations: false, displayOrder: 2,
+    detail: {
+      heroImage: siteImages.pyramids, heroAlt: 'The Pyramids of Giza', eyebrow: 'One-day destination',
+      intro: 'The Pyramids, the Sphinx and the secrets of the ancient necropolis.',
+      facts: [{ label: 'Suggested stay', value: 'A day trip' }],
+      bestFor: [],
+      experiences: [],
+      rhythm: [],
+      practical: [],
+      tourSlugs: ['giza-pyramids-sphinx-tour', 'saqqara-and-memphis-day-trip', 'grand-egyptian-museum-tour', 'giza-sound-and-light-evening'],
+    },
+  },
+  {
+    title: 'Alexandria', slug: 'alexandria', image: siteImages.redSea, copy: 'Mediterranean breeze, Greco-Roman history and seaside charm.',
+    nameAr: 'الإسكندرية', copyAr: 'نسيم المتوسط وتاريخ يوناني روماني وسحر الساحل.', showInOneDayTours: true, showInDestinations: false, displayOrder: 3,
+    detail: {
+      heroImage: siteImages.redSea, heroAlt: 'The Mediterranean coast at Alexandria', eyebrow: 'One-day destination',
+      intro: 'Mediterranean breeze, Greco-Roman history and seaside charm.',
+      facts: [{ label: 'Suggested stay', value: 'A day trip' }],
+      bestFor: [],
+      experiences: [],
+      rhythm: [],
+      practical: [],
+      tourSlugs: ['alexandria-day-trip', 'alexandria-mediterranean-day', 'el-alamein-day-tour', 'citadel-catacombs-montaza'],
+    },
+  },
+  {
+    title: 'Port Said', slug: 'port-said', image: siteImages.nile, copy: 'The Suez Canal, colonial streets and Mediterranean ports.',
+    nameAr: 'بورسعيد', copyAr: 'قناة السويس وشوارع عريقة وموانئ على المتوسط.', showInOneDayTours: true, showInDestinations: false, displayOrder: 8,
+    detail: {
+      heroImage: siteImages.nile, heroAlt: 'The Suez Canal at Port Said', eyebrow: 'One-day destination',
+      intro: 'The Suez Canal, colonial streets and Mediterranean ports.',
+      facts: [{ label: 'Suggested stay', value: 'A day trip' }],
+      bestFor: [],
+      experiences: [],
+      rhythm: [],
+      practical: [],
+      tourSlugs: ['port-said-highlights-tour', 'port-said-port-fuad-day-trip', 'suez-canal-experience', 'museum-lighthouse-corniche'],
     },
   },
 ]
@@ -447,11 +511,12 @@ export const blogs: Blog[] = [
 ]
 
 export const events: Event[] = [
-  { title: 'Eid Holidays in Egypt', slug: 'eid-holidays-egypt', image: siteImages.cairo, date: 'March 20-30, 2027', location: 'Cairo, Luxor & Aswan', category: 'Seasonal journey', copy: 'Celebrate Egypt\'s warmth, food, and living traditions across three iconic cities.', intro: 'A privately coordinated Eid journey linking Cairo\'s festive streets with the temples, river landscapes, and slower rhythm of Upper Egypt.',
+  { title: 'Eid Holidays in Egypt', titleAr: 'أجازة العيد في مصر', slug: 'eid-holidays-egypt', image: siteImages.cairo, date: 'March 20-30, 2027', startDate: '2027-03-20', endDate: '2027-03-30', location: 'Cairo, Luxor & Aswan', locationAr: 'القاهرة والأقصر وأسوان', city: 'Cairo', cityAr: 'القاهرة', mapQuery: 'Cairo Egypt', category: 'Seasonal journey', categoryAr: 'رحلة موسمية', pricingType: 'request', isPublished: true, displayOrder: 1,
+    copy: 'Celebrate Egypt\'s warmth, food, and living traditions across three iconic cities.', copyAr: 'عيش دفء مصر وأكلها وتقاليدها الأصيلة في ثلاث مدن مميزة.', intro: 'A privately coordinated Eid journey linking Cairo\'s festive streets with the temples, river landscapes, and slower rhythm of Upper Egypt.', introAr: 'رحلة عيد منظمة بعناية تربط بين أجواء القاهرة الاحتفالية ومعابد الصعيد وهدوء النيل وإيقاعه المميز.',
     highlights: [
-      { title: 'Celebrate in Cairo', description: 'Experience the city during Eid with landmark visits, historic neighborhoods, and time for local food and evening atmosphere.' },
-      { title: 'Continue through Upper Egypt', description: 'Move from Luxor\'s monumental temples to Aswan\'s islands and Nubian character in one connected route.' },
-      { title: 'Travel with local support', description: 'Private transfers and guided sightseeing keep the multi-city journey clear, comfortable, and well paced.' },
+      { title: 'Celebrate in Cairo', titleAr: 'العيد في القاهرة', description: 'Experience the city during Eid with landmark visits, historic neighborhoods, and time for local food and evening atmosphere.', descriptionAr: 'استمتع بالقاهرة في العيد بين المعالم والأحياء القديمة والأكلات المحلية وأجواء المساء.' },
+      { title: 'Continue through Upper Egypt', titleAr: 'نكمل في صعيد مصر', description: 'Move from Luxor\'s monumental temples to Aswan\'s islands and Nubian character in one connected route.', descriptionAr: 'من معابد الأقصر المهيبة إلى جزر أسوان وطابعها النوبي في خط سير واحد متكامل.' },
+      { title: 'Travel with local support', titleAr: 'سفر بدعم محلي', description: 'Private transfers and guided sightseeing keep the multi-city journey clear, comfortable, and well paced.', descriptionAr: 'انتقالات خاصة وجولات بمرشدين تخلي الرحلة بين المدن مريحة ومنظمة وإيقاعها هادئ.' },
     ],
     program: [
       { day: 'Day 1-2', title: 'Cairo arrival & Eid sights', description: 'Settle in, explore the Giza Pyramids and the Sphinx, and feel the Eid lights at Khan El Khalili bazaar.' },
@@ -461,14 +526,17 @@ export const events: Event[] = [
       { day: 'Day 10-11', title: 'Farewell', description: 'A last souq morning and relaxed departure transfer.' },
     ],
     included: ['Eid-season airport meet and greet', 'Private transfers with driver', 'Daily guided sightseeing per program', 'Domestic flight Cairo to Luxor'],
+    includedAr: ['استقبال في المطار خلال موسم العيد', 'انتقالات خاصة مع سائق', 'جولات يومية بمرشد حسب البرنامج', 'طيران داخلي من القاهرة إلى الأقصر'],
     excluded: ['International flights', 'Egypt entry visa', 'Meals and personal expenses unless listed', 'Tips for guides and drivers'],
+    excludedAr: ['الطيران الدولي', 'تأشيرة دخول مصر', 'الوجبات والمصاريف الشخصية غير المذكورة', 'إكراميات المرشدين والسائقين'],
     addOns: [{ title: 'Hot air balloon over Luxor' }, { title: 'Abu Simbel day trip' }, { title: 'Extra night in Cairo' }],
   },
-  { title: 'New Year on the Nile', slug: 'new-year-nile', image: siteImages.nile, date: 'December 28, 2026 - January 04, 2027', location: 'Luxor to Aswan', category: 'Nile celebration', copy: 'Welcome the new year with temple lights, calm river days, and golden sunsets.', intro: 'An eight-day Nile celebration shaped around ancient sites, relaxed sailing, and a New Year\'s Eve gala as the river carries you from Luxor to Aswan.',
+  { title: 'New Year on the Nile', titleAr: 'رأس السنة على النيل', slug: 'new-year-nile', image: siteImages.nile, date: 'December 28, 2026 - January 04, 2027', startDate: '2026-12-28', endDate: '2027-01-04', location: 'Luxor to Aswan', locationAr: 'من الأقصر إلى أسوان', city: 'Luxor', cityAr: 'الأقصر', mapQuery: 'Luxor Egypt', category: 'Nile celebration', categoryAr: 'احتفال نيلي', pricingType: 'request', isPublished: true, displayOrder: 2,
+    copy: 'Welcome the new year with temple lights, calm river days, and golden sunsets.', copyAr: 'استقبل السنة الجديدة بين أنوار المعابد وأيام النيل الهادئة وغروب الشمس الذهبي.', intro: 'An eight-day Nile celebration shaped around ancient sites, relaxed sailing, and a New Year\'s Eve gala as the river carries you from Luxor to Aswan.', introAr: 'احتفال نيلي لمدة ثمانية أيام حول المواقع الأثرية والإبحار الهادئ وحفل ليلة رأس السنة أثناء الإبحار من الأقصر إلى أسوان.',
     highlights: [
-      { title: 'Celebrate on the river', description: 'Mark New Year\'s Eve on board with a gala dinner and midnight countdown during the southbound sailing.' },
-      { title: 'Follow the temple route', description: 'Explore Luxor, Edfu, Kom Ombo, and Philae with guided visits woven into the cruise rhythm.' },
-      { title: 'Keep time for the Nile', description: 'Balance the archaeological program with golden-hour sailing and calmer moments on deck.' },
+      { title: 'Celebrate on the river', titleAr: 'الاحتفال على النيل', description: 'Mark New Year\'s Eve on board with a gala dinner and midnight countdown during the southbound sailing.', descriptionAr: 'احتفل بليلة رأس السنة على متن السفينة بعشاء فاخر وعد تنازلي لمنتصف الليل أثناء الإبحار جنوبًا.' },
+      { title: 'Follow the temple route', titleAr: 'على خط المعابد', description: 'Explore Luxor, Edfu, Kom Ombo, and Philae with guided visits woven into the cruise rhythm.', descriptionAr: 'اكتشف الأقصر وإدفو وكوم أمبو وفيلة بزيارات مرشدة متناسقة مع إيقاع الرحلة النيلية.' },
+      { title: 'Keep time for the Nile', titleAr: 'وقت خاص للنيل', description: 'Balance the archaeological program with golden-hour sailing and calmer moments on deck.', descriptionAr: 'وازن بين البرنامج الأثري ولحظات الإبحار وقت الغروب والهدوء على سطح السفينة.' },
     ],
     program: [
       { day: 'Day 1', title: 'Embark in Luxor', description: 'Board the cruise ship, settle into the cabin, and enjoy an evening visit to Luxor Temple.' },
@@ -479,14 +547,17 @@ export const events: Event[] = [
       { day: 'Day 7-8', title: 'Farewell & disembark', description: 'Slow final morning on the river, disembarkation, and onward transfer.' },
     ],
     included: ['7-night full-board Nile cruise', 'New Year\'s Eve gala dinner on board', 'Guided shore visits per program', 'Port transfers in Luxor and Aswan'],
+    includedAr: ['رحلة نيلية 7 ليالٍ إقامة كاملة', 'حفل عشاء ليلة رأس السنة على متن السفينة', 'زيارات مرشدة حسب البرنامج', 'انتقالات الموانئ في الأقصر وأسوان'],
     excluded: ['International and domestic flights', 'Egypt entry visa', 'Drinks beyond meals and personal expenses', 'Crew and guide tips'],
+    excludedAr: ['الطيران الدولي والداخلي', 'تأشيرة دخول مصر', 'المشروبات خارج الوجبات والمصاريف الشخصية', 'إكراميات طاقم السفينة والمرشدين'],
     addOns: [{ title: 'Abu Simbel extension' }, { title: 'Cabin upgrade to suite' }, { title: 'Cairo stopover package' }],
   },
-  { title: 'Cairo Jazz Festival Escape', slug: 'cairo-jazz-festival', image: 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=1800&q=88', date: 'October 15-18, 2026', location: 'Cairo', category: 'Music & city break', copy: 'Pair the city\'s best music weekend with a curated Cairo cultural escape.', intro: 'A four-day Cairo break where live music leads the rhythm and private cultural visits reveal the city between the opening and closing performances.',
+  { title: 'Cairo Jazz Festival Escape', titleAr: 'عطلة مهرجان القاهرة للجاز', slug: 'cairo-jazz-festival', image: 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=1800&q=88', date: 'October 15-18, 2026', startDate: '2026-10-15', endDate: '2026-10-18', location: 'Cairo', locationAr: 'القاهرة', city: 'Cairo', cityAr: 'القاهرة', mapQuery: 'Cairo Egypt', category: 'Music & city break', categoryAr: 'موسيقى وعطلة', pricingType: 'request', isPublished: true, displayOrder: 3,
+    copy: 'Pair the city\'s best music weekend with a curated Cairo cultural escape.', copyAr: 'اجمع بين أجمل عطلة موسيقية في المدينة وبرنامج ثقافي مختار بعناية في القاهرة.', intro: 'A four-day Cairo break where live music leads the rhythm and private cultural visits reveal the city between the opening and closing performances.', introAr: 'عطلة أربعة أيام في القاهرة تقودها الموسيقى الحية وتكشف لك المدينة بين الحفل الافتتاحي والختامي بزيارات ثقافية خاصة.',
     highlights: [
-      { title: 'Festival nights', description: 'A hosted music weekend built around the listed opening, headline, and closing concerts.' },
-      { title: 'Cairo between sets', description: 'Use the daytime for the Citadel, historic streets, and a guided visit to the Giza Plateau.' },
-      { title: 'A coordinated city escape', description: 'Private transfers and a local host connect the concert schedule with the cultural program.' },
+      { title: 'Festival nights', titleAr: 'ليالي المهرجان', description: 'A hosted music weekend built around the listed opening, headline, and closing concerts.', descriptionAr: 'عطلة موسيقية بمرافقة محلية حول الحفلات الافتتاحية والرئيسية والختامية.' },
+      { title: 'Cairo between sets', titleAr: 'القاهرة بين الحفلات', description: 'Use the daytime for the Citadel, historic streets, and a guided visit to the Giza Plateau.', descriptionAr: 'استغل النهار لزيارة القلعة والشوارع التاريخية وهضبة الجيزة بمرشد.' },
+      { title: 'A coordinated city escape', titleAr: 'عطلة منظمة', description: 'Private transfers and a local host connect the concert schedule with the cultural program.', descriptionAr: 'انتقالات خاصة ومرافق محلي يربطون جدول الحفلات بالبرنامج الثقافي.' },
     ],
     program: [
       { day: 'Day 1', title: 'Arrival & opening night', description: 'Settle in, then head out for the festival opening concert with a local host.' },
@@ -495,7 +566,9 @@ export const events: Event[] = [
       { day: 'Day 4', title: 'Farewell', description: 'Slow morning, final market stroll, and departure transfer.' },
     ],
     included: ['Jazz festival passes for listed concerts', 'Private transfers with driver', 'Guided Giza pyramids visit', 'Local host throughout'],
+    includedAr: ['تذاكر حفلات المهرجان المذكورة', 'انتقالات خاصة مع سائق', 'زيارة مرشدة لأهرامات الجيزة', 'مرافق محلي طوال الرحلة'],
     excluded: ['Accommodation and most meals', 'International flights and visa', 'Personal expenses', 'Tips'],
+    excludedAr: ['الإقامة ومعظم الوجبات', 'الطيران الدولي والتأشيرة', 'المصاريف الشخصية', 'الإكراميات'],
     addOns: [{ title: 'Nile dinner cruise' }, { title: 'Sound & Light show' }, { title: 'Extra Cairo night' }],
   },
 ]

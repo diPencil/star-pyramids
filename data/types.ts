@@ -130,6 +130,10 @@ export type Tour = {
   title: string
   titleAr?: string
   category: TourCategory
+  /** One-day discovery destination this tour belongs to (single). Authoritative for One Day Tours grouping; overrides ride along in admin tour overrides. `null` explicitly clears a canonical assignment (survives JSON); `undefined` backfills canonical for legacy overrides. */
+  destinationSlug?: string | null
+  /** Multi-day travel categories (themes) this tour belongs to. Many-to-many: one tour may appear in several categories, one canonical tour object is never duplicated. */
+  categorySlugs?: readonly string[]
   cruiseType?: CruiseTypeSlug
   departurePort?: string
   location: string
@@ -148,11 +152,35 @@ export type Tour = {
   dayDetail?: DayTourDetail
 }
 
+/** A Multi Days travel category (theme). Catalogue concept: Category → Tours, owned by Tour.categorySlugs. */
+export type MultiDayCategory = {
+  slug: string
+  name: string
+  nameAr: string
+  copy: string
+  copyAr: string
+  image: string
+  order: number
+  active: boolean
+}
+
 export type Destination = {
   title: string
   slug: string
   image: string
   copy: string
+  /** Arabic display name (one-day sections, admin). */
+  nameAr?: string
+  /** Arabic short description. */
+  copyAr?: string
+  /** True when this destination drives a One Day Tours discovery section. */
+  showInOneDayTours?: boolean
+  /** False hides this record from editorial destination surfaces (/destinations, homepage) while keeping catalogue/admin use. Defaults to true. */
+  showInDestinations?: boolean
+  /** False hides this destination from all public surfaces on live browsers. Defaults to true. */
+  isPublished?: boolean
+  /** Admin-controlled section ordering. Defaults to source order. */
+  displayOrder?: number
   detail: {
     heroImage: string
     heroAlt: string
@@ -223,25 +251,71 @@ export type Blog = {
   }
 }
 
+export type EventPricingType = 'free' | 'paid' | 'request'
+
 export type EventProgramDay = {
   day: string
   title: string
   description: string
 }
 
+export type EventHighlight = {
+  title: string
+  titleAr?: string
+  description: string
+  descriptionAr?: string
+}
+
 export type Event = {
   title: string
+  titleAr?: string
   slug: string
   image: string
+  gallery?: readonly string[]
+  /** Legacy free-text date range (kept as fallback/display). New content prefers startDate/endDate. */
   date: string
+  /** Structured ISO dates (YYYY-MM-DD). Drive status/sort/countdown when present. */
+  startDate?: string
+  endDate?: string
+  startTime?: string
+  endTime?: string
+  timezone?: string
   location: string
+  locationAr?: string
+  venueName?: string
+  venueNameAr?: string
+  address?: string
+  addressAr?: string
+  city?: string
+  cityAr?: string
+  /** Safe map search query. Falls back to venue/city/location when absent. */
+  mapQuery?: string
   copy: string
+  copyAr?: string
   category?: string
+  categoryAr?: string
+  featured?: boolean
   intro?: string
-  highlights?: readonly { title: string; description: string }[]
+  introAr?: string
+  pricingType?: EventPricingType
+  price?: number
+  currency?: string
+  capacity?: number
+  bookingDeadline?: string
+  organizerName?: string
+  organizerNameAr?: string
+  organizerPhone?: string
+  organizerWhatsapp?: string
+  organizerEmail?: string
+  /** False hides from all public discovery on live browsers. Defaults to true. */
+  isPublished?: boolean
+  displayOrder?: number
+  highlights?: readonly EventHighlight[]
   program?: readonly EventProgramDay[]
   included?: readonly string[]
+  includedAr?: readonly string[]
   excluded?: readonly string[]
+  excludedAr?: readonly string[]
   addOns?: readonly TourAddOn[]
 }
 

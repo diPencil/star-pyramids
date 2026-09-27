@@ -5,8 +5,8 @@ import Link from "next/link"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { ArrowRight, CalendarDays, Check, ChevronDown, Clock3, Heart, MapPin, Minus, Plus, Share2, ShieldCheck, Users } from "lucide-react"
-import { dayTourRegions, dayTourTerms, getBookingTotal, getToursByCategory, normalizeTourPricePeriods } from "@/data/tours"
-import { findDestination, siteImages } from "@/data/content"
+import { dayTourTerms, getBookingTotal, getTourDestinationSlug, getToursByCategory, normalizeTourPricePeriods } from "@/data/tours"
+import { destinations, findDestination, siteImages } from "@/data/content"
 import type { Tour, TourAddOn } from "@/data/types"
 import { formatPrice, useLocale } from "./locale"
 import { addToCart } from "@/lib/cart"
@@ -61,8 +61,8 @@ export function DayTourDetailPage({ tour: initialTour }: { tour: Tour }) {
   const excluded = detail?.excluded ?? dayTourTerms.excluded
   const addOns: readonly TourAddOn[] = detail?.addOns ?? dayTourTerms.addOns
   const gallery = detail?.gallery?.length ? detail.gallery : regionGalleries[tour.location] ?? [{ src: tour.image, alt: `${tour.location} travel scene` }]
-  const region = dayTourRegions.find((item) => item.name === tour.location)
-  const regionName = region ? (ar ? region.nameAr : region.name) : tour.location
+  const region = destinations.find((item) => item.slug === getTourDestinationSlug(sourceTour))
+  const regionName = region ? (ar ? region.nameAr ?? region.title : region.title) : tour.location
   const locationName = ar ? localizeTourLocation(tour.location) : tour.location
   const durationName = ar ? localizeTourDuration(tour.duration) : tour.duration
   const regionHref = region ? `/egypt-tours/one-day-tours/${region.slug}` : "/egypt-tours/one-day-tours"

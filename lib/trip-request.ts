@@ -1,3 +1,6 @@
+'use client'
+
+import { useEffect, useState } from 'react'
 import { createLocalReference } from '@/lib/booking'
 import type { Currency } from '@/components/locale'
 
@@ -43,6 +46,8 @@ export type MakeYourTripRequestDraft = {
   destinationSlug: string
   /** Canonical tour slug when the user arrived from a tour page, else ''. */
   tourSlug: string
+  /** Free-text trip name typed by the customer (account flow). Never charged or resolved. */
+  customTitle: string
   /** Requested add-on titles (canonical titles only, never charged here). */
   requestedAddOns: string[]
   timeMode: TripTimeMode
@@ -126,7 +131,7 @@ export function validateTripRequest(draft: MakeYourTripRequestDraft, opts?: { is
   const errors: TripFieldErrors = {}
   const isShore = opts?.isShore === true
 
-  if (!draft.destinationSlug && !draft.tourSlug) errors.destination = 'required'
+  if (!draft.destinationSlug && !draft.tourSlug && !draft.customTitle.trim()) errors.destination = 'required'
 
   const datesProvided = draft.preferredFrom !== '' || draft.preferredTo !== ''
   if (draft.timeMode === 'exact') {
@@ -215,6 +220,7 @@ export function sanitizeTripDraft(value: unknown): MakeYourTripRequestDraft | nu
   const draft: MakeYourTripRequestDraft = {
     destinationSlug: safeSlug(raw.destinationSlug),
     tourSlug: safeSlug(raw.tourSlug),
+    customTitle: safeText(raw.customTitle, 120).trim(),
     requestedAddOns: Array.isArray(raw.requestedAddOns)
       ? raw.requestedAddOns.filter((entry): entry is string => typeof entry === 'string').map((entry) => entry.trim()).filter((entry) => entry.length > 0).slice(0, 20)
       : [],
@@ -298,6 +304,7 @@ export function recordTripRequestPreview(draft: MakeYourTripRequestDraft, existi
   } catch {
     // Preview stays in memory only when storage is unavailable.
   }
+  emitTripRequestChange()
   return preview
 }
 
@@ -307,4 +314,31 @@ export function clearTripPreview() {
   } catch {
     // Storage can be unavailable; nothing to clear.
   }
+  emitTripRequestChange()
+}
+
+const TRIP_REQUEST_EVENT = 'sp-trip-request'
+
+function emitTripRequestChange() {
+  try {
+    window.dispatchEvent(new Event(TRIP_REQUEST_EVENT))
+  } catch {
+    // Non-browser or dispatch unavailable; readers still see storage directly.
+  }
+}
+
+/** Reactive single browser-local preview (same-tab events + cross-tab storage events). */
+export function useTripPreview(): TripRequestPreview | null {
+  const [preview, setPreview] = useState<TripRequestPreview | null>(null)
+  useEffect(() => {
+    const sync = () => setPreview(readTripPreview())
+    sync()
+    window.addEventListener(TRIP_REQUEST_EVENT, sync)
+    window.addEventListener('storage', sync)
+    return () => {
+      window.removeEventListener(TRIP_REQUEST_EVENT, sync)
+      window.removeEventListener('storage', sync)
+    }
+  }, [])
+  return preview
 }
