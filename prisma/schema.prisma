@@ -1,0 +1,154 @@
+// STAR PYRAMIDS — P0 backend schema (Phase 1A).
+//
+// SCOPE: auth foundation (users, roles, sessions, setup tokens) +
+// server-authoritative settings (site settings, FX rates) + staff audit.
+// Catalogue, requests, bookings, payments and all other domains belong to
+// later phases and MUST NOT be added here.
+//
+// Conventions:
+// - MySQL is authoritative. UTC datetimes (app writes Date = UTC epoch).
+// - Money/FX use DECIMAL, never FLOAT. No formatted currency strings.
+// - Passwords only as hashes (see lib/server/password.ts). No demo seeds.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+enum SetupTokenType {
+  PASSWORD_SETUP
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  key         String   @unique @db.VarChar(64)
+  name        String   @db.VarChar(100)
+  description String?  @db.VarChar(255)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  assignments UserRole[]
+
+  @@map("roles")
+}
+
+model User {
+  id              String     @id @default(cuid())
+  publicId        String     @unique @default(uuid()) @db.VarChar(64)
+  email           String     @unique @db.VarChar(190)
+  emailNormalized String     @unique @db.VarChar(190)
+  passwordHash    String?    @db.VarChar(255)
+  status          UserStatus @default(PENDING)
+  emailVerifiedAt DateTime?
+  lastLoginAt     DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  roles        UserRole[]
+  sessions     Session[]
+  setupTokens  AccountSetupToken[]
+  auditActions StaffActionAudit[] @relation("AuditActor")
+
+  @@index([status])
+  @@map("users")
+}
+
+model UserRole {
+  id         String   @id @default(cuid())
+  userId     String
+  roleId     String
+  assignedAt DateTime @default(now())
+  assignedBy String?  @db.VarChar(64)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+model Session {
+  id         String   @id @default(cuid())
+  tokenHash  String   @unique @db.VarChar(128)
+  userId     String
+  expiresAt  DateTime
+  lastSeenAt DateTime @default(now())
+  ipAddress  String?  @db.VarChar(64)
+  userAgent  String?  @db.VarChar(255)
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model AccountSetupToken {
+  id        String         @id @default(cuid())
+  tokenHash String         @unique @db.VarChar(128)
+  userId    String
+  type      SetupTokenType @default(PASSWORD_SETUP)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime       @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("account_setup_tokens")
+}
+
+model SiteSetting {
+  key         String   @id @db.VarChar(100)
+  value       String   @db.Text
+  description String?  @db.VarChar(255)
+  updatedAt   DateTime @updatedAt
+
+  @@map("site_settings")
+}
+
+model FxRate {
+  id            String   @id @default(cuid())
+  baseCurrency  String   @db.Char(3)
+  quoteCurrency String   @db.Char(3)
+  rate          Decimal  @db.Decimal(18, 8)
+  isActive      Boolean  @default(true)
+  source        String   @default("manual") @db.VarChar(64)
+  effectiveAt   DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([baseCurrency, quoteCurrency])
+  @@index([quoteCurrency, isActive])
+  @@map("fx_rates")
+}
+
+model StaffActionAudit {
+  id         Int      @id @default(autoincrement())
+  actorId    String?
+  action     String   @db.VarChar(100)
+  entityType String?  @db.VarChar(100)
+  entityId   String?  @db.VarChar(64)
+  metadata   String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  actor User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("staff_action_audit")
+}
