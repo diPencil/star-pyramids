@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AdminText } from './admin-ui'
 import { useAdminLocale } from './admin-locale'
+import { SharedSelect } from '@/components/shared-select'
 
 export function usePagination<T>(rows: readonly T[], initialSize = 10) {
   const [page, setPage] = useState(1)
@@ -63,9 +64,7 @@ export function AdminPagination({
         <span><AdminText en={`Showing ${from}–${to} of ${total}`} ar={`عرض ${from}–${to} من ${total}`} /></span>
         <label>
           <AdminText en="Rows:" ar="الصفوف:" />
-          <select value={pageSize} onChange={(e) => onPageSize(Number(e.target.value))} aria-label={ar ? 'عدد الصفوف في الصفحة' : 'Rows per page'}>
-            {[10, 20, 30, 50].map((n) => <option key={n} value={n}>{n}</option>)}
-          </select>
+          <SharedSelect value={String(pageSize)} onChange={(next) => onPageSize(Number(next))} locale={ar ? 'ar' : 'en'} label={ar ? 'عدد الصفوف في الصفحة' : 'Rows per page'} options={[10, 20, 30, 50].map((n) => ({ value: String(n), label: String(n) }))} />
         </label>
       </div>
       <div className="sp-page-btns" role="navigation" aria-label={ar ? 'ترقيم الصفحات' : 'Pagination'}>

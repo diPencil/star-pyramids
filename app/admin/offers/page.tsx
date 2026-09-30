@@ -8,6 +8,7 @@ import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableT
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
+import { SharedSelect } from '@/components/shared-select'
 import { offers } from '@/data/content'
 import { isCustomSlug, removeCustomItem, removeTourDeal, useLiveCollection } from '@/lib/admin-store'
 
@@ -44,7 +45,7 @@ export default function OffersPage() {
     ]} />
     <Card title={<AdminText en="All offers" ar="كل العروض" />} sub={<AdminText en={`${rows.length} of ${liveOffers.length} offers shown`} ar={`عرض ${rows.length} من ${liveOffers.length} عروض`} />}>
       <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث بعنوان العرض أو الحملة...' : 'Search offer title or campaign...'}>
-        <select className="sp-filter-select" value={badge} onChange={(event) => setBadge(event.target.value)} aria-label={ar ? 'فلترة حسب الشارة' : 'Filter by campaign label'}><option value="all">{ar ? 'كل الشارات' : 'All labels'}</option>{badges.map((item) => <option key={item}>{item}</option>)}</select>
+        <SharedSelect value={badge} onChange={setBadge} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حسب الشارة' : 'Filter by campaign label'} popupWidth="trigger" options={[{ value: 'all', label: ar ? 'كل الشارات' : 'All labels' }, ...badges.map((item) => ({ value: item, label: item }))]} />
       </AdminTableTools>
       {rows.length ? <AdminTableWrap><table className="sp-table">
         <thead><tr><th className="sp-row-number">#</th><SortableTh label={<AdminText en="Offer" ar="العرض" />} column="offer" {...offerSort} onSort={offerSort.sortBy} /><SortableTh label={<AdminText en="Badge" ar="الشارة" />} column="badge" {...offerSort} onSort={offerSort.sortBy} /><SortableTh label={<AdminText en="Price" ar="السعر" />} column="price" {...offerSort} onSort={offerSort.sortBy} /><SortableTh label={<AdminText en="Highlights" ar="البارزة" />} column="highlights" {...offerSort} onSort={offerSort.sortBy} /><SortableTh label={<AdminText en="Status" ar="الحالة" />} column="status" {...offerSort} onSort={offerSort.sortBy} /><th></th></tr></thead>

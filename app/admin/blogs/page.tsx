@@ -8,6 +8,7 @@ import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableT
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
+import { SharedSelect } from '@/components/shared-select'
 import { blogs } from '@/data/content'
 import { isCustomSlug, removeCustomItem, useLiveCollection } from '@/lib/admin-store'
 
@@ -38,9 +39,7 @@ export default function BlogsPage() {
     ]} />
     <Card title={<AdminText en="All stories" ar="كل المقالات" />} sub={<AdminText en={`${rows.length} of ${liveBlogs.length} shown`} ar={`عرض ${rows.length} من ${liveBlogs.length}`} />}>
       <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث في المقالات...' : 'Search stories...'}>
-        <select className="sp-filter-select" value={category} onChange={(e) => setCategory(e.target.value)} aria-label={ar ? 'فلترة حسب التصنيف' : 'Filter by category'}>
-          <option value="all">{ar ? 'كل التصنيفات' : 'All categories'}</option>{categories.map((c) => <option key={c}>{c}</option>)}
-        </select>
+          <SharedSelect value={category} onChange={setCategory} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حسب التصنيف' : 'Filter by category'} popupWidth="trigger" options={[{ value: 'all', label: ar ? 'كل التصنيفات' : 'All categories' }, ...categories.map((c) => ({ value: c, label: c }))]} />
       </AdminTableTools>
       {rows.length ? <AdminTableWrap><table className="sp-table">
         <thead><tr><th className="sp-row-number">#</th><SortableTh label={<AdminText en="Story" ar="المقال" />} column="story" {...blogSort} onSort={blogSort.sortBy} /><SortableTh label={<AdminText en="Category" ar="التصنيف" />} column="category" {...blogSort} onSort={blogSort.sortBy} /><SortableTh label={<AdminText en="Date" ar="التاريخ" />} column="date" {...blogSort} onSort={blogSort.sortBy} /><SortableTh label={<AdminText en="Status" ar="الحالة" />} column="status" {...blogSort} onSort={blogSort.sortBy} /><th></th></tr></thead>

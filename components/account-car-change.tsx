@@ -5,6 +5,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, CarFront, Check, Clock3, Eye, FlaskConical, History, Pencil, Trash2, X } from 'lucide-react'
 import { useLocale } from '@/components/locale'
+import { InternationalPhoneInput } from '@/components/international-phone-input'
+import { SharedSelect } from '@/components/shared-select'
+import { DateInput } from '@/components/date-input'
 import { cars } from '@/data/content'
 import type { Car } from '@/data/types'
 import { useLiveCollection } from '@/lib/admin-store'
@@ -350,24 +353,19 @@ export function CarChangeContent({ requestRef, amendmentRef }: { requestRef: str
         <div className="sp-form">
           <div className="customer-form-grid" style={{ display: 'grid', gap: 12 }}>
             <label>{ar ? 'السيارة المفضلة' : 'Preferred vehicle'}
-              <select value={values.vehicleSlug} onChange={(event) => patch({ vehicleSlug: event.target.value })} dir="ltr">
-                {vehicleOptions.map((car) => <option key={car.slug} value={car.slug}>{car.title}</option>)}
-              </select>
+              <SharedSelect value={values.vehicleSlug} onChange={(next) => patch({ vehicleSlug: next })} locale={locale} options={vehicleOptions.map((car) => ({ value: car.slug, label: car.title }))} />
             </label>
             <label>{ar ? 'نوع الرحلة' : 'Trip type'}
-              <select value={values.tripType} onChange={(event) => patch({ tripType: event.target.value as FormValues['tripType'] })}>
-                <option value="One Way">{ar ? 'ذهاب فقط' : 'One Way'}</option>
-                <option value="Round Trip">{ar ? 'ذهاب وعودة' : 'Round Trip'}</option>
-              </select>
+              <SharedSelect value={values.tripType} onChange={(next) => patch({ tripType: next as FormValues['tripType'] })} locale={locale} options={[{ value: 'One Way', label: ar ? 'ذهاب فقط' : 'One Way' }, { value: 'Round Trip', label: ar ? 'ذهاب وعودة' : 'Round Trip' }]} />
             </label>
             <label>{ar ? 'نقطة الانطلاق' : 'Pickup'}<input value={values.pickup} onChange={(event) => patch({ pickup: event.target.value })} /></label>
             <label>{ar ? 'الوجهة' : 'Drop-off'}<input value={values.dropoff} onChange={(event) => patch({ dropoff: event.target.value })} /></label>
-            <label>{ar ? 'تاريخ الانطلاق' : 'Pick-up date'}<input type="date" dir="ltr" value={values.pickupDate} onChange={(event) => patch({ pickupDate: event.target.value })} /></label>
-            {values.tripType === 'Round Trip' && <label>{ar ? 'تاريخ العودة' : 'Return date'}<input type="date" dir="ltr" value={values.returnDate} onChange={(event) => patch({ returnDate: event.target.value })} /></label>}
+            <label>{ar ? 'تاريخ الانطلاق' : 'Pick-up date'}<DateInput dir="ltr" value={values.pickupDate} onChange={(event) => patch({ pickupDate: event.target.value })} /></label>
+            {values.tripType === 'Round Trip' && <label>{ar ? 'تاريخ العودة' : 'Return date'}<DateInput dir="ltr" value={values.returnDate} onChange={(event) => patch({ returnDate: event.target.value })} /></label>}
             <label>{ar ? 'المسافرون' : 'Passengers'}<input type="number" min={1} max={50} dir="ltr" value={values.passengers} onChange={(event) => patch({ passengers: event.target.value })} /></label>
             <label>{ar ? 'الاسم الكامل' : 'Full name'}<input value={values.fullName} onChange={(event) => patch({ fullName: event.target.value })} /></label>
             <label>{ar ? 'البريد الإلكتروني' : 'Email'}<input type="email" dir="ltr" value={values.email} onChange={(event) => patch({ email: event.target.value })} /></label>
-            <label>{ar ? 'رقم الهاتف' : 'Phone'}<input type="tel" dir="ltr" value={values.phone} onChange={(event) => patch({ phone: event.target.value })} /></label>
+            <label>{ar ? 'رقم الهاتف' : 'Phone'}<InternationalPhoneInput value={values.phone} onChange={(phone) => patch({ phone })} locale={locale} /></label>
             <label>{ar ? 'ملاحظات إضافية' : 'Additional notes'}<textarea rows={2} value={values.notes} maxLength={1000} onChange={(event) => patch({ notes: event.target.value })} /></label>
             <label>{ar ? 'سبب التعديل (اختياري)' : 'Reason for change (optional)'}<textarea rows={2} value={note} maxLength={500} onChange={(event) => setNote(event.target.value)} placeholder={ar ? 'اشرح باختصار سبب طلب التعديل...' : 'Briefly explain why you request this change...'} /></label>
           </div>

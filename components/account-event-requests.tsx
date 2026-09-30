@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { Eye, Plus, ShieldCheck, Ticket, X } from 'lucide-react'
 import { LocaleProvider, useLocale } from '@/components/locale'
-import { AccountShell, CustomerPagination, EmptyState } from './account-portal'
+import { AccountShell, CustomerConfirmDialog, CustomerPagination, EmptyState } from './account-portal'
 import { usePagination } from '@/components/admin/admin-pagination'
 import { useLiveEvents } from '@/lib/admin-store'
 import { events } from '@/data/content'
@@ -116,17 +116,19 @@ export function EventRequestDetailSection({ reference }: { reference: string }) 
       )}
       <div className="customer-detail-actions">
         <Link href="/account/event-requests" className="account-icon-action">{ar ? 'عودة للقائمة' : 'Back to list'}</Link>
-        {cancellable && !cancelling && (
+        {cancellable && (
           <button type="button" className="account-icon-action danger" onClick={() => setCancelling(true)}><X size={16} />{ar ? 'إلغاء الطلب' : 'Cancel request'}</button>
         )}
-        {cancelling && (
-          <span className="customer-confirm-inline" role="group" aria-label={ar ? 'تأكيد الإلغاء' : 'Confirm cancellation'}>
-            <small>{ar ? 'تأكيد إلغاء هذا الطلب؟' : 'Confirm cancelling this request?'}</small>
-            <button type="button" className="account-icon-action danger" onClick={() => { cancelEventRequest(item.localRef); setCancelling(false) }}>{ar ? 'تأكيد' : 'Confirm'}</button>
-            <button type="button" className="account-icon-action" onClick={() => setCancelling(false)}>{ar ? 'تراجع' : 'Keep'}</button>
-          </span>
-        )}
       </div>
+      <CustomerConfirmDialog
+        open={cancelling}
+        onClose={() => setCancelling(false)}
+        onConfirm={() => { cancelEventRequest(item.localRef); setCancelling(false) }}
+        title={ar ? 'إلغاء طلب الفعالية؟' : 'Cancel this event request?'}
+        copy={ar ? 'سيبقى هذا الطلب في سجلك بحالة ملغي.' : 'This request will remain in your history with a Cancelled status.'}
+        confirmLabel={ar ? 'إلغاء الطلب' : 'Cancel request'}
+        cancelLabel={ar ? 'أبقِ الطلب' : 'Keep request'}
+      />
       <p className="customer-block-note">{ar ? 'مرجع محلي على هذا المتصفح فقط، وليس تذكرة رسمية.' : 'Browser-only reference. Not an official ticket.'}</p>
     </div>
   )

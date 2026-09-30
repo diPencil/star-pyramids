@@ -147,8 +147,8 @@ export function AdminIconAction({
   disabled?: boolean
 }) {
   const className = cn('sp-table-action', tone !== 'default' && tone)
-  if (href) return <Link href={href} className={className} aria-label={label} title={label}><Icon size={16} /></Link>
-  return <button type="button" className={className} onClick={onClick} disabled={disabled} aria-label={label} title={label}><Icon size={16} /></button>
+  if (href) return <Link href={href} className={className} aria-label={label} title={label}><Icon size={18} /></Link>
+  return <button type="button" className={className} onClick={onClick} disabled={disabled} aria-label={label} title={label}><Icon size={18} /></button>
 }
 
 export function AdminTableActions({ children }: { children: React.ReactNode }) {

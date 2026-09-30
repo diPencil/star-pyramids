@@ -9,6 +9,7 @@ import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
+import { SharedSelect } from '@/components/shared-select'
 import { events } from '@/data/content'
 import { isCustomSlug, removeCustomItem, setEventHidden, useHiddenEvents, useLiveEvents } from '@/lib/admin-store'
 import { getEventStatus, isEventPublished } from '@/lib/events'
@@ -53,12 +54,8 @@ export default function EventsPage() {
     ]} />
     <Card title={<AdminText en="All events" ar="كل الفعاليات" />} sub={<AdminText en={`${rows.length} of ${liveEvents.length} events shown`} ar={`عرض ${rows.length} من ${liveEvents.length} فعاليات`} />}>
       <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث بفعالية أو تاريخ أو موقع...' : 'Search event, date or location...'}>
-        <select className="sp-filter-select" value={location} onChange={(event) => setLocation(event.target.value)} aria-label={ar ? 'فلترة حسب الموقع' : 'Filter events by location'}>
-          <option value="all">{ar ? 'كل المواقع' : 'All locations'}</option>{locations.map((item) => <option key={item}>{item}</option>)}
-        </select>
-        <select className="sp-filter-select" value={visibility} onChange={(e) => setVisibility(e.target.value as typeof visibility)} aria-label={ar ? 'فلترة حسب الظهور' : 'Filter by visibility'}>
-          <option value="all">{ar ? 'الكل' : 'All'}</option><option value="published">{ar ? 'المنشورة' : 'Published'}</option><option value="hidden">{ar ? 'المخفية' : 'Hidden'}</option>
-        </select>
+          <SharedSelect value={location} onChange={setLocation} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حسب الموقع' : 'Filter events by location'} popupWidth="trigger" options={[{ value: 'all', label: ar ? 'كل المواقع' : 'All locations' }, ...locations.map((item) => ({ value: item, label: item }))]} />
+          <SharedSelect value={visibility} onChange={(next) => setVisibility(next as typeof visibility)} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حسب الظهور' : 'Filter by visibility'} options={[{ value: 'all', label: ar ? 'الكل' : 'All' }, { value: 'published', label: ar ? 'المنشورة' : 'Published' }, { value: 'hidden', label: ar ? 'المخفية' : 'Hidden' }]} />
       </AdminTableTools>
       {rows.length ? <AdminTableWrap><table className="sp-table">
         <thead><tr><th className="sp-row-number">#</th><SortableTh label={<AdminText en="Event" ar="الفعالية" />} column="event" {...eventSort} onSort={eventSort.sortBy} /><SortableTh label={<AdminText en="Location" ar="الموقع" />} column="location" {...eventSort} onSort={eventSort.sortBy} /><SortableTh label={<AdminText en="Date" ar="التاريخ" />} column="date" {...eventSort} onSort={eventSort.sortBy} /><SortableTh label={<AdminText en="Requests" ar="الطلبات" />} column="requests" {...eventSort} onSort={eventSort.sortBy} /><SortableTh label={<AdminText en="Status" ar="الحالة" />} column="status" {...eventSort} onSort={eventSort.sortBy} /><th></th></tr></thead>
@@ -74,7 +71,7 @@ export default function EventsPage() {
             <td><AdminTableActions>
               <AdminIconAction icon={Pencil} label={ar ? `تعديل ${event.title}` : `Edit ${event.title}`} href={`/admin/events/new?slug=${encodeURIComponent(event.slug)}`} />
               <AdminIconAction icon={ExternalLink} label={ar ? `عرض ${event.title}` : `View ${event.title}`} href={`/events/${event.slug}`} />
-              <button type="button" className="sp-icon-btn" onClick={() => setEventHidden(event.slug, isHidden ? false : true)} aria-label={isHidden ? (ar ? `نشر ${event.title}` : `Publish ${event.title}`) : (ar ? `إخفاء ${event.title}` : `Hide ${event.title}`)} title={isHidden ? (ar ? 'نشر' : 'Publish') : (ar ? 'إخفاء' : 'Hide')}>{isHidden ? <Eye size={16} /> : <EyeOff size={16} />}</button>
+              <button type="button" className="sp-icon-btn" onClick={() => setEventHidden(event.slug, isHidden ? false : true)} aria-label={isHidden ? (ar ? `نشر ${event.title}` : `Publish ${event.title}`) : (ar ? `إخفاء ${event.title}` : `Hide ${event.title}`)} title={isHidden ? (ar ? 'نشر' : 'Publish') : (ar ? 'إخفاء' : 'Hide')}>{isHidden ? <Eye size={18} /> : <EyeOff size={18} />}</button>
               {isCustomSlug(event.slug) && <button type="button" className="sp-delete-btn" onClick={() => setDeleteSlug(event.slug)}><Trash2 size={14} /> <AdminText en="Delete" ar="حذف" /></button>}
             </AdminTableActions></td>
           </tr>

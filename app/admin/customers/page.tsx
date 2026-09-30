@@ -7,6 +7,7 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableTools, AdminTableWrap, AdminText, Avatar, Card, StatusPill } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
+import { SharedSelect } from '@/components/shared-select'
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 import { bookings, type BookingRow, type BookingStatus } from '@/components/admin/admin-data'
 import { isCustomerActive, removeCustomItem, setCustomerActive, startImpersonation, useLiveCollection, type AdminCustomer } from '@/lib/admin-store'
@@ -72,9 +73,7 @@ export default function CustomersPage() {
     ]} />
     <Card title={<AdminText en="Customer directory" ar="دليل العملاء" />} sub={<AdminText en={`${dirRows.length} customers shown`} ar={`عرض ${dirRows.length} عملاء`} />}>
       <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث بعميل أو حجز أو رحلة...' : 'Search customer, booking or tour...'}>
-        <select className="sp-filter-select" value={status} onChange={(event) => setStatus(event.target.value as typeof status)} aria-label={ar ? 'فلترة حسب حالة الحجز' : 'Filter customers by booking status'}>
-          <option value="all">{ar ? 'كل الحالات' : 'All statuses'}</option><option value="pending">{ar ? 'قيد الانتظار' : 'Pending'}</option><option value="confirmed">{ar ? 'مؤكدة' : 'Confirmed'}</option><option value="cancelled">{ar ? 'ملغاة' : 'Cancelled'}</option>
-        </select>
+          <SharedSelect value={status} onChange={(next) => setStatus(next as typeof status)} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حسب حالة الحجز' : 'Filter customers by booking status'} options={[{ value: 'all', label: ar ? 'كل الحالات' : 'All statuses' }, { value: 'pending', label: ar ? 'قيد الانتظار' : 'Pending' }, { value: 'confirmed', label: ar ? 'مؤكدة' : 'Confirmed' }, { value: 'cancelled', label: ar ? 'ملغاة' : 'Cancelled' }]} />
       </AdminTableTools>
       {dirRows.length ? <AdminTableWrap><table className="sp-table">
         <thead><tr><th className="sp-row-number">#</th><SortableTh label={<AdminText en="Customer" ar="العميل" />} column="customer" sortKey={customerSort.sortKey} direction={customerSort.direction} onSort={customerSort.sortBy} /><SortableTh label={<AdminText en="Last tour" ar="آخر رحلة" />} column="tour" sortKey={customerSort.sortKey} direction={customerSort.direction} onSort={customerSort.sortBy} /><SortableTh label={<AdminText en="Channel" ar="القناة" />} column="channel" sortKey={customerSort.sortKey} direction={customerSort.direction} onSort={customerSort.sortBy} /><SortableTh label={<AdminText en="Total spent" ar="إجمالي الإنفاق" />} column="total" sortKey={customerSort.sortKey} direction={customerSort.direction} onSort={customerSort.sortBy} /><SortableTh label={<AdminText en="Status" ar="الحالة" />} column="status" sortKey={customerSort.sortKey} direction={customerSort.direction} onSort={customerSort.sortBy} /><th><AdminText en="Actions" ar="إجراءات" /></th></tr></thead>

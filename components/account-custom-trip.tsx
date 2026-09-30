@@ -3,29 +3,40 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Ban, Clock3, Minus, Pencil, Plus } from 'lucide-react'
+import { Clock3, Eye, Minus, Pencil, Plus, X } from 'lucide-react'
 import { LocaleProvider, useLocale } from '@/components/locale'
-import { AccountShell, CustomerConfirmDialog, EmptyState } from './account-portal'
+import { AccountShell, CustomerConfirmDialog, CustomerPagination, EmptyState } from './account-portal'
+import { usePagination } from '@/components/admin/admin-pagination'
 import { destinations } from '@/data/content'
 import { catalogTours } from '@/data/tours'
-import { countries, defaultCountry } from '@/data/countries'
+import { countries, countryByDialCode, countryCode as resolveCountryCode, countryDisplayName, defaultCountry } from '@/data/countries'
+import { CountrySelect } from '@/components/country-select'
+import { SharedSelect } from '@/components/shared-select'
+import { displayInternationalPhone } from '@/lib/phone'
+import { InternationalPhoneInput } from '@/components/international-phone-input'
 import { readCustomerProfile } from '@/lib/customer-account'
+import { DateInput } from '@/components/date-input'
 import {
   TRIP_BUDGET_CAP,
   TRIP_NOTE_MAX,
-  clearTripPreview,
+  cancelTripRequest,
+  createTripRequest,
+  getTripRequest,
   hasTripErrors,
-  readTripPreview,
-  recordTripRequestPreview,
-  sanitizeTripDraft,
+  updateTripRequest,
+  tripRequestStatusLabel,
+  tripActivityLabel,
+  useTripRequest,
+  useTripRequests,
   validateTripRequest,
   type MakeYourTripRequestDraft,
   type TripFieldErrors,
-  type TripRequestPreview,
+  type TripRequest,
+  type TripRequestStatus,
   type TripTimeMode,
 } from '@/lib/trip-request'
-
-const NATIONALITIES = ['Egyptian', 'American', 'British', 'French', 'German', 'Spanish', 'Italian', 'Saudi', 'Emirati', 'Canadian', 'Australian', 'Other'] as const
+import { resolveTripCustomer, type PendingCustomer } from '@/lib/trip-customers'
+import { PendingAccountBox } from '@/components/trip-pending-account'
 
 function errText(field: keyof TripFieldErrors, code: 'required' | 'invalid', ar: boolean): string {
   const en: Record<string, string> = {
@@ -68,16 +79,24 @@ function Stepper({ label, sub, value, set, min = 0 }: { label: string; sub: stri
   )
 }
 
-function TripRequestsSection({ startNew = false }: { startNew?: boolean }) {
+function StatusBadge({ status }: { status: TripRequestStatus }) {
+  const { locale } = useLocale()
+  const ar = locale === 'ar'
+  const tone = status === 'new' ? 'request_received' : status === 'reviewing' ? 'reviewing' : status === 'proposal_ready' ? 'proposal_ready' : status === 'approved' ? 'confirmed' : 'cancelled'
+  return <span className={`customer-status ${tone}`}>{tripRequestStatusLabel(status, ar)}</span>
+}
+
+type LastCreated = { ref: string; stub: PendingCustomer | null; existingCustomer: boolean } | null
+
+function TripRequestsSection({ startNew = false, editRef = null }: { startNew?: boolean; editRef?: string | null }) {
   const { locale, currency } = useLocale()
   const ar = locale === 'ar'
   const router = useRouter()
-  const [placed, setPlaced] = useState<TripRequestPreview | null>(null)
-  const [activeRef, setActiveRef] = useState<string | null>(null)
-  const [mode, setMode] = useState<'list' | 'form'>(startNew ? 'form' : 'list')
-  const [editing, setEditing] = useState(false)
-  const [confirmDiscard, setConfirmDiscard] = useState(false)
-  const [confirmReplace, setConfirmReplace] = useState(false)
+  const requests = useTripRequests()
+  const [mode, setMode] = useState<'list' | 'form'>(startNew || editRef ? 'form' : 'list')
+  const [editingRef, setEditingRef] = useState<string | null>(null)
+  const [cancellingRef, setCancellingRef] = useState<string | null>(null)
+  const [lastCreated, setLastCreated] = useState<LastCreated>(null)
   const [time, setTime] = useState<TripTimeMode>('exact')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
@@ -88,7 +107,7 @@ function TripRequestsSection({ startNew = false }: { startNew?: boolean }) {
   const [email, setEmail] = useState('')
   const [flightOffer, setFlightOffer] = useState(false)
   const [nationality, setNationality] = useState('')
-  const [countryCode, setCountryCode] = useState(defaultCountry.code)
+  const [phoneCountry, setPhoneCountry] = useState(defaultCountry.code)
   const [phone, setPhone] = useState('')
   const [adults, setAdults] = useState(2)
   const [children, setChildren] = useState(0)
@@ -99,11 +118,11 @@ function TripRequestsSection({ startNew = false }: { startNew?: boolean }) {
   const [errors, setErrors] = useState<TripFieldErrors>({})
   const [summary, setSummary] = useState('')
   const [dateFilter, setDateFilter] = useState<'all' | 'upcoming' | 'past'>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | TripRequestStatus>('all')
 
-  const selectedCountry = countries.find((c) => c.code === countryCode) ?? defaultCountry
-
-  // Resume the single browser-local preview; prefill contact from the
-  // customer profile so account users type less than website guests.
+  // Prefill contact from the browser-local customer profile so account
+  // users type less. These are editable copies; the profile is never
+  // written back automatically.
   useEffect(() => {
     const profile = readCustomerProfile()
     if (profile.firstName || profile.lastName) {
@@ -111,28 +130,32 @@ function TripRequestsSection({ startNew = false }: { startNew?: boolean }) {
       setEmail(profile.email && profile.email.includes('@') ? profile.email : '')
       setPhone(profile.phone || '')
     }
-    const stored = readTripPreview()
-    if (!stored) return
-    const clean = sanitizeTripDraft(stored.draft)
-    if (!clean) return
-    setActiveRef(stored.localRef)
-    setPlaced({ draft: clean, localRef: stored.localRef })
+    const profileCountry = resolveCountryCode(profile.country)
+      || countryByDialCode(profile.dialCode).code
+    setNationality(profileCountry)
+    setPhoneCountry(countryByDialCode(profile.dialCode).code)
+    setPhone(profile.phone || '')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Header "Plan your trip" deep link: open a blank form, or offer to
-  // replace the saved request when one already exists.
+  // Deep links: `?edit=SP-…` loads that exact record; `?new=1` opens a
+  // blank form. The query is consumed once so refresh stays on the list.
   useEffect(() => {
-    if (!startNew || mode !== 'list') return
-    if (placed) setConfirmReplace(true)
-    else {
+    if (editRef) {
+      const record = getTripRequest(editRef)
+      if (record && (record.status === 'new' || record.status === 'reviewing')) {
+        applyDraftRecord(record)
+        setEditingRef(record.localRef)
+        setMode('form')
+      }
+    } else if (startNew && mode === 'list') {
       blankForm()
-      setEditing(false)
+      setEditingRef(null)
       setMode('form')
     }
     router.replace('/account/trip-requests', { scroll: false })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startNew])
+  }, [startNew, editRef])
 
   const blankForm = () => {
     setTime('exact')
@@ -154,35 +177,38 @@ function TripRequestsSection({ startNew = false }: { startNew?: boolean }) {
     setFullName(`${profile.firstName} ${profile.lastName}`.trim())
     setEmail(profile.email && profile.email.includes('@') ? profile.email : '')
     setPhone(profile.phone || '')
+    const blankCountry = resolveCountryCode(profile.country)
+      || countryByDialCode(profile.dialCode).code
+    setNationality(blankCountry)
+    setPhoneCountry(countryByDialCode(profile.dialCode).code)
   }
 
-  const applyDraft = (clean: MakeYourTripRequestDraft) => {
-    setTime(clean.timeMode)
-    setFrom(clean.preferredFrom)
-    setTo(clean.preferredTo)
-    setDestination(clean.destinationSlug)
-    setTourSlug(clean.tourSlug)
-    if (clean.tourSlug && !clean.customTitle) {
-      const t = catalogTours.find((item) => item.slug === clean.tourSlug)
-      setTripName(t ? t.title : clean.tourSlug)
+  const applyDraftRecord = (record: TripRequest) => {
+    setTime(record.timeMode)
+    setFrom(record.preferredFrom)
+    setTo(record.preferredTo)
+    setDestination(record.destinationSlug)
+    setTourSlug(record.tourSlug)
+    if (record.tourSlug && !record.customTitle) {
+      const t = catalogTours.find((item) => item.slug === record.tourSlug)
+      setTripName(t ? t.title : record.tourSlug)
     } else {
-      setTripName(clean.customTitle)
+      setTripName(record.customTitle)
     }
-    setFullName(clean.contact.name)
-    setEmail(clean.contact.email)
-    setNationality(clean.nationality)
-    if (clean.dialCode) {
-      const match = countries.find((c) => c.dialCode === clean.dialCode)
-      if (match) setCountryCode(match.code)
-    }
-    setPhone(clean.contact.phone.replace(clean.dialCode, '').trim() || clean.contact.phone)
-    setAdults(clean.adults)
-    setChildren(clean.children)
-    setInfants(clean.infants)
-    setPriceMin(clean.budgetMin)
-    setPriceMax(clean.budgetMax)
-    setNote(clean.notes)
-    setFlightOffer(clean.flightOffer)
+    setFullName(record.contact.name)
+    setEmail(record.contact.email)
+    // Legacy snapshots may carry a country NAME; normalize to ISO code.
+    // Phone country hydrates independently from the stored dial code.
+    setNationality(resolveCountryCode(record.contact.nationality))
+    setPhoneCountry(countryByDialCode(record.contact.dialCode).code)
+    setPhone(record.contact.phone)
+    setAdults(record.adults)
+    setChildren(record.children)
+    setInfants(record.infants)
+    setPriceMin(record.budgetMin)
+    setPriceMax(record.budgetMax)
+    setNote(record.notes)
+    setFlightOffer(record.flightOffer)
   }
 
   const pickTour = (slug: string) => {
@@ -196,7 +222,6 @@ function TripRequestsSection({ startNew = false }: { startNew?: boolean }) {
   }
 
   const buildDraft = (): MakeYourTripRequestDraft => {
-    const cleanPhone = phone.trim()
     return {
       destinationSlug: destination,
       tourSlug,
@@ -210,12 +235,12 @@ function TripRequestsSection({ startNew = false }: { startNew?: boolean }) {
       currency,
       flightOffer,
       nationality: nationality.trim(),
-      dialCode: selectedCountry.dialCode,
+      dialCode: (countries.find((c) => c.code === phoneCountry) ?? defaultCountry).dialCode,
       notes: note.trim().slice(0, TRIP_NOTE_MAX + 1),
       contact: {
         name: fullName.trim(),
         email: email.trim(),
-        phone: cleanPhone ? `${selectedCountry.dialCode} ${cleanPhone}`.trim() : '',
+        phone: phone.trim(),
       },
     }
   }
@@ -228,63 +253,80 @@ function TripRequestsSection({ startNew = false }: { startNew?: boolean }) {
       setSummary(ar ? 'تعذر حفظ الطلب. راجع الحقول الموضحة أدناه.' : 'Could not save the request. Review the highlighted fields below.')
       return
     }
-    const preview = recordTripRequestPreview({ ...buildDraft(), notes: note.trim().slice(0, TRIP_NOTE_MAX) }, activeRef)
+    if (editingRef) {
+      const updated = updateTripRequest(editingRef, { ...buildDraft(), notes: note.trim().slice(0, TRIP_NOTE_MAX) }, 'customer')
+      if (!updated) {
+        setSummary(ar ? 'تعذر حفظ التعديلات. ربما تغيرت حالة الطلب.' : 'Could not save the changes. The request status may have changed.')
+        return
+      }
+      setErrors({})
+      setSummary('')
+      setEditingRef(null)
+      setLastCreated(null)
+      setMode('list')
+      return
+    }
+    const draft = { ...buildDraft(), notes: note.trim().slice(0, TRIP_NOTE_MAX) }
+    const resolution = resolveTripCustomer(draft.contact.email, {
+      name: draft.contact.name,
+      phone: draft.contact.phone,
+      dialCode: draft.dialCode,
+      nationality: draft.nationality,
+    })
+    const created = createTripRequest(draft, { customerId: resolution.customerId, ownership: resolution.ownership })
+    if (!created) {
+      setSummary(ar ? 'تعذر حفظ الطلب. راجع الحقول الموضحة أدناه.' : 'Could not save the request. Review the highlighted fields below.')
+      return
+    }
     setErrors({})
     setSummary('')
-    setActiveRef(preview.localRef)
-    setPlaced(preview)
-    setEditing(false)
+    setEditingRef(null)
+    setLastCreated({ ref: created.localRef, stub: resolution.stubCreated ? resolution.stub : null, existingCustomer: resolution.existingCustomer })
     setMode('list')
   }
 
   const requestNew = () => {
-    if (placed) setConfirmReplace(true)
-    else {
-      blankForm()
-      setEditing(false)
-      setMode('form')
-    }
-  }
-
-  const confirmNew = () => {
-    clearTripPreview()
-    setPlaced(null)
-    setActiveRef(null)
     blankForm()
-    setEditing(false)
+    setEditingRef(null)
+    setLastCreated(null)
     setMode('form')
-    setConfirmReplace(false)
   }
 
-  const startEdit = () => {
-    if (!placed) return
-    applyDraft(placed.draft)
+  const startEdit = (ref: string) => {
+    const record = getTripRequest(ref)
+    if (!record || (record.status !== 'new' && record.status !== 'reviewing')) return
+    applyDraftRecord(record)
     setErrors({})
     setSummary('')
-    setEditing(true)
+    setEditingRef(record.localRef)
+    setLastCreated(null)
     setMode('form')
   }
 
   const backToList = () => {
     setErrors({})
     setSummary('')
-    setEditing(false)
-    setMode('list')
-  }
-
-  const handleDiscard = () => {
-    clearTripPreview()
-    setPlaced(null)
-    setActiveRef(null)
-    setEditing(false)
-    setErrors({})
-    setSummary('')
-    setConfirmDiscard(false)
+    setEditingRef(null)
     setMode('list')
   }
 
   const fieldError = (field: keyof TripFieldErrors) =>
     errors[field] ? <em className="form-error" role="alert">{errText(field, errors[field]!, ar)}</em> : null
+
+  // List filtering + pagination hooks must run on EVERY render, before any
+  // early return. `usePagination` owns useState/useEffect/useMemo internally;
+  // calling it after the `mode === 'form'` return below rendered fewer hooks
+  // in form mode and crashed React when switching list -> form (Edit).
+  const now = new Date()
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  const isPastTravel = (r: TripRequest) => {
+    const end = r.preferredTo || r.preferredFrom || ''
+    return end !== '' && end < today
+  }
+  const visible = requests
+    .filter((r) => (dateFilter === 'past' ? isPastTravel(r) : dateFilter === 'upcoming' ? !isPastTravel(r) : true))
+    .filter((r) => statusFilter === 'all' || r.status === statusFilter)
+  const paging = usePagination(visible)
 
   if (mode === 'form') {
     const timeTabs: { id: TripTimeMode; en: string; ar: string }[] = [
@@ -297,7 +339,7 @@ function TripRequestsSection({ startNew = false }: { startNew?: boolean }) {
         <header>
           <div>
             <span>{ar ? 'طلب رحلة' : 'Trip request'}</span>
-            <h2>{editing ? (ar ? 'تعديل طلب الرحلة' : 'Edit trip request') : (ar ? 'طلب رحلة جديدة' : 'New trip request')}</h2>
+            <h2>{editingRef ? (ar ? 'تعديل طلب الرحلة' : 'Edit trip request') : (ar ? 'طلب رحلة جديدة' : 'New trip request')}</h2>
           </div>
           <button type="button" className="account-icon-action" onClick={backToList}>{ar ? 'عودة لطلباتي' : 'Back to my requests'}</button>
         </header>
@@ -309,16 +351,10 @@ function TripRequestsSection({ startNew = false }: { startNew?: boolean }) {
               {tourSlug !== '' && <small className="customer-field-hint">{ar ? 'الاسم من الرحلة المختارة' : 'Name taken from the selected tour'}</small>}
             </label>
             <label className="full">{ar ? 'اختر من رحلاتنا (اختياري)' : 'Choose from our tours (optional)'}
-              <select value={tourSlug} onChange={(e) => pickTour(e.target.value)} aria-label={ar ? 'رحلة جاهزة' : 'Ready-made tour'}>
-                <option value="">{ar ? 'رحلة حرة بوصفك الخاص' : 'Fully custom trip in my own words'}</option>
-                {catalogTours.map((tour) => <option key={tour.slug} value={tour.slug}>{ar ? tour.titleAr ?? tour.title : tour.title}</option>)}
-              </select>
+              <SharedSelect value={tourSlug} onChange={pickTour} locale={locale} label={ar ? 'رحلة جاهزة' : 'Ready-made tour'} popupWidth="trigger" options={[{ value: '', label: ar ? 'رحلة حرة بوصفك الخاص' : 'Fully custom trip in my own words' }, ...catalogTours.map((tour) => ({ value: tour.slug, label: ar ? tour.titleAr ?? tour.title : tour.title }))]} />
             </label>
             <label className="full">{ar ? 'الوجهة (اختياري)' : 'Destination (optional)'}
-              <select value={destination} onChange={(e) => setDestination(e.target.value)} aria-label={ar ? 'الوجهة' : 'Destination'}>
-                <option value="">{ar ? 'اختر وجهة في مصر' : 'Choose a place in Egypt'}</option>
-                {destinations.map((item) => <option key={item.slug} value={item.slug}>{ar ? item.nameAr ?? item.title : item.title}</option>)}
-              </select>
+              <SharedSelect value={destination} onChange={setDestination} locale={locale} label={ar ? 'الوجهة' : 'Destination'} popupWidth="trigger" options={[{ value: '', label: ar ? 'اختر وجهة في مصر' : 'Choose a place in Egypt' }, ...destinations.map((item) => ({ value: item.slug, label: ar ? item.nameAr ?? item.title : item.title }))]} />
             </label>
           </div>
           <div className="customer-time-tabs" role="radiogroup" aria-label={ar ? 'موعد السفر' : 'Travel time'}>
@@ -329,8 +365,8 @@ function TripRequestsSection({ startNew = false }: { startNew?: boolean }) {
             ))}
           </div>
           <div className="customer-form-grid">
-            <label>{ar ? 'تاريخ البدء المفضل' : 'Preferred start date'}<input type="date" dir="ltr" value={from} min={new Date().toISOString().slice(0, 10)} onChange={(e) => setFrom(e.target.value)} />{fieldError('from')}</label>
-            <label>{ar ? 'تاريخ الانتهاء المفضل' : 'Preferred end date'}<input type="date" dir="ltr" value={to} min={from || new Date().toISOString().slice(0, 10)} onChange={(e) => setTo(e.target.value)} />{fieldError('to')}</label>
+            <label>{ar ? 'تاريخ البدء المفضل' : 'Preferred start date'}<DateInput dir="ltr" value={from} min={new Date().toISOString().slice(0, 10)} onChange={(e) => setFrom(e.target.value)} />{fieldError('from')}</label>
+            <label>{ar ? 'تاريخ الانتهاء المفضل' : 'Preferred end date'}<DateInput dir="ltr" value={to} min={from || new Date().toISOString().slice(0, 10)} onChange={(e) => setTo(e.target.value)} />{fieldError('to')}</label>
           </div>
           <div className="guest-rows">
             <Stepper label={ar ? 'البالغون' : 'Adults'} sub={ar ? '12 سنة فأكثر' : 'Ages 12+'} value={adults} set={setAdults} min={1} />
@@ -348,110 +384,118 @@ function TripRequestsSection({ startNew = false }: { startNew?: boolean }) {
             <label className="full">{ar ? 'الاسم الكامل *' : 'Full name *'}<input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder={ar ? 'اكتب اسمك الكامل' : 'Your full name'} maxLength={80} autoComplete="name" />{fieldError('name')}</label>
             <label className="full">{ar ? 'البريد الإلكتروني *' : 'Email *'}<input type="email" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" maxLength={120} autoComplete="email" />{fieldError('email')}</label>
             <label>{ar ? 'الجنسية *' : 'Nationality *'}
-              <select value={nationality} onChange={(e) => setNationality(e.target.value)}>
-                <option value="">{ar ? 'اختر جنسيتك' : 'Choose your nationality'}</option>
-                {NATIONALITIES.map((n) => <option key={n} value={n}>{n}</option>)}
-              </select>
+              <CountrySelect value={nationality} onChange={setNationality} locale={locale} placeholder={ar ? 'اختر جنسيتك' : 'Choose your nationality'} invalid={Boolean(errors.nationality)} />
               {fieldError('nationality')}
             </label>
-            <label>{ar ? 'رقم الهاتف *' : 'Phone *'}<span className="customer-phone-field"><span aria-hidden="true">{selectedCountry.dialCode}</span><input type="tel" inputMode="tel" dir="ltr" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={ar ? 'رقم الهاتف' : 'Phone number'} maxLength={24} autoComplete="tel" /></span>{fieldError('phone')}</label>
+            <label>{ar ? 'رقم الهاتف *' : 'Phone *'}<InternationalPhoneInput value={phone} onChange={setPhone} locale={locale} countryCode={phoneCountry} onCountryChange={setPhoneCountry} />{fieldError('phone')}</label>
             <label className="full">{ar ? 'ملاحظات إضافية' : 'Additional notes'}<textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} maxLength={TRIP_NOTE_MAX + 50} placeholder={ar ? 'اوصف رحلتك الحرة هنا: الأماكن والإيقاع وأي تفاصيل' : 'Describe your custom trip here: places, pace, anything'} />{fieldError('notes')}</label>
           </div>
           {summary && <p className="form-error" role="alert">{summary}</p>}
-          <button className="primary-btn" type="submit">{editing ? (ar ? 'حفظ التعديلات' : 'Save changes') : (ar ? 'حفظ طلب الرحلة' : 'Save trip request')}</button>
+          <button className="primary-btn" type="submit">{editingRef ? (ar ? 'حفظ التعديلات' : 'Save changes') : (ar ? 'حفظ طلب الرحلة' : 'Save trip request')}</button>
         </form>
-        <p className="customer-block-note">{ar ? 'طلب مبدئي محفوظ محليًا على هذا المتصفح فقط. لم يتم إرساله إلى STAR PYRAMIDS.' : 'Preliminary request saved locally on this browser only. It has not been submitted to STAR PYRAMIDS.'}</p>
-        <CustomerConfirmDialog
-          open={confirmReplace}
-          onClose={() => setConfirmReplace(false)}
-          onConfirm={confirmNew}
-          title={ar ? 'استبدال الطلب المحفوظ؟' : 'Replace the saved request?'}
-          copy={ar ? 'يوجد طلب محفوظ بالفعل. إنشاء طلب جديد سيستبدله. لن يتأثر أي شيء آخر.' : 'A request is already saved. Creating a new one replaces it. Nothing else is affected.'}
-          confirmLabel={ar ? 'طلب جديد' : 'New request'}
-        />
+        <p className="customer-block-note">{ar ? 'طلبات النموذج التجريبي محفوظة على هذا المتصفح فقط ولا تُرسل إلى نظام STAR PYRAMIDS الفعلي.' : 'Prototype requests are stored on this browser only and are not submitted to a live STAR PYRAMIDS backend.'}</p>
       </section>
     )
   }
 
-  if (!placed) {
+  if (!requests.length && !lastCreated) {
     return <section className="customer-account-block customer-full-block"><EmptyState Icon={Plus} title={ar ? 'لا يوجد طلب رحلة بعد' : 'No trip request yet'} copy={ar ? 'خطط رحلتك المخصصة وستظهر هنا.' : 'Plan your custom trip and it will appear here.'} href="/account/trip-requests?new=1" action={ar ? 'خطط رحلتك' : 'Plan your trip'} /></section>
   }
 
-  const d = placed.draft
-  const tourTitle = d.tourSlug ? catalogTours.find((item) => item.slug === d.tourSlug)?.title : undefined
-  const destTitle = d.customTitle || tourTitle || destinations.find((item) => item.slug === d.destinationSlug)?.title || (ar ? 'رحلة مخصصة' : 'Custom trip')
-  const dateText = d.preferredFrom && d.preferredTo && d.preferredFrom !== d.preferredTo
-    ? `${d.preferredFrom} → ${d.preferredTo}`
-    : d.preferredFrom || d.preferredTo || (ar ? 'موعد مرن' : 'Flexible date')
-  const now = new Date()
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-  const travelEnd = d.preferredTo || d.preferredFrom || ''
-  const isPast = travelEnd !== '' && travelEnd < today
-  const shown = dateFilter === 'all' || (dateFilter === 'past' ? isPast : !isPast)
   const dateTabs = [
     { id: 'all', en: 'All', ar: 'الكل' },
     { id: 'upcoming', en: 'Upcoming', ar: 'القادمة' },
     { id: 'past', en: 'Past', ar: 'السابقة' },
   ] as const
+  const statusOptions = ['new', 'reviewing', 'proposal_ready', 'approved', 'rejected', 'cancelled'] as const
+  const viewLabel = ar ? 'عرض الطلب' : 'View request'
   return (
     <section className="customer-account-block customer-full-block">
+      {lastCreated && (
+        <div style={{ padding: '18px 18px 0' }}>
+          <div className="customer-inline-success" role="status">
+            <strong>{ar ? 'تم حفظ طلب الرحلة' : 'Trip request saved'}</strong>
+            <span dir="ltr">{lastCreated.ref}</span>
+            {lastCreated.existingCustomer && <small>{ar ? 'يوجد حساب بالفعل لهذا البريد. سجّل الدخول لإدارة الطلبات المرتبطة بحسابك.' : 'An account already exists for this email. Sign in to manage requests associated with your account.'}</small>}
+            <button type="button" className="account-icon-action" onClick={() => setLastCreated(null)}>{ar ? 'إخفاء' : 'Dismiss'}</button>
+          </div>
+          {lastCreated.stub && lastCreated.stub.status === 'pending' && (
+            <PendingAccountBox stub={lastCreated.stub} onCompleted={(updated) => setLastCreated({ ...lastCreated, stub: updated })} />
+          )}
+        </div>
+      )}
       <div className="customer-filterbar">
         <div role="tablist" aria-label={ar ? 'فلترة طلبات الرحلات' : 'Filter trip requests'}>
           {dateTabs.map((tab) => <button key={tab.id} type="button" className={dateFilter === tab.id ? 'active' : ''} onClick={() => setDateFilter(tab.id)}>{ar ? tab.ar : tab.en}</button>)}
         </div>
-        <button type="button" className="account-icon-action" onClick={requestNew}><Plus size={16} />{ar ? 'طلب جديد' : 'New request'}</button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <SharedSelect value={statusFilter} onChange={(next) => setStatusFilter(next as typeof statusFilter)} locale={locale} label={ar ? 'فلترة حسب الحالة' : 'Filter by status'} options={[{ value: 'all', label: ar ? 'كل الحالات' : 'All statuses' }, ...statusOptions.map((s) => ({ value: s, label: tripRequestStatusLabel(s, ar) }))]} />
+          <button type="button" className="account-icon-action" onClick={requestNew}><Plus size={16} />{ar ? 'طلب جديد' : 'New request'}</button>
+        </div>
       </div>
-      {shown && <div className="trip-request-stack">
-      <div className="customer-table-wrap"><table className="customer-table">
-        <thead><tr><th>#</th><th>{ar ? 'الوجهة' : 'Destination'}</th><th>{ar ? 'التواريخ' : 'Dates'}</th><th>{ar ? 'المسافرون' : 'Travelers'}</th><th>{ar ? 'الميزانية' : 'Budget'}</th><th>{ar ? 'الحالة' : 'Status'}</th><th></th></tr></thead>
-        <tbody><tr>
-          <td className="customer-row-number">1</td>
-          <td><span className="customer-trip-cell"><span><strong>{destTitle}</strong><small><span dir="ltr">{placed.localRef}</span></small></span></span></td>
-          <td><span dir="ltr">{dateText}</span></td>
-          <td>{d.adults + d.children + d.infants}</td>
-          <td><span dir="ltr">{d.budgetMin.toLocaleString('en-US')} - {d.budgetMax.toLocaleString('en-US')} {d.currency}</span></td>
-          <td><span className="customer-status local"><Clock3 size={13} />{ar ? 'معاينة محلية' : 'Local preview'}</span></td>
-          <td><span className="customer-table-actions">
-            <button type="button" onClick={startEdit} aria-label={ar ? 'تعديل الطلب' : 'Edit request'} title={ar ? 'تعديل الطلب' : 'Edit request'}><Pencil size={16} /></button>
-            <button type="button" className="danger" onClick={() => setConfirmDiscard(true)} aria-label={ar ? 'تجاهل الطلب' : 'Discard request'} title={ar ? 'تجاهل الطلب' : 'Discard request'}><Ban size={16} /></button>
-          </span></td>
-        </tr></tbody>
-      </table></div>
-      <div style={{ padding: '14px 18px 18px' }}>
-        <p className="car-request-notice" role="note"><Clock3 size={15} /><span>{ar ? 'طلب مبدئي محفوظ محليًا على هذا المتصفح فقط. لم يتم إرساله إلى STAR PYRAMIDS.' : 'Preliminary request saved locally on this browser only. It has not been submitted to STAR PYRAMIDS.'}</span></p>
-      </div>
-      </div>}
-      {!shown && (
-        <div className="customer-empty"><span><Clock3 size={24} /></span><h3>{ar ? 'لا توجد طلبات في هذا العرض' : 'No requests in this view'}</h3><p>{ar ? 'جرب فلتر تواريخ مختلف من الأعلى.' : 'Try a different date filter above.'}</p><button type="button" className="account-icon-action" onClick={() => setDateFilter('all')}>{ar ? 'عرض الكل' : 'Show all'}</button></div>
+      {paging.pageRows.length ? (
+        <>
+          <div className="customer-table-wrap"><table className="customer-table">
+            <thead><tr><th>#</th><th>{ar ? 'الوجهة' : 'Destination'}</th><th>{ar ? 'التواريخ' : 'Dates'}</th><th>{ar ? 'المسافرون' : 'Travelers'}</th><th>{ar ? 'الميزانية' : 'Budget'}</th><th>{ar ? 'الحالة' : 'Status'}</th><th></th></tr></thead>
+            <tbody>{paging.pageRows.map((r, index) => {
+              const detailHref = `/account/trip-requests/detail?ref=${encodeURIComponent(r.localRef)}`
+              const editable = r.status === 'new' || r.status === 'reviewing'
+              return <tr key={r.localRef}>
+                <td className="customer-row-number">{paging.from + index}</td>
+                <td><span className="customer-trip-cell"><span><strong><Link href={detailHref}>{titleOf(r)}</Link></strong><small><span dir="ltr">{r.localRef}</span></small></span></span></td>
+                <td><span dir="ltr">{dateTextOf(r)}</span></td>
+                <td>{r.adults + r.children + r.infants}</td>
+                <td><span dir="ltr">{r.budgetMin.toLocaleString('en-US')} - {r.budgetMax.toLocaleString('en-US')} {r.currency}</span></td>
+                <td><StatusBadge status={r.status} /></td>
+                <td><span className="customer-table-actions">
+                  <Link href={detailHref} aria-label={viewLabel} title={viewLabel}><Eye size={16} /></Link>
+                  {editable && <button type="button" onClick={() => startEdit(r.localRef)} aria-label={ar ? 'تعديل الطلب' : 'Edit request'} title={ar ? 'تعديل الطلب' : 'Edit request'}><Pencil size={16} /></button>}
+                  {editable && <button type="button" className="danger" onClick={() => setCancellingRef(r.localRef)} aria-label={ar ? 'إلغاء الطلب' : 'Cancel request'} title={ar ? 'إلغاء الطلب' : 'Cancel request'}><X size={16} /></button>}
+                </span></td>
+              </tr>
+            })}</tbody>
+          </table></div>
+          <CustomerConfirmDialog
+            open={cancellingRef !== null}
+            onClose={() => setCancellingRef(null)}
+            onConfirm={() => { if (cancellingRef) cancelTripRequest(cancellingRef, 'customer'); setCancellingRef(null) }}
+            title={ar ? 'إلغاء طلب الرحلة؟' : 'Cancel this trip request?'}
+            copy={ar ? 'سيبقى هذا الطلب في سجلك بحالة ملغي.' : 'This request will remain in your history with a Cancelled status.'}
+            confirmLabel={ar ? 'إلغاء الطلب' : 'Cancel request'}
+            cancelLabel={ar ? 'أبقِ الطلب' : 'Keep request'}
+          />
+          <CustomerPagination page={paging.page} pageCount={paging.pageCount} onPage={paging.setPage} pageSize={paging.pageSize} onPageSize={paging.setPageSize} from={paging.from} to={paging.to} total={paging.total} />
+          <div style={{ padding: '0 18px 18px' }}>
+            <p className="car-request-notice" role="note"><Clock3 size={15} /><span>{ar ? 'طلبات النموذج التجريبي محفوظة على هذا المتصفح فقط ولا تُرسل إلى نظام STAR PYRAMIDS الفعلي.' : 'Prototype requests are stored on this browser only and are not submitted to a live STAR PYRAMIDS backend.'}</span></p>
+          </div>
+        </>
+      ) : (
+        <div className="customer-empty"><span><Clock3 size={24} /></span><h3>{ar ? 'لا توجد طلبات في هذا العرض' : 'No requests in this view'}</h3><p>{ar ? 'جرب فلترًا مختلفًا من الأعلى.' : 'Try a different filter above.'}</p><button type="button" className="account-icon-action" onClick={() => { setDateFilter('all'); setStatusFilter('all') }}>{ar ? 'عرض الكل' : 'Show all'}</button></div>
       )}
-      <CustomerConfirmDialog
-        open={confirmDiscard}
-        onClose={() => setConfirmDiscard(false)}
-        onConfirm={handleDiscard}
-        title={ar ? 'تجاهل طلب الرحلة؟' : 'Discard the trip request?'}
-        copy={ar ? 'سيؤدي هذا إلى إزالة الطلب المحفوظ في هذا المتصفح فقط. لن يتأثر أي شيء آخر.' : 'This removes only the browser-local request. Nothing else is affected.'}
-        confirmLabel={ar ? 'تجاهل الطلب' : 'Discard request'}
-      />
-      <CustomerConfirmDialog
-        open={confirmReplace}
-        onClose={() => setConfirmReplace(false)}
-        onConfirm={confirmNew}
-        title={ar ? 'استبدال الطلب المحفوظ؟' : 'Replace the saved request?'}
-        copy={ar ? 'يوجد طلب محفوظ بالفعل. إنشاء طلب جديد سيستبدله. لن يتأثر أي شيء آخر.' : 'A request is already saved. Creating a new one replaces it. Nothing else is affected.'}
-        confirmLabel={ar ? 'طلب جديد' : 'New request'}
-      />
     </section>
   )
 }
 
-export function CustomerTripRequestsPage({ startNew = false }: { startNew?: boolean }) {
+function titleOf(r: TripRequest): string {
+  if (r.customTitle) return r.customTitle
+  if (r.tourSlug) return catalogTours.find((item) => item.slug === r.tourSlug)?.title ?? r.tourSlug
+  if (r.destinationSlug) return destinations.find((item) => item.slug === r.destinationSlug)?.title ?? r.destinationSlug
+  return 'Custom trip'
+}
+
+function dateTextOf(r: TripRequest): string {
+  if (r.preferredFrom && r.preferredTo && r.preferredFrom !== r.preferredTo) return `${r.preferredFrom} → ${r.preferredTo}`
+  return r.preferredFrom || r.preferredTo || ''
+}
+
+export function CustomerTripRequestsPage({ startNew = false, editRef = null }: { startNew?: boolean; editRef?: string | null }) {
   return (
     <LocaleProvider>
       <AccountShell
         section="trip-requests"
         headLeading={<HeadPlanTrip />}
       >
-        <TripRequestsSection startNew={startNew} />
+        <TripRequestsSection startNew={startNew} editRef={editRef} />
       </AccountShell>
     </LocaleProvider>
   )
@@ -461,4 +505,94 @@ function HeadPlanTrip() {
   const { locale } = useLocale()
   const ar = locale === 'ar'
   return <Link href="/account/trip-requests?new=1" className="account-icon-action"><Plus size={17} />{ar ? 'خطط رحلتك' : 'Plan your trip'}</Link>
+}
+
+export function TripRequestDetailSection({ reference }: { reference: string }) {
+  const { locale } = useLocale()
+  const ar = locale === 'ar'
+  const item = useTripRequest(reference)
+  const [cancelling, setCancelling] = useState(false)
+  if (!item) {
+    return (
+      <div className="customer-inline-empty">
+        <Clock3 size={20} />
+        <span>
+          <strong>{ar ? 'طلب الرحلة غير موجود' : 'Trip request not found'}</strong>
+          <small>{ar ? 'ربما تم حذفه أو أنه محفوظ في متصفح مختلف.' : 'It may have been removed or saved in a different browser.'}</small>
+        </span>
+        <Link href="/account/trip-requests">{ar ? 'عودة لطلبات الرحلات' : 'Back to trip requests'}</Link>
+      </div>
+    )
+  }
+  const editable = item.status === 'new' || item.status === 'reviewing'
+  const timeLabel = item.timeMode === 'exact' ? (ar ? 'موعد محدد' : 'Exact time') : item.timeMode === 'approx' ? (ar ? 'موعد تقريبي' : 'Approximate time') : (ar ? 'لم يحدد بعد' : 'Not sure yet')
+  return (
+    <div className="customer-account-block">
+      <header>
+        <div>
+          <span>{ar ? 'تفاصيل طلب الرحلة' : 'Trip request detail'}</span>
+          <h2>{titleOf(item)}</h2>
+        </div>
+        <StatusBadge status={item.status} />
+      </header>
+      <dl className="customer-detail-grid">
+        <div><dt>{ar ? 'المرجع المحلي' : 'Local reference'}</dt><dd dir="ltr">{item.localRef}</dd></div>
+        <div><dt>{ar ? 'أُنشئ في' : 'Created'}</dt><dd>{new Date(item.createdAt).toLocaleString(ar ? 'ar-EG' : 'en-US')}</dd></div>
+        <div><dt>{ar ? 'آخر تحديث' : 'Updated'}</dt><dd>{new Date(item.updatedAt).toLocaleString(ar ? 'ar-EG' : 'en-US')}</dd></div>
+        <div><dt>{ar ? 'الوجهة' : 'Destination'}</dt><dd>{titleOf(item)}</dd></div>
+        <div><dt>{ar ? 'التواريخ' : 'Dates'}</dt><dd dir="ltr">{dateTextOf(item) || (ar ? 'موعد مرن' : 'Flexible date')}</dd></div>
+        <div><dt>{ar ? 'إيقاع المواعيد' : 'Date flexibility'}</dt><dd>{timeLabel}</dd></div>
+        <div><dt>{ar ? 'المسافرون' : 'Travelers'}</dt><dd>{ar ? `${item.adults} بالغ، ${item.children} أطفال، ${item.infants} رضع` : `${item.adults} adults, ${item.children} children, ${item.infants} infants`}</dd></div>
+        <div><dt>{ar ? 'خيارات الطيران' : 'Flight options'}</dt><dd>{item.flightOffer ? (ar ? 'مطلوبة' : 'Requested') : (ar ? 'غير مطلوبة' : 'Not requested')}</dd></div>
+        {item.requestedAddOns.length > 0 && <div className="full"><dt>{ar ? 'إضافات مطلوبة' : 'Requested add-ons'}</dt><dd>{item.requestedAddOns.join(ar ? '، ' : ', ')}</dd></div>}
+        <div><dt>{ar ? 'الميزانية' : 'Budget'}</dt><dd dir="ltr">{item.budgetMin.toLocaleString('en-US')} - {item.budgetMax.toLocaleString('en-US')} {item.currency}</dd></div>
+        <div><dt>{ar ? 'الاسم' : 'Name'}</dt><dd>{item.contact.name}</dd></div>
+        <div><dt>{ar ? 'البريد الإلكتروني' : 'Email'}</dt><dd dir="ltr">{item.contact.email}</dd></div>
+        <div><dt>{ar ? 'الهاتف' : 'Phone'}</dt><dd dir="ltr">{displayInternationalPhone(item.contact.dialCode, item.contact.phone)}</dd></div>
+        <div><dt>{ar ? 'الجنسية' : 'Nationality'}</dt><dd>{countryDisplayName(item.contact.nationality, locale)}</dd></div>
+        {item.notes && <div className="full"><dt>{ar ? 'ملاحظات' : 'Notes'}</dt><dd>{item.notes}</dd></div>}
+      </dl>
+      {item.activity.length > 0 && (
+        <section className="customer-activity" aria-label={ar ? 'سجل الطلب' : 'Request activity'}>
+          <h3>{ar ? 'سجل الطلب' : 'Activity'}</h3>
+          <ul>{item.activity.map((a, i) => <li key={`${a.at}-${i}`}><span>{new Date(a.at).toLocaleString(ar ? 'ar-EG' : 'en-US')}</span><strong>{tripActivityLabel(a.action, ar)}</strong>{a.note && <small>{a.note}</small>}</li>)}</ul>
+        </section>
+      )}
+      <div className="customer-detail-actions">
+        <Link href="/account/trip-requests" className="account-icon-action">{ar ? 'عودة للقائمة' : 'Back to list'}</Link>
+        {editable && <Link href={`/account/trip-requests?edit=${encodeURIComponent(item.localRef)}`} className="account-icon-action"><Pencil size={16} />{ar ? 'تعديل الطلب' : 'Edit request'}</Link>}
+        {editable && (
+          <button type="button" className="account-icon-action danger" onClick={() => setCancelling(true)}><X size={16} />{ar ? 'إلغاء الطلب' : 'Cancel request'}</button>
+        )}
+      </div>
+      <CustomerConfirmDialog
+        open={cancelling}
+        onClose={() => setCancelling(false)}
+        onConfirm={() => { cancelTripRequest(item.localRef, 'customer'); setCancelling(false) }}
+        title={ar ? 'إلغاء طلب الرحلة؟' : 'Cancel this trip request?'}
+        copy={ar ? 'سيبقى هذا الطلب في سجلك بحالة ملغي.' : 'This request will remain in your history with a Cancelled status.'}
+        confirmLabel={ar ? 'إلغاء الطلب' : 'Cancel request'}
+        cancelLabel={ar ? 'أبقِ الطلب' : 'Keep request'}
+      />
+      <p className="customer-block-note">{ar ? 'طلبات النموذج التجريبي محفوظة على هذا المتصفح فقط ولا تُرسل إلى نظام STAR PYRAMIDS الفعلي. بيانات التواصل المعروضة لقطة تاريخية لهذا الطلب.' : 'Prototype requests are stored on this browser only and are not submitted to a live STAR PYRAMIDS backend. Contact details shown are a historical snapshot of this request.'}</p>
+    </div>
+  )
+}
+
+export function CustomerTripRequestDetailPage({ reference }: { reference: string }) {
+  return (
+    <LocaleProvider>
+      <TripRequestDetailShell reference={reference} />
+    </LocaleProvider>
+  )
+}
+
+function TripRequestDetailShell({ reference }: { reference: string }) {
+  const { locale } = useLocale()
+  const ar = locale === 'ar'
+  return (
+    <AccountShell section="trip-requests" headLeading={<Link href="/account/trip-requests" className="account-icon-action">{ar ? 'عودة لطلبات الرحلات' : 'Back to trip requests'}</Link>}>
+      <TripRequestDetailSection reference={reference} />
+    </AccountShell>
+  )
 }

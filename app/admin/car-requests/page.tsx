@@ -11,6 +11,7 @@ import { StartReviewDialog } from '@/components/admin/car-request-dialogs'
 import { type AdminCarRequestStatus, type AdminCarTripType, type AdminCarRequest } from '@/components/admin/car-requests-data'
 import { getEffectiveRequests, useCarRequestOps, type EffectiveCarRequest } from '@/lib/car-request-ops'
 import { AMENDABLE_FIELD_COPY, AMENDMENT_STATUS_COPY, useAmendments, type AmendmentStatus } from '@/lib/car-request-amendments'
+import { SharedSelect } from '@/components/shared-select'
 
 const statusTabs = [
   { id: 'all', en: 'All', ar: 'الكل' },
@@ -80,15 +81,8 @@ export default function CarRequestsPage() {
         sub={<AdminText en={`${visible.length} of ${requests.length} requests shown · Demo fixtures, not customer submissions`} ar={`عرض ${visible.length} من ${requests.length} طلبات · بيانات تجريبية وليست طلبات عملاء`} />}
       >
         <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث بطلب أو عميل أو مركبة أو مسار...' : 'Search request, customer, vehicle or route...'} className="sp-request-tools">
-          <select className="sp-filter-select" value={vehicle} onChange={(event) => setVehicle(event.target.value)} aria-label={ar ? 'فلترة حسب المركبة' : 'Filter by vehicle'}>
-            <option value="all">{ar ? 'كل المركبات' : 'All vehicles'}</option>
-            {vehicleOptions.map(([slug, name]) => <option key={slug} value={slug}>{name}</option>)}
-          </select>
-          <select className="sp-filter-select" value={tripType} onChange={(event) => setTripType(event.target.value as TripFilter)} aria-label={ar ? 'فلترة حسب نوع الرحلة' : 'Filter by trip type'}>
-            <option value="all">{ar ? 'كل أنواع الرحلات' : 'All trip types'}</option>
-            <option value="One Way">{ar ? 'ذهاب فقط' : 'One Way'}</option>
-            <option value="Round Trip">{ar ? 'ذهاب وعودة' : 'Round Trip'}</option>
-          </select>
+          <SharedSelect value={vehicle} onChange={setVehicle} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حسب المركبة' : 'Filter by vehicle'} popupWidth="trigger" options={[{ value: 'all', label: ar ? 'كل المركبات' : 'All vehicles' }, ...vehicleOptions.map(([slug, name]) => ({ value: slug, label: name }))]} />
+          <SharedSelect value={tripType} onChange={(next) => setTripType(next as TripFilter)} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حسب نوع الرحلة' : 'Filter by trip type'} options={[{ value: 'all', label: ar ? 'كل أنواع الرحلات' : 'All trip types' }, { value: 'One Way', label: ar ? 'ذهاب فقط' : 'One Way' }, { value: 'Round Trip', label: ar ? 'ذهاب وعودة' : 'Round Trip' }]} />
           <div className="sp-tabs">
             {statusTabs.map((tab) => <button key={tab.id} type="button" className={status === tab.id ? 'active' : ''} onClick={() => setStatus(tab.id)}>{ar ? tab.ar : tab.en}</button>)}
           </div>

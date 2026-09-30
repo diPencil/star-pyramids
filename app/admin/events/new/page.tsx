@@ -10,8 +10,11 @@ import { useAdminLocale } from '@/components/admin/admin-locale'
 import { isCustomSlug, readOverrides, removeCustomItem, removeEventOverride, saveCustomItem, saveEventOverride, slugify } from '@/lib/admin-store'
 import { sanitizeEvent } from '@/lib/events'
 import { ImageField } from '@/components/admin/image-field'
+import { SharedSelect } from '@/components/shared-select'
 import { events } from '@/data/content'
 import type { Event } from '@/data/types'
+import { InternationalPhoneInput } from '@/components/international-phone-input'
+import { DateInput } from '@/components/date-input'
 
 type HighlightRow = { title: string; titleAr: string; description: string; descriptionAr: string }
 type ProgramRow = { day: string; title: string; description: string }
@@ -30,7 +33,7 @@ function RowList<T>({ rows, onChange, render, onAdd, addLabel }: {
     <div className="sp-repeat-list">
       {rows.map((row, index) => (
         <article className="sp-repeat-card" key={index}>
-          <header className="sp-repeat-head"><strong>#{index + 1}</strong><button type="button" className="sp-icon-btn danger" onClick={() => onChange(rows.filter((_, i) => i !== index))} aria-label="Remove row"><Trash2 size={15} /></button></header>
+          <header className="sp-repeat-head"><strong>#{index + 1}</strong><button type="button" className="sp-icon-btn danger" onClick={() => onChange(rows.filter((_, i) => i !== index))} aria-label="Remove row"><Trash2 size={18} /></button></header>
           {render(row, (patch) => onChange(rows.map((r, i) => (i === index ? { ...r, ...patch } : r))), index)}
         </article>
       ))}
@@ -45,7 +48,7 @@ function StringRows({ rows, onChange, onAdd, placeholder }: { rows: string[]; on
       {rows.map((row, index) => (
         <div className="sp-repeat-row" key={index}>
           <input value={row} onChange={(e) => onChange(rows.map((r, i) => (i === index ? e.target.value : r)))} placeholder={placeholder} />
-          <button type="button" className="sp-icon-btn danger" onClick={() => onChange(rows.filter((_, i) => i !== index))} aria-label="Remove row"><Trash2 size={15} /></button>
+          <button type="button" className="sp-icon-btn danger" onClick={() => onChange(rows.filter((_, i) => i !== index))} aria-label="Remove row"><Trash2 size={18} /></button>
         </div>
       ))}
       <button type="button" className="sp-btn" onClick={() => onChange([...rows, ''])}><Plus size={15} />{onAdd}</button>
@@ -107,6 +110,7 @@ function EventForm() {
   const [bookingDeadline, setBookingDeadline] = useState(initial?.bookingDeadline ?? '')
   const [image, setImage] = useState(initial?.image ?? '')
   const [gallery, setGallery] = useState<string[]>(initial?.gallery ? [...initial.gallery] : [])
+  const [galleryDraft, setGalleryDraft] = useState('')
   const [highlights, setHighlights] = useState<HighlightRow[]>(initial?.highlights?.map((h) => ({ title: h.title, titleAr: h.titleAr ?? '', description: h.description, descriptionAr: h.descriptionAr ?? '' })) ?? [])
   const [program, setProgram] = useState<ProgramRow[]>(initial?.program?.map((p) => ({ day: p.day, title: p.title, description: p.description })) ?? [])
   const [included, setIncluded] = useState<string[]>(initial?.included ? [...initial.included] : [])
@@ -259,8 +263,8 @@ function EventForm() {
           <div />
         </div>
         <div className="sp-form-2">
-          <label><AdminText en="Start date (YYYY-MM-DD)" ar="تاريخ البداية" /><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></label>
-          <label><AdminText en="End date (YYYY-MM-DD)" ar="تاريخ النهاية" /><input type="date" value={endDate} min={startDate || undefined} onChange={(e) => setEndDate(e.target.value)} /></label>
+          <label><AdminText en="Start date (YYYY-MM-DD)" ar="تاريخ البداية" /><DateInput value={startDate} onChange={(e) => setStartDate(e.target.value)} /></label>
+          <label><AdminText en="End date (YYYY-MM-DD)" ar="تاريخ النهاية" /><DateInput value={endDate} min={startDate || undefined} onChange={(e) => setEndDate(e.target.value)} /></label>
         </div>
         <div className="sp-form-2">
           <label><AdminText en="Start time (HH:MM)" ar="وقت البداية" /><input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} /></label>
@@ -292,20 +296,24 @@ function EventForm() {
     <Card title={<AdminText en="Pricing" ar="الأسعار" />}>
       <div className="sp-form">
         <div className="sp-form-2">
-          <label><AdminText en="Pricing type" ar="نوع السعر" /><select value={pricingType} onChange={(e) => setPricingType(e.target.value as typeof pricingType)}><option value="request">{ar ? 'السعر عند الطلب' : 'Request price'}</option><option value="free">{ar ? 'مجاني' : 'Free'}</option><option value="paid">{ar ? 'مدفوع' : 'Paid'}</option></select></label>
+          <label><AdminText en="Pricing type" ar="نوع السعر" /><SharedSelect value={pricingType} onChange={(next) => setPricingType(next as typeof pricingType)} locale={ar ? 'ar' : 'en'} options={[{ value: 'request', label: ar ? 'السعر عند الطلب' : 'Request price' }, { value: 'free', label: ar ? 'مجاني' : 'Free' }, { value: 'paid', label: ar ? 'مدفوع' : 'Paid' }]} /></label>
           <label><AdminText en="Currency" ar="العملة" /><input value={currency} onChange={(e) => setCurrency(e.target.value)} dir="ltr" placeholder="USD" maxLength={8} /></label>
         </div>
         <div className="sp-form-2">
           <label><AdminText en="Price (paid only)" ar="السعر (للمدفوع فقط)" /><input type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} disabled={pricingType !== 'paid'} /></label>
           <label><AdminText en="Capacity (optional)" ar="السعة (اختياري)" /><input type="number" min="1" step="1" value={capacity} onChange={(e) => setCapacity(e.target.value)} /></label>
         </div>
-        <label><AdminText en="Booking deadline (YYYY-MM-DD, optional)" ar="آخر موعد للحجز (اختياري)" /><input type="date" value={bookingDeadline} onChange={(e) => setBookingDeadline(e.target.value)} /></label>
+        <label><AdminText en="Booking deadline (YYYY-MM-DD, optional)" ar="آخر موعد للحجز (اختياري)" /><DateInput value={bookingDeadline} onChange={(e) => setBookingDeadline(e.target.value)} /></label>
       </div>
     </Card>
     <Card title={<AdminText en="Media" ar="الوسائط" />}>
       <div className="sp-form">
-        <ImageField value={image} onChange={setImage} />
-        <div><strong><AdminText en="Gallery URLs (optional)" ar="روابط المعرض (اختياري)" /></strong><StringRows rows={gallery} onChange={setGallery} onAdd={<AdminText en="Add image URL" ar="إضافة رابط صورة" />} placeholder="https://..." /></div>
+        <ImageField value={image} onChange={setImage} previewAlt={title || 'Event cover'} linkLabel={{ en: 'Cover image URL', ar: 'رابط صورة الغلاف' }} uploadLabel={{ en: 'Upload cover image', ar: 'رفع صورة الغلاف' }} />
+        <div className="sp-builder-divider" />
+        <div className="sp-builder-subhead"><div><strong><AdminText en="Gallery images" ar="صور المعرض" /></strong><small><AdminText en="Add each image by URL or upload it from your device." ar="أضف كل صورة برابط أو ارفعها من جهازك." /></small></div></div>
+        <ImageField value={galleryDraft} onChange={setGalleryDraft} preview="compact" previewAlt={title || 'Gallery image'} linkLabel={{ en: 'Gallery image URL', ar: 'رابط صورة المعرض' }} uploadLabel={{ en: 'Upload gallery image', ar: 'رفع صورة للمعرض' }} />
+        <button type="button" className="sp-btn" disabled={!galleryDraft.trim()} onClick={() => { setGallery((current) => [...current, galleryDraft].slice(0, 12)); setGalleryDraft('') }}><Plus size={15} /><AdminText en="Add to gallery" ar="إضافة إلى المعرض" /></button>
+        {gallery.length > 0 && <div><strong><AdminText en="Added gallery images" ar="صور المعرض المضافة" /></strong><StringRows rows={gallery} onChange={setGallery} onAdd={<AdminText en="Add another URL" ar="إضافة رابط آخر" />} placeholder="https://..." /></div>}
       </div>
     </Card>
     <Card title={<AdminText en="Highlights" ar="أبرز النقاط" />}>
@@ -332,8 +340,8 @@ function EventForm() {
           <label><AdminText en="Email" ar="البريد" /><input value={organizerEmail} onChange={(e) => setOrganizerEmail(e.target.value)} dir="ltr" placeholder="you@example.com" /></label>
         </div>
         <div className="sp-form-2">
-          <label><AdminText en="Phone" ar="الهاتف" /><input value={organizerPhone} onChange={(e) => setOrganizerPhone(e.target.value)} dir="ltr" /></label>
-          <label><AdminText en="WhatsApp" ar="واتساب" /><input value={organizerWhatsapp} onChange={(e) => setOrganizerWhatsapp(e.target.value)} dir="ltr" /></label>
+          <label><AdminText en="Phone" ar="الهاتف" /><InternationalPhoneInput value={organizerPhone} onChange={setOrganizerPhone} locale={ar ? 'ar' : 'en'} /></label>
+          <label><AdminText en="WhatsApp" ar="واتساب" /><InternationalPhoneInput value={organizerWhatsapp} onChange={setOrganizerWhatsapp} locale={ar ? 'ar' : 'en'} /></label>
         </div>
       </div>
     </Card>

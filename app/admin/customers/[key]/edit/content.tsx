@@ -7,6 +7,7 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminText, Avatar, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { ImageField } from '@/components/admin/image-field'
+import { CountrySelect } from '@/components/country-select'
 import { countries, countryFlag, defaultCountry } from '@/data/countries'
 import { bookings } from '@/components/admin/admin-data'
 import { saveCustomItem, saveCustomerProfile, useCustomerProfile, useLiveCollection, type AdminCustomer } from '@/lib/admin-store'
@@ -99,7 +100,7 @@ export function EditCustomerContent({ customerKey }: { customerKey: string }) {
         {original && <label><AdminText en="Username" ar="اسم المستخدم" /><input value={username} onChange={(e) => setUsername(e.target.value)} dir="ltr" /></label>}
         <label><AdminText en="Email address" ar="البريد الإلكتروني" /><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} dir="ltr" /></label>
         <div className="sp-form-2">
-          <label><AdminText en="Country" ar="الدولة" /><select value={countryCode} onChange={(e) => setCountryCode(e.target.value)}>{countries.map((c) => <option key={c.code} value={c.code}>{countryFlag(c.code)} {c.name} ({c.dialCode})</option>)}</select></label>
+          <label><AdminText en="Country" ar="الدولة" /><CountrySelect value={countryCode} onChange={setCountryCode} locale={ar ? 'ar' : 'en'} /></label>
           <label><AdminText en="Mobile number" ar="رقم الموبايل" /><span className="sp-phone-field"><span>{countryFlag(country.code)} {country.dialCode}</span><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} dir="ltr" /></span></label>
         </div>
         <ImageField value={avatar} onChange={setAvatar} />

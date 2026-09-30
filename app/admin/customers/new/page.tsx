@@ -8,6 +8,7 @@ import { useAdminLocale } from '@/components/admin/admin-locale'
 import { countries, countryFlag, defaultCountry } from '@/data/countries'
 import { saveCustomItem, slugify, type AdminCustomer } from '@/lib/admin-store'
 import { ImageField } from '@/components/admin/image-field'
+import { CountrySelect } from '@/components/country-select'
 
 export default function NewCustomerPage() {
   const ar = useAdminLocale() === 'ar'
@@ -68,7 +69,7 @@ export default function NewCustomerPage() {
         <label><AdminText en="Username" ar="اسم المستخدم" /><input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="john.smith" dir="ltr" /></label>
         <label><AdminText en="Email address" ar="البريد الإلكتروني" /><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" dir="ltr" /></label>
         <div className="sp-form-2">
-          <label><AdminText en="Country" ar="الدولة" /><select value={countryCode} onChange={(e) => setCountryCode(e.target.value)}>{countries.map((c) => <option key={c.code} value={c.code}>{countryFlag(c.code)} {c.name} ({c.dialCode})</option>)}</select></label>
+          <label><AdminText en="Country" ar="الدولة" /><CountrySelect value={countryCode} onChange={setCountryCode} locale={ar ? 'ar' : 'en'} /></label>
           <label><AdminText en="Mobile number" ar="رقم الموبايل" /><span className="sp-phone-field"><span>{countryFlag(country.code)} {country.dialCode}</span><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="100 000 0000" dir="ltr" /></span></label>
         </div>
         <div className="sp-form-2">

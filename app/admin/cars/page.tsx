@@ -8,6 +8,7 @@ import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableT
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
+import { SharedSelect } from '@/components/shared-select'
 import { cars } from '@/data/content'
 import { isCustomSlug, removeCustomItem, setCarHidden, useHiddenCars, useLiveCollection } from '@/lib/admin-store'
 
@@ -43,7 +44,7 @@ export default function CarsPage() {
     ]} />
     <Card title={<AdminText en="Fleet" ar="الأسطول" />} sub={<AdminText en={`${rows.length} of ${liveCars.length} vehicles shown`} ar={`عرض ${rows.length} من ${liveCars.length} مركبات`} />}>
       <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث بمركبة أو سعة...' : 'Search vehicle or capacity...'}>
-        <select className="sp-filter-select" value={transmission} onChange={(event) => setTransmission(event.target.value)} aria-label={ar ? 'فلترة حسب ناقل الحركة' : 'Filter by transmission'}><option value="all">{ar ? 'كل النواقل' : 'All transmissions'}</option>{transmissions.map((item) => <option key={item}>{item}</option>)}</select>
+        <SharedSelect value={transmission} onChange={setTransmission} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حسب ناقل الحركة' : 'Filter by transmission'} options={[{ value: 'all', label: ar ? 'كل النواقل' : 'All transmissions' }, ...transmissions.map((item) => ({ value: item, label: item }))]} />
       </AdminTableTools>
       {rows.length ? <AdminTableWrap><table className="sp-table">
         <thead><tr><th className="sp-row-number">#</th><SortableTh label={<AdminText en="Vehicle" ar="المركبة" />} column="vehicle" {...carSort} onSort={carSort.sortBy} /><SortableTh label={<AdminText en="Capacity" ar="السعة" />} column="capacity" {...carSort} onSort={carSort.sortBy} /><SortableTh label={<AdminText en="Transmission" ar="ناقل الحركة" />} column="transmission" {...carSort} onSort={carSort.sortBy} /><SortableTh label={<AdminText en="Daily rate" ar="السعر اليومي" />} column="rate" {...carSort} onSort={carSort.sortBy} /><SortableTh label={<AdminText en="Status" ar="الحالة" />} column="status" {...carSort} onSort={carSort.sortBy} /><th></th></tr></thead>

@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   Bell,
   CalendarCheck,
@@ -87,13 +87,12 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [userMenu, setUserMenu] = useState(false)
   const [profile, setProfile] = useState<AdminProfile>(() => readAdminProfile())
-
   useEffect(() => {
     document.documentElement.classList.add('sp-admin-root')
     const c = window.localStorage.getItem('sp-admin-collapsed')
     if (c === '1') setCollapsed(true)
     const l = window.localStorage.getItem('star-locale')
-    if (l === 'ar') setLocale('ar')
+    if (l === 'ar' || l === 'en') setLocale(l)
     const cur = window.localStorage.getItem('star-currency')
     if (cur === 'USD' || cur === 'EUR' || cur === 'EGP') setCurrency(cur)
     return () => {
@@ -104,13 +103,18 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     document.documentElement.dir = locale === 'ar' ? 'rtl' : 'ltr'
     document.documentElement.lang = locale
-    window.localStorage.setItem('star-locale', locale)
     window.dispatchEvent(new Event('sp-admin-locale'))
   }, [locale])
 
-  useEffect(() => {
-    window.localStorage.setItem('star-currency', currency)
-  }, [currency])
+  const changeLocale = useCallback((next: 'en' | 'ar') => {
+    window.localStorage.setItem('star-locale', next)
+    setLocale(next)
+  }, [])
+
+  const changeCurrency = useCallback((next: 'USD' | 'EUR' | 'EGP') => {
+    window.localStorage.setItem('star-currency', next)
+    setCurrency(next)
+  }, [])
 
   useEffect(() => {
     window.localStorage.setItem('sp-admin-collapsed', collapsed ? '1' : '0')
@@ -288,8 +292,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           locale={locale}
           currency={currency}
           onClose={() => setLanguageOpen(false)}
-          onSelect={setLocale}
-          onCurrency={setCurrency}
+          onSelect={changeLocale}
+          onCurrency={changeCurrency}
         />
       )}
     </div>

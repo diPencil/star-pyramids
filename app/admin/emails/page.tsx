@@ -6,6 +6,7 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableTools, AdminTableWrap, AdminText, Card, StatusPill } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
+import { SharedSelect } from '@/components/shared-select'
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 import { useInquiries } from '@/lib/admin-store'
 import { getSiteTimezone } from '@/components/locale'
@@ -57,7 +58,7 @@ export default function EmailsPage() {
     ]} />
     <Card title={<AdminText en="Incoming mail" ar="البريد الوارد" />} sub={<AdminText en={`${rows.length} of ${base.length} messages shown`} ar={`عرض ${rows.length} من ${base.length} رسائل`} />}>
       <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث بمرسل أو موضوع...' : 'Search sender or subject...'}>
-        <select className="sp-filter-select" value={status} onChange={(event) => setStatus(event.target.value)} aria-label={ar ? 'فلترة حالة البريد' : 'Filter email status'}><option value="all">{ar ? 'كل البريد' : 'All mail'}</option><option value="pending">{ar ? 'تحتاج مراجعة' : 'Needs review'}</option><option value="confirmed">{ar ? 'تمت مراجعتها' : 'Reviewed'}</option></select>
+          <SharedSelect value={status} onChange={(next) => setStatus(next as typeof status)} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حالة البريد' : 'Filter email status'} options={[{ value: 'all', label: ar ? 'كل البريد' : 'All mail' }, { value: 'pending', label: ar ? 'تحتاج مراجعة' : 'Needs review' }, { value: 'confirmed', label: ar ? 'تمت مراجعتها' : 'Reviewed' }]} />
       </AdminTableTools>
       {rows.length ? <AdminTableWrap><table className="sp-table">
         <thead><tr><th className="sp-row-number">#</th><SortableTh label={<AdminText en="From" ar="من" />} column="from" sortKey={emailSort.sortKey} direction={emailSort.direction} onSort={emailSort.sortBy} /><SortableTh label={<AdminText en="Subject" ar="الموضوع" />} column="subject" sortKey={emailSort.sortKey} direction={emailSort.direction} onSort={emailSort.sortBy} /><SortableTh label={<AdminText en="Time" ar="الوقت" />} column="time" sortKey={emailSort.sortKey} direction={emailSort.direction} onSort={emailSort.sortBy} /><SortableTh label={<AdminText en="Status" ar="الحالة" />} column="status" sortKey={emailSort.sortKey} direction={emailSort.direction} onSort={emailSort.sortBy} /><th></th></tr></thead>

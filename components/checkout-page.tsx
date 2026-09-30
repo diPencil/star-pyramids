@@ -11,6 +11,7 @@ import {
   type BookingContact, type ContactErrors,
 } from '@/lib/booking'
 import { recordBookingRequestDraft } from '@/lib/customer-account'
+import { InternationalPhoneInput } from './international-phone-input'
 
 export function CheckoutPage() {
   const { currency, locale } = useLocale()
@@ -97,7 +98,7 @@ export function CheckoutPage() {
           <div className="form-grid">
             <label className="full">{ar ? 'الاسم الكامل' : 'Full name'}<input required value={name} onChange={(e) => { setName(e.target.value); setAttempted(false) }} placeholder={ar ? 'اكتب اسمك الكامل' : 'Your name'} maxLength={80} autoComplete="name" aria-invalid={Boolean(errors.name)} aria-describedby={errors.name ? 'co-name-error' : undefined} />{errorText('name') && <span className="field-error" id="co-name-error">{errorText('name')}</span>}</label>
             <label>{ar ? 'البريد الإلكتروني' : 'Email'}<input required type="email" value={email} onChange={(e) => { setEmail(e.target.value); setAttempted(false) }} placeholder="you@example.com" maxLength={120} autoComplete="email" dir="ltr" aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? 'co-email-error' : undefined} />{errorText('email') && <span className="field-error" id="co-email-error">{errorText('email')}</span>}</label>
-            <label>{ar ? 'رقم الهاتف' : 'Phone'}<input required type="tel" value={phone} onChange={(e) => { setPhone(e.target.value); setAttempted(false) }} placeholder="+20 ..." maxLength={24} autoComplete="tel" dir="ltr" aria-invalid={Boolean(errors.phone)} aria-describedby={errors.phone ? 'co-phone-error' : undefined} />{errorText('phone') && <span className="field-error" id="co-phone-error">{errorText('phone')}</span>}</label>
+            <label>{ar ? 'رقم الهاتف' : 'Phone'}<InternationalPhoneInput required value={phone} onChange={(value) => { setPhone(value); setAttempted(false) }} locale={locale} invalid={Boolean(errors.phone)} describedBy={errors.phone ? 'co-phone-error' : undefined} />{errorText('phone') && <span className="field-error" id="co-phone-error">{errorText('phone')}</span>}</label>
             <label className="full">{ar ? 'ملاحظات (اختياري)' : 'Notes (optional)'}<textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={ar ? 'أية تفاصيل إضافية' : 'Anything else we should know'} maxLength={500} /></label>
           </div>
           <h2>{ar ? 'ترتيبات الدفع' : 'Payment arrangements'}</h2>

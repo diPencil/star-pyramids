@@ -6,7 +6,9 @@ import { AdminText, Avatar, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { currentUser } from '@/components/admin/admin-data'
 import { countries, defaultCountry } from '@/data/countries'
-import { readAdminProfile, readImageFile, saveAdminProfile } from '@/lib/admin-store'
+import { readAdminProfile, saveAdminProfile } from '@/lib/admin-store'
+import { ImageField } from '@/components/admin/image-field'
+import { CountrySelect } from '@/components/country-select'
 
 export default function ProfilePage() {
   const ar = useAdminLocale() === 'ar'
@@ -25,16 +27,6 @@ export default function ProfilePage() {
     const country = countries.find((c) => c.code === code) ?? defaultCountry
     setProfile((p) => ({ ...p, country: country.name, dialCode: country.dialCode }))
     setSaved(false)
-  }
-
-  const onFile = async (files: FileList | null) => {
-    const dataUrl = files?.[0] ? await readImageFile(files[0]) : null
-    if (dataUrl) {
-      setProfile((p) => ({ ...p, avatar: dataUrl }))
-      setSaved(false)
-    } else {
-      setError(ar ? 'الصورة كبيرة. استخدم رابطا أو صورة أقل من 1.5MB.' : 'Image too large. Use a link or an image under 1.5MB.')
-    }
   }
 
   const save = () => {
@@ -72,8 +64,7 @@ export default function ProfilePage() {
         <div style={{ display: 'grid', justifyItems: 'center', gap: 12 }}>
           <Avatar name={profile.name || 'Admin'} src={profile.avatar} size={96} />
           <div className="sp-form" style={{ width: '100%' }}>
-            <label><AdminText en="Image link" ar="رابط الصورة" /><input value={profile.avatar} onChange={set('avatar')} placeholder="https://..." dir="ltr" /></label>
-            <label><AdminText en="Or upload an image" ar="أو رفع صورة" /><input type="file" accept="image/*" onChange={(e) => onFile(e.target.files)} /></label>
+            <ImageField value={profile.avatar} onChange={(avatar) => { setProfile((current) => ({ ...current, avatar })); setSaved(false) }} linkLabel={{ en: 'Avatar URL', ar: 'رابط الصورة الرمزية' }} uploadLabel={{ en: 'Upload avatar', ar: 'رفع صورة رمزية' }} />
           </div>
         </div>
       </Card>
@@ -85,8 +76,8 @@ export default function ProfilePage() {
           </div>
           <label><AdminText en="Email address" ar="البريد الإلكتروني" /><input type="email" value={profile.email} onChange={set('email')} dir="ltr" /></label>
           <div className="sp-form-2">
-            <label><AdminText en="Country" ar="الدولة" /><select value={countries.find((c) => c.name === profile.country)?.code ?? defaultCountry.code} onChange={(e) => onCountry(e.target.value)}>{countries.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}</select></label>
-            <label><AdminText en={`Mobile number (${profile.dialCode})`} ar={`رقم الموبايل (${profile.dialCode})`} /><input type="tel" value={profile.phone} onChange={set('phone')} dir="ltr" /></label>
+            <label><AdminText en="Country" ar="الدولة" /><CountrySelect value={countries.find((c) => c.name === profile.country)?.code ?? defaultCountry.code} onChange={onCountry} locale={ar ? 'ar' : 'en'} /></label>
+            <label><AdminText en={`Mobile number (${profile.dialCode})`} ar={`رقم الموبايل (${profile.dialCode})`} /><input type="tel" inputMode="tel" autoComplete="tel-national" value={profile.phone} onChange={set('phone')} dir="ltr" /></label>
           </div>
           <div className="sp-form-2">
             <label><AdminText en="New password (optional)" ar="كلمة مرور جديدة (اختياري)" /><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={ar ? '8 أحرف على الأقل' : '8+ characters'} dir="ltr" /></label>

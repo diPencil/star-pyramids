@@ -8,7 +8,9 @@ import { useAdminLocale } from '@/components/admin/admin-locale'
 import { tours } from '@/data/tours'
 import { saveCustomItem, saveTourDeal, slugify } from '@/lib/admin-store'
 import { ImageField } from '@/components/admin/image-field'
+import { SharedSelect } from '@/components/shared-select'
 import type { Offer } from '@/data/types'
+import { DateInput } from '@/components/date-input'
 
 export default function NewOfferPage() {
   const ar = useAdminLocale() === 'ar'
@@ -78,10 +80,10 @@ export default function NewOfferPage() {
       </div>
       {mode === 'existing' ? (
         <div className="sp-form">
-          <label><AdminText en="Tour" ar="الرحلة" /><select value={tourSlug} onChange={(e) => setTourSlug(e.target.value)}>{tours.map((t) => <option key={t.slug} value={t.slug}>{t.title} — ${t.price}</option>)}</select></label>
+          <label><AdminText en="Tour" ar="الرحلة" /><SharedSelect value={tourSlug} onChange={setTourSlug} locale={ar ? 'ar' : 'en'} popupWidth="trigger" options={tours.map((t) => ({ value: t.slug, label: `${t.title} — $${t.price}` }))} /></label>
           <div className="sp-form-2">
             <label><AdminText en="Discount %" ar="نسبة الخصم %" /><input type="number" min={1} max={90} value={percent} onChange={(e) => { setPercent(e.target.value); setBadge(`SAVE ${e.target.value}%`) }} /></label>
-            <label><AdminText en="Ends at" ar="ينتهي في" /><input type="date" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} /></label>
+            <label><AdminText en="Ends at" ar="ينتهي في" /><DateInput value={endsAt} onChange={(e) => setEndsAt(e.target.value)} /></label>
           </div>
           <div className="sp-form-2">
             <label><AdminText en="Badge" ar="الشارة" /><input value={badge} onChange={(e) => setBadge(e.target.value)} /></label>
@@ -102,7 +104,7 @@ export default function NewOfferPage() {
           </div>
           <div className="sp-form-2">
             <label><AdminText en="Duration" ar="المدة" /><input value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="5 days" /></label>
-            <label><AdminText en="Deadline" ar="الموعد النهائي" /><input type="date" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} /></label>
+            <label><AdminText en="Deadline" ar="الموعد النهائي" /><DateInput value={endsAt} onChange={(e) => setEndsAt(e.target.value)} /></label>
           </div>
           <ImageField value={image} onChange={setImage} />
           <label><AdminText en="Highlights (one per line)" ar="النقاط البارزة (سطر لكل نقطة)" /><textarea rows={3} value={highlights} onChange={(e) => setHighlights(e.target.value)} /></label>

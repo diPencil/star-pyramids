@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { ArrowRight, AtSign, Check, Eye, EyeOff, LockKeyhole, Mail, MapPin, Phone, ShieldCheck, User } from 'lucide-react'
 import { countries, countryFlag, defaultCountry } from '@/data/countries'
+import { CountrySelect } from '@/components/country-select'
 import { FacebookIcon, GoogleIcon } from './brand-icons'
 import { siteImages } from '@/data/content'
 import { LocaleProvider, useLocale } from './locale'
@@ -12,13 +13,6 @@ import { Logo } from './site'
 
 type AuthMode = 'login' | 'register'
 type SocialProvider = 'Google' | 'Facebook'
-
-export const arabicCountryNames: Record<string, string> = {
-  AE: 'الإمارات العربية المتحدة', BH: 'البحرين', DZ: 'الجزائر', EG: 'مصر',
-  IQ: 'العراق', JO: 'الأردن', KW: 'الكويت', LB: 'لبنان', LY: 'ليبيا',
-  MA: 'المغرب', OM: 'عمان', PS: 'فلسطين', QA: 'قطر', SA: 'السعودية',
-  SD: 'السودان', SY: 'سوريا', TN: 'تونس', YE: 'اليمن',
-}
 
 const authCopy = {
   en: {
@@ -73,7 +67,6 @@ function AuthExperience({ mode }: { mode: AuthMode }) {
   const [notice, setNotice] = useState('')
   const [success, setSuccess] = useState(false)
   const selectedCountry = countries.find((country) => country.code === countryCode) ?? defaultCountry
-  const countryName = (code: string, fallback: string) => ar ? (arabicCountryNames[code] ?? fallback) : fallback
   const title = mode === 'login' ? copy.loginTitle : copy.registerTitle
   const intro = mode === 'login' ? copy.loginCopy : copy.registerCopy
 
@@ -118,7 +111,7 @@ function AuthExperience({ mode }: { mode: AuthMode }) {
               <AuthField label={ar ? 'اسم المستخدم' : 'Username'} icon={<AtSign size={18} />}><input required name="username" autoComplete="username" minLength={3} maxLength={24} pattern="[A-Za-z0-9_]+" title={ar ? 'استخدم حروف إنجليزية وأرقام وشرطة سفلية فقط' : 'Use letters, numbers, and underscores only'} placeholder="traveler_name" /></AuthField>
               <AuthField label={ar ? 'البريد الإلكتروني' : 'Email address'} icon={<Mail size={18} />}><input required name="email" type="email" autoComplete="email" placeholder="you@example.com" /></AuthField>
               <div className="auth-v2-grid auth-v2-country-row">
-                <AuthField label={ar ? 'الدولة' : 'Country'} icon={<MapPin size={18} />}><select required name="country" value={countryCode} onChange={(event) => setCountryCode(event.target.value)}>{countries.map((country) => <option key={country.code} value={country.code}>{countryFlag(country.code)} {countryName(country.code, country.name)} ({country.dialCode})</option>)}</select></AuthField>
+                <AuthField label={ar ? 'الدولة' : 'Country'} icon={<MapPin size={18} />}><CountrySelect value={countryCode} onChange={setCountryCode} locale={ar ? 'ar' : 'en'} /></AuthField>
                 <AuthField label={ar ? 'رقم الموبايل' : 'Mobile number'} icon={<Phone size={18} />} className="auth-v2-phone-field"><span className="auth-v2-dial" aria-label={ar ? 'كود الدولة' : 'Country calling code'}>{countryFlag(selectedCountry.code)} {selectedCountry.dialCode}</span><input required name="phone" type="tel" inputMode="tel" autoComplete="tel-national" pattern="[0-9 ()-]{6,18}" placeholder={ar ? 'رقم الموبايل' : 'Mobile number'} /></AuthField>
               </div>
               <div className="auth-v2-grid"><PasswordField label={ar ? 'كلمة المرور' : 'Password'} name="password" autoComplete="new-password" /><PasswordField label={ar ? 'تأكيد كلمة المرور' : 'Confirm password'} name="confirmPassword" autoComplete="new-password" /></div>

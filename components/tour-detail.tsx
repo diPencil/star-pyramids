@@ -20,6 +20,7 @@ import { TourReviewsSection } from "./reviews"
 import { TourVideoGallery } from "./tour-video-gallery"
 import { AskQuestionButton } from "./ask-question"
 import { HorizontalSlider } from "./horizontal-slider"
+import { DateInput } from "./date-input"
 
 const arabicUi: Record<string, string> = {
   Home: 'الرئيسية', 'Egypt Tours': 'جولات مصر', 'Egypt travel experience': 'تجربة سياحية في مصر',
@@ -231,7 +232,7 @@ export function TourDetailPage({ tour: initialTour }: { tour: Tour }) {
         <aside className="tour-booking-card">
           <div className="booking-top"><div><small>{ui(isShore ? 'Indicative price' : 'From')}</small><strong>{formatPrice(unitPrice, currency, locale)}</strong><span>{ui('per person')} · {heads} {locale === 'ar' ? 'مسافر' : heads === 1 ? 'traveler' : 'travelers'}</span></div>{reviewAverage!==null&&<span className="booking-rating"><Star size={14} fill="currentColor"/> {reviewAverage.toFixed(1)}</span>}</div>
           <div className="booking-divider"/>
-          <label><CalendarDays size={17}/>{ui(isShore ? 'Ship call date' : 'Preferred date')}<input type="date" value={travelDate} onChange={(e)=>setTravelDate(e.target.value)}/></label>
+          <label>{ui(isShore ? 'Ship call date' : 'Preferred date')}<DateInput hideNativeIndicator value={travelDate} onChange={(e)=>setTravelDate(e.target.value)}/></label>
           <div className="guest-rows">{([['adults', adults, setAdults, ui('Adults'), ui('Ages 12+'), 1], ['children', children, setChildren, ui('Children'), ui('Ages 3-11'), 0], ['infants', infants, setInfants, ui('Infants'), ui('Under 3'), 0]] as const).map(([key, value, set, label, ages, min]) => <div key={key} className="guest-row"><span><Users size={15}/><b>{label}</b><small>{ages}</small></span><div><button type="button" aria-label={label} onClick={() => set(Math.max(min, value - 1))}><Minus size={14}/></button><b>{value}</b><button type="button" aria-label={label} onClick={() => set(Math.min(50, value + 1))}><Plus size={14}/></button></div></div>)}</div>
           <div className="booking-total"><span>{ui(isShore ? 'Final quote on request' : 'Estimated total')}{!isShore && (hasUnpricedAddons ? (locale === 'ar' ? ' + إضافات حسب الطلب' : ' + add-ons on request') : selectedAddons.length ? (locale === 'ar' ? ` (يشمل ${selectedAddons.length} إضافات)` : ` (incl. ${selectedAddons.length} add-on${selectedAddons.length===1?'':'s'})`) : '')}</span>{!isShore&&<strong>{formatPrice(total, currency, locale)}</strong>}</div>
           {isShore ? <Link href={`/make-your-trip?tour=${encodeURIComponent(tour.slug)}&adults=${adults}&children=${children}&infants=${infants}&guests=${heads}${travelDate?`&date=${encodeURIComponent(travelDate)}`:''}${selectedAddons.length?`&addons=${selectedAddons.join(',')}`:''}`} className="primary-btn booking-cta">{ui('Enquire about this excursion')} <ArrowRight size={17}/></Link> : <button type="button" className="primary-btn booking-cta" onClick={() => { addToCart({ tourSlug: tour.slug, title, image: gallery[0], date: travelDate, adults, children, infants, addons: selectedAddons.map((i) => detail?.addOns?.[i]?.title ?? ''), addonTotal: addonsTotal, adultUnit: unitPrice, childUnit, infantUnit, total }); router.push('/cart') }}>{ui('Book now')} <ArrowRight size={17}/></button>}

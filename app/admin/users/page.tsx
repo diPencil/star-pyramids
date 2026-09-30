@@ -6,6 +6,7 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableTools, AdminTableWrap, AdminText, Avatar, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
+import { SharedSelect } from '@/components/shared-select'
 import { permissionRows, roleLabels, staff } from '@/components/admin/admin-data'
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 
@@ -47,7 +48,7 @@ export default function UsersPage() {
     ]} />
     <Card title={<AdminText en="Staff directory" ar="دليل الفريق" />} sub={<AdminText en={`${rows.length} of ${staff.length} team members shown`} ar={`عرض ${rows.length} من ${staff.length} أعضاء`} />}>
       <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث بعضو أو بريد...' : 'Search member or email...'}>
-        <select className="sp-filter-select" value={role} onChange={(event) => setRole(event.target.value)} aria-label={ar ? 'فلترة حسب الدور' : 'Filter by role'}><option value="all">{ar ? 'كل الأدوار' : 'All roles'}</option>{roles.map((item) => <option key={item} value={item}>{roleLabels[item]}</option>)}</select>
+        <SharedSelect value={role} onChange={setRole} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حسب الدور' : 'Filter by role'} options={[{ value: 'all', label: ar ? 'كل الأدوار' : 'All roles' }, ...roles.map((item) => ({ value: item, label: roleLabels[item] }))]} />
       </AdminTableTools>
       {rows.length ? <AdminTableWrap><table className="sp-table">
         <thead><tr><th className="sp-row-number">#</th><SortableTh label={<AdminText en="Member" ar="العضو" />} column="member" sortKey={staffSort.sortKey} direction={staffSort.direction} onSort={staffSort.sortBy} /><SortableTh label={<AdminText en="Role" ar="الدور" />} column="role" sortKey={staffSort.sortKey} direction={staffSort.direction} onSort={staffSort.sortBy} /><SortableTh label={<AdminText en="Email" ar="البريد" />} column="email" sortKey={staffSort.sortKey} direction={staffSort.direction} onSort={staffSort.sortBy} /><SortableTh label={<AdminText en="Status" ar="الحالة" />} column="status" sortKey={staffSort.sortKey} direction={staffSort.direction} onSort={staffSort.sortBy} /><th></th></tr></thead>

@@ -7,6 +7,7 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { AdminEmpty, AdminText, Avatar, Card, StatusPill } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
+import { SharedSelect } from '@/components/shared-select'
 import { CancelRequestDialog, ConfirmRequestDialog, ReopenRequestDialog, StartReviewDialog, cancelReasonText } from '@/components/admin/car-request-dialogs'
 import { useHiddenCars, useLiveCollection } from '@/lib/admin-store'
 import { cars } from '@/data/content'
@@ -197,14 +198,15 @@ export function CarRequestDetailContent({ requestId }: { requestId: string }) {
       <Card title={<AdminText en="Assigned vehicle" ar="المركبة المخصصة" />} sub={<AdminText en="Admin demo selection — availability has not been checked" ar="اختيار تجريبي للإدارة — لم يتم التحقق من التوافر" />}>
         <div className="sp-form" style={{ marginBottom: 12 }}>
           <label><AdminText en="Assigned vehicle" ar="المركبة المخصصة" />
-            <select
+            <SharedSelect
               value={request.assignedVehicleSlug}
               disabled={request.status === 'confirmed'}
-              onChange={(event) => { if (event.target.value) commitAssignment(request.ref, event.target.value) }}
-              aria-label={ar ? 'المركبة المخصصة' : 'Assigned vehicle'}
-            >
-              {liveCars.map((car) => <option key={car.slug} value={car.slug}>{car.title} · {car.slug}{hiddenCars.includes(car.slug) ? (ar ? ' · مخفي من الموقع' : ' · Hidden from website') : ''}</option>)}
-            </select>
+              onChange={(next) => { if (next) commitAssignment(request.ref, next) }}
+              locale={ar ? 'ar' : 'en'}
+              label={ar ? 'المركبة المخصصة' : 'Assigned vehicle'}
+              popupWidth="trigger"
+              options={liveCars.map((car) => ({ value: car.slug, label: `${car.title} · ${car.slug}${hiddenCars.includes(car.slug) ? (ar ? ' · مخفي من الموقع' : ' · Hidden from website') : ''}` }))}
+            />
           </label>
         </div>
         <div className="sp-detail-grid">
@@ -251,7 +253,7 @@ export function CarRequestDetailContent({ requestId }: { requestId: string }) {
                 ) : (
                   <>
                     <span><small style={{ color: 'var(--sp-muted)' }}>{note.text}</small></span>
-                    <button type="button" className="sp-table-action" onClick={() => { setEditingNoteId(note.id); setEditingText(note.text) }} aria-label={ar ? 'تعديل الملاحظة' : 'Edit note'} title={ar ? 'تعديل الملاحظة' : 'Edit note'}><Pencil size={15} /></button>
+                    <button type="button" className="sp-table-action" onClick={() => { setEditingNoteId(note.id); setEditingText(note.text) }} aria-label={ar ? 'تعديل الملاحظة' : 'Edit note'} title={ar ? 'تعديل الملاحظة' : 'Edit note'}><Pencil size={18} /></button>
                   </>
                 )}
               </div>

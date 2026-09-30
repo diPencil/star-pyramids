@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { AdminText, Card } from './admin-ui'
 import { useAdminLocale } from './admin-locale'
+import { SharedSelect } from '@/components/shared-select'
 import { ImageField } from './image-field'
 import { slugify } from '@/lib/admin-store'
 import type { Car } from '@/data/types'
@@ -65,7 +66,7 @@ export function VehicleForm({
           <label><AdminText en="Capacity" ar="السعة" /><input value={seats} onChange={(e) => setSeats(e.target.value)} placeholder="4 seats" /></label>
         </div>
         <div className="sp-form-2">
-          <label><AdminText en="Transmission" ar="ناقل الحركة" /><select value={transmission} onChange={(e) => setTransmission(e.target.value)}><option>Automatic</option><option>Manual</option></select></label>
+          <label><AdminText en="Transmission" ar="ناقل الحركة" /><SharedSelect value={transmission} onChange={setTransmission} locale={ar ? 'ar' : 'en'} options={[{ value: 'Automatic', label: 'Automatic' }, { value: 'Manual', label: 'Manual' }]} /></label>
           <label><AdminText en="Daily rate (USD)" ar="السعر اليومي (USD)" /><input type="number" value={dailyPrice} onChange={(e) => setDailyPrice(e.target.value)} /></label>
         </div>
         <ImageField value={image} onChange={setImage} />

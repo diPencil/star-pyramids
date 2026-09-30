@@ -6,8 +6,8 @@ import { ArrowRight, Check, Minus, Plus, ShieldCheck } from 'lucide-react'
 import type { Event } from '@/data/types'
 import { getEventStatus } from '@/lib/events'
 import { createEventRequest, hasEventRequestErrors, validateEventRequestDraft } from '@/lib/event-request'
-import { countries, defaultCountry } from '@/data/countries'
-import { arabicCountryNames } from './auth-pages'
+import { countries, countryFlag, defaultCountry } from '@/data/countries'
+import { CountrySelect } from '@/components/country-select'
 import { useLocale } from './locale'
 
 /**
@@ -103,8 +103,8 @@ export function EventRequestForm({ event }: { event: Event }) {
       <form className="contact-form" onSubmit={submit} noValidate>
         <div className="form-grid">
           <label className="full">{ar ? 'الاسم الكامل *' : 'Full name *'}<input required value={name} onChange={(e) => setName(e.target.value)} placeholder={ar ? 'اكتب اسمك الكامل' : 'Your full name'} maxLength={80} autoComplete="name" /></label>
-          <label className="full">{ar ? 'الجنسية *' : 'Nationality *'}<select required value={countryCode} onChange={(e) => setCountryCode(e.target.value)}>{countries.map((c) => <option key={c.code} value={c.code}>{ar ? arabicCountryNames[c.code] ?? c.name : c.name}</option>)}</select></label>
-          <label className="full">{ar ? 'رقم الموبايل *' : 'Mobile number *'}<span className="req-phone"><span className="req-dial" aria-hidden="true">{selectedCountry.dialCode}</span><input required type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={ar ? 'رقم الموبايل' : 'Mobile number'} maxLength={24} autoComplete="tel" /></span></label>
+          <label className="full">{ar ? 'الجنسية *' : 'Nationality *'}<CountrySelect value={countryCode} onChange={setCountryCode} locale={locale} /></label>
+          <label className="full">{ar ? 'رقم الموبايل *' : 'Mobile number *'}<span className="req-phone"><span className="req-dial" aria-hidden="true">{countryFlag(selectedCountry.code)} {selectedCountry.dialCode}</span><input required type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={ar ? 'رقم الموبايل' : 'Mobile number'} maxLength={24} autoComplete="tel-national" /></span></label>
           <label className="full">{ar ? 'البريد الإلكتروني *' : 'Email *'}<input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" maxLength={120} autoComplete="email" /></label>
           <label className="full">{ar ? 'ملاحظات (اختياري)' : 'Notes (optional)'}<textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} placeholder={ar ? 'أي تفاصيل إضافية...' : 'Anything we should know...'} /></label>
         </div>

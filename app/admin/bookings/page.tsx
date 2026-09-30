@@ -7,6 +7,7 @@ import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableT
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
+import { SharedSelect } from '@/components/shared-select'
 import { bookings, type BookingStatus } from '@/components/admin/admin-data'
 
 const statusTabs = [
@@ -47,9 +48,7 @@ export default function BookingsPage() {
       ]} />
       <Card title={<AdminText en="All bookings" ar="كل الحجوزات" />} sub={<AdminText en={`${visible.length} of ${rows.length} bookings shown`} ar={`عرض ${visible.length} من ${rows.length} حجوزات`} />}>
         <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث بحجز أو عميل أو رحلة...' : 'Search booking, customer or tour...'}>
-          <select className="sp-filter-select" value={channel} onChange={(event) => setChannel(event.target.value as typeof channel)} aria-label={ar ? 'فلترة حسب القناة' : 'Filter by channel'}>
-            <option value="all">{ar ? 'كل القنوات' : 'All channels'}</option><option value="site">{ar ? 'الموقع' : 'Website'}</option><option value="chat">{ar ? 'المحادثة المباشرة' : 'Live chat'}</option><option value="whatsapp">WhatsApp</option>
-          </select>
+          <SharedSelect value={channel} onChange={(next) => setChannel(next as typeof channel)} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حسب القناة' : 'Filter by channel'} options={[{ value: 'all', label: ar ? 'كل القنوات' : 'All channels' }, { value: 'site', label: ar ? 'الموقع' : 'Website' }, { value: 'chat', label: ar ? 'المحادثة المباشرة' : 'Live chat' }, { value: 'whatsapp', label: 'WhatsApp' }]} />
           <div className="sp-tabs">
             {statusTabs.map((status) => <button key={status.id} type="button" className={filter === status.id ? 'active' : ''} onClick={() => setFilter(status.id)}>{ar ? status.ar : status.en}</button>)}
           </div>

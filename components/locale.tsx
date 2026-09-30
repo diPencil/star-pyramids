@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, startTransition, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 
 export type Locale = 'en' | 'ar'
 export type Currency = 'USD' | 'EUR' | 'EGP'
@@ -129,25 +129,44 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   const [currency, setCurrencyState] = useState<Currency>('USD')
   const [, setRatesVersion] = useState(0)
   useEffect(() => {
-    const saved = window.localStorage.getItem('star-locale')
-    if (saved === 'ar' || saved === 'en') setLocaleState(saved)
-    else setLocaleState(readLocalizationSettings().defaultLanguage)
-    const cur = window.localStorage.getItem('star-currency')
-    if (cur === 'USD' || cur === 'EUR' || cur === 'EGP') setCurrencyState(cur)
-    else setCurrencyState(readCurrencySettings().defaultCurrency)
+    const applyPersistedPreferences = () => {
+      const savedLocale = window.localStorage.getItem('star-locale')
+      const initialLocale = savedLocale === 'ar' || savedLocale === 'en'
+        ? savedLocale
+        : readLocalizationSettings().defaultLanguage
+      const savedCurrency = window.localStorage.getItem('star-currency')
+      const initialCurrency = savedCurrency === 'USD' || savedCurrency === 'EUR' || savedCurrency === 'EGP'
+        ? savedCurrency
+        : readCurrencySettings().defaultCurrency
+      startTransition(() => {
+        setLocaleState(initialLocale)
+        setCurrencyState(initialCurrency)
+      })
+    }
+    // Streamed Suspense boundaries may hydrate after the provider commits.
+    // An idle task runs only after those urgent hydration tasks have yielded,
+    // so persisted text never races the server's initial English snapshot.
+    const idleId = window.requestIdleCallback(applyPersistedPreferences)
     const onRates = () => setRatesVersion((v) => v + 1)
     window.addEventListener('sp-currency', onRates)
-    return () => window.removeEventListener('sp-currency', onRates)
+    return () => {
+      window.cancelIdleCallback(idleId)
+      window.removeEventListener('sp-currency', onRates)
+    }
   }, [])
   useEffect(() => {
     document.documentElement.lang = locale
     document.documentElement.dir = locale === 'ar' ? 'rtl' : 'ltr'
-    window.localStorage.setItem('star-locale', locale)
   }, [locale])
-  useEffect(() => {
-    window.localStorage.setItem('star-currency', currency)
-  }, [currency])
-  return <LocaleCtx.Provider value={{ locale, setLocale: setLocaleState, currency, setCurrency: setCurrencyState }}>{children}</LocaleCtx.Provider>
+  const setLocale = useCallback((next: Locale) => {
+    window.localStorage.setItem('star-locale', next)
+    setLocaleState(next)
+  }, [])
+  const setCurrency = useCallback((next: Currency) => {
+    window.localStorage.setItem('star-currency', next)
+    setCurrencyState(next)
+  }, [])
+  return <LocaleCtx.Provider value={{ locale, setLocale, currency, setCurrency }}>{children}</LocaleCtx.Provider>
 }
 
 export const useLocale = () => useContext(LocaleCtx)

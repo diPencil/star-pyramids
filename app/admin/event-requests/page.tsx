@@ -8,6 +8,7 @@ import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-so
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
 import { eventRequestStatusLabel, useEventRequests, type EventRequest, type EventRequestStatus } from '@/lib/event-request'
+import { SharedSelect } from '@/components/shared-select'
 
 const statusTabs = [
   { id: 'all', en: 'All', ar: 'الكل' },
@@ -67,13 +68,8 @@ export default function EventRequestsPage() {
         title={<AdminText en="Event requests" ar="طلبات الفعاليات" />}
         sub={<AdminText en={`${visible.length} of ${requests.length} requests shown · Browser-local prototype, not backend bookings`} ar={`عرض ${visible.length} من ${requests.length} طلبات · معاينة محلية وليست حجوزات خلفية`} />}>
         <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث بالمرجع أو العميل أو الفعالية...' : 'Search ref, customer or event...'}>
-          <select className="sp-filter-select" value={status} onChange={(e) => setStatus(e.target.value as StatusFilter)} aria-label={ar ? 'فلترة حسب الحالة' : 'Filter by status'}>
-            {statusTabs.map((t) => <option key={t.id} value={t.id}>{ar ? t.ar : t.en}</option>)}
-          </select>
-          <select className="sp-filter-select" value={eventSlug} onChange={(e) => setEventSlug(e.target.value)} aria-label={ar ? 'فلترة حسب الفعالية' : 'Filter by event'}>
-            <option value="all">{ar ? 'كل الفعاليات' : 'All events'}</option>
-            {eventOptions.map(([slug, title]) => <option key={slug} value={slug}>{title}</option>)}
-          </select>
+          <SharedSelect value={status} onChange={(next) => setStatus(next as StatusFilter)} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حسب الحالة' : 'Filter by status'} options={statusTabs.map((t) => ({ value: t.id, label: ar ? t.ar : t.en }))} />
+          <SharedSelect value={eventSlug} onChange={setEventSlug} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حسب الفعالية' : 'Filter by event'} popupWidth="trigger" options={[{ value: 'all', label: ar ? 'كل الفعاليات' : 'All events' }, ...eventOptions.map(([slug, title]) => ({ value: slug, label: title }))]} />
         </AdminTableTools>
         {visible.length ? (
           <AdminTableWrap>

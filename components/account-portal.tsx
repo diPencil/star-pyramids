@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import { formatPrice, LocaleProvider, useLocale } from '@/components/locale'
 import { catalogTours, findTour } from '@/data/tours'
-import { countries, countryFlag, defaultCountry } from '@/data/countries'
+import { countries, countryFlag, countrySelectLabel, defaultCountry } from '@/data/countries'
 import { localizeTourDuration, localizeTourLocation } from '@/lib/tour-format'
 import { estimateCart, isValidPreferredDate } from '@/lib/booking'
 import { useCart } from '@/lib/cart'
@@ -33,6 +33,8 @@ import {
   type CustomerChatAttachment,
 } from '@/lib/customer-chat'
 import { whatsappHref } from '@/data/company'
+import { CountrySelect } from '@/components/country-select'
+import { SharedSelect } from '@/components/shared-select'
 import { WhatsAppGlyph } from '@/components/whatsapp-chat'
 
 export type AccountSection = 'overview' | 'bookings' | 'car-requests' | 'event-requests' | 'trip-requests' | 'favorites' | 'payments' | 'messages' | 'profile' | 'settings' | 'change-password'
@@ -190,7 +192,7 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
         </div>
         <div className="customer-dashboard-actions">
           <button type="button" className="customer-top-language" onClick={() => { setLocale(ar ? 'en' : 'ar'); setNotificationsOpen(false); setUserOpen(false) }} aria-label={ar ? 'Switch to English' : 'التبديل إلى العربية'}><Globe2 size={18} /><span>{ar ? 'AR' : 'EN'}</span></button>
-          <select value={currency} onChange={(event) => setCurrency(event.target.value as 'USD' | 'EUR' | 'EGP')} aria-label={ar ? 'العملة' : 'Currency'}><option value="USD">USD</option><option value="EUR">EUR</option><option value="EGP">EGP</option></select>
+          <SharedSelect value={currency} onChange={(next) => setCurrency(next as 'USD' | 'EUR' | 'EGP')} locale={locale} label={ar ? 'العملة' : 'Currency'} options={[{ value: 'USD', label: 'USD' }, { value: 'EUR', label: 'EUR' }, { value: 'EGP', label: 'EGP' }]} />
           <Link href="/" className="customer-top-icon" aria-label={ar ? 'العودة للموقع' : 'Back to website'} title={ar ? 'العودة للموقع' : 'Back to website'}><ExternalLink size={18} /></Link>
           <Link href="/cart" className="customer-top-icon customer-cart-icon" aria-label={ar ? 'سلة الرحلات' : 'Trip cart'}><ShoppingCart size={18} />{cart.lines > 0 && <b>{cart.lines}</b>}</Link>
           <div className="customer-top-popover">
@@ -368,9 +370,7 @@ export function CustomerPagination({ page, pageCount, onPage, pageSize, onPageSi
     <div className="customer-pagination-group">
       <span className="customer-pagination-info">{ar ? `عرض ${from}–${to} من ${total}` : `Showing ${from}–${to} of ${total}`}</span>
       <label className="customer-pagination-size">{ar ? 'الصفوف:' : 'Rows:'}
-        <select value={pageSize} onChange={(e) => onPageSize(Number(e.target.value))} aria-label={ar ? 'عدد الصفوف في الصفحة' : 'Rows per page'}>
-          {[10, 20, 30, 50].map((n) => <option key={n} value={n}>{n}</option>)}
-        </select>
+        <SharedSelect value={String(pageSize)} onChange={(next) => onPageSize(Number(next))} locale={locale} label={ar ? 'عدد الصفوف في الصفحة' : 'Rows per page'} options={[10, 20, 30, 50].map((n) => ({ value: String(n), label: String(n) }))} />
       </label>
     </div>
     <div className="customer-page-btns" role="navigation" aria-label={ar ? 'ترقيم الصفحات' : 'Pagination'}>
@@ -557,12 +557,14 @@ function passengerCountLabel(count: number, ar: boolean): string {
   return `${count} مسافر`
 }
 
-export function CustomerConfirmDialog({ open, title, copy, confirmLabel, onConfirm, onClose }: {
+export function CustomerConfirmDialog({ open, title, copy, confirmLabel, cancelLabel, onConfirm, onClose }: {
   open: boolean
   title: string
   copy: string
   /** Omitted = blocking notice mode: no destructive confirm is offered. */
   confirmLabel?: string
+  /** Defaults to a short keep/dismiss wording. */
+  cancelLabel?: string
   onConfirm: () => void
   onClose: () => void
 }) {
@@ -617,7 +619,7 @@ export function CustomerConfirmDialog({ open, title, copy, confirmLabel, onConfi
         </div>
         <p style={{ margin: '12px 0 0', color: '#667085', fontSize: 13, lineHeight: 1.7 }}>{copy}</p>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap', marginTop: 18 }}>
-          <button type="button" className="account-icon-action" onClick={onClose}>{ar ? 'تراجع' : 'Keep it'}</button>
+          <button type="button" className="account-icon-action" onClick={onClose}>{cancelLabel ?? (ar ? 'تراجع' : 'Keep it')}</button>
           {confirmLabel && <button ref={confirmRef} type="button" className="account-icon-action danger" onClick={onConfirm}>{confirmLabel}</button>}
         </div>
       </div>
@@ -981,34 +983,6 @@ function MessagesSection() {
   </div>
 }
 
-function ProfileSection() {
-  const { locale, setLocale } = useLocale()
-  const ar = locale === 'ar'
-  const current = useCustomerProfile()
-  const [form, setForm] = useState<CustomerProfile>(current)
-  const [saved, setSaved] = useState(false)
-  const [avatarError, setAvatarError] = useState('')
-  useEffect(() => setForm(current), [current])
-  const update = <K extends keyof CustomerProfile>(key: K, value: CustomerProfile[K]) => setForm((prev) => ({ ...prev, [key]: value }))
-  const changeAvatar = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-    if (!file.type.startsWith('image/') || file.size > 2 * 1024 * 1024) {
-      setAvatarError(ar ? 'اختر صورة بحجم أقل من 2 ميجابايت.' : 'Choose an image smaller than 2 MB.')
-      return
-    }
-    const reader = new FileReader()
-    reader.onload = () => {
-      update('avatar', typeof reader.result === 'string' ? reader.result : '')
-      setAvatarError('')
-      setSaved(false)
-    }
-    reader.readAsDataURL(file)
-  }
-  const submit = (event: FormEvent) => { event.preventDefault(); saveCustomerProfile(form); setLocale(form.preferredLanguage); setSaved(true) }
-  const profileInitials = form.fullName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'SP'
-  return <form className="customer-profile-form" onSubmit={submit}><section className="customer-account-block"><header><div><span>{ar ? 'البيانات الشخصية' : 'Personal details'}</span><h2>{ar ? 'معلومات الحساب' : 'Account information'}</h2></div>{saved && <span className="customer-saved-notice"><Check size={14} />{ar ? 'تم الحفظ' : 'Saved'}</span>}</header><div className="customer-avatar-editor"><CustomerAvatar avatar={form.avatar} initials={profileInitials} className="customer-profile-avatar" name={form.fullName} /><div><strong>{ar ? 'صورة الحساب' : 'Profile photo'}</strong><small>{ar ? 'JPG أو PNG حتى 2 ميجابايت' : 'JPG or PNG up to 2 MB'}</small>{avatarError && <em>{avatarError}</em>}</div><label><ImagePlus size={16} />{ar ? 'تغيير الصورة' : 'Change photo'}<input type="file" accept="image/png,image/jpeg,image/webp" onChange={changeAvatar} /></label>{form.avatar && <button type="button" onClick={() => { update('avatar', ''); setAvatarError(''); setSaved(false) }} aria-label={ar ? 'حذف الصورة' : 'Remove photo'} title={ar ? 'حذف الصورة' : 'Remove photo'}><Trash2 size={16} /></button>}</div><div className="customer-form-grid"><label>{ar ? 'الاسم بالكامل' : 'Full name'}<input required value={form.fullName} onChange={(event) => update('fullName', event.target.value)} /></label><label>{ar ? 'اسم المستخدم' : 'Username'}<input required dir="ltr" value={form.username} onChange={(event) => update('username', event.target.value.replace(/[^A-Za-z0-9_]/g, ''))} /></label><label>{ar ? 'البريد الإلكتروني' : 'Email address'}<input required type="email" dir="ltr" value={form.email} onChange={(event) => update('email', event.target.value)} /></label><label>{ar ? 'رقم الهاتف' : 'Phone number'}<input type="tel" dir="ltr" value={form.phone} onChange={(event) => update('phone', event.target.value)} placeholder="+20 ..." /></label><label>{ar ? 'الدولة' : 'Country'}<select value={form.country} onChange={(event) => update('country', event.target.value)}><option value="EG">{ar ? 'مصر' : 'Egypt'}</option><option value="SA">{ar ? 'السعودية' : 'Saudi Arabia'}</option><option value="AE">{ar ? 'الإمارات' : 'United Arab Emirates'}</option><option value="US">{ar ? 'الولايات المتحدة' : 'United States'}</option><option value="GB">{ar ? 'المملكة المتحدة' : 'United Kingdom'}</option></select></label><label>{ar ? 'اللغة المفضلة' : 'Preferred language'}<select value={form.preferredLanguage} onChange={(event) => update('preferredLanguage', event.target.value as 'en' | 'ar')}><option value="en">English</option><option value="ar">العربية</option></select></label></div></section><section className="customer-account-block"><header><div><span>{ar ? 'التنبيهات' : 'Notifications'}</span><h2>{ar ? 'كيف نتواصل معك' : 'How we keep you updated'}</h2></div><Bell size={19} /></header><label className="customer-switch-row"><span><strong>{ar ? 'تحديثات الحجوزات' : 'Booking updates'}</strong><small>{ar ? 'التأكيدات وتغييرات المواعيد وتفاصيل الاستلام.' : 'Confirmations, schedule changes, and pickup details.'}</small></span><input type="checkbox" checked={form.bookingUpdates} onChange={(event) => update('bookingUpdates', event.target.checked)} /></label><label className="customer-switch-row"><span><strong>{ar ? 'أفكار وعروض السفر' : 'Travel inspiration and offers'}</strong><small>{ar ? 'رسائل اختيارية يمكنك إيقافها في أي وقت.' : 'Optional emails you can turn off at any time.'}</small></span><input type="checkbox" checked={form.marketingEmails} onChange={(event) => update('marketingEmails', event.target.checked)} /></label></section><section className="customer-account-block"><header><div><span>{ar ? 'الدخول والأمان' : 'Access & security'}</span><h2>{ar ? 'طرق تسجيل الدخول' : 'Sign-in methods'}</h2></div><LockKeyhole size={19} /></header><div className="customer-security-list"><div><span className="customer-provider google">G</span><div><strong>Google</strong><small>{ar ? 'جاهز للربط عند تشغيل OAuth' : 'Ready when backend OAuth is connected'}</small></div><span>{ar ? 'غير مربوط' : 'Not connected'}</span></div><div><span className="customer-provider facebook">f</span><div><strong>Facebook</strong><small>{ar ? 'جاهز للربط عند تشغيل OAuth' : 'Ready when backend OAuth is connected'}</small></div><span>{ar ? 'غير مربوط' : 'Not connected'}</span></div></div></section><div className="customer-profile-actions"><button type="submit">{ar ? 'حفظ التغييرات' : 'Save changes'}</button><button type="button" onClick={() => { const reset = readCustomerProfile(); setForm(reset); setAvatarError(''); setSaved(false) }}>{ar ? 'إلغاء التعديلات' : 'Discard changes'}</button></div></form>
-}
 
 function PersonalProfileSection() {
   const { locale } = useLocale()
@@ -1056,7 +1030,7 @@ function PersonalProfileSection() {
       <div className="customer-avatar-editor">
         <CustomerAvatar avatar={form.avatar} initials={initials} className="customer-profile-avatar" name={displayName} />
         <div><strong>{ar ? 'صورة الحساب' : 'Profile photo'}</strong><small>{ar ? 'JPG أو PNG حتى 2 ميجابايت' : 'JPG or PNG up to 2 MB'}</small>{avatarError && <em>{avatarError}</em>}</div>
-        <label><ImagePlus size={16} />{ar ? 'تغيير الصورة' : 'Change photo'}<input type="file" accept="image/png,image/jpeg,image/webp" onChange={changeAvatar} /></label>
+        <label aria-label={ar ? 'تغيير صورة الحساب' : 'Change profile photo'}><ImagePlus size={16} />{ar ? 'تغيير الصورة' : 'Change photo'}<input type="file" accept="image/png,image/jpeg,image/webp" onChange={changeAvatar} aria-label={ar ? 'تغيير صورة الحساب' : 'Change profile photo'} /></label>
         {form.avatar && <button type="button" onClick={() => { update('avatar', ''); setAvatarError('') }} aria-label={ar ? 'حذف الصورة' : 'Remove photo'} title={ar ? 'حذف الصورة' : 'Remove photo'}><Trash2 size={16} /></button>}
       </div>
       <div className="customer-form-grid">
@@ -1064,7 +1038,7 @@ function PersonalProfileSection() {
         <label>{ar ? 'اسم العائلة' : 'Last name'}<input required autoComplete="family-name" value={form.lastName} onChange={(event) => update('lastName', event.target.value)} /></label>
         <label>{ar ? 'اسم المستخدم' : 'Username'}<input required dir="ltr" value={form.username} onChange={(event) => update('username', event.target.value.replace(/[^A-Za-z0-9_]/g, ''))} /></label>
         <label>{ar ? 'البريد الإلكتروني' : 'Email address'}<input required type="email" dir="ltr" value={form.email} onChange={(event) => update('email', event.target.value)} /></label>
-        <label>{ar ? 'الدولة' : 'Country'}<select value={form.country} onChange={(event) => { const next = countries.find((country) => country.code === event.target.value) ?? defaultCountry; setForm((previous) => ({ ...previous, country: next.code, dialCode: next.dialCode })); setSaved(false) }}>{countries.map((country) => <option key={country.code} value={country.code}>{countryFlag(country.code)} {country.name} ({country.dialCode})</option>)}</select></label>
+        <label>{ar ? 'الدولة' : 'Country'}<CountrySelect value={form.country} onChange={(code) => { const next = countries.find((country) => country.code === code) ?? defaultCountry; setForm((previous) => ({ ...previous, country: next.code, dialCode: next.dialCode })); setSaved(false) }} locale={locale} /></label>
         <label>{ar ? 'رقم الهاتف' : 'Phone number'}<span className="customer-phone-field"><span aria-label={ar ? 'كود الدولة' : 'Country calling code'}>{countryFlag(selectedCountry.code)} {selectedCountry.dialCode}</span><input type="tel" inputMode="tel" autoComplete="tel-national" dir="ltr" value={form.phone} onChange={(event) => update('phone', event.target.value)} placeholder={ar ? 'رقم الهاتف' : 'Phone number'} /></span></label>
       </div>
     </section>
@@ -1103,8 +1077,8 @@ function SettingsSection() {
       <section className="customer-account-block">
         <header><div><span>{ar ? 'التفضيلات' : 'Preferences'}</span><h2>{ar ? 'اللغة والعملة' : 'Language & currency'}</h2></div><Globe2 size={19} /></header>
         <div className="customer-settings-selects">
-          <label>{ar ? 'اللغة المفضلة' : 'Preferred language'}<select value={form.preferredLanguage} onChange={(event) => update('preferredLanguage', event.target.value as 'en' | 'ar')}><option value="en">English</option><option value="ar">{ar ? 'العربية' : 'Arabic'}</option></select></label>
-          <label>{ar ? 'عملة العرض' : 'Display currency'}<select value={selectedCurrency} onChange={(event) => { setSelectedCurrency(event.target.value as typeof currency); setSaved(false) }}><option value="USD">USD</option><option value="EUR">EUR</option><option value="EGP">EGP</option></select></label>
+          <label>{ar ? 'اللغة المفضلة' : 'Preferred language'}<SharedSelect value={form.preferredLanguage} onChange={(next) => update('preferredLanguage', next as 'en' | 'ar')} locale={locale} options={[{ value: 'en', label: 'English' }, { value: 'ar', label: ar ? 'العربية' : 'Arabic' }]} /></label>
+          <label>{ar ? 'عملة العرض' : 'Display currency'}<SharedSelect value={selectedCurrency} onChange={(next) => { setSelectedCurrency(next as typeof currency); setSaved(false) }} locale={locale} options={[{ value: 'USD', label: 'USD' }, { value: 'EUR', label: 'EUR' }, { value: 'EGP', label: 'EGP' }]} /></label>
         </div>
       </section>
       <section className="customer-account-block">

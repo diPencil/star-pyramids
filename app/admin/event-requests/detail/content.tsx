@@ -8,6 +8,7 @@ import { AdminText, Card } from '@/components/admin/admin-ui'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { canTransitionEventRequest, eventRequestStatusLabel, transitionEventRequest, useEventRequest, type EventRequestStatus } from '@/lib/event-request'
+import { countryDisplayName } from '@/data/countries'
 
 const ACTIONS: { from: EventRequestStatus[]; to: EventRequestStatus; tone: 'primary' | 'danger' }[] = [
   { from: ['new'], to: 'reviewing', tone: 'primary' },
@@ -102,7 +103,7 @@ export function EventRequestDetailContent({ requestId }: { requestId: string }) 
         <Card title={<AdminText en="Customer" ar="العميل" />}>
           <dl className="evr-kv evr-customer">
             <div><dt><AdminText en="Name" ar="الاسم" /></dt><dd>{item.name}</dd></div>
-            <div><dt><AdminText en="Nationality" ar="الجنسية" /></dt><dd>{item.nationality || (ar ? 'غير محدد' : 'Not specified')}</dd></div>
+            <div><dt><AdminText en="Nationality" ar="الجنسية" /></dt><dd>{countryDisplayName(item.nationality, ar ? 'ar' : 'en') || (ar ? 'غير محدد' : 'Not specified')}</dd></div>
             <div><dt><AdminText en="Email" ar="البريد" /></dt><dd><a dir="ltr" href={`mailto:${item.email}`}>{item.email}</a></dd></div>
             <div><dt><AdminText en="Phone" ar="الهاتف" /></dt><dd><a dir="ltr" href={`tel:${`${item.dialCode} ${item.phone}`.replace(/\s/g, '')}`}>{item.dialCode} {item.phone}</a></dd></div>
           </dl>

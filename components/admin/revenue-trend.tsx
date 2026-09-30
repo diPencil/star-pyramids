@@ -5,6 +5,7 @@ import { FileText } from 'lucide-react'
 import { Card } from './admin-ui'
 import { AdminText } from './admin-ui'
 import { useAdminLocale } from './admin-locale'
+import { SharedSelect } from '@/components/shared-select'
 import type { RevenuePoint } from './admin-data'
 
 const scopes = [
@@ -82,13 +83,9 @@ export function RevenueTrend({
           </span>
           <span className="sp-range">
             <span><AdminText en="From" ar="من" /></span>
-            <select value={from} onChange={(e) => setFrom(e.target.value)} aria-label={ar ? 'من' : 'From'}>
-              {options.map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
+            <SharedSelect value={from} onChange={setFrom} locale={ar ? 'ar' : 'en'} label={ar ? 'من' : 'From'} options={options.map((m) => ({ value: m, label: m }))} />
             <span><AdminText en="To" ar="إلى" /></span>
-            <select value={to} onChange={(e) => setTo(e.target.value)} aria-label={ar ? 'إلى' : 'To'}>
-              {options.map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
+            <SharedSelect value={to} onChange={setTo} locale={ar ? 'ar' : 'en'} label={ar ? 'إلى' : 'To'} options={options.map((m) => ({ value: m, label: m }))} />
           </span>
         </span>
       }

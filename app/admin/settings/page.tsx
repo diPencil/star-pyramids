@@ -11,6 +11,10 @@ import { defaultCurrencySettings, getCurrencyRates, readCurrencySettings, readLo
 import { saveBrandSettings, useBrandSettings, SOCIAL_NETWORKS, readSocialLinks, saveSocialLinks, type SocialLink } from '@/lib/admin-store'
 import { FacebookIcon, GoogleIcon } from '@/components/brand-icons'
 import { ImageField } from '@/components/admin/image-field'
+import { SharedSelect } from '@/components/shared-select'
+import { InternationalPhoneInput } from '@/components/international-phone-input'
+import { countryFromPhone } from '@/data/countries'
+import { toInternational } from '@/lib/phone'
 
 const TIMEZONES = [
   'Africa/Cairo', 'Africa/Tunis', 'Africa/Algiers', 'Africa/Casablanca',
@@ -40,6 +44,7 @@ function SiteClock({ timezone }: { timezone: string }) {
 }
 
 function LocalizationTab({ onSaved }: { onSaved: () => void }) {
+  const ar = useAdminLocale() === 'ar'
   const stored = readLocalizationSettings()
   const [defaultLanguage, setDefaultLanguage] = useState<'en' | 'ar'>(stored.defaultLanguage)
   const [timezone, setTimezone] = useState(stored.timezone)
@@ -51,8 +56,8 @@ function LocalizationTab({ onSaved }: { onSaved: () => void }) {
 
   return (
     <div className="sp-form">
-      <label><AdminText en="Default language" ar="اللغة الافتراضية" /><select value={defaultLanguage} onChange={(e) => setDefaultLanguage(e.target.value as 'en' | 'ar')}><option value="en">English</option><option value="ar">العربية</option></select></label>
-      <label><AdminText en="Timezone" ar="المنطقة الزمنية" /><select value={timezone} onChange={(e) => setTimezone(e.target.value)}>{TIMEZONES.map((tz) => <option key={tz} value={tz}>{tz}</option>)}</select></label>
+      <label><AdminText en="Default language" ar="اللغة الافتراضية" /><SharedSelect value={defaultLanguage} onChange={(next) => setDefaultLanguage(next as 'en' | 'ar')} locale={ar ? 'ar' : 'en'} options={[{ value: 'en', label: 'English' }, { value: 'ar', label: 'العربية' }]} /></label>
+      <label><AdminText en="Timezone" ar="المنطقة الزمنية" /><SharedSelect value={timezone} onChange={setTimezone} locale={ar ? 'ar' : 'en'} popupWidth="trigger" options={TIMEZONES.map((tz) => ({ value: tz, label: tz }))} /></label>
       <div className="sp-status2">
         <div><small><AdminText en="CURRENT SITE TIME" ar="توقيت الموقع الحالي" /></small><SiteClock timezone={timezone} /></div>
         <div><small><AdminText en="SCOPE" ar="النطاق" /></small><b><AdminText en="New visitors + timestamps" ar="الزوار الجدد + الطوابع الزمنية" /></b></div>
@@ -63,6 +68,7 @@ function LocalizationTab({ onSaved }: { onSaved: () => void }) {
 }
 
 function SocialTab() {
+  const ar = useAdminLocale() === 'ar'
   const [links, setLinks] = useState<SocialLink[]>(readSocialLinks)
   const [saved, setSaved] = useState(false)
 
@@ -95,9 +101,7 @@ function SocialTab() {
       {links.filter((link) => link[section]).map((link) => (
         <div className="sp-form-2" key={link.id}>
           <label><AdminText en="Network" ar="الشبكة" />
-            <select value={link.network} onChange={(e) => update(link.id, { network: e.target.value as SocialLink['network'] })}>
-              {SOCIAL_NETWORKS.map((n) => <option key={n.id} value={n.id}>{n.label}</option>)}
-            </select>
+            <SharedSelect value={link.network} onChange={(next) => update(link.id, { network: next as SocialLink['network'] })} locale={ar ? 'ar' : 'en'} options={SOCIAL_NETWORKS.map((n) => ({ value: n.id, label: n.label }))} />
           </label>
           <label><AdminText en="Profile link" ar="رابط الحساب" />
             <span style={{ display: 'flex', gap: 8 }}>
@@ -158,6 +162,7 @@ function GeneralTab({ onSaved }: { onSaved: () => void }) {
 }
 
 function ContactTab({ onSaved }: { onSaved: () => void }) {
+  const ar = useAdminLocale() === 'ar'
   const brand = useBrandSettings()
   const [phone, setPhone] = useState(brand.phone)
   const [whatsapp, setWhatsapp] = useState(brand.whatsapp)
@@ -178,9 +183,14 @@ function ContactTab({ onSaved }: { onSaved: () => void }) {
   }, [brand.phone, brand.whatsapp, brand.email, brand.address, brand.mapUrl, brand.copyrightEn, brand.copyrightAr])
 
   const save = () => {
+    // Normalize through canonical helpers so stored values never duplicate
+    // the dial prefix (e.g. no `+20 01288…`). Country context is derived
+    // from the number itself; unknown input stays conservative.
+    const phoneDigits = toInternational(countryFromPhone(phone).code, phone)
+    const whatsappDigits = toInternational(countryFromPhone(whatsapp).code, whatsapp)
     saveBrandSettings({
-      phone: phone.trim() || brand.phone,
-      whatsapp: whatsapp.trim() || brand.whatsapp,
+      phone: phoneDigits || phone.trim() || brand.phone,
+      whatsapp: whatsappDigits || whatsapp.trim() || brand.whatsapp,
       email: email.trim() || brand.email,
       address: address.trim() || brand.address,
       mapUrl: mapUrl.trim(),
@@ -192,8 +202,8 @@ function ContactTab({ onSaved }: { onSaved: () => void }) {
 
   return <div className="sp-form">
     <div className="sp-form-2">
-      <label><AdminText en="Phone number" ar="رقم الهاتف" /><input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" dir="ltr" required /></label>
-      <label><AdminText en="WhatsApp number" ar="رقم واتساب" /><input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} inputMode="tel" dir="ltr" required /></label>
+      <label><AdminText en="Phone number" ar="رقم الهاتف" /><InternationalPhoneInput value={phone} onChange={setPhone} locale={ar ? 'ar' : 'en'} required /></label>
+      <label><AdminText en="WhatsApp number" ar="رقم واتساب" /><InternationalPhoneInput value={whatsapp} onChange={setWhatsapp} locale={ar ? 'ar' : 'en'} required /></label>
     </div>
     <label><AdminText en="Public email" ar="البريد الإلكتروني العام" /><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} dir="ltr" required /></label>
     <label><AdminText en="Company address" ar="عنوان الشركة" /><input value={address} onChange={(e) => setAddress(e.target.value)} required /></label>
@@ -497,7 +507,7 @@ export default function SettingsPage() {
                 <label><AdminText en="Euro (EUR)" ar="اليورو (EUR)" /><input type="number" min="0" step="0.01" value={currencyForm.eur} onChange={(e) => { setCurrencyForm((f) => ({ ...f, eur: Number(e.target.value) })); setCurrencySaved(false) }} dir="ltr" /></label>
                 <label><AdminText en="Egyptian Pound (EGP)" ar="الجنيه المصري (EGP)" /><input type="number" min="0" step="0.5" value={currencyForm.egp} onChange={(e) => { setCurrencyForm((f) => ({ ...f, egp: Number(e.target.value) })); setCurrencySaved(false) }} dir="ltr" /></label>
               </div>
-              <label><AdminText en="Default currency" ar="العملة الافتراضية" /><select value={currencyForm.defaultCurrency} onChange={(e) => setCurrencyForm((f) => ({ ...f, defaultCurrency: e.target.value as 'USD' | 'EUR' | 'EGP' }))}><option value="USD">USD</option><option value="EUR">EUR</option><option value="EGP">EGP</option></select></label>
+              <label><AdminText en="Default currency" ar="العملة الافتراضية" /><SharedSelect value={currencyForm.defaultCurrency} onChange={(next) => setCurrencyForm((f) => ({ ...f, defaultCurrency: next as 'USD' | 'EUR' | 'EGP' }))} locale={ar ? 'ar' : 'en'} options={[{ value: 'USD', label: 'USD' }, { value: 'EUR', label: 'EUR' }, { value: 'EGP', label: 'EGP' }]} /></label>
               <p className="sp-group-title"><AdminText en="Live preview ($120 tour)" ar="معاينة حية (رحلة بـ 120 دولارا)" /></p>
               <div className="sp-status2">
                 <div><small>USD</small><b>${(120 * getCurrencyRates().USD).toLocaleString('en-US')}</b></div>
