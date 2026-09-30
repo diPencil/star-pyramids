@@ -21,6 +21,7 @@ import { TourVideoGallery } from "./tour-video-gallery"
 import { AskQuestionButton } from "./ask-question"
 import { HorizontalSlider } from "./horizontal-slider"
 import { DateInput } from "./date-input"
+import type { Locale } from '@/lib/locale-config'
 
 const arabicUi: Record<string, string> = {
   Home: 'الرئيسية', 'Egypt Tours': 'جولات مصر', 'Egypt travel experience': 'تجربة سياحية في مصر',
@@ -73,7 +74,7 @@ const nileStopCoordinates: Record<string, readonly [number, number]> = {
   Hurghada: [27.2579, 33.8116],
 }
 
-function TourMapCanvas({ coordinates, title, locale }: { coordinates: readonly [number, number]; title: string; locale: 'en' | 'ar' }) {
+function TourMapCanvas({ coordinates, title, locale }: { coordinates: readonly [number, number]; title: string; locale: Locale }) {
   const container = useRef<HTMLDivElement>(null)
   const [ready, setReady] = useState(false)
   const [failed, setFailed] = useState(false)
@@ -100,7 +101,7 @@ function TourMapCanvas({ coordinates, title, locale }: { coordinates: readonly [
   </div>
 }
 
-export function TourLocationMap({ locations, locale, nileCruise = false }: { locations: readonly TourLocation[]; locale: 'en' | 'ar'; nileCruise?: boolean }) {
+export function TourLocationMap({ locations, locale, nileCruise = false }: { locations: readonly TourLocation[]; locale: Locale; nileCruise?: boolean }) {
   const [selectedId, setSelectedId] = useState('')
   if (!locations.length) return null
 

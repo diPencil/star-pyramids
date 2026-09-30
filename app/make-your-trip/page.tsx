@@ -61,6 +61,52 @@ const ar: Record<string, string> = {
   'Cairo & Giza': 'القاهرة والجيزة',
 }
 
+const es: Record<string, string> = {
+  'Make Your Trip': 'Planifica tu viaje', 'Quick information': 'Información rápida', 'Personal information': 'Información personal', Confirmation: 'Confirmación',
+  'When will you be traveling?': '¿Cuándo viajarás?', 'Have An Exact Time': 'Tengo una fecha exacta', 'Have An Approximate Time': 'Tengo una fecha aproximada', 'Not Sure Yet': 'Aún no lo sé',
+  'Preferred ship call date': 'Fecha preferida de escala del barco',
+  'Selected tour:': 'Tour seleccionado:', Change: 'Cambiar', Destination: 'Destino', 'Choose a place in Egypt': 'Elige un lugar en Egipto',
+  'Preferred start date': 'Fecha de inicio preferida', 'Preferred end date': 'Fecha de fin preferida',
+  'Select your preferred start date': 'Selecciona tu fecha de inicio preferida', 'Select your preferred end date': 'Selecciona tu fecha de fin preferida',
+  'Next up': 'Siguiente', Edit: 'Editar', 'Full Name': 'Nombre completo', Email: 'Correo electrónico',
+  'your full name here': 'Escribe tu nombre completo', 'Type your email..': 'Escribe tu correo electrónico', 'Include flight options in my request': 'Incluir opciones de vuelo en mi solicitud',
+  'Ask STAR PYRAMIDS to include suitable flight options when preparing your trip proposal.': 'Pide a STAR PYRAMIDS incluir opciones de vuelo adecuadas al preparar tu propuesta de viaje.',
+  Nationality: 'Nacionalidad', 'Choose your nationality': 'Elige tu nacionalidad', Phone: 'Teléfono', 'Country code': 'Código de país', 'Type your phone': 'Escribe tu teléfono',
+  Adults: 'Adultos', Children: 'Niños', Infants: 'Bebés',
+  Min: 'Mínimo', Max: 'Máximo',
+  'Price range': 'Rango de precios', 'Minimum price': 'Precio mínimo', 'Maximum price': 'Precio máximo', Note: 'Notas',
+  'Additional Notes.........': 'Detalles adicionales sobre tu viaje', Back: 'Atrás', 'Prepare request': 'Preparar solicitud', 'Go back': 'Atrás',
+  'Exact time': 'Hora exacta', 'Approximate time': 'Hora aproximada', 'Not sure yet': 'Aún no lo sé',
+  Home: 'Inicio', 'Contact our team': 'Contacta con nuestro equipo',
+  'Editing these details applies to this request only.': 'Editar estos datos se aplica solo a esta solicitud.',
+  'Save these details to my profile': 'Guardar estos datos en mi perfil',
+  Egyptian: 'Egipcia', American: 'Americana', British: 'Británica', French: 'Francesa', German: 'Alemana', Spanish: 'Española', Italian: 'Italiana', Saudi: 'Saudí', Emirati: 'Emiratí', Canadian: 'Canadiense', Australian: 'Australiana', Other: 'Otra',
+  'Cairo & Giza': 'El Cairo y Guiza',
+}
+
+const it: Record<string, string> = {
+  'Make Your Trip': 'Pianifica il tuo viaggio', 'Quick information': 'Informazioni rapide', 'Personal information': 'Informazioni personali', Confirmation: 'Conferma',
+  'When will you be traveling?': 'Quando viaggerai?', 'Have An Exact Time': 'Ho una data esatta', 'Have An Approximate Time': 'Ho una data approssimativa', 'Not Sure Yet': 'Non ancora sicuro',
+  'Preferred ship call date': 'Data preferita di scalo della nave',
+  'Selected tour:': 'Tour selezionato:', Change: 'Cambia', Destination: 'Destinazione', 'Choose a place in Egypt': 'Scegli un luogo in Egitto',
+  'Preferred start date': 'Data di inizio preferita', 'Preferred end date': 'Data di fine preferita',
+  'Select your preferred start date': 'Seleziona la tua data di inizio preferita', 'Select your preferred end date': 'Seleziona la tua data di fine preferita',
+  'Next up': 'Avanti', Edit: 'Modifica', 'Full Name': 'Nome completo', Email: 'Email',
+  'your full name here': 'Scrivi il tuo nome completo', 'Type your email..': 'Scrivi la tua email', 'Include flight options in my request': 'Includi opzioni di volo nella mia richiesta',
+  'Ask STAR PYRAMIDS to include suitable flight options when preparing your trip proposal.': 'Chiedi a STAR PYRAMIDS di includere opzioni di volo adatte nella proposta di viaggio.',
+  Nationality: 'Nazionalità', 'Choose your nationality': 'Scegli la tua nazionalità', Phone: 'Telefono', 'Country code': 'Prefisso', 'Type your phone': 'Scrivi il tuo telefono',
+  Adults: 'Adulti', Children: 'Bambini', Infants: 'Neonati',
+  Min: 'Minimo', Max: 'Massimo',
+  'Price range': 'Fascia di prezzo', 'Minimum price': 'Prezzo minimo', 'Maximum price': 'Prezzo massimo', Note: 'Note',
+  'Additional Notes.........': 'Dettagli aggiuntivi sul tuo viaggio', Back: 'Indietro', 'Prepare request': 'Prepara richiesta', 'Go back': 'Indietro',
+  'Exact time': 'Orario esatto', 'Approximate time': 'Orario approssimativo', 'Not sure yet': 'Non ancora sicuro',
+  Home: 'Home', 'Contact our team': 'Contatta il nostro team',
+  'Editing these details applies to this request only.': 'Modificare questi dati si applica solo a questa richiesta.',
+  'Save these details to my profile': 'Salva questi dati nel mio profilo',
+  Egyptian: 'Egizia', American: 'Americana', British: 'Britannica', French: 'Francese', German: 'Tedesca', Spanish: 'Spagnola', Italian: 'Italiana', Saudi: 'Saudita', Emirati: 'Emiratina', Canadian: 'Canadese', Australian: 'Australiana', Other: 'Altra',
+  'Cairo & Giza': 'Il Cairo e Giza',
+}
+
 const FIELD_IDS: Record<string, string> = {
   destination: 'myt-destination', from: 'myt-from', to: 'myt-to', travelers: 'myt-travelers',
   name: 'myt-name', email: 'myt-email', nationality: 'myt-nationality', phone: 'myt-phone',
@@ -78,7 +124,7 @@ function DatePill({ id, label, placeholder, value, onChange, min, invalid, descr
 
 function Counter({ id, label, sub, value, set, min = 0 }: { id: string; label: string; sub: string; value: number; set: (v: number) => void; min?: number }) {
   const { locale } = useLocale()
-  return <div className="myt-counter"><span id={id}>{label} <small>({sub})</small></span><div className="myt-counter-box" role="group" aria-labelledby={id}><button type="button" aria-label={(locale === 'ar' ? 'تقليل ' : 'Decrease ') + label} onClick={() => set(Math.max(min, value - 1))}><Minus size={16} /></button><b aria-live="polite">{value}</b><button type="button" aria-label={(locale === 'ar' ? 'زيادة ' : 'Increase ') + label} onClick={() => set(Math.min(50, value + 1))}><Plus size={16} /></button></div></div>
+  return <div className="myt-counter"><span id={id}>{label} <small>({sub})</small></span><div className="myt-counter-box" role="group" aria-labelledby={id}><button type="button" aria-label={(locale === 'ar' ? 'تقليل ' : locale === 'es' ? 'Disminuir ' : locale === 'it' ? 'Diminuisci ' : 'Decrease ') + label} onClick={() => set(Math.max(min, value - 1))}><Minus size={16} /></button><b aria-live="polite">{value}</b><button type="button" aria-label={(locale === 'ar' ? 'زيادة ' : locale === 'es' ? 'Aumentar ' : locale === 'it' ? 'Aumenta ' : 'Increase ') + label} onClick={() => set(Math.min(50, value + 1))}><Plus size={16} /></button></div></div>
 }
 
 function focusById(id: string) {
@@ -90,15 +136,24 @@ function focusById(id: string) {
   }
 }
 
-function formatBudget(amount: number, currency: 'USD' | 'EUR' | 'EGP', locale: 'en' | 'ar'): string {
-  return new Intl.NumberFormat(locale === 'ar' ? 'ar-EG' : 'en-US', {
+function formatBudget(amount: number, currency: 'USD' | 'EUR' | 'EGP', locale: string): string {
+  const intlLocale = locale === 'ar' ? 'ar-EG' : locale === 'es' ? 'es-ES' : locale === 'it' ? 'it-IT' : 'en-US'
+  return new Intl.NumberFormat(intlLocale, {
     style: 'currency', currency, maximumFractionDigits: currency === 'EGP' ? 0 : 2,
   }).format(amount)
 }
 
 function PlannerInner() {
   const { locale, currency } = useLocale()
-  const t = (key: string) => locale === 'ar' ? ar[key] ?? key : key
+  const isAr = locale === 'ar'
+  const isEs = locale === 'es'
+  const isIt = locale === 'it'
+  const t = (key: string) => {
+    if (locale === 'ar') return ar[key] ?? key
+    if (locale === 'es') return es[key] ?? key
+    if (locale === 'it') return it[key] ?? key
+    return key
+  }
   const params = useSearchParams()
   const router = useRouter()
   const initialQuery = useMemo(() => parseMakeTripQuery(params), [params])
@@ -242,7 +297,34 @@ function PlannerInner() {
       budget: `يجب أن تكون الميزانية المفضلة بين 0 و${PRICE_CAP.toLocaleString('en-US')} والحد الأدنى أقل من الأقصى.`,
       notes: `يجب ألا تتجاوز الملاحظات ${TRIP_NOTE_MAX} حرف.`,
     }
-    return locale === 'ar' ? arText[field] : en[field]
+    const esText: Record<string, string> = {
+      destination: code === 'required' ? 'Elige un destino o mantén el tour seleccionado como tu solicitud.' : 'Elige un destino válido.',
+      from: code === 'required' ? 'Introduce tu fecha de inicio preferida.' : 'Introduce una fecha de inicio válida (hoy o después).',
+      to: code === 'required' ? 'Introduce tu fecha de fin preferida.' : 'Introduce una fecha de fin válida en la fecha de inicio o después.',
+      travelers: 'Los viajeros deben incluir al menos 1 adulto (máx 50 por grupo).',
+      name: code === 'required' ? 'Introduce tu nombre completo.' : 'Introduce un nombre con al menos 2 letras.',
+      email: code === 'required' ? 'Introduce tu correo electrónico.' : 'Introduce un correo válido (name@example.com).',
+      nationality: 'Elige tu nacionalidad.',
+      phone: code === 'required' ? 'Introduce tu número de teléfono.' : 'Introduce un teléfono válido (al menos 7 dígitos).',
+      budget: `El presupuesto preferido debe estar entre 0 y ${PRICE_CAP.toLocaleString('en-US')} con el mínimo por debajo del máximo.`,
+      notes: `Las notas deben tener ${TRIP_NOTE_MAX} caracteres o menos.`,
+    }
+    const itText: Record<string, string> = {
+      destination: code === 'required' ? 'Scegli una destinazione o mantieni il tour selezionato come richiesta.' : 'Scegli una destinazione valida.',
+      from: code === 'required' ? 'Inserisci la tua data di inizio preferita.' : 'Inserisci una data di inizio valida (oggi o dopo).',
+      to: code === 'required' ? 'Inserisci la tua data di fine preferita.' : 'Inserisci una data di fine valida alla data di inizio o dopo.',
+      travelers: 'I viaggiatori devono includere almeno 1 adulto (max 50 per gruppo).',
+      name: code === 'required' ? 'Inserisci il tuo nome completo.' : 'Inserisci un nome con almeno 2 lettere.',
+      email: code === 'required' ? 'Inserisci la tua email.' : 'Inserisci un indirizzo email valido (name@example.com).',
+      nationality: 'Scegli la tua nazionalità.',
+      phone: code === 'required' ? 'Inserisci il tuo numero di telefono.' : 'Inserisci un numero di telefono valido (almeno 7 cifre).',
+      budget: `Il budget preferito deve essere tra 0 e ${PRICE_CAP.toLocaleString('en-US')} con il minimo inferiore al massimo.`,
+      notes: `Le note devono essere ${TRIP_NOTE_MAX} caratteri o meno.`,
+    }
+    if (locale === 'ar') return arText[field]
+    if (locale === 'es') return esText[field]
+    if (locale === 'it') return itText[field]
+    return en[field]
   }
 
   const buildDraft = (): MakeYourTripRequestDraft => {
@@ -288,7 +370,7 @@ function PlannerInner() {
     for (const f of step1Fields) if (errs[f]) step1[f] = errs[f]
     setErrors(step1)
     if (hasTripErrors(step1)) {
-      setSummary(locale === 'ar' ? 'راجع الحقول المطلوبة في هذه الخطوة.' : 'Review the required fields in this step.')
+      setSummary(locale === 'ar' ? 'راجع الحقول المطلوبة في هذه الخطوة.' : locale === 'es' ? 'Revisa los campos requeridos en este paso.' : locale === 'it' ? 'Controlla i campi richiesti in questo passaggio.' : 'Review the required fields in this step.')
       focusFirstError(step1, step1Fields)
       return
     }
@@ -303,7 +385,7 @@ function PlannerInner() {
     const errs = validateTripRequest(raw, { isShore })
     setErrors(errs)
     if (hasTripErrors(errs)) {
-      setSummary(locale === 'ar' ? 'تعذر إنشاء المعاينة. راجع الحقول الموضحة أدناه.' : 'Could not create the preview. Review the highlighted fields below.')
+      setSummary(locale === 'ar' ? 'تعذر إنشاء المعاينة. راجع الحقول الموضحة أدناه.' : locale === 'es' ? 'No se pudo crear la vista previa. Revisa los campos resaltados a continuacion.' : locale === 'it' ? 'Impossibile creare l\'anteprima. Controlla i campi evidenziati di seguito.' : 'Could not create the preview. Review the highlighted fields below.')
       const all = [...step1Fields, ...step2Fields]
       const firstStep1 = step1Fields.find((f) => errs[f])
       if (firstStep1) {
@@ -317,7 +399,7 @@ function PlannerInner() {
     if (editRef) {
       const updated = updateTripRequest(editRef, { ...raw, notes: raw.notes.slice(0, TRIP_NOTE_MAX) }, 'customer')
       if (!updated) {
-        setSummary(locale === 'ar' ? 'تعذر حفظ التعديلات. ربما تغيرت حالة الطلب.' : 'Could not save the changes. The request status may have changed.')
+        setSummary(locale === 'ar' ? 'تعذر حفظ التعديلات. ربما تغيرت حالة الطلب.' : locale === 'es' ? 'No se pudieron guardar los cambios. El estado de la solicitud puede haber cambiado.' : locale === 'it' ? 'Impossibile salvare le modifiche. Lo stato della richiesta potrebbe essere cambiato.' : 'Could not save the changes. The request status may have changed.')
         return
       }
       if (saveProfile) persistProfileFromForm()
@@ -344,7 +426,7 @@ function PlannerInner() {
       ownership: preResolution.ownership,
     })
     if (!created) {
-      setSummary(locale === 'ar' ? 'تعذر إنشاء المعاينة. راجع الحقول الموضحة أدناه.' : 'Could not create the preview. Review the highlighted fields below.')
+      setSummary(locale === 'ar' ? 'تعذر إنشاء المعاينة. راجع الحقول الموضحة أدناه.' : locale === 'es' ? 'No se pudo crear la vista previa. Revisa los campos resaltados a continuacion.' : locale === 'it' ? 'Impossibile creare l\'anteprima. Controlla i campi evidenziati di seguito.' : 'Could not create the preview. Review the highlighted fields below.')
       return
     }
     if (saveProfile) persistProfileFromForm()
@@ -413,33 +495,36 @@ function PlannerInner() {
       ? `${d.preferredFrom} → ${d.preferredTo}`
       : d.preferredFrom || d.preferredTo || ''
     const travelerParts: string[] = []
-    travelerParts.push(locale === 'ar' ? `${d.adults} بالغ` : `${d.adults} adult${d.adults === 1 ? '' : 's'}`)
-    if (d.children > 0) travelerParts.push(locale === 'ar' ? `${d.children} أطفال` : `${d.children} child${d.children === 1 ? '' : 'ren'}`)
-    if (d.infants > 0) travelerParts.push(locale === 'ar' ? `${d.infants} رضع` : `${d.infants} infant${d.infants === 1 ? '' : 's'}`)
+    travelerParts.push(locale === 'ar' ? `${d.adults} بالغ` : locale === 'es' ? `${d.adults} adulto${d.adults === 1 ? '' : 's'}` : locale === 'it' ? `${d.adults} adulto${d.adults === 1 ? '' : 'i'}` : `${d.adults} adult${d.adults === 1 ? '' : 's'}`)
+    if (d.children > 0) travelerParts.push(locale === 'ar' ? `${d.children} أطفال` : locale === 'es' ? `${d.children} niño${d.children === 1 ? '' : 's'}` : locale === 'it' ? `${d.children} bambino${d.children === 1 ? '' : 'i'}` : `${d.children} child${d.children === 1 ? '' : 'ren'}`)
+    if (d.infants > 0) travelerParts.push(locale === 'ar' ? `${d.infants} رضع` : locale === 'es' ? `${d.infants} bebé${d.infants === 1 ? '' : 's'}` : locale === 'it' ? `${d.infants} neonato${d.infants === 1 ? '' : 'i'}` : `${d.infants} infant${d.infants === 1 ? '' : 's'}`)
+    const isAr = locale === 'ar'
+    const isEs = locale === 'es'
+    const isIt = locale === 'it'
     return <div className="myt-success">
-      <h2 id="myt-preview-title" tabIndex={-1}>{locale === 'ar' ? 'تم إنشاء طلب الرحلة' : 'Trip request created'}</h2>
-      <span className="req-ref" dir="ltr">{locale === 'ar' ? 'المرجع المحلي: ' : 'Local ref: '}{record.localRef}</span>
+      <h2 id="myt-preview-title" tabIndex={-1}>{isAr ? 'تم إنشاء طلب الرحلة' : isEs ? 'Solicitud de viaje creada' : isIt ? 'Richiesta di viaggio creata' : 'Trip request created'}</h2>
+      <span className="req-ref" dir="ltr">{isAr ? 'المرجع المحلي: ' : isEs ? 'Referencia local: ' : isIt ? 'Riferimento locale: ' : 'Local ref: '}{record.localRef}</span>
       <div className="req-summary-rows" style={{ maxWidth: 520, margin: '18px auto', textAlign: 'start' }}>
-        {requestSubject !== '' && <div><span>{locale === 'ar' ? 'الطلب' : 'Request'}</span><strong>{requestSubject}</strong></div>}
-        <div><span>{locale === 'ar' ? 'المواعيد' : 'Preferred dates'}</span><strong dir="ltr">{dateText || (locale === 'ar' ? 'مرنة، بدون تواريخ ثابتة' : 'Flexible, no fixed dates')}</strong></div>
-        <div><span>{locale === 'ar' ? 'إيقاع المواعيد' : 'Date flexibility'}</span><strong>{t(timeNames[d.timeMode] ?? d.timeMode)}</strong></div>
-        <div><span>{locale === 'ar' ? 'المسافرون' : 'Travelers'}</span><strong>{travelerParts.join(locale === 'ar' ? '، ' : ' · ')}</strong></div>
-        <div><span>{locale === 'ar' ? 'الميزانية المفضلة' : 'Preferred budget'}</span><strong dir="ltr">{formatBudget(d.budgetMin, d.currency, locale)} – {formatBudget(d.budgetMax, d.currency, locale)}</strong></div>
-        {d.flightOffer && <div><span>{locale === 'ar' ? 'خيارات الطيران' : 'Flight options'}</span><strong>{locale === 'ar' ? 'تم طلب تضمين خيارات طيران' : 'Flight options requested'}</strong></div>}
+        {requestSubject !== '' && <div><span>{isAr ? 'الطلب' : isEs ? 'Solicitud' : isIt ? 'Richiesta' : 'Request'}</span><strong>{requestSubject}</strong></div>}
+        <div><span>{isAr ? 'المواعيد' : isEs ? 'Fechas preferidas' : isIt ? 'Date preferite' : 'Preferred dates'}</span><strong dir="ltr">{dateText || (isAr ? 'مرنة، بدون تواريخ ثابتة' : isEs ? 'Flexible, sin fechas fijas' : isIt ? 'Flessibili, nessuna data fissa' : 'Flexible, no fixed dates')}</strong></div>
+        <div><span>{isAr ? 'إيقاع المواعيد' : isEs ? 'Flexibilidad de fechas' : isIt ? 'Flessibilita date' : 'Date flexibility'}</span><strong>{t(timeNames[d.timeMode] ?? d.timeMode)}</strong></div>
+        <div><span>{isAr ? 'المسافرون' : isEs ? 'Viajeros' : isIt ? 'Viaggiatori' : 'Travelers'}</span><strong>{travelerParts.join(isAr ? '، ' : isEs ? ' · ' : isIt ? ' · ' : ' · ')}</strong></div>
+        <div><span>{isAr ? 'الميزانية المفضلة' : isEs ? 'Presupuesto preferido' : isIt ? 'Budget preferito' : 'Preferred budget'}</span><strong dir="ltr">{formatBudget(d.budgetMin, d.currency, locale)} – {formatBudget(d.budgetMax, d.currency, locale)}</strong></div>
+        {d.flightOffer && <div><span>{isAr ? 'خيارات الطيران' : isEs ? 'Opciones de vuelo' : isIt ? 'Opzioni di volo' : 'Flight options'}</span><strong>{isAr ? 'تم طلب تضمين خيارات طيران' : isEs ? 'Se solicitaron opciones de vuelo' : isIt ? 'Opzioni di volo richieste' : 'Flight options requested'}</strong></div>}
         {d.contact.nationality !== '' && <div><span>{t('Nationality')}</span><strong>{countryDisplayName(d.contact.nationality, locale)}</strong></div>}
         <div><span>{t('Full Name')}</span><strong>{d.contact.name}</strong></div>
         <div><span>{t('Email')}</span><strong dir="ltr">{d.contact.email}</strong></div>
         <div><span>{t('Phone')}</span><strong dir="ltr">{displayInternationalPhone(d.contact.dialCode, d.contact.phone)}</strong></div>
-        {d.requestedAddOns.length > 0 && <div><span>{locale === 'ar' ? 'إضافات مطلوبة' : 'Requested add-ons'}</span><strong>{d.requestedAddOns.join(locale === 'ar' ? '، ' : ', ')}</strong></div>}
+        {d.requestedAddOns.length > 0 && <div><span>{isAr ? 'إضافات مطلوبة' : isEs ? 'Complementos solicitados' : isIt ? 'Componenti aggiuntivi richiesti' : 'Requested add-ons'}</span><strong>{d.requestedAddOns.join(isAr ? '، ' : ', ')}</strong></div>}
         {d.notes !== '' && <div><span>{t('Note')}</span><strong style={{ whiteSpace: 'pre-wrap' }}>{d.notes}</strong></div>}
       </div>
-      <p><CircleAlert size={15} style={{ verticalAlign: '-2px', marginInlineEnd: 6 }} />{locale === 'ar' ? 'طلبات النموذج التجريبي محفوظة على هذا المتصفح فقط ولا تُرسل إلى نظام STAR PYRAMIDS الفعلي.' : 'Prototype requests are stored on this browser only and are not submitted to a live STAR PYRAMIDS backend.'}</p>
-      <p>{locale === 'ar' ? 'الميزانية أعلاه تفضيل منك وليست عرض سعر أو حجزًا مؤكدًا.' : 'The budget above is your preference. It is not a quote or a confirmed booking.'}</p>
+      <p><CircleAlert size={15} style={{ verticalAlign: '-2px', marginInlineEnd: 6 }} />{isAr ? 'طلبات النموذج التجريبي محفوظة على هذا المتصفح فقط ولا تُرسل إلى نظام STAR PYRAMIDS الفعلي.' : isEs ? 'Las solicitudes de prototipo se guardan solo en este navegador y no se envían a un backend STAR PYRAMIDS real.' : isIt ? 'Le richiese di prototipo vengono salvate solo in questo browser e non inviate a un backend STAR PYRAMIDS reale.' : 'Prototype requests are stored on this browser only and are not submitted to a live STAR PYRAMIDS backend.'}</p>
+      <p>{isAr ? 'الميزانية أعلاه تفضيل منك وليست عرض سعر أو حجزًا مؤكدًا.' : isEs ? 'El presupuesto anterior es tu preferencia. No es un presupuesto ni una reserva confirmada.' : isIt ? 'Il budget sopra e solo una preferenza. Non e un preventivo o una prenotazione confermata.' : 'The budget above is your preference. It is not a quote or a confirmed booking.'}</p>
       {pendingAccount && <PendingAccountBox stub={pendingAccount} onCompleted={(updated) => setPendingAccount(updated)} />}
-      {!pendingAccount && existingEmail && <p><CircleAlert size={15} style={{ verticalAlign: '-2px', marginInlineEnd: 6 }} />{locale === 'ar' ? 'يوجد حساب بالفعل لهذا البريد. سجّل الدخول لإدارة الطلبات المرتبطة بحسابك.' : 'An account already exists for this email. Sign in to manage requests associated with your account.'}</p>}
+      {!pendingAccount && existingEmail && <p><CircleAlert size={15} style={{ verticalAlign: '-2px', marginInlineEnd: 6 }} />{isAr ? 'يوجد حساب بالفعل لهذا البريد. سجّل الدخول لإدارة الطلبات المرتبطة بحسابك.' : isEs ? 'Ya existe una cuenta para este correo. Inicia sesión para gestionar las solicitudes asociadas a tu cuenta.' : isIt ? 'Esiste già un account per questa email. Accedi per gestire le richieste associate al tuo account.' : 'An account already exists for this email. Sign in to manage requests associated with your account.'}</p>}
       <div className="myt-success-actions">
-        <button type="button" className="outline-btn" onClick={handleEdit}>{locale === 'ar' ? 'تعديل الطلب' : 'Edit request'}</button>
-        <Link className="primary-btn" href={`/account/trip-requests/detail?ref=${encodeURIComponent(record.localRef)}`}>{locale === 'ar' ? 'عرض تفاصيل الطلب' : 'View request details'}</Link>
+        <button type="button" className="outline-btn" onClick={handleEdit}>{isAr ? 'تعديل الطلب' : isEs ? 'Editar solicitud' : isIt ? 'Modifica richiesta' : 'Edit request'}</button>
+        <Link className="primary-btn" href={`/account/trip-requests/detail?ref=${encodeURIComponent(record.localRef)}`}>{isAr ? 'عرض تفاصيل الطلب' : isEs ? 'Ver detalles de la solicitud' : isIt ? 'Visualizza dettagli richiesta' : 'View request details'}</Link>
         <Link className="outline-btn" href="/contact">{t('Contact our team')}</Link>
       </div>
     </div>
@@ -454,11 +539,11 @@ function PlannerInner() {
         const disabled = isPreviewPill || shownStep === i + 1
         return <span key={stepLabels[i]} style={{ display: 'contents' }}>{i > 0 && <span className={'step-line' + (shownStep > i ? ' done' : '')} aria-hidden="true" />}<button type="button" className={'step-pill ' + state} onClick={() => goStep(i + 1)} disabled={disabled} aria-current={shownStep === i + 1 ? 'step' : undefined} aria-disabled={disabled}>{<b className="step-num">{done ? <Check size={18} /> : i + 1}</b>}{t(stepLabels[i])}</button></span>
       })}</div></div>
-      {savedRequests.length > 0 && <div className="planner-card" role="note" style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between' }}><p className="myt-tour-note" style={{ margin: 0 }}>{locale === 'ar' ? `لديك ${savedRequests.length} من طلبات الرحلات المحفوظة في هذا المتصفح.` : `You have ${savedRequests.length} saved trip request${savedRequests.length === 1 ? '' : 's'} in this browser.`}</p><div style={{ display: 'flex', gap: 10 }}><Link className="outline-btn" href="/account/trip-requests">{locale === 'ar' ? 'عرض طلباتي' : 'View my requests'}</Link></div></div>}
+      {savedRequests.length > 0 && <div className="planner-card" role="note" style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between' }}><p className="myt-tour-note" style={{ margin: 0 }}>{isAr ? `لديك ${savedRequests.length} من طلبات الرحلات المحفوظة في هذا المتصفح.` : isEs ? `Tienes ${savedRequests.length} solicitud${savedRequests.length === 1 ? '' : 'es'} de viaje guardada${savedRequests.length === 1 ? '' : 's'} en este navegador.` : isIt ? `Hai ${savedRequests.length} richiesta${savedRequests.length === 1 ? '' : 'e'} di viaggio salvata${savedRequests.length === 1 ? '' : 'e'} in questo browser.` : `You have ${savedRequests.length} saved trip request${savedRequests.length === 1 ? '' : 's'} in this browser.`}</p><div style={{ display: 'flex', gap: 10 }}><Link className="outline-btn" href="/account/trip-requests">{isAr ? 'عرض طلباتي' : isEs ? 'Ver mis solicitudes' : isIt ? 'Visualizza le mie richieste' : 'View my requests'}</Link></div></div>}
       <form className="planner-card planner-form" onSubmit={step === 1 ? handleNext : handleSubmit} noValidate>
         {summary !== '' && <p className="co-error" role="alert" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 0 }}><CircleAlert size={15} />{summary}</p>}
         {step === 1 && <><div className="trip-question"><strong>{t('When will you be traveling?')}</strong>{timeOptions.map(([v, l]) => <button key={v} type="button" className={time === v ? 'selected-radio' : ''} aria-pressed={time === v} onClick={() => setTime(v)}><i className={time === v ? 'checked' : ''} />{t(l)}</button>)}</div>{tourName !== '' && <p className="myt-tour-note">{t('Selected tour:')} <strong>{tourName}</strong>, <Link href={`/egypt-tours/${initialQuery.tour?.category ?? 'one-day-tours'}`}>{t('Change')}</Link></p>}<label className="myt-field"><span className="myt-label" id="myt-destination-label">{t('Destination')}{tourSlug === '' && <em className="req" aria-hidden="true">*</em>}</span><SharedSelect id="myt-destination" labelledBy="myt-destination-label" value={destination} onChange={setDestination} locale={locale} popupWidth="trigger" invalid={Boolean(errors.destination)} describedBy={errors.destination ? 'myt-destination-error' : undefined} options={[{ value: '', label: t('Choose a place in Egypt') }, ...destinations.map((d) => ({ value: d.slug, label: locale === 'ar' ? t(localizeTourLocation(d.title)) : d.title }))]} /></label>{errors.destination && <span className="field-error" id="myt-destination-error" role="alert">{errText('destination')}</span>}<div className="myt-dates"><DatePill id="myt-from" label={t(isShore ? 'Preferred ship call date' : 'Preferred start date')} placeholder={t('Select your preferred start date')} value={from} onChange={isShore ? (value) => { setFrom(value); setTo(value) } : setFrom} min={today} invalid={Boolean(errors.from)} describedBy={errors.from ? 'myt-from-error' : undefined} errorId="myt-from-error" error={errText('from')} />{!isShore && <DatePill id="myt-to" label={t('Preferred end date')} placeholder={t('Select your preferred end date')} value={to} onChange={setTo} min={from || today} invalid={Boolean(errors.to)} describedBy={errors.to ? 'myt-to-error' : undefined} errorId="myt-to-error" error={errText('to')} />}</div><div className="planner-actions"><button type="submit" className="navy-btn">{t('Next up')} <ArrowRight size={19} /></button></div></>}
-        {step === 2 && <><h2 id="myt-step2-title" tabIndex={-1} style={{ marginTop: 0 }}>{t('Personal information')}</h2>{(destName !== '' || from !== '') && <p className="myt-tour-note">{[destName, from && to ? `${from} → ${to}` : '', locale === 'ar' ? `${adults + children + infants} مسافرين` : `${adults + children + infants} guest${adults + children + infants === 1 ? '' : 's'}`].filter(Boolean).join(', ')}, <button type="button" className="text-link" style={{ border: 0, background: 'none', cursor: 'pointer', padding: 0, font: 'inherit', textDecoration: 'underline' }} onClick={() => setStep(1)}>{t('Edit')}</button></p>}<div className="myt-grid">
+        {step === 2 && <><h2 id="myt-step2-title" tabIndex={-1} style={{ marginTop: 0 }}>{t('Personal information')}</h2>{(destName !== '' || from !== '') && <p className="myt-tour-note">{[destName, from && to ? `${from} → ${to}` : '', isAr ? `${adults + children + infants} مسافرين` : isEs ? `${adults + children + infants} viajero${adults + children + infants === 1 ? '' : 's'}` : isIt ? `${adults + children + infants} viaggiatore${adults + children + infants === 1 ? '' : 'i'}` : `${adults + children + infants} guest${adults + children + infants === 1 ? '' : 's'}`].filter(Boolean).join(', ')}, <button type="button" className="text-link" style={{ border: 0, background: 'none', cursor: 'pointer', padding: 0, font: 'inherit', textDecoration: 'underline' }} onClick={() => setStep(1)}>{t('Edit')}</button></p>}<div className="myt-grid">
           <label className="myt-field" htmlFor="myt-name"><span className="myt-label">{t('Full Name')} <em className="req" aria-hidden="true">*</em></span><input id="myt-name" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder={t('your full name here')} maxLength={80} autoComplete="name" required aria-invalid={Boolean(errors.name)} aria-describedby={errors.name ? 'myt-name-error' : undefined} />{errors.name && <span className="field-error" id="myt-name-error" role="alert">{errText('name')}</span>}</label>
           <label className="myt-field" htmlFor="myt-email"><span className="myt-label">{t('Email')} <em className="req" aria-hidden="true">*</em></span><input id="myt-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t('Type your email..')} maxLength={120} autoComplete="email" dir="ltr" required aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? 'myt-email-error' : undefined} />{errors.email && <span className="field-error" id="myt-email-error" role="alert">{errText('email')}</span>}</label>
         </div>
@@ -470,12 +555,12 @@ function PlannerInner() {
             <label className="myt-field"><span className="myt-label" id="myt-nationality-label">{t('Nationality')} <em className="req" aria-hidden="true">*</em></span><CountrySelect id="myt-nationality" labelledBy="myt-nationality-label" value={nationality} onChange={setNationality} locale={locale} placeholder={t('Choose your nationality')} invalid={Boolean(errors.nationality)} describedBy={errors.nationality ? 'myt-nationality-error' : undefined} />{errors.nationality && <span className="field-error" id="myt-nationality-error" role="alert">{errText('nationality')}</span>}</label>
             <div className="myt-field"><span className="myt-label" id="myt-phone-label">{t('Phone')} <em className="req" aria-hidden="true">*</em></span><InternationalPhoneInput id="myt-phone" required value={phone} onChange={setPhone} locale={locale} countryCode={phoneCountry} onCountryChange={setPhoneCountry} placeholder={t('Type your phone')} invalid={Boolean(errors.phone)} describedBy={errors.phone ? 'myt-phone-error' : undefined} />{errors.phone && <span className="field-error" id="myt-phone-error" role="alert">{errText('phone')}</span>}</div>
           </div>
-          <fieldset className="myt-group" style={{ border: 0, padding: 0, margin: '26px 0 0' }}><legend className="myt-group-title" id="myt-travelers">{locale === 'ar' ? 'المسافرون' : 'Travelers'}</legend><div className="myt-counters">
+          <fieldset className="myt-group" style={{ border: 0, padding: 0, margin: '26px 0 0' }}><legend className="myt-group-title" id="myt-travelers">{isAr ? 'المسافرون' : isEs ? 'Viajeros' : isIt ? 'Viaggiatori' : 'Travelers'}</legend><div className="myt-counters">
             <Counter id="myt-travelers-adults" label={t('Adults')} sub="12+" value={adults} set={setAdults} min={1} />
             <Counter id="myt-travelers-children" label={t('Children')} sub="3 - 11" value={children} set={setChildren} />
             <Counter id="myt-travelers-infants" label={t('Infants')} sub="0 - 2" value={infants} set={setInfants} />
           </div>{errors.travelers && <span className="field-error" role="alert">{errText('travelers')}</span>}</fieldset>
-          <fieldset className="myt-group" style={{ border: 0, padding: 0, margin: '26px 0 0' }}><legend className="myt-group-title">{locale === 'ar' ? `الميزانية المفضلة (${currency})` : `Preferred budget (${currency})`}</legend><p className="myt-tour-note">{locale === 'ar' ? 'تفضيل منك فقط، وليست عرض سعر أو سعرًا مؤكدًا.' : 'Your preference only. Not a quote or confirmed price.'}</p><div className="price-values">
+          <fieldset className="myt-group" style={{ border: 0, padding: 0, margin: '26px 0 0' }}><legend className="myt-group-title">{isAr ? `الميزانية المفضلة (${currency})` : isEs ? `Presupuesto preferido (${currency})` : isIt ? `Budget preferito (${currency})` : `Preferred budget (${currency})`}</legend><p className="myt-tour-note">{isAr ? 'تفضيل منك فقط، وليست عرض سعر أو سعرًا مؤكدًا.' : isEs ? 'Solo tu preferencia. No es un presupuesto ni un precio confirmado.' : isIt ? 'Solo una preferenza. Non e un preventivo o un prezzo confermato.' : 'Your preference only. Not a quote or confirmed price.'}</p><div className="price-values">
             <label className="myt-field" htmlFor="myt-budget-min"><span className="myt-minmax">{t('Min')}</span><input id="myt-budget-min" type="number" min={0} max={PRICE_CAP} value={priceMin} onChange={(e) => clampMin(Number(e.target.value))} dir="ltr" aria-invalid={Boolean(errors.budget)} aria-describedby={errors.budget ? 'myt-budget-error' : undefined} /></label>
             <label className="myt-field" htmlFor="myt-budget-max"><span className="myt-minmax right">{t('Max')}</span><input id="myt-budget-max" type="number" min={0} max={PRICE_CAP} value={priceMax} onChange={(e) => clampMax(Number(e.target.value))} dir="ltr" aria-invalid={Boolean(errors.budget)} aria-describedby={errors.budget ? 'myt-budget-error' : undefined} /></label>
           </div><div className="price-slider" role="group" aria-label={t('Price range')} dir={locale === 'ar' ? 'rtl' : 'ltr'}><span className="rail" aria-hidden="true" /><span className="fill" aria-hidden="true" style={locale === 'ar' ? { right: (priceMin / PRICE_CAP * 100) + '%', left: (100 - priceMax / PRICE_CAP * 100) + '%' } : { left: (priceMin / PRICE_CAP * 100) + '%', right: (100 - priceMax / PRICE_CAP * 100) + '%' }} /><input type="range" aria-label={t('Minimum price')} min={0} max={PRICE_CAP} step={100} value={priceMin} onChange={(e) => clampMin(Number(e.target.value))} /><input type="range" aria-label={t('Maximum price')} min={0} max={PRICE_CAP} step={100} value={priceMax} onChange={(e) => clampMax(Number(e.target.value))} /></div>{errors.budget && <span className="field-error" id="myt-budget-error" role="alert">{errText('budget')}</span>}</fieldset>

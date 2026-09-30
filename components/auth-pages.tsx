@@ -11,11 +11,12 @@ import { siteImages } from '@/data/content'
 import { LocaleProvider, useLocale } from './locale'
 import { LanguageSelector } from './language-selector'
 import { Logo } from './site'
+import { getCopy } from '@/lib/locale-helpers'
 
 type AuthMode = 'login' | 'register'
 type SocialProvider = 'Google' | 'Facebook'
 
-const authCopy = {
+const baseAuthCopy = {
   en: {
     loginTitle: 'Welcome back to your Egypt plans.',
     loginCopy: 'Sign in to keep your saved journeys, enquiries, and travel details together.',
@@ -35,6 +36,8 @@ const authCopy = {
     benefits: ['احفظ الرحلات لوقت لاحق', 'اجمع طلبات الرحلة في مكان واحد', 'كمّل التخطيط من أي جهاز'],
   },
 } as const
+
+const authCopy = { ...baseAuthCopy, es: baseAuthCopy.en, it: baseAuthCopy.en } as const
 
 function AuthField({ label, icon, children, className = '' }: { label: string; icon: ReactNode; children: ReactNode; className?: string }) {
   return <label className={`auth-v2-field ${className}`}><span>{label}</span><div>{icon}{children}</div></label>
@@ -65,6 +68,7 @@ function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const ar = locale === 'ar'
+  const text = getCopy(authCopy, locale)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -107,14 +111,14 @@ function LoginForm() {
       <div className="auth-v2-shade" />
       <div className="auth-v2-visual-content">
         <Logo />
-        <div><span>{ar ? 'حساب STAR PYRAMIDS' : 'Your STAR PYRAMIDS account'}</span><h2>{authCopy[locale].imageTitle}</h2><p>{authCopy[locale].imageCopy}</p><ul>{authCopy[locale].benefits.map((benefit) => <li key={benefit}><Check size={16} />{benefit}</li>)}</ul></div>
+        <div><span>{ar ? 'حساب STAR PYRAMIDS' : 'Your STAR PYRAMIDS account'}</span><h2>{text.imageTitle}</h2><p>{text.imageCopy}</p><ul>{text.benefits.map((benefit) => <li key={benefit}><Check size={16} />{benefit}</li>)}</ul></div>
       </div>
     </section>
 
     <section className="auth-v2-panel">
       <header className="auth-v2-top"><Link href="/" aria-label={ar ? 'العودة للرئيسية' : 'Back to home'}><ArrowRight size={18} />{ar ? 'الرئيسية' : 'Home'}</Link><LanguageSelector /></header>
       <div className="auth-v2-card">
-        <div className="auth-v2-heading"><span>{ar ? 'مرحبًا بعودتك' : 'Welcome back'}</span><h1>{authCopy[locale].loginTitle}</h1><p>{authCopy[locale].loginCopy}</p></div>
+        <div className="auth-v2-heading"><span>{ar ? 'مرحبًا بعودتك' : 'Welcome back'}</span><h1>{text.loginTitle}</h1><p>{text.loginCopy}</p></div>
         {error && <p className="auth-v2-notice" role="alert"><ShieldCheck size={17} />{error}</p>}
         <form className="auth-v2-form" onSubmit={handleSubmit}>
           <AuthField label={ar ? 'البريد الإلكتروني' : 'Email address'} icon={<Mail size={18} />}>
@@ -134,6 +138,7 @@ function LoginForm() {
 function RegisterForm() {
   const { locale } = useLocale()
   const ar = locale === 'ar'
+  const text = getCopy(authCopy, locale)
   const [countryCode, setCountryCode] = useState(defaultCountry.code)
   const [notice, setNotice] = useState('')
   const [success, setSuccess] = useState(false)
@@ -157,7 +162,7 @@ function RegisterForm() {
       <div className="auth-v2-shade" />
       <div className="auth-v2-visual-content">
         <Logo />
-        <div><span>{ar ? 'حساب STAR PYRAMIDS' : 'Your STAR PYRAMIDS account'}</span><h2>{authCopy[locale].imageTitle}</h2><p>{authCopy[locale].imageCopy}</p><ul>{authCopy[locale].benefits.map((benefit) => <li key={benefit}><Check size={16} />{benefit}</li>)}</ul></div>
+        <div><span>{ar ? 'حساب STAR PYRAMIDS' : 'Your STAR PYRAMIDS account'}</span><h2>{text.imageTitle}</h2><p>{text.imageCopy}</p><ul>{text.benefits.map((benefit) => <li key={benefit}><Check size={16} />{benefit}</li>)}</ul></div>
       </div>
     </section>
 
@@ -165,7 +170,7 @@ function RegisterForm() {
       <header className="auth-v2-top"><Link href="/" aria-label={ar ? 'العودة للرئيسية' : 'Back to home'}><ArrowRight size={18} />{ar ? 'الرئيسية' : 'Home'}</Link><LanguageSelector /></header>
       <div className="auth-v2-card">
         {success ? <AuthSuccess mode="register" reset={() => setSuccess(false)} /> : <>
-          <div className="auth-v2-heading"><span>{ar ? 'انضم لينا' : 'Join STAR PYRAMIDS'}</span><h1>{authCopy[locale].registerTitle}</h1><p>{authCopy[locale].registerCopy}</p></div>
+          <div className="auth-v2-heading"><span>{ar ? 'انضم لينا' : 'Join STAR PYRAMIDS'}</span><h1>{text.registerTitle}</h1><p>{text.registerCopy}</p></div>
           <SocialButtons onSelect={socialPreview} />
           {notice && <p className="auth-v2-notice" role="status"><ShieldCheck size={17} />{notice}</p>}
           <div className="auth-v2-divider"><span>{ar ? 'أو استخدم بياناتك' : 'or use your details'}</span></div>
@@ -202,7 +207,7 @@ export function RegisterPage() {
 function AuthExperience({ mode }: { mode: AuthMode }) {
   const { locale } = useLocale()
   const ar = locale === 'ar'
-  const copy = authCopy[locale]
+  const copy = getCopy(authCopy, locale)
   const [countryCode, setCountryCode] = useState(defaultCountry.code)
   const [notice, setNotice] = useState('')
   const [success, setSuccess] = useState(false)

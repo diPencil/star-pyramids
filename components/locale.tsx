@@ -1,8 +1,15 @@
 'use client'
 
 import { createContext, startTransition, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import {
+  DEFAULT_LOCALE,
+  sanitizeLocale,
+  isLocaleRTL,
+  type EnabledLocale,
+  type Locale,
+} from '@/lib/locale-config'
 
-export type Locale = 'en' | 'ar'
+export type { Locale }
 export type Currency = 'USD' | 'EUR' | 'EGP'
 
 const defaultRates: Record<Currency, number> = { USD: 1, EUR: 0.92, EGP: 48 }
@@ -56,14 +63,14 @@ export function getCurrencyRates(): Record<Currency, number> {
 }
 
 export type LocalizationSettings = {
-  defaultLanguage: Locale
+  defaultLanguage: EnabledLocale
   timezone: string
 }
 
 const L10N_KEY = 'sp-localization-settings-v1'
 
 export const defaultLocalizationSettings: LocalizationSettings = {
-  defaultLanguage: 'en',
+  defaultLanguage: DEFAULT_LOCALE,
   timezone: 'Africa/Cairo',
 }
 
@@ -86,7 +93,7 @@ export function readLocalizationSettings(): LocalizationSettings {
     if (!raw) return defaultLocalizationSettings
     const parsed = JSON.parse(raw) as Partial<LocalizationSettings>
     return {
-      defaultLanguage: parsed.defaultLanguage === 'ar' ? 'ar' : 'en',
+      defaultLanguage: sanitizeLocale(parsed.defaultLanguage),
       timezone: typeof parsed.timezone === 'string' && isValidTimezone(parsed.timezone) ? parsed.timezone : defaultLocalizationSettings.timezone,
     }
   } catch {
@@ -108,7 +115,8 @@ export function getSiteTimezone(): string {
 }
 
 export function formatSiteTime(iso: string, locale: Locale): string {
-  return new Date(iso).toLocaleTimeString(locale === 'ar' ? 'ar-EG' : 'en-US', {
+  const intlLocale = locale === 'ar' ? 'ar-EG' : locale === 'es' ? 'es-ES' : locale === 'it' ? 'it-IT' : 'en-US'
+  return new Date(iso).toLocaleTimeString(intlLocale, {
     hour: '2-digit',
     minute: '2-digit',
     timeZone: getSiteTimezone(),
@@ -122,18 +130,18 @@ type LocaleState = {
   setCurrency: (c: Currency) => void
 }
 
-const LocaleCtx = createContext<LocaleState>({ locale: 'en', setLocale: () => {}, currency: 'USD', setCurrency: () => {} })
+const LocaleCtx = createContext<LocaleState>({ locale: DEFAULT_LOCALE, setLocale: () => {}, currency: 'USD', setCurrency: () => {} })
 
 export function LocaleProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>('en')
+  const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE)
   const [currency, setCurrencyState] = useState<Currency>('USD')
   const [, setRatesVersion] = useState(0)
   useEffect(() => {
     const applyPersistedPreferences = () => {
       const savedLocale = window.localStorage.getItem('star-locale')
-      const initialLocale = savedLocale === 'ar' || savedLocale === 'en'
-        ? savedLocale
-        : readLocalizationSettings().defaultLanguage
+      const initialLocale = savedLocale
+        ? sanitizeLocale(savedLocale)
+        : sanitizeLocale(readLocalizationSettings().defaultLanguage)
       const savedCurrency = window.localStorage.getItem('star-currency')
       const initialCurrency = savedCurrency === 'USD' || savedCurrency === 'EUR' || savedCurrency === 'EGP'
         ? savedCurrency
@@ -156,7 +164,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   }, [])
   useEffect(() => {
     document.documentElement.lang = locale
-    document.documentElement.dir = locale === 'ar' ? 'rtl' : 'ltr'
+    document.documentElement.dir = isLocaleRTL(locale) ? 'rtl' : 'ltr'
   }, [locale])
   const setLocale = useCallback((next: Locale) => {
     window.localStorage.setItem('star-locale', next)
@@ -173,7 +181,8 @@ export const useLocale = () => useContext(LocaleCtx)
 
 export function formatPrice(usd: number, currency: Currency, locale: Locale) {
   const value = usd * getCurrencyRates()[currency]
-  return new Intl.NumberFormat(locale === 'ar' ? 'ar-EG' : 'en-US', {
+  const intlLocale = locale === 'ar' ? 'ar-EG' : locale === 'es' ? 'es-ES' : locale === 'it' ? 'it-IT' : 'en-US'
+  return new Intl.NumberFormat(intlLocale, {
     style: 'currency',
     currency,
     maximumFractionDigits: currency === 'EGP' ? 0 : 2,

@@ -19,7 +19,7 @@ type Duration = (typeof durations)[number]
 
 const minNilePrice = Math.min(...getToursByCategory('nile-cruises').map((tour) => tour.price))
 
-const copy = {
+const baseCopy = {
   en: {
     title: 'Find your Egypt trip', subtitle: 'From one memorable day to a journey across the country. Explore every trip in one place.',
     all: 'All trips', search: 'Search trips', searchPlaceholder: 'Search by place or experience', filters: 'Filters', type: 'Trip type',
@@ -39,6 +39,8 @@ const copy = {
     previous: 'الصفحة السابقة', next: 'الصفحة التالية', page: 'صفحة',
   },
 } as const
+
+const copy = { ...baseCopy, es: baseCopy.en, it: baseCopy.en } as const
 
 function durationMatches(value: string, filter: Duration) {
   const days = /\b(\d+)\s*(days?|nights?)\b/i.exec(value)

@@ -15,6 +15,7 @@ import { SharedSelect } from '@/components/shared-select'
 import { InternationalPhoneInput } from '@/components/international-phone-input'
 import { countryFromPhone } from '@/data/countries'
 import { toInternational } from '@/lib/phone'
+import { ENABLED_LOCALES, LOCALE_LABELS, type EnabledLocale } from '@/lib/locale-config'
 
 const TIMEZONES = [
   'Africa/Cairo', 'Africa/Tunis', 'Africa/Algiers', 'Africa/Casablanca',
@@ -46,7 +47,7 @@ function SiteClock({ timezone }: { timezone: string }) {
 function LocalizationTab({ onSaved }: { onSaved: () => void }) {
   const ar = useAdminLocale() === 'ar'
   const stored = readLocalizationSettings()
-  const [defaultLanguage, setDefaultLanguage] = useState<'en' | 'ar'>(stored.defaultLanguage)
+  const [defaultLanguage, setDefaultLanguage] = useState<EnabledLocale>(stored.defaultLanguage)
   const [timezone, setTimezone] = useState(stored.timezone)
 
   const save = () => {
@@ -56,7 +57,7 @@ function LocalizationTab({ onSaved }: { onSaved: () => void }) {
 
   return (
     <div className="sp-form">
-      <label><AdminText en="Default language" ar="اللغة الافتراضية" /><SharedSelect value={defaultLanguage} onChange={(next) => setDefaultLanguage(next as 'en' | 'ar')} locale={ar ? 'ar' : 'en'} options={[{ value: 'en', label: 'English' }, { value: 'ar', label: 'العربية' }]} /></label>
+      <label><AdminText en="Default language" ar="اللغة الافتراضية" /><SharedSelect value={defaultLanguage} onChange={(next) => setDefaultLanguage(next as EnabledLocale)} locale={ar ? 'ar' : 'en'} options={ENABLED_LOCALES.map((value) => ({ value, label: LOCALE_LABELS[value] }))} /></label>
       <label><AdminText en="Timezone" ar="المنطقة الزمنية" /><SharedSelect value={timezone} onChange={setTimezone} locale={ar ? 'ar' : 'en'} popupWidth="trigger" options={TIMEZONES.map((tz) => ({ value: tz, label: tz }))} /></label>
       <div className="sp-status2">
         <div><small><AdminText en="CURRENT SITE TIME" ar="توقيت الموقع الحالي" /></small><SiteClock timezone={timezone} /></div>

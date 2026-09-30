@@ -5,6 +5,7 @@ import { useMemo } from "react"
 import { ExternalLink, Play } from "lucide-react"
 import type { TourJourneyVideo, TourVideoPlatform } from "@/data/types"
 import { HorizontalSlider } from "./horizontal-slider"
+import type { Locale } from '@/lib/locale-config'
 
 type VideoSource = {
   kind: "embed" | "direct" | "external"
@@ -70,13 +71,14 @@ function getVideoSource(video: TourJourneyVideo): VideoSource | null {
   return { kind: "external", platform: "external", src: url.toString() }
 }
 
-function formattedDate(value: string, locale: "en" | "ar") {
+function formattedDate(value: string, locale: Locale) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return null
-  return new Intl.DateTimeFormat(locale === "ar" ? "ar-EG" : "en-GB", { day: "numeric", month: "short", year: "numeric" }).format(date)
+  const intlLocale = locale === 'ar' ? 'ar-EG' : locale === 'es' ? 'es-ES' : locale === 'it' ? 'it-IT' : 'en-GB'
+  return new Intl.DateTimeFormat(intlLocale, { day: "numeric", month: "short", year: "numeric" }).format(date)
 }
 
-export function TourVideoGallery({ videos, posters, locale, tourTitle }: { videos?: readonly TourJourneyVideo[]; posters?: readonly string[]; locale: "en" | "ar"; tourTitle: string }) {
+export function TourVideoGallery({ videos, posters, locale, tourTitle }: { videos?: readonly TourJourneyVideo[]; posters?: readonly string[]; locale: Locale; tourTitle: string }) {
   const items = useMemo(() => [...(videos ?? [])]
     .sort((a, b) => (Date.parse(b.publishedAt) || 0) - (Date.parse(a.publishedAt) || 0))
     .map((video) => ({ video, source: getVideoSource(video) }))

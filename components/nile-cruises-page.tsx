@@ -9,10 +9,12 @@ import { localizeTourDuration, localizeTourLocation } from '@/lib/tour-format'
 
 const iconMap: Record<string, typeof Ship> = { anchor: Anchor, star: Star, waves: Waves, ship: Ship }
 
-const copy = {
+const baseCopy = {
   en: { title: 'Nile Cruises', viewCruises: 'View cruises', tour: 'tour', tours: 'tours', eyebrow: 'Sail the Nile', intro: 'Choose a Nile journey from the cruises currently in our catalogue, with routes between Luxor and Aswan and options at different lengths.', feats: [{ Icon: Ship, text: 'Nile itineraries' }, { Icon: Users, text: 'Cruise options' }] },
   ar: { title: 'رحلات النيل', viewCruises: 'شاهد الرحلات', tour: 'رحلة', tours: 'رحلات', eyebrow: 'أبحر في النيل', intro: 'اختر رحلتك النيلية من الرحلات المتاحة في كتالوجنا، بمسارات بين الأقصر وأسوان ومدد مختلفة.', feats: [{ Icon: Ship, text: 'مسارات نيلية' }, { Icon: Users, text: 'خيارات متعددة' }] },
 } as const
+
+const copy = { ...baseCopy, es: baseCopy.en, it: baseCopy.en } as const
 
 export function NileCruisesPage() {
   return <SiteShell><NileCruisesContent/></SiteShell>

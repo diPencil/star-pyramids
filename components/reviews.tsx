@@ -169,7 +169,7 @@ export function TourReviewsSection({ tourSlug, tourTitle, detailReviews, locale,
   tourSlug: string
   tourTitle: string
   detailReviews?: readonly TourReview[]
-  locale: 'en' | 'ar'
+  locale: import('@/lib/locale-config').Locale
   copy: ReviewModalCopy & { title: string; summaryReviews: string; beFirst: string; justNow: string; more: string; less: string }
 }) {
   const [platform, setPlatform] = useState('all')

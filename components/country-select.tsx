@@ -3,6 +3,7 @@
 import { Check, ChevronDown } from 'lucide-react'
 import { Select } from '@base-ui/react/select'
 import { countries, countryFlag, type CountryOption } from '@/data/countries'
+import type { Locale } from '@/lib/locale-config'
 
 export type CountrySelectVariant = 'country' | 'phone'
 
@@ -18,7 +19,7 @@ type CountrySelectProps = {
   /** Canonical ISO country code. '' renders the placeholder. */
   value: string
   onChange: (code: string) => void
-  locale?: 'en' | 'ar'
+  locale?: Locale
   /**
    * - `country`: trigger shows flag + country name (nationality / country-only fields).
    * - `phone`: trigger shows flag + dial code only; the dropdown keeps full names.
@@ -38,7 +39,7 @@ type CountrySelectProps = {
   popupWidth?: CountryPopupWidth
 }
 
-function localizedName(country: CountryOption, locale: 'en' | 'ar'): string {
+function localizedName(country: CountryOption, locale: Locale): string {
   return locale === 'ar' ? country.nameAr : country.name
 }
 

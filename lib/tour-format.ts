@@ -20,8 +20,9 @@ export function localizeTourLocation(location: string) {
   return location.split(',').map((place) => places[place.trim()] ?? place.trim()).join('، ')
 }
 
-export function formatTourDateRange(startDate: string | undefined, endDate: string | undefined, locale: 'en' | 'ar') {
-  const format = (value: string) => new Intl.DateTimeFormat(locale === 'ar' ? 'ar-EG' : 'en-GB', {
+export function formatTourDateRange(startDate: string | undefined, endDate: string | undefined, locale: import('@/lib/locale-config').Locale) {
+  const intlLocale = locale === 'ar' ? 'ar-EG' : locale === 'es' ? 'es-ES' : locale === 'it' ? 'it-IT' : 'en-GB'
+  const format = (value: string) => new Intl.DateTimeFormat(intlLocale, {
     day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
   }).format(new Date(`${value}T00:00:00Z`))
   if (startDate && endDate) return `${format(startDate)} - ${format(endDate)}`

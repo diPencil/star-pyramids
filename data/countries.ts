@@ -250,7 +250,7 @@ export function countryCode(input: string | undefined): string {
 }
 
 /** Display name in the requested locale with safe fallback to the raw input. */
-export function countryDisplayName(input: string | undefined, locale: 'en' | 'ar' = 'en'): string {
+export function countryDisplayName(input: string | undefined, locale: import('@/lib/locale-config').Locale = 'en'): string {
   const resolved = resolveCountry(input)
   if (!resolved) return (input ?? '').trim()
   return locale === 'ar' ? resolved.nameAr : resolved.name
@@ -261,7 +261,7 @@ export function countryDisplayName(input: string | undefined, locale: 'en' | 'ar
  * localized name, never a phone dial code. Dial codes belong to phone
  * controls only. Unknown codes fall back to the raw input.
  */
-export function countrySelectLabel(input: string | undefined, locale: 'en' | 'ar' = 'en'): string {
+export function countrySelectLabel(input: string | undefined, locale: import('@/lib/locale-config').Locale = 'en'): string {
   const raw = (input ?? '').trim()
   if (!raw) return ''
   const resolved = resolveCountry(raw)

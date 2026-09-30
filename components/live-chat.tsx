@@ -24,7 +24,7 @@ const baseChipHrefs: Record<ChipId, string | undefined> = {
 const STORE_KEY = 'sp-livechat-msgs-v2'
 const OPENED_KEY = 'sp-livechat-opened'
 
-const copy = {
+const baseCopy = {
   en: {
     openLabel: 'Open live chat', closeLabel: 'Close live chat', sendLabel: 'Send message',
     name: 'STAR PYRAMIDS', online: 'Online, replies instantly', inputPh: 'Write a message...',
@@ -52,6 +52,8 @@ const copy = {
     chipLabels: { prices: 'أسعار الكروز النيلية', agent: 'التحدث إلى موظف', booking: 'كيف أحجز؟', browse: 'استعرض الكروز النيلية', trips: 'كل الرحلات', plan: 'خطط رحلتك', contact: 'صفحة اتصل بنا', wa: 'واتساب' },
   },
 } as const
+
+const copy = { ...baseCopy, es: baseCopy.en, it: baseCopy.en } as const
 
 function getBotReply(text: string, lang: 'en' | 'ar', priceStr: string): { text: string; chips: ChipId[] } {
   const t = copy[lang]
@@ -158,7 +160,7 @@ export function LiveChatWidget({ open, onOpen, onClose }: { open: boolean; onOpe
     setMessages((prev) => [...prev, userMsg])
     setDraft('')
     setTyping(true)
-    const reply = getBotReply(clean, locale, priceStr)
+    const reply = getBotReply(clean, locale === 'ar' ? 'ar' : 'en', priceStr)
     timerRef.current = window.setTimeout(() => {
       setTyping(false)
       setMessages((prev) => [...prev, { id: idRef.current++, from: 'agent', text: reply.text, time: timeNow() }])

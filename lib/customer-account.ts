@@ -6,6 +6,7 @@ import { createLocalReference, type BookingRequestDraft } from '@/lib/booking'
 import { bookings as adminBookings } from '@/components/admin/admin-data'
 import { catalogTours } from '@/data/tours'
 import { readInquiries, saveInquiry } from '@/lib/admin-store'
+import type { EnabledLocale } from '@/lib/locale-config'
 
 export type CustomerBookingStatus = 'request_received' | 'confirmed' | 'completed' | 'cancelled'
 export type CustomerPaymentStatus = 'pending' | 'pay_on_arrival' | 'paid' | 'refunded' | 'rejected'
@@ -46,7 +47,7 @@ export type CustomerProfile = {
   phone: string
   country: string
   dialCode: string
-  preferredLanguage: 'en' | 'ar'
+  preferredLanguage: EnabledLocale
   marketingEmails: boolean
   bookingUpdates: boolean
   tripReminders: boolean

@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { Check, ChevronDown } from 'lucide-react'
 import { Select } from '@base-ui/react/select'
 import type { CountryPopupWidth } from '@/components/country-select'
+import type { Locale } from '@/lib/locale-config'
 
 export type SharedSelectOption = {
   value: string
@@ -17,7 +18,7 @@ type SharedSelectProps = {
   value: string
   onChange: (value: string) => void
   options: readonly SharedSelectOption[]
-  locale?: 'en' | 'ar'
+  locale?: Locale
   id?: string
   /** Explicit accessible name. Omit to inherit a wrapping `<label>`. */
   label?: string

@@ -36,6 +36,8 @@ import { whatsappHref } from '@/data/company'
 import { CountrySelect } from '@/components/country-select'
 import { SharedSelect } from '@/components/shared-select'
 import { WhatsAppGlyph } from '@/components/whatsapp-chat'
+import { LanguageModal } from '@/components/language-selector'
+import { ENABLED_LOCALES, LOCALE_LABELS, LOCALE_SHORT_LABELS, type EnabledLocale } from '@/lib/locale-config'
 
 export type AccountSection = 'overview' | 'bookings' | 'car-requests' | 'event-requests' | 'trip-requests' | 'favorites' | 'payments' | 'messages' | 'profile' | 'settings' | 'change-password'
 
@@ -153,6 +155,7 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
   const [query, setQuery] = useState('')
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [userOpen, setUserOpen] = useState(false)
+  const [languageOpen, setLanguageOpen] = useState(false)
   const searchResults = useMemo(() => query.trim() ? liveTours.filter((tour) => `${tour.title} ${tour.location}`.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 5) : [], [liveTours, query])
 
   return <div className={`customer-dashboard section-${section} ${mobileOpen ? 'menu-open' : ''}`}>
@@ -191,7 +194,8 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
           {query && <div className="customer-search-results">{searchResults.length ? searchResults.map((tour) => <Link key={tour.slug} href={`/egypt-tours/${tour.slug}`} onClick={() => setQuery('')}><img src={tour.image} alt="" /><span><strong>{tour.title}</strong><small>{ar ? localizeTourLocation(tour.location) : tour.location}</small></span><ArrowRight size={14} /></Link>) : <span>{ar ? 'لا توجد رحلات مطابقة' : 'No matching trips'}</span>}</div>}
         </div>
         <div className="customer-dashboard-actions">
-          <button type="button" className="customer-top-language" onClick={() => { setLocale(ar ? 'en' : 'ar'); setNotificationsOpen(false); setUserOpen(false) }} aria-label={ar ? 'Switch to English' : 'التبديل إلى العربية'}><Globe2 size={18} /><span>{ar ? 'AR' : 'EN'}</span></button>
+          <button type="button" className="customer-top-language" onClick={() => { setLanguageOpen(true); setNotificationsOpen(false); setUserOpen(false) }} aria-label={ar ? 'اختيار اللغة والعملة' : 'Choose language and currency'}><Globe2 size={18} /><span>{LOCALE_SHORT_LABELS[locale]}</span></button>
+          {languageOpen && <LanguageModal locale={locale} currency={currency} onClose={() => setLanguageOpen(false)} onSelect={setLocale} onCurrency={setCurrency} />}
           <SharedSelect value={currency} onChange={(next) => setCurrency(next as 'USD' | 'EUR' | 'EGP')} locale={locale} label={ar ? 'العملة' : 'Currency'} options={[{ value: 'USD', label: 'USD' }, { value: 'EUR', label: 'EUR' }, { value: 'EGP', label: 'EGP' }]} />
           <Link href="/" className="customer-top-icon" aria-label={ar ? 'العودة للموقع' : 'Back to website'} title={ar ? 'العودة للموقع' : 'Back to website'}><ExternalLink size={18} /></Link>
           <Link href="/cart" className="customer-top-icon customer-cart-icon" aria-label={ar ? 'سلة الرحلات' : 'Trip cart'}><ShoppingCart size={18} />{cart.lines > 0 && <b>{cart.lines}</b>}</Link>
@@ -1077,7 +1081,7 @@ function SettingsSection() {
       <section className="customer-account-block">
         <header><div><span>{ar ? 'التفضيلات' : 'Preferences'}</span><h2>{ar ? 'اللغة والعملة' : 'Language & currency'}</h2></div><Globe2 size={19} /></header>
         <div className="customer-settings-selects">
-          <label>{ar ? 'اللغة المفضلة' : 'Preferred language'}<SharedSelect value={form.preferredLanguage} onChange={(next) => update('preferredLanguage', next as 'en' | 'ar')} locale={locale} options={[{ value: 'en', label: 'English' }, { value: 'ar', label: ar ? 'العربية' : 'Arabic' }]} /></label>
+          <label>{ar ? 'اللغة المفضلة' : 'Preferred language'}<SharedSelect value={form.preferredLanguage} onChange={(next) => update('preferredLanguage', next as EnabledLocale)} locale={locale} options={ENABLED_LOCALES.map((value) => ({ value, label: LOCALE_LABELS[value] }))} /></label>
           <label>{ar ? 'عملة العرض' : 'Display currency'}<SharedSelect value={selectedCurrency} onChange={(next) => { setSelectedCurrency(next as typeof currency); setSaved(false) }} locale={locale} options={[{ value: 'USD', label: 'USD' }, { value: 'EUR', label: 'EUR' }, { value: 'EGP', label: 'EGP' }]} /></label>
         </div>
       </section>

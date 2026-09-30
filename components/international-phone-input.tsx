@@ -4,11 +4,12 @@ import { useEffect, useState } from 'react'
 import { countryByCode, countryFromPhone, internationalPhone, nationalPhone } from '@/data/countries'
 import { stripTrunkZero } from '@/lib/phone'
 import { CountrySelect } from '@/components/country-select'
+import type { Locale } from '@/lib/locale-config'
 
 type InternationalPhoneInputProps = {
   value: string
   onChange: (value: string) => void
-  locale?: 'en' | 'ar'
+  locale?: Locale
   id?: string
   required?: boolean
   disabled?: boolean
