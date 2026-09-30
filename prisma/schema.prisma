@@ -152,3 +152,15 @@ model StaffActionAudit {
   @@index([createdAt])
   @@map("staff_action_audit")
 }
+
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  email     String   @db.VarChar(190)
+  ipAddress String   @db.VarChar(64)
+  success   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([email, createdAt])
+  @@index([ipAddress, createdAt])
+  @@map("login_attempts")
+}

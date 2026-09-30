@@ -11,7 +11,6 @@ import {
   ClipboardList,
   Compass,
   ExternalLink,
-  FlaskConical,
   Globe2,
   LayoutDashboard,
   LogOut,
@@ -33,19 +32,15 @@ import {
   X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { readAdminProfile, type AdminProfile } from '@/lib/admin-store'
-import { bookings, conversations, currentUser } from './admin-data'
+import { useCurrentUser } from '@/lib/use-current-user'
 import { Avatar } from './admin-ui'
-
-const demoBookingCount = String(bookings.length)
-const demoUnreadCount = String(conversations.reduce((sum, thread) => sum + thread.unread, 0))
 
 const groups = [
   {
     label: 'القائمة',
     items: [
       { href: '/admin/dashboard', icon: LayoutDashboard, en: 'Dashboard', ar: 'لوحة المؤشرات' },
-      { href: '/admin/bookings', icon: ShoppingCart, en: 'Bookings', ar: 'الحجوزات', badge: demoBookingCount },
+      { href: '/admin/bookings', icon: ShoppingCart, en: 'Bookings', ar: 'الحجوزات' },
       { href: '/admin/trips', icon: Map, en: 'Trips', ar: 'الرحلات' },
       { href: '/admin/destinations', icon: MapPinned, en: 'Destinations', ar: 'الوجهات' },
       { href: '/admin/multi-day-categories', icon: Tags, en: 'Multi Day Categories', ar: 'فئات الرحلات' },
@@ -62,7 +57,7 @@ const groups = [
   {
     label: 'التواصل',
     items: [
-      { href: '/admin/inbox', icon: MessageCircle, en: 'Inbox', ar: 'صندوق المراسلة', badge: demoUnreadCount },
+      { href: '/admin/inbox', icon: MessageCircle, en: 'Inbox', ar: 'صندوق المراسلة' },
       { href: '/admin/emails', icon: Mail, en: 'Emails', ar: 'البريد' },
     ],
   },
@@ -86,7 +81,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const [query, setQuery] = useState('')
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [userMenu, setUserMenu] = useState(false)
-  const [profile, setProfile] = useState<AdminProfile>(() => readAdminProfile())
+  const { user } = useCurrentUser()
   useEffect(() => {
     document.documentElement.classList.add('sp-admin-root')
     const c = window.localStorage.getItem('sp-admin-collapsed')
@@ -121,20 +116,21 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   }, [collapsed])
 
   useEffect(() => {
-    const sync = () => setProfile(readAdminProfile())
-    sync()
-    window.addEventListener('sp-profile', sync)
-    return () => window.removeEventListener('sp-profile', sync)
-  }, [])
-
-  useEffect(() => {
     setNotificationsOpen(false)
     setUserMenu(false)
     setMobileOpen(false)
   }, [pathname])
 
-  const logout = () => {
+  const logout = async () => {
     setUserMenu(false)
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'same-origin',
+      })
+    } catch {
+      // Logout request failed; still redirect to login
+    }
     router.push('/login')
   }
 
@@ -178,7 +174,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                   >
                     <item.icon size={18} />
                     {!collapsed && <span>{ar ? item.ar : item.en}</span>}
-                    {!collapsed && item.badge && <em>{item.badge}</em>}
                   </Link>
                 )
               })}
@@ -187,11 +182,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="sp-side-user">
-          <Avatar name={profile.name} src={profile.avatar} size={38} online />
-          {!collapsed && (
+          <Avatar name={user?.email?.split('@')[0] ?? 'Admin'} size={38} online />
+          {!collapsed && user && (
             <div>
-              <strong>{profile.name}</strong>
-              <small>{profile.email}</small>
+              <strong>{user.email.split('@')[0]}</strong>
+              <small>{user.email}</small>
             </div>
           )}
         </div>
@@ -268,22 +263,21 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 aria-label={ar ? 'قائمة الحساب' : 'Account menu'}
                 onClick={() => { setUserMenu((open) => !open); setNotificationsOpen(false) }}
               >
-                <Avatar name={profile.name} src={profile.avatar} size={34} />
+                <Avatar name={user?.email?.split('@')[0] ?? 'Admin'} size={34} />
                 <span>
-                  <strong>{profile.name}</strong>
-                  <small>{currentUser.roleLabel}</small>
+                  <strong>{user?.email?.split('@')[0] ?? 'Admin'}</strong>
+                  <small>{user?.roles?.join(', ') ?? ''}</small>
                 </span>
                 <ChevronDown size={15} />
               </button>
               {userMenu && <div className="sp-user-menu" role="menu">
-                <Link href="/admin/profile" role="menuitem" onClick={() => setUserMenu(false)}><User size={16} /><span><b>{ar ? 'البروفايل' : 'Profile'}</b><small>{profile.email}</small></span></Link>
+                <Link href="/admin/profile" role="menuitem" onClick={() => setUserMenu(false)}><User size={16} /><span><b>{ar ? 'البروفايل' : 'Profile'}</b><small>{user?.email}</small></span></Link>
                 <button type="button" role="menuitem" onClick={logout}><LogOut size={16} /><span><b>{ar ? 'تسجيل الخروج' : 'Logout'}</b></span></button>
               </div>}
             </div>
           </div>
         </header>
         <main className="sp-content">
-          <p className="sp-prototype-note" role="note"><FlaskConical size={16} /><span><strong>{ar ? 'لوحة تجريبية' : 'Prototype admin'}</strong>{ar ? 'تعمل هذه اللوحة ببيانات توضيحية محلية. تبقى معظم التغييرات في هذا المتصفح فقط، وبعض تجاوزات المحتوى تظهر أيضًا على صفحات الموقع العامة في هذا الجهاز فقط.' : 'This dashboard runs on local demonstration data. Most changes stay in this browser only; content overrides also preview on the public pages on this device only.'}</span></p>
           {children}
         </main>
       </div>

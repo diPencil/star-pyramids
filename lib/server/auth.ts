@@ -6,6 +6,8 @@ import 'server-only';
 import { db } from './db';
 import { getSession, touchSession } from './session';
 import { toPublicUser, type PublicUser } from './users';
+
+export type { PublicUser };
 import { verifyPassword } from '../core/password';
 import { markLoggedIn } from './users';
 import { isValidEmail, normalizeEmail } from '../core/validation';
