@@ -47,6 +47,11 @@ model User {
   publicId        String     @unique @default(uuid()) @db.VarChar(64)
   email           String     @unique @db.VarChar(190)
   emailNormalized String     @unique @db.VarChar(190)
+  firstName       String?    @db.VarChar(80)
+  lastName        String?    @db.VarChar(80)
+  username        String?    @unique @db.VarChar(64)
+  countryCode     String?    @db.Char(2)
+  phone           String?    @db.VarChar(32)
   passwordHash    String?    @db.VarChar(255)
   status          UserStatus @default(PENDING)
   emailVerifiedAt DateTime?
@@ -163,4 +168,15 @@ model LoginAttempt {
   @@index([email, createdAt])
   @@index([ipAddress, createdAt])
   @@map("login_attempts")
+}
+
+model RegistrationAttempt {
+  id        String   @id @default(cuid())
+  email     String   @db.VarChar(190)
+  ipAddress String   @db.VarChar(64)
+  createdAt DateTime @default(now())
+
+  @@index([email, createdAt])
+  @@index([ipAddress, createdAt])
+  @@map("registration_attempts")
 }

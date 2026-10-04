@@ -10,7 +10,12 @@ import { toPublicUser, type PublicUser } from './users';
 export type { PublicUser };
 import { verifyPassword } from '../core/password';
 import { markLoggedIn } from './users';
-import { isValidEmail, normalizeEmail } from '../core/validation';
+import {
+  isValidEmail,
+  isValidUsername,
+  normalizeEmail,
+  normalizeUsername,
+} from '../core/validation';
 
 export type LoginFailureReason =
   | 'invalid-credentials'
@@ -18,18 +23,35 @@ export type LoginFailureReason =
   | 'pending';
 
 export async function validateCredentials(
-  email: string,
+  identifier: string,
   password: string,
 ): Promise<{ user: PublicUser } | { failure: LoginFailureReason }> {
-  if (!isValidEmail(email) || !password) {
+  const trimmed = identifier.trim();
+  if (!trimmed || !password) {
+    return { failure: 'invalid-credentials' };
+  }
+  // One shared flow: email uses existing email normalization, username uses
+  // the exact registration normalization (trim + lowercase). Anything else
+  // yields the same generic failure without revealing account existence.
+  const where = isValidEmail(trimmed)
+    ? { emailNormalized: normalizeEmail(trimmed) }
+    : isValidUsername(trimmed)
+      ? { username: normalizeUsername(trimmed) }
+      : null;
+  if (!where) {
     return { failure: 'invalid-credentials' };
   }
   const row = await db.user.findUnique({
-    where: { emailNormalized: normalizeEmail(email) },
+    where,
     select: {
       id: true,
       publicId: true,
       email: true,
+      firstName: true,
+      lastName: true,
+      username: true,
+      countryCode: true,
+      phone: true,
       status: true,
       emailVerifiedAt: true,
       lastLoginAt: true,
@@ -58,6 +80,11 @@ export async function getCurrentUser(): Promise<PublicUser | null> {
       id: true,
       publicId: true,
       email: true,
+      firstName: true,
+      lastName: true,
+      username: true,
+      countryCode: true,
+      phone: true,
       status: true,
       emailVerifiedAt: true,
       lastLoginAt: true,

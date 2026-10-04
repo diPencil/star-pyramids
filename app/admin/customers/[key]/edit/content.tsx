@@ -8,7 +8,8 @@ import { AdminEmpty, AdminText, Avatar, Card } from '@/components/admin/admin-ui
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { ImageField } from '@/components/admin/image-field'
 import { CountrySelect } from '@/components/country-select'
-import { countries, countryFlag, defaultCountry } from '@/data/countries'
+import { CountryFlag } from '@/components/country-flag'
+import { countries, defaultCountry } from '@/data/countries'
 import { bookings } from '@/components/admin/admin-data'
 import { saveCustomItem, saveCustomerProfile, useCustomerProfile, useLiveCollection, type AdminCustomer } from '@/lib/admin-store'
 
@@ -101,7 +102,7 @@ export function EditCustomerContent({ customerKey }: { customerKey: string }) {
         <label><AdminText en="Email address" ar="البريد الإلكتروني" /><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} dir="ltr" /></label>
         <div className="sp-form-2">
           <label><AdminText en="Country" ar="الدولة" /><CountrySelect value={countryCode} onChange={setCountryCode} locale={ar ? 'ar' : 'en'} /></label>
-          <label><AdminText en="Mobile number" ar="رقم الموبايل" /><span className="sp-phone-field"><span>{countryFlag(country.code)} {country.dialCode}</span><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} dir="ltr" /></span></label>
+          <label><AdminText en="Mobile number" ar="رقم الموبايل" /><span className="sp-phone-field"><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><CountryFlag code={country.code} size={18} /> {country.dialCode}</span><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} dir="ltr" /></span></label>
         </div>
         <ImageField value={avatar} onChange={setAvatar} />
         {!original && <label><AdminText en="Staff notes" ar="ملاحظات الموظفين" /><textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={ar ? 'ملاحظات داخلية لا تظهر للعميل' : 'Internal notes, hidden from the customer'} /></label>}

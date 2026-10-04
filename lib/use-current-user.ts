@@ -1,17 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-
-export interface SafeUser {
-  id: string;
-  publicId: string;
-  email: string;
-  status: string;
-  roles: string[];
-}
+import type { AuthenticatedUser } from '@/lib/auth-types';
 
 export function useCurrentUser() {
-  const [user, setUser] = useState<SafeUser | null>(null);
+  const [user, setUser] = useState<AuthenticatedUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {

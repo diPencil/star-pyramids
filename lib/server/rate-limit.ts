@@ -5,6 +5,8 @@ import { normalizeEmail } from '../core/validation';
 
 const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 15 * 60 * 1000;
+const MAX_REGISTRATION_ATTEMPTS = 3;
+const REGISTRATION_WINDOW_MS = 60 * 60 * 1000;
 
 export async function checkLoginRateLimit(
   email: string,
@@ -72,4 +74,46 @@ export async function clearLoginAttempts(
       success: false,
     },
   });
+}
+
+export async function checkRegistrationRateLimit(
+  email: string,
+  ipAddress: string,
+): Promise<{ allowed: boolean; retryAfterSeconds: number }> {
+  const normalizedEmail = normalizeEmail(email).slice(0, 190);
+  const windowStart = new Date(Date.now() - REGISTRATION_WINDOW_MS);
+  const selector = {
+    createdAt: { gte: windowStart },
+    OR: [{ email: normalizedEmail }, { ipAddress }],
+  };
+  const recentAttempts = await db.registrationAttempt.count({ where: selector });
+  if (recentAttempts < MAX_REGISTRATION_ATTEMPTS) {
+    return { allowed: true, retryAfterSeconds: 0 };
+  }
+  const oldest = await db.registrationAttempt.findFirst({
+    where: selector,
+    orderBy: { createdAt: 'asc' },
+    select: { createdAt: true },
+  });
+  return {
+    allowed: false,
+    retryAfterSeconds: oldest
+      ? Math.max(1, Math.ceil((oldest.createdAt.getTime() + REGISTRATION_WINDOW_MS - Date.now()) / 1000))
+      : Math.floor(REGISTRATION_WINDOW_MS / 1000),
+  };
+}
+
+export async function recordRegistrationAttempt(
+  email: string,
+  ipAddress: string,
+): Promise<void> {
+  await db.registrationAttempt.create({
+    data: {
+      email: normalizeEmail(email).slice(0, 190),
+      ipAddress: ipAddress.slice(0, 64),
+    },
+  });
+  void db.registrationAttempt.deleteMany({
+    where: { createdAt: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+  }).catch(() => undefined);
 }

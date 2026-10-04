@@ -6,8 +6,9 @@ import { ArrowRight, Check, Minus, Plus, ShieldCheck } from 'lucide-react'
 import type { Event } from '@/data/types'
 import { getEventStatus } from '@/lib/events'
 import { createEventRequest, hasEventRequestErrors, validateEventRequestDraft } from '@/lib/event-request'
-import { countries, countryFlag, defaultCountry } from '@/data/countries'
+import { countries, defaultCountry } from '@/data/countries'
 import { CountrySelect } from '@/components/country-select'
+import { InternationalPhoneInput } from '@/components/international-phone-input'
 import { useLocale } from './locale'
 
 /**
@@ -20,6 +21,7 @@ export function EventRequestForm({ event }: { event: Event }) {
   const ar = locale === 'ar'
   const [name, setName] = useState('')
   const [countryCode, setCountryCode] = useState(defaultCountry.code)
+  const [phoneCountry, setPhoneCountry] = useState(defaultCountry.code)
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [attendees, setAttendees] = useState(2)
@@ -27,7 +29,6 @@ export function EventRequestForm({ event }: { event: Event }) {
   const [errors, setErrors] = useState<string | null>(null)
   const [ref, setRef] = useState<string | null>(null)
 
-  const selectedCountry = countries.find((c) => c.code === countryCode) ?? defaultCountry
   const status = getEventStatus(event)
   const requestable = status === 'upcoming' || status === 'ongoing'
 
@@ -74,7 +75,7 @@ export function EventRequestForm({ event }: { event: Event }) {
       eventLocation: event.location,
       name: name.trim(),
       nationality: countryCode,
-      dialCode: selectedCountry.dialCode,
+      dialCode: (countries.find((c) => c.code === phoneCountry) ?? defaultCountry).dialCode,
       phone: phone.trim(),
       email: email.trim(),
       attendees,
@@ -104,7 +105,7 @@ export function EventRequestForm({ event }: { event: Event }) {
         <div className="form-grid">
           <label className="full">{ar ? 'الاسم الكامل *' : 'Full name *'}<input required value={name} onChange={(e) => setName(e.target.value)} placeholder={ar ? 'اكتب اسمك الكامل' : 'Your full name'} maxLength={80} autoComplete="name" /></label>
           <label className="full">{ar ? 'الجنسية *' : 'Nationality *'}<CountrySelect value={countryCode} onChange={setCountryCode} locale={locale} /></label>
-          <label className="full">{ar ? 'رقم الموبايل *' : 'Mobile number *'}<span className="req-phone"><span className="req-dial" aria-hidden="true">{countryFlag(selectedCountry.code)} {selectedCountry.dialCode}</span><input required type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={ar ? 'رقم الموبايل' : 'Mobile number'} maxLength={24} autoComplete="tel-national" /></span></label>
+          <label className="full">{ar ? 'رقم الموبايل *' : 'Mobile number *'}<InternationalPhoneInput required value={phone} onChange={setPhone} locale={locale} countryCode={phoneCountry} onCountryChange={setPhoneCountry} placeholder={ar ? 'رقم الموبايل' : 'Mobile number'} /></label>
           <label className="full">{ar ? 'البريد الإلكتروني *' : 'Email *'}<input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" maxLength={120} autoComplete="email" /></label>
           <label className="full">{ar ? 'ملاحظات (اختياري)' : 'Notes (optional)'}<textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} placeholder={ar ? 'أي تفاصيل إضافية...' : 'Anything we should know...'} /></label>
         </div>

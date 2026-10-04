@@ -553,13 +553,13 @@ html[dir='rtl'] .auth-v2-divider{letter-spacing:0}
 .auth-v2-form{display:grid;gap:17px}
 .auth-v2-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .auth-v2-field{display:grid;gap:8px;min-width:0;color:var(--text);font-size:13px;font-weight:800}
-.auth-v2-field>div{display:flex;align-items:center;min-width:0;min-height:56px;padding:0 14px;border:1px solid #dce1e8;border-radius:9px;background:#fff;color:#8992a3;transition:border-color .2s ease,box-shadow .2s ease}
+.auth-v2-field>div{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;min-width:0;min-height:56px;padding:0 14px;border:1px solid #dce1e8;border-radius:9px;background:#fff;color:#8992a3;transition:border-color .2s ease,box-shadow .2s ease}
 .auth-v2-field>div:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px rgba(247,149,29,.13)}
-.auth-v2-field>div>svg{flex:none;margin-inline-end:10px;color:#7b8799}
+.auth-v2-field>div>svg{flex:none;align-self:center;margin-inline-end:10px;color:#7b8799}
 .auth-v2-field input,.auth-v2-field select{width:100%;min-width:0;min-height:52px;border:0;outline:0;background:transparent;color:var(--text);font:inherit;font-weight:500}
 .auth-v2-field select{cursor:pointer}
 .auth-v2-field input::placeholder{color:#a5acb7}
-.auth-v2-field button{display:grid;place-items:center;width:34px;height:34px;min-height:0;flex:none;padding:0;border:0;background:transparent;color:#6d788a;cursor:pointer}
+.auth-v2-field button:not(.cselect-trigger){display:grid;place-items:center;width:34px;height:34px;min-height:0;flex:none;padding:0;border:0;background:transparent;color:#6d788a;cursor:pointer}
 .auth-v2-field input[type="password"]::-ms-reveal,.auth-v2-field input[type="password"]::-ms-clear{display:none}
 .auth-v2-phone-field>div{padding-inline-end:0}
 .auth-v2-dial{display:flex;align-items:center;align-self:stretch;gap:5px;flex:none;padding-inline-end:12px;margin-inline-end:12px;border-inline-end:1px solid var(--border);color:var(--blue);font-size:12px;white-space:nowrap}
@@ -996,29 +996,53 @@ html[dir='rtl'] .events-page-hero-shade{background:linear-gradient(270deg,rgba(7
 .sp-repeat-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
 .sp-check{display:flex!important;align-items:center;gap:10px;flex-direction:row!important}
 .sp-check input{width:20px;height:20px;accent-color:var(--primary,#f7951d)}
-.international-phone-field{display:grid;grid-template-columns:auto minmax(0,1fr);width:100%;min-width:0;border:1px solid #d8deea;border-radius:8px;background:#fff;overflow:hidden}
+.international-phone-field{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;width:100%;min-width:0;min-height:44px;border:1px solid #d8deea;border-radius:8px;background:#fff;overflow:hidden}
 .international-phone-field:focus-within{border-color:var(--blue,#1748d4);box-shadow:0 0 0 3px rgba(23,72,212,.1)}
-.international-phone-field .cselect-trigger,.international-phone-field input{width:100%!important;min-width:0!important;border:0!important;border-radius:0!important;box-shadow:none!important;background:transparent!important}
-.international-phone-field .cselect{min-width:0;max-width:100%}
-.international-phone-field .cselect-trigger{height:100%;min-height:44px;padding:0 8px 0 10px;border-inline-end:1px solid #d8deea!important;font-size:13px}
+.ipf-icon{display:flex;align-items:center;justify-content:center;flex:none;align-self:center;width:auto;padding:0 2px 0 10px;color:#7b8799}
+.ipf-icon svg{width:18px;height:18px}
+.international-phone-field .cselect{flex:none;align-self:center;min-width:0;max-width:100%}
+.international-phone-field .cselect-trigger{width:auto;min-width:0;max-width:100%;height:100%;min-height:40px;padding:0 2px 0 0;border:0;border-radius:0;box-shadow:none;background:transparent;font-size:13px}
 .international-phone-field .cselect-trigger:focus-visible{outline:none}
-.international-phone-field input{direction:ltr;text-align:left}
+.international-phone-field .cselect-compact{flex:none;gap:4px}
+.international-phone-field .cselect-chevron{margin-inline-start:0}
+.ipf-divider{flex:none;align-self:stretch;width:1px;margin:8px 8px 8px 4px;background:#e2e8f2}
+.international-phone-field input{flex:1;min-width:0;height:100%;min-height:40px;padding:0 10px 0 0;border:0;outline:0;background:transparent;color:#101828;font:inherit;font-size:13px;direction:ltr;text-align:left}
+.international-phone-field input::placeholder{color:#a5acb7}
+/* Phone unified control nested inside an auth field box: the outer box is the
+   single border, so the inner control sheds its own border and the outer
+   leading icon serves as the phone icon (inner icon hidden, no duplication). */
+.auth-v2-field .international-phone-field{flex:1;border:0;border-radius:0;background:transparent;box-shadow:none;min-height:0;height:52px}
+.auth-v2-field .international-phone-field:focus-within{border-color:transparent;box-shadow:none}
+.auth-v2-field .international-phone-field .ipf-icon{display:none}
+.auth-v2-field .international-phone-field .cselect{flex:none;max-width:100%}
+.auth-v2-field .international-phone-field .cselect-trigger{min-height:52px;height:52px;font-size:inherit}
+.auth-v2-field .international-phone-field .ipf-divider{margin:12px 8px 12px 2px}
+.auth-v2-field .international-phone-field input{min-height:52px;height:52px;padding:0;font-size:inherit;color:var(--text)}
+/* Standalone phone control inside Make Your Trip fields: match the 58px inputs. */
+.myt-field .international-phone-field{min-height:58px;border:1.5px solid #e6e6e6;border-radius:14px;font-size:15px;color:#1d1f1f}
+.myt-field .international-phone-field:focus-within{border-color:var(--primary);box-shadow:0 0 0 4px rgba(247,149,29,.13)}
+.myt-field .international-phone-field .cselect-trigger{min-height:54px;font-size:15px;color:#1d1f1f}
+.myt-field .international-phone-field input{min-height:54px;font-size:15px;color:#1d1f1f}
 @media(max-width:1024px){.events-discovery-filters{grid-template-columns:1fr 1fr}.sp-detail-grid{grid-template-columns:1fr}.event-gallery{grid-template-columns:1fr 1fr}}
-@media(max-width:760px){.events-discovery{padding:14px}.events-discovery-filters{grid-template-columns:1fr}.customer-detail-grid{grid-template-columns:1fr}.event-gallery{grid-template-columns:1fr}.event-gallery img{height:200px}.international-phone-field{grid-template-columns:auto minmax(0,1fr)}}
+@media(max-width:760px){.events-discovery{padding:14px}.events-discovery-filters{grid-template-columns:1fr}.customer-detail-grid{grid-template-columns:1fr}.event-gallery{grid-template-columns:1fr}.event-gallery img{height:200px}.international-phone-field{flex-wrap:nowrap}}
 /* Shared country picker (Base UI Select): country + compact phone variants. Anchored popup, max-height scroll, typeahead, full keyboard support. */
 .cselect{display:inline-flex;min-width:0;max-width:100%}
-.cselect-trigger{display:inline-flex;align-items:center;gap:8px;width:100%;min-width:0;min-height:44px;padding:0 10px 0 12px;border:1px solid #d5dce8;border-radius:8px;background:#fff;color:#101828;font:inherit;font-size:13px;cursor:pointer;text-align:start}
+.cselect-trigger{display:inline-flex;flex-direction:row;align-items:center;flex-wrap:nowrap;gap:8px;width:100%;min-width:0;min-height:44px;padding:0 10px 0 12px;border:1px solid #d5dce8;border-radius:8px;background:#fff;color:#101828;font:inherit;font-size:13px;cursor:pointer;text-align:start}
 [dir='rtl'] .cselect-trigger{padding:0 12px 0 10px}
 .cselect-trigger:hover{border-color:#9aa7c2}
 .cselect-trigger:focus-visible{outline:2px solid var(--blue,#1d4ed8);outline-offset:2px;border-color:var(--blue,#1d4ed8)}
 .cselect-trigger.is-invalid{border-color:#b42318}
 .cselect-trigger[data-disabled]{opacity:.6;cursor:not-allowed}
-.cselect-trigger .cselect-chevron{display:inline-flex;margin-inline-start:auto;color:#667085;transition:transform .15s ease;flex:none}
+.cselect-trigger .cselect-chevron{display:inline-flex;margin-inline-start:auto;color:#667085;transition:transform .15s ease;flex:none;align-self:center}
 .cselect-trigger[data-popup-open] .cselect-chevron{transform:rotate(180deg)}
 .cselect-trigger[data-placeholder]{color:#8a94a6}
-.cselect-current{display:inline-flex;align-items:center;gap:8px;min-width:0;flex:1}
+.cselect-current{display:inline-flex;align-items:center;flex-wrap:nowrap;gap:8px;min-width:0;flex:1;overflow:hidden}
+.cselect-value{display:inline-flex;align-items:center;flex-wrap:nowrap;min-width:0;flex:1;align-self:center}
 .cselect-current-name,.cselect-item-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cselect-compact{display:inline-flex;align-items:center;gap:6px;font-weight:800;white-space:nowrap}
+.cselect-compact{display:inline-flex;align-items:center;flex-wrap:nowrap;gap:6px;font-weight:800;white-space:nowrap}
+.country-flag{display:inline-flex;flex:none;align-self:center;border-radius:50%;overflow:hidden;box-shadow:0 0 0 1px rgba(0,0,0,0.08);background:#eef1f6}
+.country-flag img{width:100%;height:100%;object-fit:cover;display:block}
+.country-flag-unknown{display:inline-flex;flex:none;align-self:center;border-radius:50%;align-items:center;justify-content:center;font-weight:600;background-color:#eef1f6;color:#8a94a6}
 .cselect-positioner{z-index:80;height:auto!important;max-height:min(322px,var(--available-height,calc(100dvh - 16px)))!important}
 /* Popup sizing system. Default `content`: compact floating menu sized to its
 content — never a giant full-field panel. `trigger` matches the field width
@@ -1030,13 +1054,13 @@ limited. These selectors are intentionally scoped to Select, not DateInput. */
 .cselect.is-phone .cselect-popup{max-width:min(300px,calc(100vw - 32px))}
 .cselect-popup[data-popup-width='trigger']{width:var(--anchor-width);min-width:0;max-width:calc(100vw - 32px)}
 .cselect-list{height:auto!important;max-height:min(320px,var(--available-height,calc(100dvh - 96px)))!important;overflow-y:auto!important;overscroll-behavior:contain;padding:6px;outline:none}
-.cselect-item{display:flex;align-items:center;gap:8px;min-height:40px;padding:0 10px;border-radius:8px;cursor:pointer;font-size:13px;color:#101828}
+.cselect-item{display:flex;align-items:center;flex-wrap:nowrap;gap:8px;min-height:40px;padding:0 10px;border-radius:8px;cursor:pointer;font-size:13px;color:#101828}
 .cselect-item[data-highlighted]{background:#eef3ff}
 .cselect-item[data-selected]{font-weight:800}
-.cselect-item-text{display:inline-flex;align-items:center;gap:8px;min-width:0;flex:1}
-.cselect-item-name{flex:1}
+.cselect-item-text{display:inline-flex;align-items:center;flex-wrap:nowrap;gap:8px;min-width:0;flex:1;overflow:hidden}
+.cselect-item-name{flex:1;min-width:0}
 .cselect-item-dial{color:#667085;font-size:12px;flex:none}
-.cselect-check{display:inline-flex;color:#153d99;opacity:0;flex:none}
+.cselect-check{display:inline-flex;color:#153d99;opacity:0;flex:none;align-self:center}
 .cselect-item[data-selected] .cselect-check{opacity:1}
 /* Country picker inside account grid forms: match the 43px sibling inputs. */
 .customer-form-grid .cselect-trigger,.customer-settings-selects .cselect-trigger{min-height:43px;border-radius:6px;font-size:12px}
@@ -1057,8 +1081,8 @@ limited. These selectors are intentionally scoped to Select, not DateInput. */
 .hero-field-control .cselect-trigger{border:0;min-height:28px;background:transparent;padding:0;font-size:15px;color:#1d1f1f}
 .filter-field .cselect{flex:1;min-width:0}
 .filter-field .cselect-trigger{border:0;min-height:0;background:transparent;padding:0;font:inherit;color:inherit}
-.auth-v2-field .cselect{flex:1;min-width:0}
-.auth-v2-field .cselect-trigger{border:0;min-height:52px;background:transparent;padding:0;font-size:inherit}
+.auth-v2-field .cselect{flex:1;min-width:0;display:inline-flex;flex-direction:row;flex-wrap:nowrap;align-items:center;align-self:center}
+.auth-v2-field .cselect-trigger{border:0;height:52px;min-height:52px;background:transparent;padding:0;font-size:inherit}
 .sp-form .cselect-trigger{min-height:46px;border-radius:12px}
 /* Country picker inside Make Your Trip fields: match the 58px myt inputs. */
 .myt-field .cselect-trigger{min-height:58px;border:1.5px solid #e6e6e6;border-radius:14px;padding:0 18px;font-size:15px;color:#1d1f1f}

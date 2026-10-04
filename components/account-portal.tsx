@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import {
   ArrowRight, ArrowLeft, Ban, Bell, CalendarDays, CarFront, Check, CheckCircle2, ChevronDown, ChevronRight, Compass,
@@ -12,7 +13,7 @@ import {
 } from 'lucide-react'
 import { formatPrice, LocaleProvider, useLocale } from '@/components/locale'
 import { catalogTours, findTour } from '@/data/tours'
-import { countries, countryFlag, countrySelectLabel, defaultCountry } from '@/data/countries'
+import { countries, defaultCountry } from '@/data/countries'
 import { localizeTourDuration, localizeTourLocation } from '@/lib/tour-format'
 import { estimateCart, isValidPreferredDate } from '@/lib/booking'
 import { useCart } from '@/lib/cart'
@@ -24,7 +25,7 @@ import { RequestAmendmentBadge, RequestAmendmentsSection } from './account-car-c
 import { usePagination } from '@/components/admin/admin-pagination'
 import { bookings as adminBookings, type BookingRow } from '@/components/admin/admin-data'
 import {
-  readCustomerProfile, saveCustomerProfile, updateCustomerBooking, useCustomerBookings, useCustomerFavorites,
+  saveCustomerProfile, updateCustomerBooking, useCustomerBookings, useCustomerFavorites,
   useCustomerProfile, type CustomerBooking, type CustomerBookingOrigin, type CustomerBookingStatus, type CustomerProfile,
 } from '@/lib/customer-account'
 import { clearMessageDraft, readMessageDraft, saveMessageDraft } from '@/lib/customer-account'
@@ -34,10 +35,12 @@ import {
 } from '@/lib/customer-chat'
 import { whatsappHref } from '@/data/company'
 import { CountrySelect } from '@/components/country-select'
+import { InternationalPhoneInput } from '@/components/international-phone-input'
 import { SharedSelect } from '@/components/shared-select'
 import { WhatsAppGlyph } from '@/components/whatsapp-chat'
 import { LanguageModal } from '@/components/language-selector'
 import { ENABLED_LOCALES, LOCALE_LABELS, LOCALE_SHORT_LABELS, type EnabledLocale } from '@/lib/locale-config'
+import { useAuthenticatedUser } from '@/components/authenticated-user'
 
 export type AccountSection = 'overview' | 'bookings' | 'car-requests' | 'event-requests' | 'trip-requests' | 'favorites' | 'payments' | 'messages' | 'profile' | 'settings' | 'change-password'
 
@@ -133,11 +136,34 @@ function CustomerAvatar({ avatar, initials, className, name }: { avatar: string;
   return <span className={className}>{initials}{avatar && <img src={avatar} alt={name} onError={(event) => { if (!event.currentTarget.src.endsWith('/placeholder-user.jpg')) event.currentTarget.src = '/placeholder-user.jpg'; else event.currentTarget.remove() }} />}</span>
 }
 
+function useAccountProfile(): CustomerProfile {
+  const user = useAuthenticatedUser()
+  const stored = useCustomerProfile()
+  const emailMatches = stored.email.trim().toLowerCase() === user.email.trim().toLowerCase()
+  const selectedCountry = countries.find((country) => country.code === user.countryCode) ?? defaultCountry
+  const emailName = user.email.split('@')[0] || 'traveler'
+  const firstName = user.firstName || emailName
+  const lastName = user.lastName || ''
+  return {
+    ...stored,
+    firstName,
+    lastName,
+    fullName: `${firstName} ${lastName}`.trim(),
+    username: user.username || emailName.replace(/[^A-Za-z0-9_]/g, '_'),
+    email: user.email,
+    country: selectedCountry.code,
+    dialCode: selectedCountry.dialCode,
+    phone: user.phone || '',
+    avatar: emailMatches ? stored.avatar : '',
+  }
+}
+
 export function AccountShell({ section, children, headLeading }: { section: AccountSection; children: ReactNode; headLeading?: ReactNode }) {
+  const router = useRouter()
   const { locale, setLocale, currency, setCurrency } = useLocale()
   const ar = locale === 'ar'
   const impersonated = useImpersonated()
-  const storedProfile = useCustomerProfile()
+  const storedProfile = useAccountProfile()
   const profile = impersonated
     ? { ...storedProfile, fullName: impersonated.name, email: impersonated.email || storedProfile.email, avatar: impersonated.avatar || storedProfile.avatar }
     : storedProfile
@@ -156,7 +182,18 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [userOpen, setUserOpen] = useState(false)
   const [languageOpen, setLanguageOpen] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
   const searchResults = useMemo(() => query.trim() ? liveTours.filter((tour) => `${tour.title} ${tour.location}`.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 5) : [], [liveTours, query])
+  const logout = async () => {
+    if (loggingOut) return
+    setLoggingOut(true)
+    try {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' })
+    } finally {
+      router.replace('/login')
+      router.refresh()
+    }
+  }
 
   return <div className={`customer-dashboard section-${section} ${mobileOpen ? 'menu-open' : ''}`}>
     <button type="button" className="customer-dashboard-scrim" aria-label={ar ? 'إغلاق القائمة' : 'Close menu'} onClick={() => setMobileOpen(false)} />
@@ -167,7 +204,7 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
       </Link>
         <div className="customer-profile-mini">
           <CustomerAvatar avatar={profile.avatar} initials={initials} className="customer-avatar" name={profile.fullName} />
-          <div><strong>{profile.fullName}<em className="customer-demo-chip">{ar ? 'تجريبي' : 'Demo'}</em></strong><small>{profile.email}</small></div>
+          <div><strong>{profile.fullName}</strong><small>{profile.email}</small></div>
         </div>
         <nav aria-label={ar ? 'قائمة الحساب' : 'Account navigation'}>
           {sectionLinks.map(({ id, href, Icon, en, ar: arLabel }) => {
@@ -180,7 +217,7 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
           <div><strong>{ar ? 'سلة الرحلات' : 'Trip cart'}</strong><small>{cart.lines ? (ar ? `${cart.lines} رحلات بانتظارك` : `${cart.lines} trip${cart.lines === 1 ? '' : 's'} waiting`) : (ar ? 'ابدأ بإضافة رحلة' : 'Start by adding a trip')}</small></div>
           <Link href="/cart" aria-label={ar ? 'فتح السلة' : 'Open cart'}><ChevronRight size={17} /></Link>
         </div>
-        <Link href="/login" className="customer-signout"><LogOut size={17} />{ar ? 'تسجيل الخروج' : 'Sign out'}</Link>
+        <button type="button" className="customer-signout" onClick={logout} disabled={loggingOut}><LogOut size={17} />{loggingOut ? (ar ? 'جارٍ الخروج...' : 'Signing out...') : (ar ? 'تسجيل الخروج' : 'Sign out')}</button>
     </aside>
 
     <div className="customer-dashboard-main">
@@ -205,7 +242,7 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
           </div>
           <div className="customer-top-popover customer-user-popover">
             <button type="button" className="customer-top-user" onClick={() => { setUserOpen((open) => !open); setNotificationsOpen(false) }} aria-expanded={userOpen}><CustomerAvatar avatar={profile.avatar} initials={initials} className="customer-top-avatar" name={profile.fullName} /><div><strong>{profile.fullName}</strong><small>{ar ? 'مسافر' : 'Traveler'}</small></div><ChevronDown size={15} /></button>
-            {userOpen && <div className="customer-user-menu"><Link href="/account/profile" onClick={() => setUserOpen(false)}><UserRound size={16} />{ar ? 'الملف الشخصي' : 'Profile'}</Link><Link href="/account/settings" onClick={() => setUserOpen(false)}><Settings2 size={16} />{ar ? 'الإعدادات' : 'Settings'}</Link><Link href="/login"><LogOut size={16} />{ar ? 'تسجيل الخروج' : 'Sign out'}</Link></div>}
+            {userOpen && <div className="customer-user-menu"><Link href="/account/profile" onClick={() => setUserOpen(false)}><UserRound size={16} />{ar ? 'الملف الشخصي' : 'Profile'}</Link><Link href="/account/settings" onClick={() => setUserOpen(false)}><Settings2 size={16} />{ar ? 'الإعدادات' : 'Settings'}</Link><button type="button" onClick={logout} disabled={loggingOut}><LogOut size={16} />{ar ? 'تسجيل الخروج' : 'Sign out'}</button></div>}
           </div>
         </div>
       </header>
@@ -219,7 +256,7 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
           <button type="button" onClick={() => stopImpersonation()}><LogOut size={15} />{ar ? 'إنهاء المعاينة' : 'Exit preview'}</button>
         </div>}
         <section className="customer-account-main">
-        <p className="customer-demo-notice" role="note"><FlaskConical size={16} /><span><strong>{ar ? 'حساب تجريبي' : 'Demo account'}</strong>{ar ? 'بوابة العملاء تعمل حاليًا في وضع المعاينة. البيانات والحجوزات والرسائل المعروضة هنا بيانات توضيحية وليست مرتبطة بحساب عميل حقيقي.' : 'This customer portal is currently running in preview mode. Account data, bookings and messages shown here are demonstration data and are not connected to a live customer account.'}</span></p>
+        <p className="customer-demo-notice" role="note"><FlaskConical size={16} /><span><strong>{ar ? 'الحساب متصل' : 'Account connected'}</strong>{ar ? 'هويتك وتسجيل الدخول مرتبطان بقاعدة البيانات. الحجوزات والطلبات والمدفوعات والرسائل تظل في وضع المعاينة حتى مراحل الباك إند التالية.' : 'Your identity and sign-in are database-backed. Bookings, requests, payments, and messages remain preview data until their backend phases.'}</span></p>
         <header className="customer-account-head">
           <div><span>{ar ? 'حساب STAR PYRAMIDS' : 'STAR PYRAMIDS account'}</span><h1>{ar ? heading.ar : heading.en}</h1><p>{ar ? heading.subAr : heading.subEn}</p></div>
           <div className="customer-account-head-actions">{headLeading}<Link href="/trips" className="account-icon-action"><Search size={17} />{ar ? 'استكشف الرحلات' : 'Explore trips'}</Link><Link href="/contact" className="account-icon-action primary"><HelpCircle size={17} />{ar ? 'اطلب مساعدة' : 'Get help'}</Link></div>
@@ -293,7 +330,7 @@ function BookingCard({ booking }: { booking: CustomerBooking }) {
 function OverviewSection() {
   const { locale, currency } = useLocale()
   const ar = locale === 'ar'
-  const profile = useCustomerProfile()
+  const profile = useAccountProfile()
   const impersonated = useImpersonated()
   const displayName = impersonated ? impersonated.name : profile.fullName
   const bookings = useVisibleBookings()
@@ -885,7 +922,7 @@ function MessagesSection() {
   const ar = locale === 'ar'
   const inquiries = useVisibleInquiries()
   const brand = useBrandSettings()
-  const profile = useCustomerProfile()
+  const profile = useAccountProfile()
   const impersonated = useImpersonated()
   const bookings = useVisibleBookings()
   const messages = useCustomerChatMessages()
@@ -989,11 +1026,14 @@ function MessagesSection() {
 
 
 function PersonalProfileSection() {
+  const router = useRouter()
   const { locale } = useLocale()
   const ar = locale === 'ar'
-  const current = useCustomerProfile()
+  const current = useAccountProfile()
   const [form, setForm] = useState<CustomerProfile>(current)
   const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const [avatarError, setAvatarError] = useState('')
   useEffect(() => setForm(current), [current])
   const update = <K extends keyof CustomerProfile>(key: K, value: CustomerProfile[K]) => {
@@ -1015,18 +1055,46 @@ function PersonalProfileSection() {
     reader.readAsDataURL(file)
   }
   const reset = () => {
-    setForm(readCustomerProfile())
+    setForm(current)
     setAvatarError('')
+    setSaveError('')
     setSaved(false)
   }
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault()
-    saveCustomerProfile(form)
-    setSaved(true)
+    if (saving) return
+    setSaving(true)
+    setSaveError('')
+    try {
+      const response = await fetch('/api/account/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          firstName: form.firstName,
+          lastName: form.lastName,
+          username: form.username,
+          countryCode: form.country,
+          phone: form.phone,
+        }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        setSaveError(data.error || (ar ? 'تعذر حفظ الملف الشخصي.' : 'Could not save your profile.'))
+        return
+      }
+      saveCustomerProfile(form)
+      setSaved(true)
+      router.refresh()
+    } catch {
+      setSaveError(ar ? 'تعذر حفظ الملف الشخصي.' : 'Could not save your profile.')
+    } finally {
+      setSaving(false)
+    }
   }
   const displayName = `${form.firstName} ${form.lastName}`.trim()
   const initials = [form.firstName, form.lastName].filter(Boolean).map((part) => part[0]).join('').toUpperCase() || 'SP'
-  const selectedCountry = countries.find((country) => country.code === form.country) ?? defaultCountry
+  const [phoneCountry, setPhoneCountry] = useState(defaultCountry.code)
 
   return <form className="customer-profile-form customer-profile-only" onSubmit={submit}>
     <section className="customer-account-block">
@@ -1041,19 +1109,20 @@ function PersonalProfileSection() {
         <label>{ar ? 'الاسم الأول' : 'First name'}<input required autoComplete="given-name" value={form.firstName} onChange={(event) => update('firstName', event.target.value)} /></label>
         <label>{ar ? 'اسم العائلة' : 'Last name'}<input required autoComplete="family-name" value={form.lastName} onChange={(event) => update('lastName', event.target.value)} /></label>
         <label>{ar ? 'اسم المستخدم' : 'Username'}<input required dir="ltr" value={form.username} onChange={(event) => update('username', event.target.value.replace(/[^A-Za-z0-9_]/g, ''))} /></label>
-        <label>{ar ? 'البريد الإلكتروني' : 'Email address'}<input required type="email" dir="ltr" value={form.email} onChange={(event) => update('email', event.target.value)} /></label>
-        <label>{ar ? 'الدولة' : 'Country'}<CountrySelect value={form.country} onChange={(code) => { const next = countries.find((country) => country.code === code) ?? defaultCountry; setForm((previous) => ({ ...previous, country: next.code, dialCode: next.dialCode })); setSaved(false) }} locale={locale} /></label>
-        <label>{ar ? 'رقم الهاتف' : 'Phone number'}<span className="customer-phone-field"><span aria-label={ar ? 'كود الدولة' : 'Country calling code'}>{countryFlag(selectedCountry.code)} {selectedCountry.dialCode}</span><input type="tel" inputMode="tel" autoComplete="tel-national" dir="ltr" value={form.phone} onChange={(event) => update('phone', event.target.value)} placeholder={ar ? 'رقم الهاتف' : 'Phone number'} /></span></label>
+        <label>{ar ? 'البريد الإلكتروني' : 'Email address'}<input required readOnly type="email" dir="ltr" value={form.email} /></label>
+        <label>{ar ? 'الدولة' : 'Country'}<CountrySelect value={form.country} onChange={(code) => { const next = countries.find((country) => country.code === code) ?? defaultCountry; setForm((previous) => ({ ...previous, country: next.code, dialCode: next.dialCode })); setPhoneCountry(code); setSaved(false) }} locale={locale} /></label>
+        <label>{ar ? 'رقم الهاتف' : 'Phone number'}<InternationalPhoneInput value={form.phone} onChange={(value) => { update('phone', value); setSaved(false) }} locale={locale} countryCode={phoneCountry} onCountryChange={setPhoneCountry} placeholder={ar ? 'رقم الهاتف' : 'Phone number'} /></label>
       </div>
     </section>
-    <div className="customer-profile-actions"><button type="submit">{ar ? 'حفظ الملف الشخصي' : 'Save profile'}</button><button type="button" onClick={reset}>{ar ? 'إلغاء التعديلات' : 'Discard changes'}</button></div>
+    {saveError && <p className="form-error" role="alert">{saveError}</p>}
+    <div className="customer-profile-actions"><button type="submit" disabled={saving}>{saving ? (ar ? 'جارٍ الحفظ...' : 'Saving...') : (ar ? 'حفظ الملف الشخصي' : 'Save profile')}</button><button type="button" onClick={reset} disabled={saving}>{ar ? 'إلغاء التعديلات' : 'Discard changes'}</button></div>
   </form>
 }
 
 function SettingsSection() {
   const { locale, setLocale, currency, setCurrency } = useLocale()
   const ar = locale === 'ar'
-  const current = useCustomerProfile()
+  const current = useAccountProfile()
   const [form, setForm] = useState<CustomerProfile>(current)
   const [selectedCurrency, setSelectedCurrency] = useState(currency)
   const [saved, setSaved] = useState(false)
@@ -1064,7 +1133,7 @@ function SettingsSection() {
     setSaved(false)
   }
   const reset = () => {
-    setForm(readCustomerProfile())
+    setForm(current)
     setSelectedCurrency(currency)
     setSaved(false)
   }

@@ -2,7 +2,8 @@
 
 import { Check, ChevronDown } from 'lucide-react'
 import { Select } from '@base-ui/react/select'
-import { countries, countryFlag, type CountryOption } from '@/data/countries'
+import { countries, type CountryOption } from '@/data/countries'
+import { CountryFlag } from '@/components/country-flag'
 import type { Locale } from '@/lib/locale-config'
 
 export type CountrySelectVariant = 'country' | 'phone'
@@ -94,18 +95,18 @@ export function CountrySelect({
           aria-describedby={describedBy}
           title={effective ? `${localizedName(effective, locale)} (${effective.dialCode})` : dropdownHint}
         >
-          <Select.Value placeholder={variant === 'phone' ? '' : (placeholder ?? dropdownHint)}>
+          <Select.Value placeholder={variant === 'phone' ? '' : (placeholder ?? dropdownHint)} className="cselect-value">
             {(current: string | null) => {
               const currentCountry = current ? (countries.find((country) => country.code === current) ?? null) : null
               if (!currentCountry) return null
               return variant === 'phone' ? (
                 <span className="cselect-compact">
-                  <span aria-hidden="true">{countryFlag(currentCountry.code)}</span>
+                  <CountryFlag code={currentCountry.code} size={18} />
                   <bdi dir="ltr">{currentCountry.dialCode}</bdi>
                 </span>
               ) : (
                 <span className="cselect-current">
-                  <span aria-hidden="true">{countryFlag(currentCountry.code)}</span>
+                  <CountryFlag code={currentCountry.code} size={18} />
                   <span className="cselect-current-name">{localizedName(currentCountry, locale)}</span>
                 </span>
               )
@@ -137,7 +138,8 @@ export function CountrySelect({
                     className="cselect-item"
                   >
                     <Select.ItemText className="cselect-item-text">
-                      <span aria-hidden="true">{countryFlag(country.code)}</span>
+                      {variant === 'phone' && <CountryFlag code={country.code} size={18} />}
+                      {variant === 'country' && <CountryFlag code={country.code} size={18} />}
                       <span className="cselect-item-name">{localizedName(country, locale)}</span>
                       {variant === 'phone' && <bdi dir="ltr" className="cselect-item-dial">{country.dialCode}</bdi>}
                     </Select.ItemText>

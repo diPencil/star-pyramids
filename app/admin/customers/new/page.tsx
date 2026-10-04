@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
-import { countries, countryFlag, defaultCountry } from '@/data/countries'
+import { countries, defaultCountry } from '@/data/countries'
 import { saveCustomItem, slugify, type AdminCustomer } from '@/lib/admin-store'
 import { ImageField } from '@/components/admin/image-field'
 import { CountrySelect } from '@/components/country-select'
+import { CountryFlag } from '@/components/country-flag'
 
 export default function NewCustomerPage() {
   const ar = useAdminLocale() === 'ar'
@@ -70,7 +71,7 @@ export default function NewCustomerPage() {
         <label><AdminText en="Email address" ar="البريد الإلكتروني" /><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" dir="ltr" /></label>
         <div className="sp-form-2">
           <label><AdminText en="Country" ar="الدولة" /><CountrySelect value={countryCode} onChange={setCountryCode} locale={ar ? 'ar' : 'en'} /></label>
-          <label><AdminText en="Mobile number" ar="رقم الموبايل" /><span className="sp-phone-field"><span>{countryFlag(country.code)} {country.dialCode}</span><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="100 000 0000" dir="ltr" /></span></label>
+          <label><AdminText en="Mobile number" ar="رقم الموبايل" /><span className="sp-phone-field"><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><CountryFlag code={country.code} size={18} /> {country.dialCode}</span><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="100 000 0000" dir="ltr" /></span></label>
         </div>
         <div className="sp-form-2">
           <label><AdminText en="Password (8+ characters)" ar="كلمة المرور (8 أحرف على الأقل)" /><input type={showPassword ? 'text' : 'password'} minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} dir="ltr" /></label>

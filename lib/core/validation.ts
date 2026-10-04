@@ -10,6 +10,9 @@ const EMAIL_PATTERN = /^[^\s@]{1,120}@[^\s@]{1,120}\.[^\s@]{2,24}$/;
 const CURRENCY_PATTERN = /^[A-Z]{3}$/;
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const YMD_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+const USERNAME_PATTERN = /^[A-Za-z0-9_]{3,24}$/;
+const COUNTRY_CODE_PATTERN = /^[A-Z]{2}$/;
+const PHONE_PATTERN = /^[0-9 ()-]{6,18}$/;
 
 export const MIN_PASSWORD_LENGTH = 6;
 export const MAX_PASSWORD_LENGTH = 8;
@@ -31,6 +34,27 @@ export function validatePasswordStrength(password: string): string | null {
     return 'Password is too long.';
   }
   return null;
+}
+
+export function isValidUsername(username: string): boolean {
+  return USERNAME_PATTERN.test(username.trim());
+}
+
+export function normalizeUsername(username: string): string {
+  return username.trim().toLowerCase();
+}
+
+export function isValidPersonName(name: string): boolean {
+  const value = name.trim();
+  return value.length >= 1 && value.length <= 80 && !/[\u0000-\u001f\u007f]/.test(value);
+}
+
+export function isValidCountryCode(code: string): boolean {
+  return COUNTRY_CODE_PATTERN.test(code.trim().toUpperCase());
+}
+
+export function isValidPhone(phone: string): boolean {
+  return PHONE_PATTERN.test(phone.trim());
 }
 
 export function isValidCurrencyCode(code: string): boolean {
