@@ -429,6 +429,7 @@
 .sp-g-ops button { width: 28px; height: 28px; min-height: 0; display: grid; place-items: center; padding: 0; border: 1px solid var(--sp-border); background: #fff; color: var(--sp-blue-deep); border-radius: 8px; cursor: pointer; }
 .sp-g-ops button:hover { background: #eef3ff; color: var(--sp-blue); }
 .sp-image-field { display: grid; gap: 12px; min-width: 0; }
+.sp-profile-avatar .sp-image-source-grid { grid-template-columns: minmax(0,1fr); }
 .sp-image-source-grid { display: grid; grid-template-columns: minmax(0,1.3fr) minmax(220px,.7fr); gap: 14px; align-items: start; }
 .sp-image-url-field,.sp-image-upload-field { min-width: 0; display: grid; gap: 7px; color: var(--sp-blue-deep); font-size: 12.5px; font-weight: 800; }
 .sp-image-url-field > span,.sp-image-upload-field > span { display: inline-flex; align-items: center; gap: 6px; }

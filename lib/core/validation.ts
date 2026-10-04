@@ -12,7 +12,17 @@ const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const YMD_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const USERNAME_PATTERN = /^[A-Za-z0-9_]{3,24}$/;
 const COUNTRY_CODE_PATTERN = /^[A-Z]{2}$/;
-const PHONE_PATTERN = /^[0-9 ()-]{6,18}$/;
+/**
+ * Canonical phone contract (shared by every server endpoint that accepts
+ * phone numbers from the shared InternationalPhoneInput):
+ * - optional single leading `+` (international/E.164-style output),
+ * - digits with optional visual separators (space, parens, dash),
+ * - 6–15 digits total (E.164 maximum).
+ * Accepts both stored national form (`100 000 0000`) and component output
+ * (`+20 100 000 0000`, `+201000000000`). Rejects empty, malformed and
+ * double-prefix (`+20+20…`) values.
+ */
+const PHONE_PATTERN = /^\+?[0-9 ()-]{6,18}$/;
 
 export const MIN_PASSWORD_LENGTH = 6;
 export const MAX_PASSWORD_LENGTH = 8;
@@ -54,7 +64,24 @@ export function isValidCountryCode(code: string): boolean {
 }
 
 export function isValidPhone(phone: string): boolean {
-  return PHONE_PATTERN.test(phone.trim());
+  const text = phone.trim();
+  if (!PHONE_PATTERN.test(text)) return false;
+  const digits = text.replace(/\D/g, '');
+  return digits.length >= 6 && digits.length <= 15;
+}
+
+/**
+ * Canonical phone storage form: compact digits with a single leading `+`
+ * when the input was international (`+20 100 000 0000` → `+201000000000`),
+ * compact digits otherwise (`100 000 0000` → `1000000000`). Already-stored
+ * spaced values keep working because every reader strips separators.
+ */
+export function normalizePhone(phone: string): string {
+  const text = phone.trim();
+  if (!text) return '';
+  const digits = text.replace(/\D/g, '');
+  if (!digits) return '';
+  return text.startsWith('+') ? `+${digits}` : digits;
 }
 
 export function isValidCurrencyCode(code: string): boolean {

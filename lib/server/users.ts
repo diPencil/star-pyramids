@@ -6,7 +6,7 @@ import { Prisma, type UserStatus } from '@prisma/client';
 
 import { db } from './db';
 import { hashPassword } from '../core/password';
-import { normalizeEmail, normalizeUsername } from '../core/validation';
+import { normalizeEmail, normalizePhone, normalizeUsername } from '../core/validation';
 import type { AuthenticatedUser } from '../auth-types';
 
 export const SYSTEM_ROLE_KEYS = [
@@ -140,7 +140,7 @@ export async function createCustomerUser(
       lastName: input.lastName.trim(),
       username: normalizeUsername(input.username),
       countryCode: input.countryCode.trim().toUpperCase(),
-      phone: input.phone.trim(),
+      phone: normalizePhone(input.phone),
       passwordHash,
       status: 'ACTIVE',
       roles: {
@@ -166,7 +166,47 @@ export async function updateCustomerIdentity(
       lastName: input.lastName.trim(),
       username: normalizeUsername(input.username),
       countryCode: input.countryCode.trim().toUpperCase(),
-      phone: input.phone.trim(),
+      phone: normalizePhone(input.phone),
+    },
+    select: publicSelect,
+  });
+  return toPublicUser(row);
+}
+
+export type AdminProfileInput = {
+  firstName: string;
+  lastName: string;
+  username: string;
+  email: string;
+  countryCode: string;
+  phone: string;
+  /** Optional new password in cleartext; hashed here, never returned. */
+  password?: string;
+};
+
+/**
+ * Self-service update for the currently authenticated staff/admin user.
+ * Identity-only: role, status and id are never accepted from the caller —
+ * the route passes only the session user id. Password is optional.
+ */
+export async function updateAdminProfile(
+  userId: string,
+  input: AdminProfileInput,
+): Promise<PublicUser> {
+  const email = input.email.trim();
+  const row = await db.user.update({
+    where: { id: userId },
+    data: {
+      firstName: input.firstName.trim(),
+      lastName: input.lastName.trim(),
+      username: normalizeUsername(input.username),
+      email,
+      emailNormalized: normalizeEmail(email),
+      countryCode: input.countryCode.trim().toUpperCase(),
+      phone: normalizePhone(input.phone),
+      ...(input.password
+        ? { passwordHash: await hashPassword(input.password) }
+        : {}),
     },
     select: publicSelect,
   });
