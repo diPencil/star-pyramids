@@ -1,14 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Building2, CheckCircle2, CircleDollarSign, Cloud, Globe2, KeyRound, LogIn, Mail, MapPinned, Palette, PlugZap, Plus, QrCode, Share2, ShieldCheck } from 'lucide-react'
 import { WhatsAppGlyph } from '@/components/whatsapp-chat'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { cn } from '@/lib/utils'
-import { defaultCurrencySettings, getCurrencyRates, readCurrencySettings, readLocalizationSettings, saveCurrencySettings, saveLocalizationSettings } from '@/components/locale'
-import { saveBrandSettings, useBrandSettings, SOCIAL_NETWORKS, readSocialLinks, saveSocialLinks, type SocialLink } from '@/lib/admin-store'
+import { defaultCurrencySettings, defaultLocalizationSettings, saveCurrencySettings, saveLocalizationSettings } from '@/components/locale'
+import { defaultBrandSettings, defaultSocialLinks, saveBrandSettings, saveSocialLinks, SOCIAL_NETWORKS, type SocialLink } from '@/lib/admin-store'
 import { FacebookIcon, GoogleIcon } from '@/components/brand-icons'
 import { ImageField } from '@/components/admin/image-field'
 import { SharedSelect } from '@/components/shared-select'
@@ -16,6 +16,7 @@ import { InternationalPhoneInput } from '@/components/international-phone-input'
 import { countryFromPhone } from '@/data/countries'
 import { toInternational } from '@/lib/phone'
 import { ENABLED_LOCALES, LOCALE_LABELS, type EnabledLocale } from '@/lib/locale-config'
+import { useCurrentUser } from '@/lib/use-current-user'
 
 const TIMEZONES = [
   'Africa/Cairo', 'Africa/Tunis', 'Africa/Algiers', 'Africa/Casablanca',
@@ -24,6 +25,97 @@ const TIMEZONES = [
   'America/New_York', 'America/Chicago', 'America/Los_Angeles', 'America/Toronto',
   'Asia/Kolkata', 'Asia/Singapore', 'Australia/Sydney', 'Pacific/Auckland', 'UTC',
 ]
+
+type SettingsSnapshot = {
+  values: Record<string, string>
+  secrets: Record<string, { configured: boolean }>
+  rates: { eur: string; egp: string }
+}
+
+const FALLBACK_SEO_TITLE = 'STAR PYRAMIDS | Discover Egypt'
+const FALLBACK_PROMO = 'Book any package tour and enjoy a FREE tour experience.'
+
+function val(snapshot: SettingsSnapshot | null, key: string, fallback = ''): string {
+  const stored = snapshot?.values[key]
+  return stored !== undefined && stored !== '' ? stored : fallback
+}
+
+function secretConfigured(snapshot: SettingsSnapshot | null, key: string): boolean {
+  return snapshot?.secrets[key]?.configured === true
+}
+
+async function patchSettings(
+  values: Record<string, string>,
+  rates?: { eur: string; egp: string },
+): Promise<SettingsSnapshot> {
+  const res = await fetch('/api/admin/settings', {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    credentials: 'same-origin',
+    body: JSON.stringify(rates ? { values, rates } : { values }),
+  })
+  const data = (await res.json()) as SettingsSnapshot & { error?: string }
+  if (!res.ok) throw new Error(data.error || 'Save failed.')
+  return data
+}
+
+/** Inline success/error feedback (the project's established settings pattern). */
+function SaveFeedback({ saved, error }: { saved: string; error: string }) {
+  if (error) return <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>
+  if (saved) return <p role="status" style={{ color: '#15803d' }}><CheckCircle2 size={15} style={{ verticalAlign: '-2px' }} /> {saved}</p>
+  return null
+}
+
+function ConfigBadge({ configured }: { configured: boolean }) {
+  return (
+    <span
+      className="sp-integration-status"
+      style={configured ? undefined : { opacity: 0.75 }}
+    >
+      <i aria-hidden="true" style={configured ? { background: '#16a34a' } : undefined} />
+      {configured
+        ? <AdminText en="Configured" ar="مضبوط" />
+        : <AdminText en="Not configured" ar="غير مضبوط" />}
+    </span>
+  )
+}
+
+function SecretField({
+  labelEn,
+  labelAr,
+  value,
+  onChange,
+  configured,
+  disabled,
+}: {
+  labelEn: string
+  labelAr: string
+  value: string
+  onChange: (next: string) => void
+  configured: boolean
+  disabled?: boolean
+}) {
+  const ar = useAdminLocale() === 'ar'
+  return (
+    <label>
+      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <AdminText en={labelEn} ar={labelAr} />
+        <ConfigBadge configured={configured} />
+      </span>
+      <input
+        type="password"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={configured
+          ? (ar ? '•••••••• (مضبوط — اتركه فارغا للإبقاء)' : '•••••••• (configured — leave blank to keep)')
+          : (ar ? 'غير مضبوط — أدخل للحفظ' : 'Not configured — enter to save')}
+        autoComplete="off"
+        dir="ltr"
+        disabled={disabled}
+      />
+    </label>
+  )
+}
 
 function SiteClock({ timezone }: { timezone: string }) {
   const ar = useAdminLocale() === 'ar'
@@ -44,39 +136,91 @@ function SiteClock({ timezone }: { timezone: string }) {
   return <b dir="ltr">{time}</b>
 }
 
-function LocalizationTab({ onSaved }: { onSaved: () => void }) {
-  const ar = useAdminLocale() === 'ar'
-  const stored = readLocalizationSettings()
-  const [defaultLanguage, setDefaultLanguage] = useState<EnabledLocale>(stored.defaultLanguage)
-  const [timezone, setTimezone] = useState(stored.timezone)
+type TabShell = {
+  snapshot: SettingsSnapshot | null
+  canWrite: boolean
+  onSaved: (next: SettingsSnapshot) => void
+}
 
-  const save = () => {
-    saveLocalizationSettings({ defaultLanguage, timezone })
-    onSaved()
+function useTabState<T>(snapshot: SettingsSnapshot | null, init: (snap: SettingsSnapshot | null) => T) {
+  const [form, setForm] = useState<T>(() => init(snapshot))
+  const [saved, setSaved] = useState('')
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+  useEffect(() => {
+    setForm(init(snapshot))
+    setSaved('')
+    setError('')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapshot])
+  return { form, setForm, saved, setSaved, error, setError, saving, setSaving }
+}
+
+function ReadOnlyNote() {
+  return <p className="sp-integration-note"><ShieldCheck size={15} /> <AdminText en="Your role is read-only for system settings. An Admin can make changes." ar="دورك للقراءة فقط في إعدادات النظام. يمكن للمسؤول إجراء التغييرات." /></p>
+}
+
+function LocalizationTab({ snapshot, canWrite, onSaved }: TabShell) {
+  const ar = useAdminLocale() === 'ar'
+  const t = useTabState(snapshot, (snap) => ({
+    defaultLanguage: (val(snap, 'app.defaultLocale', defaultLocalizationSettings.defaultLanguage) as EnabledLocale),
+    timezone: val(snap, 'app.timezone', defaultLocalizationSettings.timezone),
+  }))
+
+  const save = async () => {
+    t.setSaving(true)
+    t.setError('')
+    t.setSaved('')
+    try {
+      const next = await patchSettings({
+        'app.defaultLocale': t.form.defaultLanguage,
+        'app.timezone': t.form.timezone,
+      })
+      saveLocalizationSettings({ defaultLanguage: t.form.defaultLanguage, timezone: t.form.timezone })
+      onSaved(next)
+      t.setSaved(ar ? 'تم الحفظ بنجاح.' : 'Saved successfully.')
+    } catch (e) {
+      t.setError(e instanceof Error ? e.message : 'Save failed.')
+    } finally {
+      t.setSaving(false)
+    }
   }
 
   return (
     <div className="sp-form">
-      <label><AdminText en="Default language" ar="اللغة الافتراضية" /><SharedSelect value={defaultLanguage} onChange={(next) => setDefaultLanguage(next as EnabledLocale)} locale={ar ? 'ar' : 'en'} options={ENABLED_LOCALES.map((value) => ({ value, label: LOCALE_LABELS[value] }))} /></label>
-      <label><AdminText en="Timezone" ar="المنطقة الزمنية" /><SharedSelect value={timezone} onChange={setTimezone} locale={ar ? 'ar' : 'en'} popupWidth="trigger" options={TIMEZONES.map((tz) => ({ value: tz, label: tz }))} /></label>
+      <label><AdminText en="Default language" ar="اللغة الافتراضية" /><SharedSelect value={t.form.defaultLanguage} onChange={(next) => t.setForm((f) => ({ ...f, defaultLanguage: next as EnabledLocale }))} locale={ar ? 'ar' : 'en'} options={ENABLED_LOCALES.map((value) => ({ value, label: LOCALE_LABELS[value] }))} disabled={!canWrite || t.saving} /></label>
+      <label><AdminText en="Timezone" ar="المنطقة الزمنية" /><SharedSelect value={t.form.timezone} onChange={(next) => t.setForm((f) => ({ ...f, timezone: next }))} locale={ar ? 'ar' : 'en'} popupWidth="trigger" options={TIMEZONES.map((tz) => ({ value: tz, label: tz }))} disabled={!canWrite || t.saving} /></label>
       <div className="sp-status2">
-        <div><small><AdminText en="CURRENT SITE TIME" ar="توقيت الموقع الحالي" /></small><SiteClock timezone={timezone} /></div>
+        <div><small><AdminText en="CURRENT SITE TIME" ar="توقيت الموقع الحالي" /></small><SiteClock timezone={t.form.timezone} /></div>
         <div><small><AdminText en="SCOPE" ar="النطاق" /></small><b><AdminText en="New visitors + timestamps" ar="الزوار الجدد + الطوابع الزمنية" /></b></div>
       </div>
-      <div><button type="button" className="sp-btn dark" onClick={save}><AdminText en="Save" ar="حفظ" /></button></div>
+      {!canWrite && <ReadOnlyNote />}
+      <div><button type="button" className="sp-btn dark" onClick={save} disabled={!canWrite || t.saving}>{t.saving ? <AdminText en="Saving…" ar="جارٍ الحفظ…" /> : <AdminText en="Save" ar="حفظ" />}</button></div>
+      <SaveFeedback saved={t.saved} error={t.error} />
     </div>
   )
 }
 
-function SocialTab() {
+function SocialTab({ snapshot, canWrite, onSaved }: TabShell) {
   const ar = useAdminLocale() === 'ar'
-  const [links, setLinks] = useState<SocialLink[]>(readSocialLinks)
-  const [saved, setSaved] = useState(false)
+  const initialLinks = (): SocialLink[] => {
+    const raw = snapshot?.values['social.links']
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as SocialLink[]
+        if (Array.isArray(parsed) && parsed.length) return parsed
+      } catch { /* fall through to defaults */ }
+    }
+    return defaultSocialLinks
+  }
+  const t = useTabState(snapshot, () => ({ links: initialLinks() }))
+  const links = t.form.links
+  const setLinks = (next: SocialLink[]) => t.setForm({ links: next })
 
   const update = (id: string, patch: Partial<SocialLink>) =>
-    setLinks((prev) => prev.map((link) => (link.id === id ? { ...link, ...patch } : link)))
+    setLinks(links.map((link) => (link.id === id ? { ...link, ...patch } : link)))
 
-  const remove = (id: string) => setLinks((prev) => prev.filter((link) => link.id !== id))
+  const remove = (id: string) => setLinks(links.filter((link) => link.id !== id))
 
   const add = (section: 'header' | 'footer') => {
     const nextLink: SocialLink = {
@@ -86,13 +230,24 @@ function SocialTab() {
       header: section === 'header',
       footer: section === 'footer',
     }
-    setLinks((prev) => [...prev, nextLink])
+    setLinks([...links, nextLink])
   }
 
-  const save = () => {
-    saveSocialLinks(links.filter((link) => link.url.trim()))
-    setLinks(readSocialLinks())
-    setSaved(true)
+  const save = async () => {
+    t.setSaving(true)
+    t.setError('')
+    t.setSaved('')
+    try {
+      const clean = links.filter((link) => link.url.trim())
+      const next = await patchSettings({ 'social.links': JSON.stringify(clean) })
+      saveSocialLinks(clean)
+      onSaved(next)
+      t.setSaved(ar ? 'تم الحفظ بنجاح.' : 'Saved successfully.')
+    } catch (e) {
+      t.setError(e instanceof Error ? e.message : 'Save failed.')
+    } finally {
+      t.setSaving(false)
+    }
   }
 
   const group = (section: 'header' | 'footer', titleEn: string, titleAr: string, hintEn: string, hintAr: string) => (
@@ -102,17 +257,17 @@ function SocialTab() {
       {links.filter((link) => link[section]).map((link) => (
         <div className="sp-form-2" key={link.id}>
           <label><AdminText en="Network" ar="الشبكة" />
-            <SharedSelect value={link.network} onChange={(next) => update(link.id, { network: next as SocialLink['network'] })} locale={ar ? 'ar' : 'en'} options={SOCIAL_NETWORKS.map((n) => ({ value: n.id, label: n.label }))} />
+            <SharedSelect value={link.network} onChange={(next) => update(link.id, { network: next as SocialLink['network'] })} locale={ar ? 'ar' : 'en'} options={SOCIAL_NETWORKS.map((n) => ({ value: n.id, label: n.label }))} disabled={!canWrite || t.saving} />
           </label>
           <label><AdminText en="Profile link" ar="رابط الحساب" />
             <span style={{ display: 'flex', gap: 8 }}>
-              <input value={link.url} onChange={(e) => update(link.id, { url: e.target.value })} placeholder="https://..." dir="ltr" style={{ flex: 1 }} />
-              <button type="button" className="sp-delete-btn" onClick={() => remove(link.id)}><AdminText en="Delete" ar="حذف" /></button>
+              <input value={link.url} onChange={(e) => update(link.id, { url: e.target.value })} placeholder="https://..." dir="ltr" style={{ flex: 1 }} disabled={!canWrite || t.saving} />
+              <button type="button" className="sp-delete-btn" onClick={() => remove(link.id)} disabled={!canWrite || t.saving}><AdminText en="Delete" ar="حذف" /></button>
             </span>
           </label>
         </div>
       ))}
-      <div><button type="button" className="sp-btn" onClick={() => add(section)}><Plus size={16} /> <AdminText en="Add link" ar="إضافة رابط" /></button></div>
+      <div><button type="button" className="sp-btn" onClick={() => add(section)} disabled={!canWrite || t.saving}><Plus size={16} /> <AdminText en="Add link" ar="إضافة رابط" /></button></div>
     </>
   )
 
@@ -120,100 +275,359 @@ function SocialTab() {
     <div className="sp-form">
       {group('header', 'Header top bar', 'شريط الهيدر العلوي', 'Shown beside the header actions', 'تظهر بجانب أزرار الهيدر')}
       {group('footer', 'Footer', 'الفوتر', 'Shown under the footer logo', 'تظهر تحت شعار الفوتر')}
-      {saved && <p role="status" style={{ color: '#15803d' }}><AdminText en="Social links saved. The website updates instantly." ar="حفظت روابط التواصل. يتحدث الموقع فورا." /></p>}
-      <div><button type="button" className="sp-btn dark" onClick={save}><AdminText en="Save" ar="حفظ" /></button></div>
+      {!canWrite && <ReadOnlyNote />}
+      <div><button type="button" className="sp-btn dark" onClick={save} disabled={!canWrite || t.saving}>{t.saving ? <AdminText en="Saving…" ar="جارٍ الحفظ…" /> : <AdminText en="Save" ar="حفظ" />}</button></div>
+      <SaveFeedback saved={t.saved} error={t.error} />
     </div>
   )
 }
 
-function GeneralTab({ onSaved }: { onSaved: () => void }) {
-  const brand = useBrandSettings()
-  const [companyName, setCompanyName] = useState(brand.companyName)
-  const [logo, setLogo] = useState(brand.logo)
-  const [favicon, setFavicon] = useState(brand.favicon)
-  const [aboutEn, setAboutEn] = useState(brand.aboutEn)
-  const [aboutAr, setAboutAr] = useState(brand.aboutAr)
+function GeneralTab({ snapshot, canWrite, onSaved }: TabShell) {
+  const ar = useAdminLocale() === 'ar'
+  const t = useTabState(snapshot, (snap) => ({
+    companyName: val(snap, 'site.name', defaultBrandSettings.companyName),
+    logo: val(snap, 'site.logo', defaultBrandSettings.logo),
+    favicon: val(snap, 'site.favicon', defaultBrandSettings.favicon),
+    aboutEn: val(snap, 'site.aboutEn', defaultBrandSettings.aboutEn),
+    aboutAr: val(snap, 'site.aboutAr', defaultBrandSettings.aboutAr),
+  }))
 
-  useEffect(() => {
-    setCompanyName(brand.companyName)
-    setLogo(brand.logo)
-    setFavicon(brand.favicon)
-    setAboutEn(brand.aboutEn)
-    setAboutAr(brand.aboutAr)
-  }, [brand.companyName, brand.logo, brand.favicon, brand.aboutEn, brand.aboutAr])
-
-  const save = () => {
-    saveBrandSettings({ companyName: companyName.trim() || 'Star Pyramids Tours', logo: logo.trim() || '/logo.png', favicon: favicon.trim() || '/favicon.png', aboutEn: aboutEn.trim(), aboutAr: aboutAr.trim() })
-    onSaved()
+  const save = async () => {
+    t.setSaving(true)
+    t.setError('')
+    t.setSaved('')
+    try {
+      const next = await patchSettings({
+        'site.name': t.form.companyName.trim() || defaultBrandSettings.companyName,
+        'site.logo': t.form.logo.trim() || defaultBrandSettings.logo,
+        'site.favicon': t.form.favicon.trim() || defaultBrandSettings.favicon,
+        'site.aboutEn': t.form.aboutEn.trim(),
+        'site.aboutAr': t.form.aboutAr.trim(),
+      })
+      saveBrandSettings({
+        companyName: t.form.companyName.trim() || defaultBrandSettings.companyName,
+        logo: t.form.logo.trim() || defaultBrandSettings.logo,
+        favicon: t.form.favicon.trim() || defaultBrandSettings.favicon,
+        aboutEn: t.form.aboutEn.trim(),
+        aboutAr: t.form.aboutAr.trim(),
+      })
+      onSaved(next)
+      t.setSaved(ar ? 'تم الحفظ بنجاح.' : 'Saved successfully.')
+    } catch (e) {
+      t.setError(e instanceof Error ? e.message : 'Save failed.')
+    } finally {
+      t.setSaving(false)
+    }
   }
 
   return (
     <div className="sp-form">
-      <label><AdminText en="Company name" ar="اسم الشركة" /><input value={companyName} onChange={(e) => setCompanyName(e.target.value)} /></label>
+      <label><AdminText en="Company name" ar="اسم الشركة" /><input value={t.form.companyName} onChange={(e) => t.setForm((f) => ({ ...f, companyName: e.target.value }))} disabled={!canWrite || t.saving} /></label>
       <p className="sp-group-title"><AdminText en="Logo" ar="الشعار" /></p>
-      <ImageField value={logo} onChange={setLogo} />
+      <ImageField value={t.form.logo} onChange={(logo) => t.setForm((f) => ({ ...f, logo }))} />
       <p className="sp-group-title"><AdminText en="Favicon" ar="أيقونة الموقع" /></p>
-      <ImageField value={favicon} onChange={setFavicon} />
+      <ImageField value={t.form.favicon} onChange={(favicon) => t.setForm((f) => ({ ...f, favicon }))} />
       <p className="sp-group-title"><AdminText en="Footer tagline (under the logo)" ar="سطر الفوتر (تحت الشعار)" /></p>
-      <label><AdminText en="About (EN)" ar="الوصف (EN)" /><input value={aboutEn} onChange={(e) => setAboutEn(e.target.value)} dir="ltr" /></label>
-      <label><AdminText en="About (AR)" ar="الوصف (AR)" /><input value={aboutAr} onChange={(e) => setAboutAr(e.target.value)} /></label>
-      <div><button type="button" className="sp-btn dark" onClick={save}><AdminText en="Save" ar="حفظ" /></button></div>
+      <label><AdminText en="About (EN)" ar="الوصف (EN)" /><input value={t.form.aboutEn} onChange={(e) => t.setForm((f) => ({ ...f, aboutEn: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
+      <label><AdminText en="About (AR)" ar="الوصف (AR)" /><input value={t.form.aboutAr} onChange={(e) => t.setForm((f) => ({ ...f, aboutAr: e.target.value }))} disabled={!canWrite || t.saving} /></label>
+      {!canWrite && <ReadOnlyNote />}
+      <div><button type="button" className="sp-btn dark" onClick={save} disabled={!canWrite || t.saving}>{t.saving ? <AdminText en="Saving…" ar="جارٍ الحفظ…" /> : <AdminText en="Save" ar="حفظ" />}</button></div>
+      <SaveFeedback saved={t.saved} error={t.error} />
     </div>
   )
 }
 
-function ContactTab({ onSaved }: { onSaved: () => void }) {
+function ContactTab({ snapshot, canWrite, onSaved }: TabShell) {
   const ar = useAdminLocale() === 'ar'
-  const brand = useBrandSettings()
-  const [phone, setPhone] = useState(brand.phone)
-  const [whatsapp, setWhatsapp] = useState(brand.whatsapp)
-  const [email, setEmail] = useState(brand.email)
-  const [address, setAddress] = useState(brand.address)
-  const [mapUrl, setMapUrl] = useState(brand.mapUrl)
-  const [copyrightEn, setCopyrightEn] = useState(brand.copyrightEn)
-  const [copyrightAr, setCopyrightAr] = useState(brand.copyrightAr)
+  const t = useTabState(snapshot, (snap) => ({
+    phone: val(snap, 'contact.phone', defaultBrandSettings.phone),
+    whatsapp: val(snap, 'contact.whatsapp', defaultBrandSettings.whatsapp),
+    email: val(snap, 'contact.email', defaultBrandSettings.email),
+    address: val(snap, 'contact.address', defaultBrandSettings.address),
+    mapUrl: val(snap, 'contact.mapUrl', defaultBrandSettings.mapUrl),
+    copyrightEn: val(snap, 'contact.copyrightEn', defaultBrandSettings.copyrightEn),
+    copyrightAr: val(snap, 'contact.copyrightAr', defaultBrandSettings.copyrightAr),
+  }))
 
-  useEffect(() => {
-    setPhone(brand.phone)
-    setWhatsapp(brand.whatsapp)
-    setEmail(brand.email)
-    setAddress(brand.address)
-    setMapUrl(brand.mapUrl)
-    setCopyrightEn(brand.copyrightEn)
-    setCopyrightAr(brand.copyrightAr)
-  }, [brand.phone, brand.whatsapp, brand.email, brand.address, brand.mapUrl, brand.copyrightEn, brand.copyrightAr])
-
-  const save = () => {
-    // Normalize through canonical helpers so stored values never duplicate
-    // the dial prefix (e.g. no `+20 01288…`). Country context is derived
-    // from the number itself; unknown input stays conservative.
-    const phoneDigits = toInternational(countryFromPhone(phone).code, phone)
-    const whatsappDigits = toInternational(countryFromPhone(whatsapp).code, whatsapp)
-    saveBrandSettings({
-      phone: phoneDigits || phone.trim() || brand.phone,
-      whatsapp: whatsappDigits || whatsapp.trim() || brand.whatsapp,
-      email: email.trim() || brand.email,
-      address: address.trim() || brand.address,
-      mapUrl: mapUrl.trim(),
-      copyrightEn: copyrightEn.trim() || brand.copyrightEn,
-      copyrightAr: copyrightAr.trim() || brand.copyrightAr,
-    })
-    onSaved()
+  const save = async () => {
+    t.setSaving(true)
+    t.setError('')
+    t.setSaved('')
+    try {
+      // Normalize through canonical helpers so stored values never duplicate
+      // the dial prefix (e.g. no `+20 01288…`). Country context is derived
+      // from the number itself; unknown input stays conservative.
+      const phoneDigits = toInternational(countryFromPhone(t.form.phone).code, t.form.phone)
+      const whatsappDigits = toInternational(countryFromPhone(t.form.whatsapp).code, t.form.whatsapp)
+      const values = {
+        'contact.phone': phoneDigits || t.form.phone.trim(),
+        'contact.whatsapp': whatsappDigits || t.form.whatsapp.trim(),
+        'contact.email': t.form.email.trim(),
+        'contact.address': t.form.address.trim(),
+        'contact.mapUrl': t.form.mapUrl.trim(),
+        'contact.copyrightEn': t.form.copyrightEn.trim(),
+        'contact.copyrightAr': t.form.copyrightAr.trim(),
+      }
+      const next = await patchSettings(values)
+      saveBrandSettings({
+        phone: values['contact.phone'],
+        whatsapp: values['contact.whatsapp'],
+        email: values['contact.email'],
+        address: values['contact.address'],
+        mapUrl: values['contact.mapUrl'],
+        copyrightEn: values['contact.copyrightEn'],
+        copyrightAr: values['contact.copyrightAr'],
+      })
+      onSaved(next)
+      t.setSaved(ar ? 'تم الحفظ بنجاح.' : 'Saved successfully.')
+    } catch (e) {
+      t.setError(e instanceof Error ? e.message : 'Save failed.')
+    } finally {
+      t.setSaving(false)
+    }
   }
 
   return <div className="sp-form">
     <div className="sp-form-2">
-      <label><AdminText en="Phone number" ar="رقم الهاتف" /><InternationalPhoneInput value={phone} onChange={setPhone} locale={ar ? 'ar' : 'en'} required /></label>
-      <label><AdminText en="WhatsApp number" ar="رقم واتساب" /><InternationalPhoneInput value={whatsapp} onChange={setWhatsapp} locale={ar ? 'ar' : 'en'} required /></label>
+      <label><AdminText en="Phone number" ar="رقم الهاتف" /><InternationalPhoneInput value={t.form.phone} onChange={(phone) => t.setForm((f) => ({ ...f, phone }))} locale={ar ? 'ar' : 'en'} required /></label>
+      <label><AdminText en="WhatsApp number" ar="رقم واتساب" /><InternationalPhoneInput value={t.form.whatsapp} onChange={(whatsapp) => t.setForm((f) => ({ ...f, whatsapp }))} locale={ar ? 'ar' : 'en'} required /></label>
     </div>
-    <label><AdminText en="Public email" ar="البريد الإلكتروني العام" /><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} dir="ltr" required /></label>
-    <label><AdminText en="Company address" ar="عنوان الشركة" /><input value={address} onChange={(e) => setAddress(e.target.value)} required /></label>
-    <label><AdminText en="Google Maps URL" ar="رابط خرائط جوجل" /><input type="url" value={mapUrl} onChange={(e) => setMapUrl(e.target.value)} dir="ltr" placeholder="https://maps.google.com/..." /></label>
+    <label><AdminText en="Public email" ar="البريد الإلكتروني العام" /><input type="email" value={t.form.email} onChange={(e) => t.setForm((f) => ({ ...f, email: e.target.value }))} dir="ltr" required disabled={!canWrite || t.saving} /></label>
+    <label><AdminText en="Company address" ar="عنوان الشركة" /><input value={t.form.address} onChange={(e) => t.setForm((f) => ({ ...f, address: e.target.value }))} required disabled={!canWrite || t.saving} /></label>
+    <label><AdminText en="Google Maps URL" ar="رابط خرائط جوجل" /><input type="url" value={t.form.mapUrl} onChange={(e) => t.setForm((f) => ({ ...f, mapUrl: e.target.value }))} dir="ltr" placeholder="https://maps.google.com/..." disabled={!canWrite || t.saving} /></label>
     <p className="sp-group-title"><AdminText en="Footer copyright" ar="حقوق النشر في الفوتر" /></p>
-    <label><AdminText en="Copyright (EN)" ar="حقوق النشر (EN)" /><input value={copyrightEn} onChange={(e) => setCopyrightEn(e.target.value)} dir="ltr" required /></label>
-    <label><AdminText en="Copyright (AR)" ar="حقوق النشر (AR)" /><input value={copyrightAr} onChange={(e) => setCopyrightAr(e.target.value)} dir="rtl" required /></label>
-    <div><button type="button" className="sp-btn dark" onClick={save}><AdminText en="Save contact details" ar="حفظ بيانات التواصل" /></button></div>
+    <label><AdminText en="Copyright (EN)" ar="حقوق النشر (EN)" /><input value={t.form.copyrightEn} onChange={(e) => t.setForm((f) => ({ ...f, copyrightEn: e.target.value }))} dir="ltr" required disabled={!canWrite || t.saving} /></label>
+    <label><AdminText en="Copyright (AR)" ar="حقوق النشر (AR)" /><input value={t.form.copyrightAr} onChange={(e) => t.setForm((f) => ({ ...f, copyrightAr: e.target.value }))} dir="rtl" required disabled={!canWrite || t.saving} /></label>
+    {!canWrite && <ReadOnlyNote />}
+    <div><button type="button" className="sp-btn dark" onClick={save} disabled={!canWrite || t.saving}>{t.saving ? <AdminText en="Saving…" ar="جارٍ الحفظ…" /> : <AdminText en="Save contact details" ar="حفظ بيانات التواصل" />}</button></div>
+    <SaveFeedback saved={t.saved} error={t.error} />
   </div>
+}
+
+function CurrencyTab({ snapshot, canWrite, onSaved }: TabShell) {
+  const ar = useAdminLocale() === 'ar'
+  const t = useTabState(snapshot, (snap) => ({
+    eur: snap?.rates.eur ?? String(defaultCurrencySettings.eur),
+    egp: snap?.rates.egp ?? String(defaultCurrencySettings.egp),
+    defaultCurrency: (val(snap, 'app.defaultCurrency', defaultCurrencySettings.defaultCurrency) as 'USD' | 'EUR' | 'EGP'),
+  }))
+
+  const eurNum = Number(t.form.eur)
+  const egpNum = Number(t.form.egp)
+  const previewUsd = 120
+
+  const save = async () => {
+    t.setSaving(true)
+    t.setError('')
+    t.setSaved('')
+    if (!(eurNum > 0) || !(egpNum > 0)) {
+      t.setError(ar ? 'أدخل أسعارا أكبر من الصفر.' : 'Enter rates greater than zero.')
+      t.setSaving(false)
+      return
+    }
+    try {
+      const next = await patchSettings(
+        { 'app.defaultCurrency': t.form.defaultCurrency },
+        { eur: t.form.eur.trim(), egp: t.form.egp.trim() },
+      )
+      saveCurrencySettings({ eur: eurNum, egp: egpNum, defaultCurrency: t.form.defaultCurrency })
+      onSaved(next)
+      t.setSaved(ar ? 'تم الحفظ بنجاح.' : 'Saved successfully.')
+    } catch (e) {
+      t.setError(e instanceof Error ? e.message : 'Save failed.')
+    } finally {
+      t.setSaving(false)
+    }
+  }
+
+  const reset = async () => {
+    t.setSaving(true)
+    t.setError('')
+    t.setSaved('')
+    try {
+      const next = await patchSettings(
+        { 'app.defaultCurrency': defaultCurrencySettings.defaultCurrency },
+        { eur: String(defaultCurrencySettings.eur), egp: String(defaultCurrencySettings.egp) },
+      )
+      saveCurrencySettings({ eur: defaultCurrencySettings.eur, egp: defaultCurrencySettings.egp, defaultCurrency: defaultCurrencySettings.defaultCurrency })
+      onSaved(next)
+      t.setSaved(ar ? 'تم الحفظ بنجاح.' : 'Saved successfully.')
+    } catch (e) {
+      t.setError(e instanceof Error ? e.message : 'Save failed.')
+    } finally {
+      t.setSaving(false)
+    }
+  }
+
+  return (
+    <div className="sp-form">
+      <div className="sp-status2">
+        <div><small><AdminText en="BASE CURRENCY" ar="العملة الأساسية" /></small><b>USD · 1</b></div>
+        <div><small><AdminText en="RATE SOURCE" ar="مصدر الأسعار" /></small><b><AdminText en="Manual (DB-backed)" ar="يدوي (مدعوم بقاعدة البيانات)" /></b></div>
+      </div>
+      <p className="sp-group-title"><AdminText en="Conversion rates (per 1 USD)" ar="أسعار التحويل (لكل 1 دولار)" /></p>
+      <div className="sp-form-2">
+        <label><AdminText en="Euro (EUR)" ar="اليورو (EUR)" /><input type="number" min="0" step="0.01" value={t.form.eur} onChange={(e) => t.setForm((f) => ({ ...f, eur: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
+        <label><AdminText en="Egyptian Pound (EGP)" ar="الجنيه المصري (EGP)" /><input type="number" min="0" step="0.5" value={t.form.egp} onChange={(e) => t.setForm((f) => ({ ...f, egp: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
+      </div>
+      <label><AdminText en="Default currency" ar="العملة الافتراضية" /><SharedSelect value={t.form.defaultCurrency} onChange={(next) => t.setForm((f) => ({ ...f, defaultCurrency: next as 'USD' | 'EUR' | 'EGP' }))} locale={ar ? 'ar' : 'en'} options={[{ value: 'USD', label: 'USD' }, { value: 'EUR', label: 'EUR' }, { value: 'EGP', label: 'EGP' }]} disabled={!canWrite || t.saving} /></label>
+      <p className="sp-group-title"><AdminText en="Live preview ($120 tour)" ar="معاينة حية (رحلة بـ 120 دولارا)" /></p>
+      <div className="sp-status2">
+        <div><small>USD</small><b>${(previewUsd).toLocaleString('en-US')}</b></div>
+        <div><small>EUR</small><b>€{(eurNum > 0 ? previewUsd * eurNum : 0).toLocaleString('en-US')}</b></div>
+      </div>
+      <div className="sp-status2" style={{ marginTop: 12 }}>
+        <div><small>EGP</small><b>{Math.round(egpNum > 0 ? previewUsd * egpNum : 0).toLocaleString('en-US')} £</b></div>
+        <div><small><AdminText en="SCOPE" ar="النطاق" /></small><b><AdminText en="Every website price" ar="كل أسعار الموقع" /></b></div>
+      </div>
+      <p className="sp-integration-note"><AdminText en="Rates are manual. No live FX integration exists in this phase." ar="الأسعار يدوية. لا يوجد تكامل مباشر لأسعار الصرف في هذه المرحلة." /></p>
+      {!canWrite && <ReadOnlyNote />}
+      <SaveFeedback saved={t.saved} error={t.error} />
+      <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+        <button type="button" className="sp-btn" onClick={reset} disabled={!canWrite || t.saving}><AdminText en="Reset defaults" ar="استعادة الافتراضية" /></button>
+        <button type="button" className="sp-btn dark" onClick={save} disabled={!canWrite || t.saving}>{t.saving ? <AdminText en="Saving…" ar="جارٍ الحفظ…" /> : <AdminText en="Save rates" ar="حفظ الأسعار" />}</button>
+      </div>
+    </div>
+  )
+}
+
+function WebsiteTab({ snapshot, canWrite, onSaved }: TabShell) {
+  const ar = useAdminLocale() === 'ar'
+  const t = useTabState(snapshot, (snap) => ({
+    seoTitle: val(snap, 'site.seoTitle', FALLBACK_SEO_TITLE),
+    promoText: val(snap, 'site.promoText', FALLBACK_PROMO),
+  }))
+
+  const save = async () => {
+    t.setSaving(true)
+    t.setError('')
+    t.setSaved('')
+    try {
+      const next = await patchSettings({
+        'site.seoTitle': t.form.seoTitle.trim() || FALLBACK_SEO_TITLE,
+        'site.promoText': t.form.promoText.trim() || FALLBACK_PROMO,
+      })
+      onSaved(next)
+      t.setSaved(ar ? 'تم الحفظ بنجاح.' : 'Saved successfully.')
+    } catch (e) {
+      t.setError(e instanceof Error ? e.message : 'Save failed.')
+    } finally {
+      t.setSaving(false)
+    }
+  }
+
+  return (
+    <div className="sp-form">
+      <label><AdminText en="SEO title" ar="عنوان SEO" /><input value={t.form.seoTitle} onChange={(e) => t.setForm((f) => ({ ...f, seoTitle: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
+      <label><AdminText en="Promo bar text" ar="نص الشريط الترويجي" /><textarea rows={2} value={t.form.promoText} onChange={(e) => t.setForm((f) => ({ ...f, promoText: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
+      {!canWrite && <ReadOnlyNote />}
+      <div><button type="button" className="sp-btn dark" onClick={save} disabled={!canWrite || t.saving}>{t.saving ? <AdminText en="Saving…" ar="جارٍ الحفظ…" /> : <AdminText en="Save" ar="حفظ" />}</button></div>
+      <SaveFeedback saved={t.saved} error={t.error} />
+    </div>
+  )
+}
+
+function EmailTab({ snapshot, canWrite, onSaved }: TabShell) {
+  const ar = useAdminLocale() === 'ar'
+  const t = useTabState(snapshot, (snap) => ({
+    fromName: val(snap, 'mail.fromName', 'Star Pyramids Tours'),
+    fromEmail: val(snap, 'mail.fromEmail', 'sales@starpyramids.com'),
+    smtpHost: val(snap, 'mail.smtpHost', 'smtp.hostinger.com'),
+    smtpPort: val(snap, 'mail.smtpPort', '465'),
+    smtpEncryption: val(snap, 'mail.smtpEncryption', 'SSL'),
+    smtpUsername: val(snap, 'mail.smtpUsername', 'sales@starpyramids.com'),
+    smtpPassword: '',
+    smtpTimeout: val(snap, 'mail.smtpTimeout', '30'),
+    imapProtocol: val(snap, 'mail.imapProtocol', 'IMAP'),
+    imapHost: val(snap, 'mail.imapHost', 'imap.hostinger.com'),
+    imapPort: val(snap, 'mail.imapPort', '993'),
+    imapEncryption: val(snap, 'mail.imapEncryption', 'SSL'),
+    imapUsername: val(snap, 'mail.imapUsername', 'sales@starpyramids.com'),
+    imapPassword: '',
+    mailbox: val(snap, 'mail.mailbox', 'INBOX'),
+  }))
+
+  const outgoingReady = t.form.smtpHost.trim() !== '' && t.form.smtpUsername.trim() !== ''
+  const incomingReady = t.form.imapHost.trim() !== '' && t.form.imapUsername.trim() !== ''
+
+  const save = async () => {
+    t.setSaving(true)
+    t.setError('')
+    t.setSaved('')
+    try {
+      const next = await patchSettings({
+        'mail.fromName': t.form.fromName.trim(),
+        'mail.fromEmail': t.form.fromEmail.trim(),
+        'mail.smtpHost': t.form.smtpHost.trim(),
+        'mail.smtpPort': t.form.smtpPort.trim(),
+        'mail.smtpEncryption': t.form.smtpEncryption,
+        'mail.smtpUsername': t.form.smtpUsername.trim(),
+        'mail.smtpPassword': t.form.smtpPassword,
+        'mail.smtpTimeout': t.form.smtpTimeout.trim(),
+        'mail.imapProtocol': t.form.imapProtocol,
+        'mail.imapHost': t.form.imapHost.trim(),
+        'mail.imapPort': t.form.imapPort.trim(),
+        'mail.imapEncryption': t.form.imapEncryption,
+        'mail.imapUsername': t.form.imapUsername.trim(),
+        'mail.imapPassword': t.form.imapPassword,
+        'mail.mailbox': t.form.mailbox.trim() || 'INBOX',
+      })
+      onSaved(next)
+      t.setSaved(ar ? 'تم حفظ الإعدادات. لم يتم التحقق من الاتصال بعد.' : 'Configuration saved. Connection not verified yet.')
+    } catch (e) {
+      t.setError(e instanceof Error ? e.message : 'Save failed.')
+    } finally {
+      t.setSaving(false)
+    }
+  }
+
+  return (
+    <div className="sp-form">
+      <div className="sp-status2">
+        <div><small><AdminText en="OUTGOING EMAIL" ar="البريد الصادر" /></small><b>{outgoingReady ? <AdminText en="Saved" ar="محفوظ" /> : <AdminText en="Not configured" ar="غير مضبوط" />}</b><small style={{ color: 'var(--sp-muted)' }}><AdminText en="Connection: not verified" ar="الاتصال: لم يتم التحقق" /></small></div>
+        <div><small><AdminText en="INCOMING EMAIL" ar="البريد الوارد" /></small><b>{incomingReady ? <AdminText en="Saved" ar="محفوظ" /> : <AdminText en="Not configured" ar="غير مضبوط" />}</b><small style={{ color: 'var(--sp-muted)' }}><AdminText en="Connection: not verified" ar="الاتصال: لم يتم التحقق" /></small></div>
+      </div>
+      <p className="sp-group-title"><AdminText en="Sender Identity" ar="هوية المرسل" /></p>
+      <div className="sp-form-2">
+        <label><AdminText en="From Name" ar="اسم المرسل" /><input value={t.form.fromName} onChange={(e) => t.setForm((f) => ({ ...f, fromName: e.target.value }))} disabled={!canWrite || t.saving} /></label>
+        <label><AdminText en="From Email" ar="بريد المرسل" /><input type="email" value={t.form.fromEmail} onChange={(e) => t.setForm((f) => ({ ...f, fromEmail: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
+      </div>
+      <p className="sp-group-title"><AdminText en="Outgoing Email - SMTP" ar="البريد الصادر - SMTP" /></p>
+      <div className="sp-form-2">
+        <label><AdminText en="SMTP Host" ar="مضيف SMTP" /><input value={t.form.smtpHost} onChange={(e) => t.setForm((f) => ({ ...f, smtpHost: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
+        <label><AdminText en="SMTP Port" ar="منفذ SMTP" /><input value={t.form.smtpPort} inputMode="numeric" onChange={(e) => t.setForm((f) => ({ ...f, smtpPort: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
+      </div>
+      <div className="sp-form-2">
+        <label><AdminText en="Encryption" ar="التشفير" /><SharedSelect value={t.form.smtpEncryption} onChange={(next) => t.setForm((f) => ({ ...f, smtpEncryption: next }))} locale={ar ? 'ar' : 'en'} options={[{ value: 'SSL', label: 'SSL' }, { value: 'TLS', label: 'TLS' }, { value: 'None', label: 'None' }]} disabled={!canWrite || t.saving} /></label>
+        <label><AdminText en="SMTP Username" ar="اسم مستخدم SMTP" /><input value={t.form.smtpUsername} onChange={(e) => t.setForm((f) => ({ ...f, smtpUsername: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
+      </div>
+      <div className="sp-form-2">
+        <SecretField labelEn="SMTP Password" labelAr="كلمة مرور SMTP" value={t.form.smtpPassword} onChange={(smtpPassword) => t.setForm((f) => ({ ...f, smtpPassword }))} configured={secretConfigured(snapshot, 'mail.smtpPassword')} disabled={!canWrite || t.saving} />
+        <label><AdminText en="Timeout (seconds)" ar="المهلة (بالثواني)" /><input value={t.form.smtpTimeout} inputMode="numeric" onChange={(e) => t.setForm((f) => ({ ...f, smtpTimeout: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
+      </div>
+      <p className="sp-group-title"><AdminText en="Incoming Email - IMAP / POP3" ar="البريد الوارد - IMAP / POP3" /></p>
+      <div className="sp-form-2">
+        <label><AdminText en="Protocol" ar="البروتوكول" /><SharedSelect value={t.form.imapProtocol} onChange={(next) => t.setForm((f) => ({ ...f, imapProtocol: next }))} locale={ar ? 'ar' : 'en'} options={[{ value: 'IMAP', label: 'IMAP' }, { value: 'POP3', label: 'POP3' }]} disabled={!canWrite || t.saving} /></label>
+        <label><AdminText en="Incoming Host" ar="المضيف الوارد" /><input value={t.form.imapHost} onChange={(e) => t.setForm((f) => ({ ...f, imapHost: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
+      </div>
+      <div className="sp-form-2">
+        <label><AdminText en="Incoming Port" ar="المنفذ الوارد" /><input value={t.form.imapPort} inputMode="numeric" onChange={(e) => t.setForm((f) => ({ ...f, imapPort: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
+        <label><AdminText en="Encryption" ar="التشفير" /><SharedSelect value={t.form.imapEncryption} onChange={(next) => t.setForm((f) => ({ ...f, imapEncryption: next }))} locale={ar ? 'ar' : 'en'} options={[{ value: 'SSL', label: 'SSL' }, { value: 'TLS', label: 'TLS' }]} disabled={!canWrite || t.saving} /></label>
+      </div>
+      <div className="sp-form-2">
+        <label><AdminText en="Incoming Username" ar="اسم المستخدم الوارد" /><input value={t.form.imapUsername} onChange={(e) => t.setForm((f) => ({ ...f, imapUsername: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
+        <SecretField labelEn="Incoming Password" labelAr="كلمة المرور الواردة" value={t.form.imapPassword} onChange={(imapPassword) => t.setForm((f) => ({ ...f, imapPassword }))} configured={secretConfigured(snapshot, 'mail.imapPassword')} disabled={!canWrite || t.saving} />
+      </div>
+      <label><AdminText en="Mailbox / Folder" ar="الصندوق / المجلد" /><input value={t.form.mailbox} onChange={(e) => t.setForm((f) => ({ ...f, mailbox: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
+      <p className="sp-integration-note"><ShieldCheck size={15} /> <AdminText en="Passwords stay on the server and are never shown again. Live send/receive testing requires the mail integration phase — saving here stores configuration only." ar="تبقى كلمات المرور في الخادم ولا تظهر مجددا. يتطلب اختبار الإرسال والاستلام الحي مرحلة تكامل البريد — الحفظ هنا يخزن الإعدادات فقط." /></p>
+      {!canWrite && <ReadOnlyNote />}
+      <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+        <button type="button" className="sp-btn" disabled title={ar ? 'يتطلب مرحلة تكامل البريد' : 'Requires the mail integration phase'}><AdminText en="Test connection" ar="اختبار الاتصال" /></button>
+        <button type="button" className="sp-btn dark" onClick={save} disabled={!canWrite || t.saving}>{t.saving ? <AdminText en="Saving…" ar="جارٍ الحفظ…" /> : <AdminText en="Save" ar="حفظ" />}</button>
+      </div>
+      <SaveFeedback saved={t.saved} error={t.error} />
+    </div>
+  )
 }
 
 const tabs = [
@@ -230,57 +644,280 @@ const tabs = [
   { id: 'facebook-auth', icon: FacebookIcon, en: 'Facebook Login', ar: 'تسجيل الدخول بفيسبوك', sub: 'Customer account authentication', subAr: 'مصادقة حسابات العملاء' },
 ] as const
 
-function SecretPrototypeNote() {
-  return <p className="sp-integration-note"><ShieldCheck size={15} /> <AdminText en="Prototype only — do not enter real credentials. Secure secret storage requires backend integration." ar="نسخة تجريبية فقط — لا تدخل بيانات اعتماد حقيقية. يتطلب التخزين الآمن للأسرار تكامل الواجهة الخلفية." /></p>
-}
-
 function IntegrationStatus({ label }: { label?: React.ReactNode }) {
   return <span className="sp-integration-status"><i aria-hidden="true" />{label ?? <AdminText en="Backend pending" ar="الباك إند معلق" />}</span>
 }
 
-function IntegrationToggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
-  return <button type="button" role="switch" aria-checked={checked} className={cn('sp-integration-toggle', checked && 'active')} onClick={onChange}><span className="sp-toggle-track" aria-hidden="true" /><span className="sp-toggle-label">{checked ? <AdminText en="Enabled" ar="مفعل" /> : <AdminText en="Disabled" ar="معطل" />}</span></button>
+function IntegrationToggle({ checked, onChange, disabled }: { checked: boolean; onChange: () => void; disabled?: boolean }) {
+  return <button type="button" role="switch" aria-checked={checked} className={cn('sp-integration-toggle', checked && 'active')} onClick={onChange} disabled={disabled}><span className="sp-toggle-track" aria-hidden="true" /><span className="sp-toggle-label">{checked ? <AdminText en="Enabled" ar="مفعل" /> : <AdminText en="Disabled" ar="معطل" />}</span></button>
+}
+
+function PendingNote({ children }: { children: React.ReactNode }) {
+  return <p className="sp-integration-note"><PlugZap size={15} /> {children}</p>
+}
+
+function WhatsAppTab({ snapshot, canWrite, onSaved }: TabShell) {
+  const ar = useAdminLocale() === 'ar'
+  const t = useTabState(snapshot, (snap) => ({
+    enabled: val(snap, 'whatsapp.enabled', 'true') === 'true',
+    sessionName: val(snap, 'whatsapp.sessionName', 'Star Pyramids Support'),
+    inbox: val(snap, 'whatsapp.inbox', 'main'),
+    metaAppId: val(snap, 'whatsapp.metaAppId', ''),
+    wabaId: val(snap, 'whatsapp.wabaId', ''),
+    phoneNumberId: val(snap, 'whatsapp.phoneNumberId', ''),
+    accessToken: '',
+    verifyToken: '',
+  }))
+
+  const save = async () => {
+    t.setSaving(true)
+    t.setError('')
+    t.setSaved('')
+    try {
+      const next = await patchSettings({
+        'whatsapp.enabled': t.form.enabled ? 'true' : 'false',
+        'whatsapp.sessionName': t.form.sessionName.trim() || 'Star Pyramids Support',
+        'whatsapp.inbox': t.form.inbox,
+        'whatsapp.metaAppId': t.form.metaAppId.trim(),
+        'whatsapp.wabaId': t.form.wabaId.trim(),
+        'whatsapp.phoneNumberId': t.form.phoneNumberId.trim(),
+        'whatsapp.accessToken': t.form.accessToken,
+        'whatsapp.verifyToken': t.form.verifyToken,
+      })
+      onSaved(next)
+      t.setSaved(ar ? 'تم حفظ الإعدادات. الاتصال لم يتم التحقق منه بعد.' : 'Configuration saved. Connection not verified yet.')
+    } catch (e) {
+      t.setError(e instanceof Error ? e.message : 'Save failed.')
+    } finally {
+      t.setSaving(false)
+    }
+  }
+
+  return (
+    <div className="sp-integration-page">
+      <div className="sp-integration-summary">
+        <span className="sp-integration-icon green"><WhatsAppGlyph size={22} /></span>
+        <div className="sp-integration-copy"><strong><AdminText en="WhatsApp messaging" ar="مراسلات واتساب" /></strong><p><AdminText en="Choose one connection method. Messages will appear in the unified Inbox after the backend is connected." ar="اختر طريقة ربط واحدة. ستظهر الرسائل في صندوق المراسلة الموحد بعد ربط الواجهة الخلفية." /></p></div>
+        <div className="sp-integration-controls"><IntegrationStatus label={<AdminText en="Not connected" ar="غير متصل" />} /><IntegrationToggle checked={t.form.enabled} onChange={() => t.setForm((f) => ({ ...f, enabled: !f.enabled }))} disabled={!canWrite || t.saving} /></div>
+      </div>
+
+      <div className="sp-method-grid">
+        <section className="sp-method-card">
+          <header><span className="sp-integration-icon"><QrCode size={21} /></span><div><h3><AdminText en="QR Session" ar="جلسة QR" /></h3><p><AdminText en="Connect an existing WhatsApp device session." ar="اربط جلسة جهاز واتساب موجودة." /></p></div></header>
+          <div className="sp-qr-preview" aria-label={ar ? 'عنصر نائب لرمز QR' : 'QR code placeholder'}>
+            <QrCode size={76} strokeWidth={1.25} />
+            <strong><AdminText en="No active session" ar="لا توجد جلسة نشطة" /></strong>
+            <small><AdminText en="QR generation requires the backend session provider (pending)" ar="يتطلب توليد QR مزود الجلسات الخلفي (معلق)" /></small>
+          </div>
+          <div className="sp-form">
+            <label><AdminText en="Session name" ar="اسم الجلسة" /><input value={t.form.sessionName} onChange={(e) => t.setForm((f) => ({ ...f, sessionName: e.target.value }))} disabled={!canWrite || t.saving} /></label>
+            <label><AdminText en="Assigned inbox" ar="الصندوق المعين" /><SharedSelect value={t.form.inbox} onChange={(next) => t.setForm((f) => ({ ...f, inbox: next }))} locale={ar ? 'ar' : 'en'} options={[{ value: 'main', label: ar ? 'صندوق واتساب الرئيسي' : 'Main WhatsApp Inbox' }, { value: 'sales', label: ar ? 'فريق المبيعات' : 'Sales Team' }]} disabled={!canWrite || t.saving} /></label>
+          </div>
+          <button type="button" className="sp-btn primary" disabled title={ar ? 'يتطلب مزود الجلسات الخلفي (معلق)' : 'Requires the backend session provider (pending)'}><QrCode size={17} /> <AdminText en="Generate QR code" ar="توليد رمز QR" /></button>
+          <p className="sp-integration-note"><AdminText en="This method requires a backend session provider. It is separate from Meta Cloud API and must be reviewed before production use." ar="تتطلب هذه الطريقة مزود جلسات خلفيا. وهي منفصلة عن واجهة Meta Cloud ويجب مراجعتها قبل الإنتاج." /></p>
+        </section>
+
+        <section className="sp-method-card featured">
+          <header><span className="sp-integration-icon blue"><Cloud size={21} /></span><div><h3><AdminText en="Official Cloud API" ar="واجهة Cloud الرسمية" /></h3><p><AdminText en="Recommended Meta WhatsApp Business connection." ar="ربط Meta WhatsApp Business الموصى به." /></p></div><span className="sp-recommended"><AdminText en="Recommended" ar="موصى به" /></span></header>
+          <div className="sp-form">
+            <div className="sp-form-2">
+              <label><AdminText en="Meta App ID" ar="معرف تطبيق Meta" /><input value={t.form.metaAppId} onChange={(e) => t.setForm((f) => ({ ...f, metaAppId: e.target.value }))} placeholder={ar ? 'أدخل معرف تطبيق Meta' : 'Enter Meta App ID'} dir="ltr" disabled={!canWrite || t.saving} /></label>
+              <label><AdminText en="Business Account ID" ar="معرف حساب الأعمال" /><input value={t.form.wabaId} onChange={(e) => t.setForm((f) => ({ ...f, wabaId: e.target.value }))} placeholder={ar ? 'أدخل معرف WABA' : 'Enter WABA ID'} dir="ltr" disabled={!canWrite || t.saving} /></label>
+            </div>
+            <label><AdminText en="Phone Number ID" ar="معرف رقم الهاتف" /><input value={t.form.phoneNumberId} onChange={(e) => t.setForm((f) => ({ ...f, phoneNumberId: e.target.value }))} placeholder={ar ? 'أدخل معرف رقم الهاتف' : 'Enter Phone Number ID'} dir="ltr" disabled={!canWrite || t.saving} /></label>
+            <SecretField labelEn="Access token" labelAr="رمز الوصول" value={t.form.accessToken} onChange={(accessToken) => t.setForm((f) => ({ ...f, accessToken }))} configured={secretConfigured(snapshot, 'whatsapp.accessToken')} disabled={!canWrite || t.saving} />
+            <label><AdminText en="Webhook callback" ar="رابط Webhook" /><input value="https://starpyramids.com/api/integrations/whatsapp/webhook" readOnly dir="ltr" /></label>
+            <SecretField labelEn="Verify token" labelAr="رمز التحقق" value={t.form.verifyToken} onChange={(verifyToken) => t.setForm((f) => ({ ...f, verifyToken }))} configured={secretConfigured(snapshot, 'whatsapp.verifyToken')} disabled={!canWrite || t.saving} />
+          </div>
+          <p className="sp-integration-note"><ShieldCheck size={15} /> <AdminText en="Tokens stay on the server and are never shown again. Saving stores configuration only — the provider connection is not verified." ar="تبقى الرموز في الخادم ولا تظهر مجددا. الحفظ يخزن الإعدادات فقط — لم يتم التحقق من اتصال المزود." /></p>
+          {!canWrite && <ReadOnlyNote />}
+          <div className="sp-integration-actions">
+            <button type="button" className="sp-btn dark" onClick={save} disabled={!canWrite || t.saving}>{t.saving ? <AdminText en="Saving…" ar="جارٍ الحفظ…" /> : <AdminText en="Save configuration" ar="حفظ الإعدادات" />}</button>
+            <button type="button" className="sp-btn" disabled title={ar ? 'يتطلب رد OAuth الخلفي (معلق)' : 'Requires the backend OAuth callback (pending)'}><PlugZap size={17} /> <AdminText en="Connect with Meta" ar="الربط مع Meta" /></button>
+            <button type="button" className="sp-btn" disabled title={ar ? 'يتطلب تكامل المزود (معلق)' : 'Requires the provider integration (pending)'}><AdminText en="Test connection" ar="اختبار الاتصال" /></button>
+          </div>
+          <SaveFeedback saved={t.saved} error={t.error} />
+        </section>
+      </div>
+    </div>
+  )
+}
+
+function MapsTab({ snapshot, canWrite, onSaved }: TabShell) {
+  const ar = useAdminLocale() === 'ar'
+  const t = useTabState(snapshot, (snap) => ({
+    enabled: val(snap, 'maps.enabled', 'true') === 'true',
+    browserKey: '',
+    mapId: val(snap, 'maps.mapId', ''),
+    lat: val(snap, 'maps.lat', '29.9870'),
+    lng: val(snap, 'maps.lng', '31.2118'),
+    zoom: val(snap, 'maps.zoom', '12'),
+    services: val(snap, 'maps.services', 'maps-places'),
+  }))
+
+  const save = async () => {
+    t.setSaving(true)
+    t.setError('')
+    t.setSaved('')
+    try {
+      const next = await patchSettings({
+        'maps.enabled': t.form.enabled ? 'true' : 'false',
+        'maps.browserKey': t.form.browserKey,
+        'maps.mapId': t.form.mapId.trim(),
+        'maps.lat': t.form.lat.trim(),
+        'maps.lng': t.form.lng.trim(),
+        'maps.zoom': t.form.zoom.trim(),
+        'maps.services': t.form.services,
+      })
+      onSaved(next)
+      t.setSaved(ar ? 'تم حفظ الإعدادات. الخريطة غير متصلة بعد.' : 'Configuration saved. Map not connected yet.')
+    } catch (e) {
+      t.setError(e instanceof Error ? e.message : 'Save failed.')
+    } finally {
+      t.setSaving(false)
+    }
+  }
+
+  return (
+    <div className="sp-integration-page">
+      <div className="sp-integration-summary">
+        <span className="sp-integration-icon red"><MapPinned size={22} /></span>
+        <div className="sp-integration-copy"><strong><AdminText en="Google Maps Platform" ar="منصة خرائط جوجل" /></strong><p><AdminText en="Maps, place search and trip location previews across the website." ar="الخرائط والبحث عن الأماكن ومعاينات مواقع الرحلات عبر الموقع." /></p></div>
+        <div className="sp-integration-controls"><IntegrationStatus label={<AdminText en="Not connected" ar="غير متصلة" />} /><IntegrationToggle checked={t.form.enabled} onChange={() => t.setForm((f) => ({ ...f, enabled: !f.enabled }))} disabled={!canWrite || t.saving} /></div>
+      </div>
+      <section className="sp-integration-panel">
+        <div className="sp-form">
+          <div className="sp-form-2">
+            <SecretField labelEn="Browser API key" labelAr="مفتاح API للمتصفح" value={t.form.browserKey} onChange={(browserKey) => t.setForm((f) => ({ ...f, browserKey }))} configured={secretConfigured(snapshot, 'maps.browserKey')} disabled={!canWrite || t.saving} />
+            <label><AdminText en="Map ID" ar="معرف الخريطة" /><input value={t.form.mapId} onChange={(e) => t.setForm((f) => ({ ...f, mapId: e.target.value }))} placeholder={ar ? 'معرف خريطة جوجل اختياري' : 'Optional Google Map ID'} dir="ltr" disabled={!canWrite || t.saving} /></label>
+          </div>
+          <div className="sp-form-2">
+            <label><AdminText en="Default latitude" ar="خط العرض الافتراضي" /><input value={t.form.lat} inputMode="decimal" onChange={(e) => t.setForm((f) => ({ ...f, lat: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
+            <label><AdminText en="Default longitude" ar="خط الطول الافتراضي" /><input value={t.form.lng} inputMode="decimal" onChange={(e) => t.setForm((f) => ({ ...f, lng: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
+          </div>
+          <div className="sp-form-2">
+            <label><AdminText en="Default zoom" ar="التقريب الافتراضي" /><input type="number" value={t.form.zoom} min="1" max="20" onChange={(e) => t.setForm((f) => ({ ...f, zoom: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
+            <label><AdminText en="Enabled services" ar="الخدمات المفعلة" /><SharedSelect value={t.form.services} onChange={(next) => t.setForm((f) => ({ ...f, services: next }))} locale={ar ? 'ar' : 'en'} options={[{ value: 'maps-places', label: ar ? 'الخرائط + الأماكن' : 'Maps + Places' }, { value: 'maps', label: ar ? 'الخرائط فقط' : 'Maps only' }, { value: 'maps-places-geocoding', label: ar ? 'الخرائط + الأماكن + الترميز' : 'Maps + Places + Geocoding' }]} disabled={!canWrite || t.saving} /></label>
+          </div>
+        </div>
+        <p className="sp-integration-note"><ShieldCheck size={15} /> <AdminText en="The API key stays on the server and is never shown again. Restrict the browser key to the production domain and only the required Google APIs." ar="يبقى مفتاح API في الخادم ولا يظهر مجددا. قيد مفتاح المتصفح على نطاق الإنتاج وواجهات جوجل المطلوبة فقط." /></p>
+        {!canWrite && <ReadOnlyNote />}
+        <div className="sp-integration-actions">
+          <button type="button" className="sp-btn primary" onClick={save} disabled={!canWrite || t.saving}>{t.saving ? <AdminText en="Saving…" ar="جارٍ الحفظ…" /> : <AdminText en="Save configuration" ar="حفظ الإعدادات" />}</button>
+          <button type="button" className="sp-btn" disabled title={ar ? 'يتطلب مفتاحا مقيدا صالحا (معلق)' : 'Requires a valid restricted key (pending)'}><AdminText en="Test map" ar="اختبار الخريطة" /></button>
+        </div>
+        <SaveFeedback saved={t.saved} error={t.error} />
+      </section>
+    </div>
+  )
+}
+
+function OAuthTab({ provider, snapshot, canWrite, onSaved }: TabShell & { provider: 'google' | 'facebook' }) {
+  const ar = useAdminLocale() === 'ar'
+  const isGoogle = provider === 'google'
+  const idKey = isGoogle ? 'auth.google.clientId' : 'auth.facebook.appId'
+  const secretKey = isGoogle ? 'auth.google.clientSecret' : 'auth.facebook.appSecret'
+  const enabledKey = isGoogle ? 'auth.google.enabled' : 'auth.facebook.enabled'
+  const t = useTabState(snapshot, (snap) => ({
+    enabled: val(snap, enabledKey, 'true') === 'true',
+    clientId: val(snap, idKey, ''),
+    clientSecret: '',
+  }))
+
+  const save = async () => {
+    t.setSaving(true)
+    t.setError('')
+    t.setSaved('')
+    try {
+      const next = await patchSettings({
+        [enabledKey]: t.form.enabled ? 'true' : 'false',
+        [idKey]: t.form.clientId.trim(),
+        [secretKey]: t.form.clientSecret,
+      })
+      onSaved(next)
+      t.setSaved(ar ? 'تم حفظ الإعدادات. تسجيل الدخول غير مفعل بعد.' : 'Configuration saved. Social login not live yet.')
+    } catch (e) {
+      t.setError(e instanceof Error ? e.message : 'Save failed.')
+    } finally {
+      t.setSaving(false)
+    }
+  }
+
+  return (
+    <div className="sp-integration-page">
+      <div className="sp-integration-summary">
+        <span className={cn('sp-integration-icon', isGoogle ? 'red' : 'facebook')}>{isGoogle ? <GoogleIcon size={22} /> : <FacebookIcon size={22} />}</span>
+        <div className="sp-integration-copy"><strong>{isGoogle ? <AdminText en="Google customer login" ar="تسجيل دخول العملاء بجوجل" /> : <AdminText en="Facebook customer login" ar="تسجيل دخول العملاء بفيسبوك" />}</strong><p>{isGoogle ? <AdminText en="Allow customers to create or access their account with Google." ar="اسمح للعملاء بإنشاء حساباتهم أو الوصول إليها بجوجل." /> : <AdminText en="Allow customers to create or access their account with Facebook." ar="اسمح للعملاء بإنشاء حساباتهم أو الوصول إليها بفيسبوك." />}</p></div>
+        <div className="sp-integration-controls"><IntegrationStatus label={<AdminText en="Not connected" ar="غير متصل" />} /><IntegrationToggle checked={t.form.enabled} onChange={() => t.setForm((f) => ({ ...f, enabled: !f.enabled }))} disabled={!canWrite || t.saving} /></div>
+      </div>
+      <section className="sp-integration-panel">
+        <div className="sp-form">
+          {isGoogle ? (
+            <>
+              <label><AdminText en="Google OAuth Client ID" ar="معرف عميل Google OAuth" /><input value={t.form.clientId} onChange={(e) => t.setForm((f) => ({ ...f, clientId: e.target.value }))} placeholder={ar ? 'أدخل معرف عميل Google OAuth' : 'Enter Google OAuth Client ID'} dir="ltr" disabled={!canWrite || t.saving} /></label>
+              <SecretField labelEn="Google OAuth Client Secret" labelAr="سر عميل Google OAuth" value={t.form.clientSecret} onChange={(clientSecret) => t.setForm((f) => ({ ...f, clientSecret }))} configured={secretConfigured(snapshot, secretKey)} disabled={!canWrite || t.saving} />
+              <label><AdminText en="Authorized JavaScript origin" ar="مصدر JavaScript المعتمد" /><input value="https://starpyramids.com" readOnly dir="ltr" /></label>
+              <label><AdminText en="Authorized redirect URI" ar="رابط إعادة التوجيه المعتمد" /><input value="https://starpyramids.com/api/auth/callback/google" readOnly dir="ltr" /></label>
+              <label><AdminText en="Requested scopes" ar="النطاقات المطلوبة" /><input value="openid email profile" readOnly dir="ltr" /></label>
+            </>
+          ) : (
+            <>
+              <div className="sp-form-2">
+                <label><AdminText en="Facebook App ID" ar="معرف تطبيق فيسبوك" /><input value={t.form.clientId} onChange={(e) => t.setForm((f) => ({ ...f, clientId: e.target.value }))} placeholder={ar ? 'أدخل معرف تطبيق فيسبوك' : 'Enter Facebook App ID'} dir="ltr" disabled={!canWrite || t.saving} /></label>
+                <SecretField labelEn="Facebook App Secret" labelAr="سر تطبيق فيسبوك" value={t.form.clientSecret} onChange={(clientSecret) => t.setForm((f) => ({ ...f, clientSecret }))} configured={secretConfigured(snapshot, secretKey)} disabled={!canWrite || t.saving} />
+              </div>
+              <label><AdminText en="Valid OAuth redirect URI" ar="رابط إعادة توجيه OAuth الصالح" /><input value="https://starpyramids.com/api/auth/callback/facebook" readOnly dir="ltr" /></label>
+              <label><AdminText en="Data deletion callback" ar="رابط حذف البيانات" /><input value="https://starpyramids.com/api/auth/facebook/data-deletion" readOnly dir="ltr" /></label>
+              <label><AdminText en="Requested permissions" ar="الأذونات المطلوبة" /><input value="public_profile,email" readOnly dir="ltr" /></label>
+            </>
+          )}
+        </div>
+        <PendingNote>{isGoogle
+          ? <AdminText en="The client secret stays on the server. Real Google sign-in requires the OAuth callback + secure session handling (pending)." ar="يبقى سر العميل في الخادم. يتطلب تسجيل الدخول الحقيقي بجوجل رد OAuth وإدارة جلسات آمنة (معلق)." />
+          : <AdminText en="Keep the App Secret on the server and configure the production domain in Meta. Real Facebook login requires the OAuth callback (pending)." ar="أبق سر التطبيق في الخادم واضبط نطاق الإنتاج في Meta. يتطلب تسجيل فيسبوك الحقيقي رد OAuth (معلق)." />}</PendingNote>
+        {!canWrite && <ReadOnlyNote />}
+        <p className="sp-integration-note"><KeyRound size={15} /> <AdminText en="Secrets are never exposed in frontend code." ar="لا تكشف الأسرار في كود الواجهة أبدا." /></p>
+        <div className="sp-integration-actions">
+          <button type="button" className="sp-btn primary" onClick={save} disabled={!canWrite || t.saving}>{t.saving ? <AdminText en="Saving…" ar="جارٍ الحفظ…" /> : <AdminText en="Save configuration" ar="حفظ الإعدادات" />}</button>
+          <button type="button" className="sp-btn" disabled title={ar ? 'يتطلب رد OAuth الخلفي (معلق)' : 'Requires the backend OAuth callback (pending)'}><LogIn size={17} /> {isGoogle ? <AdminText en="Connect Google" ar="ربط جوجل" /> : <AdminText en="Connect Facebook" ar="ربط فيسبوك" />}</button>
+          <button type="button" className="sp-btn" disabled title={ar ? 'يتاح بعد تنفيذ رد OAuth' : 'Available after the OAuth callback is implemented'}><AdminText en="Test login" ar="اختبار الدخول" /></button>
+        </div>
+        <SaveFeedback saved={t.saved} error={t.error} />
+      </section>
+    </div>
+  )
 }
 
 export default function SettingsPage() {
   const ar = useAdminLocale() === 'ar'
-  const brand = useBrandSettings()
+  const { user } = useCurrentUser()
+  const canWrite = user !== null && (user.roles.includes('SUPER_ADMIN') || user.roles.includes('ADMIN'))
   const [tab, setTab] = useState<(typeof tabs)[number]['id']>('whatsapp')
-  const [saved, setSaved] = useState(false)
-  const [notice, setNotice] = useState('')
-  const [whatsappEnabled, setWhatsappEnabled] = useState(true)
-  const [mapsEnabled, setMapsEnabled] = useState(true)
-  const [googleAuthEnabled, setGoogleAuthEnabled] = useState(true)
-  const [facebookAuthEnabled, setFacebookAuthEnabled] = useState(true)
-  const [currencyForm, setCurrencyForm] = useState(readCurrencySettings)
-  const [currencySaved, setCurrencySaved] = useState(false)
-  const [currencyError, setCurrencyError] = useState('')
+  const [snapshot, setSnapshot] = useState<SettingsSnapshot | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
 
-  const saveCurrency = () => {
-    const eur = Number(currencyForm.eur)
-    const egp = Number(currencyForm.egp)
-    if (!(eur > 0) || !(egp > 0)) {
-      setCurrencyError(ar ? 'أدخل أسعارا أكبر من الصفر.' : 'Enter rates greater than zero.')
-      return
+  const load = useCallback(async () => {
+    setLoading(true)
+    setLoadError('')
+    try {
+      const res = await fetch('/api/admin/settings', { credentials: 'same-origin' })
+      const data = (await res.json()) as SettingsSnapshot & { error?: string }
+      if (!res.ok) throw new Error(data.error || 'Failed to load settings.')
+      setSnapshot(data)
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'Failed to load settings.')
+    } finally {
+      setLoading(false)
     }
-    setCurrencyError('')
-    saveCurrencySettings({ eur, egp, defaultCurrency: currencyForm.defaultCurrency })
-    setCurrencyForm(readCurrencySettings())
-    setCurrencySaved(true)
-  }
+  }, [])
 
-  const resetCurrency = () => {
-    saveCurrencySettings({ eur: defaultCurrencySettings.eur, egp: defaultCurrencySettings.egp, defaultCurrency: defaultCurrencySettings.defaultCurrency })
-    setCurrencyForm(readCurrencySettings())
-    setCurrencySaved(true)
-  }
-
-  const backendAction = (en: string, arMsg: string) => {
-    setNotice(ar ? arMsg : en)
-    setSaved(false)
-  }
+  useEffect(() => {
+    void load()
+  }, [load])
 
   const activeTab = tabs.find((t) => t.id === tab)
+  const shell: TabShell = { snapshot, canWrite, onSaved: setSnapshot }
 
   return (
     <>
@@ -298,248 +935,28 @@ export default function SettingsPage() {
         </Card>
 
         <Card title={activeTab ? (ar ? activeTab.ar : activeTab.en) : ''} sub={activeTab ? (ar ? activeTab.subAr : activeTab.sub) : ''}>
-          {tab === 'whatsapp' && (
-            <div className="sp-integration-page">
-              <div className="sp-integration-summary">
-                <span className="sp-integration-icon green"><WhatsAppGlyph size={22} /></span>
-                <div className="sp-integration-copy"><strong><AdminText en="WhatsApp messaging" ar="مراسلات واتساب" /></strong><p><AdminText en="Choose one connection method. Messages will appear in the unified Inbox after the backend is connected." ar="اختر طريقة ربط واحدة. ستظهر الرسائل في صندوق المراسلة الموحد بعد ربط الواجهة الخلفية." /></p></div>
-                <div className="sp-integration-controls"><IntegrationStatus /><IntegrationToggle checked={whatsappEnabled} onChange={() => setWhatsappEnabled((value) => !value)} /></div>
-              </div>
-
-              <div className="sp-method-grid">
-                <section className="sp-method-card">
-                  <header><span className="sp-integration-icon"><QrCode size={21} /></span><div><h3><AdminText en="QR Session" ar="جلسة QR" /></h3><p><AdminText en="Connect an existing WhatsApp device session." ar="اربط جلسة جهاز واتساب موجودة." /></p></div></header>
-                  <div className="sp-qr-preview" aria-label={ar ? 'عنصر نائب لرمز QR' : 'QR code placeholder'}>
-                    <QrCode size={76} strokeWidth={1.25} />
-                    <strong><AdminText en="QR code will appear here" ar="سيظهر رمز QR هنا" /></strong>
-                    <small><AdminText en="Generated by the backend session service" ar="يولد من خدمة الجلسات الخلفية" /></small>
-                  </div>
-                  <div className="sp-form">
-                    <label><AdminText en="Session name" ar="اسم الجلسة" /><input defaultValue="Star Pyramids Support" /></label>
-                    <label><AdminText en="Assigned inbox" ar="الصندوق المعين" /><select defaultValue="main"><option value="main">{ar ? 'صندوق واتساب الرئيسي' : 'Main WhatsApp Inbox'}</option><option value="sales">{ar ? 'فريق المبيعات' : 'Sales Team'}</option></select></label>
-                  </div>
-                  <button type="button" className="sp-btn primary" disabled={!whatsappEnabled} onClick={() => backendAction('QR generation is ready. Connect the backend session endpoint to generate a real scannable code.', 'توليد QR جاهز. اربط نقطة الجلسات الخلفية لتوليد رمز حقيقي قابل للمسح.')}><QrCode size={17} /> <AdminText en="Generate QR code" ar="توليد رمز QR" /></button>
-                  <p className="sp-integration-note"><AdminText en="This method requires a backend session provider. It is separate from Meta Cloud API and must be reviewed before production use." ar="تتطلب هذه الطريقة مزود جلسات خلفيا. وهي منفصلة عن واجهة Meta Cloud ويجب مراجعتها قبل الإنتاج." /></p>
-                </section>
-
-                <section className="sp-method-card featured">
-                  <header><span className="sp-integration-icon blue"><Cloud size={21} /></span><div><h3><AdminText en="Official Cloud API" ar="واجهة Cloud الرسمية" /></h3><p><AdminText en="Recommended Meta WhatsApp Business connection." ar="ربط Meta WhatsApp Business الموصى به." /></p></div><span className="sp-recommended"><AdminText en="Recommended" ar="موصى به" /></span></header>
-                  <div className="sp-form">
-                    <div className="sp-form-2">
-                      <label><AdminText en="Meta App ID" ar="معرف تطبيق Meta" /><input placeholder={ar ? 'أدخل معرف تطبيق Meta' : 'Enter Meta App ID'} /></label>
-                      <label><AdminText en="Business Account ID" ar="معرف حساب الأعمال" /><input placeholder={ar ? 'أدخل معرف WABA' : 'Enter WABA ID'} /></label>
-                    </div>
-                    <label><AdminText en="Phone Number ID" ar="معرف رقم الهاتف" /><input placeholder={ar ? 'أدخل معرف رقم الهاتف' : 'Enter Phone Number ID'} /></label>
-                    <label><AdminText en="Access token" ar="رمز الوصول" /><input type="password" placeholder={ar ? 'معطل في النسخة التجريبية' : 'Disabled in prototype'} autoComplete="off" disabled /></label>
-                    <label><AdminText en="Webhook callback" ar="رابط Webhook" /><input value="https://starpyramids.com/api/integrations/whatsapp/webhook" readOnly /></label>
-                    <label><AdminText en="Verify token" ar="رمز التحقق" /><input type="password" placeholder={ar ? 'معطل في النسخة التجريبية' : 'Disabled in prototype'} autoComplete="off" disabled /></label>
-                  </div>
-                  <SecretPrototypeNote />
-                  <div className="sp-integration-actions">
-                    <button type="button" className="sp-btn primary" disabled={!whatsappEnabled} onClick={() => backendAction('Meta Embedded Signup is prepared. The backend OAuth callback is required to complete the connection.', 'تسجيل Meta المدمج مجهز. يلزم رد OAuth الخلفي لإتمام الربط.')}><PlugZap size={17} /> <AdminText en="Connect with Meta" ar="الربط مع Meta" /></button>
-                    <button type="button" className="sp-btn" disabled={!whatsappEnabled} onClick={() => backendAction('Connection testing will run through the backend without exposing the access token in the browser.', 'سيعمل اختبار الاتصال عبر الخلفية دون كشف رمز الوصول في المتصفح.')}><AdminText en="Test connection" ar="اختبار الاتصال" /></button>
-                  </div>
-                  <p className="sp-integration-note"><ShieldCheck size={15} /> <AdminText en="Tokens and webhook secrets must remain server-side and encrypted." ar="يجب أن تبقى الرموز وأسرار webhook في الخادم ومشفرة." /></p>
-                </section>
-              </div>
-              {notice && <p className="sp-integration-feedback" role="status"><CheckCircle2 size={16} />{notice}</p>}
-            </div>
-          )}
-
-          {tab === 'google-maps' && (
-            <div className="sp-integration-page">
-              <div className="sp-integration-summary">
-                <span className="sp-integration-icon red"><MapPinned size={22} /></span>
-                <div className="sp-integration-copy"><strong><AdminText en="Google Maps Platform" ar="منصة خرائط جوجل" /></strong><p><AdminText en="Maps, place search and trip location previews across the website." ar="الخرائط والبحث عن الأماكن ومعاينات مواقع الرحلات عبر الموقع." /></p></div>
-                <div className="sp-integration-controls"><IntegrationStatus /><IntegrationToggle checked={mapsEnabled} onChange={() => setMapsEnabled((value) => !value)} /></div>
-              </div>
-              <section className="sp-integration-panel">
-                <div className="sp-form">
-                  <div className="sp-form-2">
-                    <label><AdminText en="Browser API key" ar="مفتاح API للمتصفح" /><input type="password" placeholder={ar ? 'معطل في النسخة التجريبية' : 'Disabled in prototype'} autoComplete="off" disabled /></label>
-                    <label><AdminText en="Map ID" ar="معرف الخريطة" /><input placeholder={ar ? 'معرف خريطة جوجل اختياري' : 'Optional Google Map ID'} /></label>
-                  </div>
-                  <div className="sp-form-2">
-                    <label><AdminText en="Default latitude" ar="خط العرض الافتراضي" /><input defaultValue="29.9870" inputMode="decimal" /></label>
-                    <label><AdminText en="Default longitude" ar="خط الطول الافتراضي" /><input defaultValue="31.2118" inputMode="decimal" /></label>
-                  </div>
-                  <div className="sp-form-2">
-                    <label><AdminText en="Default zoom" ar="التقريب الافتراضي" /><input type="number" defaultValue="12" min="1" max="20" /></label>
-                    <label><AdminText en="Enabled services" ar="الخدمات المفعلة" /><select defaultValue="maps-places"><option value="maps-places">{ar ? 'الخرائط + الأماكن' : 'Maps + Places'}</option><option value="maps">{ar ? 'الخرائط فقط' : 'Maps only'}</option><option value="maps-places-geocoding">{ar ? 'الخرائط + الأماكن + الترميز' : 'Maps + Places + Geocoding'}</option></select></label>
-                  </div>
-                </div>
-                <SecretPrototypeNote />
-                <div className="sp-map-config-preview"><MapPinned size={32} /><strong>{brand.address}</strong><span><AdminText en="Map preview becomes live after a valid restricted API key is connected." ar="تصبح معاينة الخريطة حية بعد ربط مفتاح مقيد صالح." /></span></div>
-                <div className="sp-integration-actions">
-                  <button type="button" className="sp-btn primary" disabled={!mapsEnabled} onClick={() => backendAction('Google Maps settings are ready. Saving and validating the key requires the backend settings endpoint.', 'إعدادات خرائط جوجل جاهزة. يتطلب الحفظ والتحقق نقطة الإعدادات الخلفية.')}><AdminText en="Save configuration" ar="حفظ الإعدادات" /></button>
-                  <button type="button" className="sp-btn" disabled={!mapsEnabled} onClick={() => backendAction('Map validation is prepared and will run after the backend supplies the restricted browser key.', 'التحقق من الخريطة مجهز وسيعمل بعد توفير المفتاح المقيد من الخلفية.')}><AdminText en="Test map" ar="اختبار الخريطة" /></button>
-                </div>
-                <p className="sp-integration-note"><ShieldCheck size={15} /> <AdminText en="Restrict the browser key to the production domain and only the required Google APIs." ar="قيد مفتاح المتصفح على نطاق الإنتاج وواجهات جوجل المطلوبة فقط." /></p>
-              </section>
-              {notice && <p className="sp-integration-feedback" role="status"><CheckCircle2 size={16} />{notice}</p>}
-            </div>
-          )}
-
-          {tab === 'google-auth' && (
-            <div className="sp-integration-page">
-              <div className="sp-integration-summary">
-                <span className="sp-integration-icon red"><GoogleIcon size={22} /></span>
-                <div className="sp-integration-copy"><strong><AdminText en="Google customer login" ar="تسجيل دخول العملاء بجوجل" /></strong><p><AdminText en="Allow customers to create or access their account with Google." ar="اسمح للعملاء بإنشاء حساباتهم أو الوصول إليها بجوجل." /></p></div>
-                <div className="sp-integration-controls"><IntegrationStatus /><IntegrationToggle checked={googleAuthEnabled} onChange={() => setGoogleAuthEnabled((value) => !value)} /></div>
-              </div>
-              <section className="sp-integration-panel">
-                <div className="sp-form">
-                  <label><AdminText en="Google OAuth Client ID" ar="معرف عميل Google OAuth" /><input placeholder={ar ? 'أدخل معرف عميل Google OAuth' : 'Enter Google OAuth Client ID'} /></label>
-                  <label><AdminText en="Google OAuth Client Secret" ar="سر عميل Google OAuth" /><input type="password" placeholder={ar ? 'معطل في النسخة التجريبية' : 'Disabled in prototype'} autoComplete="off" disabled /></label>
-                  <label><AdminText en="Authorized JavaScript origin" ar="مصدر JavaScript المعتمد" /><input value="https://starpyramids.com" readOnly /></label>
-                  <label><AdminText en="Authorized redirect URI" ar="رابط إعادة التوجيه المعتمد" /><input value="https://starpyramids.com/api/auth/callback/google" readOnly /></label>
-                  <label><AdminText en="Requested scopes" ar="النطاقات المطلوبة" /><input value="openid email profile" readOnly /></label>
-                </div>
-                <div className="sp-integration-actions">
-                  <button type="button" className="sp-btn primary" disabled={!googleAuthEnabled} onClick={() => backendAction('Google OAuth is prepared. The backend callback and secure session handling are required for a real login.', 'Google OAuth مجهز. يلزم رد الخلفية وإدارة جلسات آمنة لتسجيل حقيقي.')}><LogIn size={17} /> <AdminText en="Connect Google" ar="ربط جوجل" /></button>
-                  <button type="button" className="sp-btn" disabled={!googleAuthEnabled} onClick={() => backendAction('A real Google sign-in test will be available after the OAuth callback is implemented.', 'سيتاح اختبار دخول حقيقي بجوجل بعد تنفيذ رد OAuth.')}><AdminText en="Test login" ar="اختبار الدخول" /></button>
-                </div>
-                <SecretPrototypeNote />
-                <p className="sp-integration-note"><KeyRound size={15} /> <AdminText en="The client secret and login tokens must never be exposed in frontend code." ar="يجب ألا يكشف سر العميل ورموز الدخول في كود الواجهة أبدا." /></p>
-              </section>
-              {notice && <p className="sp-integration-feedback" role="status"><CheckCircle2 size={16} />{notice}</p>}
-            </div>
-          )}
-
-          {tab === 'facebook-auth' && (
-            <div className="sp-integration-page">
-              <div className="sp-integration-summary">
-                <span className="sp-integration-icon facebook"><FacebookIcon size={22} /></span>
-                <div className="sp-integration-copy"><strong><AdminText en="Facebook customer login" ar="تسجيل دخول العملاء بفيسبوك" /></strong><p><AdminText en="Allow customers to create or access their account with Facebook." ar="اسمح للعملاء بإنشاء حساباتهم أو الوصول إليها بفيسبوك." /></p></div>
-                <div className="sp-integration-controls"><IntegrationStatus /><IntegrationToggle checked={facebookAuthEnabled} onChange={() => setFacebookAuthEnabled((value) => !value)} /></div>
-              </div>
-              <section className="sp-integration-panel">
-                <div className="sp-form">
-                  <div className="sp-form-2">
-                    <label><AdminText en="Facebook App ID" ar="معرف تطبيق فيسبوك" /><input placeholder={ar ? 'أدخل معرف تطبيق فيسبوك' : 'Enter Facebook App ID'} /></label>
-                    <label><AdminText en="Facebook App Secret" ar="سر تطبيق فيسبوك" /><input type="password" placeholder={ar ? 'معطل في النسخة التجريبية' : 'Disabled in prototype'} autoComplete="off" disabled /></label>
-                  </div>
-                  <label><AdminText en="Valid OAuth redirect URI" ar="رابط إعادة توجيه OAuth الصالح" /><input value="https://starpyramids.com/api/auth/callback/facebook" readOnly /></label>
-                  <label><AdminText en="Data deletion callback" ar="رابط حذف البيانات" /><input value="https://starpyramids.com/api/auth/facebook/data-deletion" readOnly /></label>
-                  <label><AdminText en="Requested permissions" ar="الأذونات المطلوبة" /><input value="public_profile,email" readOnly /></label>
-                </div>
-                <div className="sp-integration-actions">
-                  <button type="button" className="sp-btn primary" disabled={!facebookAuthEnabled} onClick={() => backendAction('Facebook Login is prepared. The backend callback and secure session handling are required for a real login.', 'تسجيل فيسبوك مجهز. يلزم رد الخلفية وإدارة جلسات آمنة لتسجيل حقيقي.')}><LogIn size={17} /> <AdminText en="Connect Facebook" ar="ربط فيسبوك" /></button>
-                  <button type="button" className="sp-btn" disabled={!facebookAuthEnabled} onClick={() => backendAction('A real Facebook login test will be available after the OAuth callback is implemented.', 'سيتاح اختبار دخول حقيقي بفيسبوك بعد تنفيذ رد OAuth.')}><AdminText en="Test login" ar="اختبار الدخول" /></button>
-                </div>
-                <SecretPrototypeNote />
-                <p className="sp-integration-note"><KeyRound size={15} /> <AdminText en="Keep the App Secret on the server and configure the production domain in Meta." ar="أبق سر التطبيق في الخادم واضبط نطاق الإنتاج في Meta." /></p>
-              </section>
-              {notice && <p className="sp-integration-feedback" role="status"><CheckCircle2 size={16} />{notice}</p>}
-            </div>
-          )}
-
-          {tab === 'email' && (
+          {loading && <p role="status"><AdminText en="Loading settings…" ar="جارٍ تحميل الإعدادات…" /></p>}
+          {!loading && loadError && (
             <div className="sp-form">
-              <div className="sp-status2">
-                <div><small><AdminText en="OUTGOING EMAIL" ar="البريد الصادر" /></small><b><AdminText en="Configured" ar="مضبوط" /></b></div>
-                <div><small><AdminText en="INCOMING EMAIL" ar="البريد الوارد" /></small><b><AdminText en="Configured" ar="مضبوط" /></b></div>
-              </div>
-              <p className="sp-group-title"><AdminText en="Sender Identity" ar="هوية المرسل" /></p>
-              <div className="sp-form-2">
-                <label><AdminText en="From Name" ar="اسم المرسل" /><input defaultValue="Star Pyramids Tours" /></label>
-                <label><AdminText en="From Email" ar="بريد المرسل" /><input defaultValue="sales@starpyramids.com" /></label>
-              </div>
-              <p className="sp-group-title"><AdminText en="Outgoing Email - SMTP" ar="البريد الصادر - SMTP" /></p>
-              <div className="sp-form-2">
-                <label><AdminText en="SMTP Host" ar="مضيف SMTP" /><input defaultValue="smtp.hostinger.com" /></label>
-                <label><AdminText en="SMTP Port" ar="منفذ SMTP" /><input defaultValue="465" /></label>
-              </div>
-              <div className="sp-form-2">
-                <label><AdminText en="Encryption" ar="التشفير" /><select defaultValue="SSL"><option>SSL</option><option>TLS</option><option>None</option></select></label>
-                <label><AdminText en="SMTP Username" ar="اسم مستخدم SMTP" /><input defaultValue="sales@starpyramids.com" /></label>
-              </div>
-              <div className="sp-form-2">
-                <label><AdminText en="SMTP Password" ar="كلمة مرور SMTP" /><input type="password" placeholder={ar ? 'معطل في النسخة التجريبية' : 'Disabled in prototype'} disabled /></label>
-                <label><AdminText en="Timeout" ar="المهلة" /><input defaultValue="30" /></label>
-              </div>
-              <div className="sp-form-2">
-                <label><AdminText en="Test recipient" ar="مستلم الاختبار" /><input placeholder="you@company.com" /></label>
-                <label>&nbsp;<button type="button" className="sp-btn" onClick={() => setSaved(true)}><AdminText en="Test Outgoing Email" ar="اختبار البريد الصادر" /></button></label>
-              </div>
-              <p className="sp-group-title"><AdminText en="Incoming Email - IMAP / POP3" ar="البريد الوارد - IMAP / POP3" /></p>
-              <div className="sp-form-2">
-                <label><AdminText en="Protocol" ar="البروتوكول" /><select defaultValue="IMAP"><option>IMAP</option><option>POP3</option></select></label>
-                <label><AdminText en="Incoming Host" ar="المضيف الوارد" /><input defaultValue="imap.hostinger.com" /></label>
-              </div>
-              <div className="sp-form-2">
-                <label><AdminText en="Incoming Port" ar="المنفذ الوارد" /><input defaultValue="993" /></label>
-                <label><AdminText en="Encryption" ar="التشفير" /><select defaultValue="SSL"><option>SSL</option><option>TLS</option></select></label>
-              </div>
-              <div className="sp-form-2">
-                <label><AdminText en="Incoming Username" ar="اسم المستخدم الوارد" /><input defaultValue="sales@starpyramids.com" /></label>
-                <label><AdminText en="Incoming Password" ar="كلمة المرور الواردة" /><input type="password" placeholder={ar ? 'معطل في النسخة التجريبية' : 'Disabled in prototype'} disabled /></label>
-              </div>
-              <SecretPrototypeNote />
-              <label><AdminText en="Mailbox / Folder" ar="الصندوق / المجلد" /><input defaultValue="INBOX" /></label>
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                <button type="button" className="sp-btn" onClick={() => setSaved(true)}><AdminText en="Test Incoming Mail" ar="اختبار البريد الوارد" /></button>
-                <button type="button" className="sp-btn dark" onClick={() => setSaved(true)}><AdminText en="Save" ar="حفظ" /></button>
-              </div>
-              {saved && <p role="status" style={{ color: '#15803d' }}><AdminText en="Saved successfully." ar="تم الحفظ بنجاح." /></p>}
+              <p role="alert" style={{ color: '#b91c1c' }}>{loadError}</p>
+              <div><button type="button" className="sp-btn" onClick={() => void load()}><AdminText en="Retry" ar="إعادة المحاولة" /></button></div>
             </div>
           )}
-
-          {tab === 'general' && (
-            <GeneralTab onSaved={() => setSaved(true)} />
+          {!loading && !loadError && (
+            <>
+              {tab === 'whatsapp' && <WhatsAppTab {...shell} />}
+              {tab === 'google-maps' && <MapsTab {...shell} />}
+              {tab === 'google-auth' && <OAuthTab provider="google" {...shell} />}
+              {tab === 'facebook-auth' && <OAuthTab provider="facebook" {...shell} />}
+              {tab === 'email' && <EmailTab {...shell} />}
+              {tab === 'general' && <GeneralTab {...shell} />}
+              {tab === 'contact' && <ContactTab {...shell} />}
+              {tab === 'localization' && <LocalizationTab {...shell} />}
+              {tab === 'currency' && <CurrencyTab {...shell} />}
+              {tab === 'social' && <SocialTab {...shell} />}
+              {tab === 'website' && <WebsiteTab {...shell} />}
+            </>
           )}
-
-          {tab === 'contact' && (
-            <ContactTab onSaved={() => setSaved(true)} />
-          )}
-
-          {tab === 'localization' && (
-            <LocalizationTab onSaved={() => setSaved(true)} />
-          )}
-
-          {tab === 'currency' && (
-            <div className="sp-form">
-              <div className="sp-status2">
-                <div><small><AdminText en="BASE CURRENCY" ar="العملة الأساسية" /></small><b>USD · 1</b></div>
-                <div><small><AdminText en="LAST UPDATED" ar="آخر تحديث" /></small><b>{currencyForm.updatedAt ? new Date(currencyForm.updatedAt).toLocaleString() : <AdminText en="Defaults" ar="الافتراضية" />}</b></div>
-              </div>
-              <p className="sp-group-title"><AdminText en="Conversion rates (per 1 USD)" ar="أسعار التحويل (لكل 1 دولار)" /></p>
-              <div className="sp-form-2">
-                <label><AdminText en="Euro (EUR)" ar="اليورو (EUR)" /><input type="number" min="0" step="0.01" value={currencyForm.eur} onChange={(e) => { setCurrencyForm((f) => ({ ...f, eur: Number(e.target.value) })); setCurrencySaved(false) }} dir="ltr" /></label>
-                <label><AdminText en="Egyptian Pound (EGP)" ar="الجنيه المصري (EGP)" /><input type="number" min="0" step="0.5" value={currencyForm.egp} onChange={(e) => { setCurrencyForm((f) => ({ ...f, egp: Number(e.target.value) })); setCurrencySaved(false) }} dir="ltr" /></label>
-              </div>
-              <label><AdminText en="Default currency" ar="العملة الافتراضية" /><SharedSelect value={currencyForm.defaultCurrency} onChange={(next) => setCurrencyForm((f) => ({ ...f, defaultCurrency: next as 'USD' | 'EUR' | 'EGP' }))} locale={ar ? 'ar' : 'en'} options={[{ value: 'USD', label: 'USD' }, { value: 'EUR', label: 'EUR' }, { value: 'EGP', label: 'EGP' }]} /></label>
-              <p className="sp-group-title"><AdminText en="Live preview ($120 tour)" ar="معاينة حية (رحلة بـ 120 دولارا)" /></p>
-              <div className="sp-status2">
-                <div><small>USD</small><b>${(120 * getCurrencyRates().USD).toLocaleString('en-US')}</b></div>
-                <div><small>EUR</small><b>€{(120 * getCurrencyRates().EUR).toLocaleString('en-US')}</b></div>
-              </div>
-              <div className="sp-status2" style={{ marginTop: 12 }}>
-                <div><small>EGP</small><b>{Math.round(120 * getCurrencyRates().EGP).toLocaleString('en-US')} £</b></div>
-                <div><small><AdminText en="SCOPE" ar="النطاق" /></small><b><AdminText en="Every website price" ar="كل أسعار الموقع" /></b></div>
-              </div>
-              {currencyError && <p role="alert" style={{ color: '#b91c1c' }}>{currencyError}</p>}
-              {currencySaved && <p role="status" style={{ color: '#15803d' }}><AdminText en="Rates saved. Website prices update instantly." ar="حفظت الأسعار. تتحدث أسعار الموقع فورا." /></p>}
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                <button type="button" className="sp-btn" onClick={resetCurrency}><AdminText en="Reset defaults" ar="استعادة الافتراضية" /></button>
-                <button type="button" className="sp-btn dark" onClick={saveCurrency}><AdminText en="Save rates" ar="حفظ الأسعار" /></button>
-              </div>
-            </div>
-          )}
-
-          {tab === 'social' && (
-            <SocialTab />
-          )}
-
-          {tab === 'website' && (
-            <div className="sp-form">
-              <label><AdminText en="SEO title" ar="عنوان SEO" /><input defaultValue="STAR PYRAMIDS | Discover Egypt" /></label>
-              <label><AdminText en="Promo bar text" ar="نص الشريط الترويجي" /><textarea rows={2} defaultValue="Book any package tour and enjoy a FREE tour experience." /></label>
-              <div><button type="button" className="sp-btn dark" onClick={() => setSaved(true)}><AdminText en="Save" ar="حفظ" /></button></div>
-            </div>
-          )}
-
-          {saved && tab !== 'email' && <p role="status" style={{ color: '#15803d' }}><AdminText en="Saved successfully." ar="تم الحفظ بنجاح." /></p>}
         </Card>
       </div>
     </>

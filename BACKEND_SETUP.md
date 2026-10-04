@@ -102,3 +102,22 @@ corepack pnpm start   # production runtime
 
 Catalogue/request/booking/payment migration, frontend login wiring,
 rate limiting, email sending, permission matrix, dashboard metrics.
+
+## 10. Admin settings foundation
+
+- Canonical settings layer: `lib/server/settings.ts` (public keys +
+  server-only secret keys + strict per-key validation) with currency rates
+  in `FxRate` (USD anchor, manual source).
+- Endpoint `GET|PATCH /api/admin/settings`: staff-readable, writable only
+  by `SUPER_ADMIN`/`ADMIN` (STAFF is read-only), same-origin guarded, every
+  write recorded in `staff_action_audit` (key names only — never values).
+- GET returns public values plus `{ configured: boolean }` for secrets;
+  stored secret values never leave the server. Empty secret input keeps the
+  stored value. No migration was needed (`site_settings` is key-value).
+- The admin UI (`app/admin/settings/page.tsx`) loads/saves through this
+  endpoint, uses `SharedSelect` for every dropdown, and marks provider
+  connectivity (WhatsApp/Maps/SMTP/OAuth) honestly as not verified —
+  "configuration saved" is never presented as "connection verified".
+- Public storefront readers (`localStorage` brand/social/currency/l10n)
+  are kept as a compatibility mirror written on successful admin save;
+  MySQL is the source of truth. Full storefront migration is a later phase.
