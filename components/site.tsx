@@ -172,7 +172,7 @@ function HeaderAuthAction({ user, loading, signInLabel, dashboardLabel, accountL
   if (!user) {
     return mobile
       ? <Link href="/login" onClick={onNavigate}>{signInLabel}</Link>
-      : <Link className="outline-btn" href="/login">{signInLabel}</Link>
+      : <Link className="outline-btn header-account-btn header-auth-action" href="/login">{signInLabel}</Link>
   }
   if (isStaffUser(user)) {
     return mobile
@@ -315,7 +315,7 @@ export function Header() {
         </nav>
         <div className="sticky-nav-actions">
           <Link className={`icon-btn header-cart sticky-cart${cartLines > 0 ? ' has-items' : ''}`} href="/cart" aria-label={cartLabel}>
-            <ShoppingCart size={17}/>
+            <ShoppingCart size={16}/>
             {cartLines > 0 && <span className="cart-count-badge" aria-hidden="true">{cartLines > 9 ? '9+' : cartLines}</span>}
           </Link>
           <Link className="make-trip-link" href="/make-your-trip">{t.make}</Link><HeaderAuthAction user={headerUser} loading={headerUserLoading} signInLabel={t.signIn} dashboardLabel={t.dashboard} accountLabel={t.account} />
