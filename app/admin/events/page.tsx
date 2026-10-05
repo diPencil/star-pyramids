@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { CalendarCheck, ExternalLink, Eye, EyeOff, MapPin, Pencil, Plus, Trash2 } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableTools, AdminTableWrap, AdminText, Card } from '@/components/admin/admin-ui'
@@ -13,7 +13,7 @@ import { SharedSelect } from '@/components/shared-select'
 import { events } from '@/data/content'
 import { isCustomSlug, removeCustomItem, setEventHidden, useHiddenEvents, useLiveEvents } from '@/lib/admin-store'
 import { getEventStatus, isEventPublished } from '@/lib/events'
-import { requestsForEventSlug, useEventRequests } from '@/lib/event-request'
+import { requestsForEventSlug, type StaffEventRequest } from '@/lib/event-request'
 
 export default function EventsPage() {
   const ar = useAdminLocale() === 'ar'
@@ -23,7 +23,21 @@ export default function EventsPage() {
   const [deleteSlug, setDeleteSlug] = useState<string | null>(null)
   const liveEvents = useLiveEvents(events, { includeHidden: true })
   const hidden = useHiddenEvents()
-  const requests = useEventRequests()
+  const [requests, setRequests] = useState<StaffEventRequest[]>([])
+
+  // Stored request counts per event (database-backed). Catalogue management
+  // itself stays browser-local; only request data comes from the server.
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/admin/event-requests', { credentials: 'same-origin' })
+      .then(async (res) => {
+        if (!res.ok || cancelled) return
+        const data = (await res.json()) as { requests?: StaffEventRequest[] }
+        if (!cancelled && Array.isArray(data.requests)) setRequests(data.requests)
+      })
+      .catch(() => undefined)
+    return () => { cancelled = true }
+  }, [])
 
   const locations = useMemo(() => [...new Set(liveEvents.map((event) => event.location))], [liveEvents])
   const rows = useMemo(() => liveEvents
@@ -35,7 +49,7 @@ export default function EventsPage() {
     event: (row) => row.title,
     location: (row) => row.location,
     date: (row) => row.startDate ?? row.date,
-    requests: (row) => requestsForEventSlug(requests, row.slug).length,
+    requests: (row) => requestsForEventSlug(requests, row.slug),
     status: (row) => (hidden.includes(row.slug) || row.isPublished === false ? 'hidden' : isCustomSlug(row.slug) ? 'custom' : 'published'),
   }, 'date', 'desc')
   const paging = usePagination(eventSort.sortedRows)
@@ -61,7 +75,7 @@ export default function EventsPage() {
         <thead><tr><th className="sp-row-number">#</th><SortableTh label={<AdminText en="Event" ar="الفعالية" />} column="event" {...eventSort} onSort={eventSort.sortBy} /><SortableTh label={<AdminText en="Location" ar="الموقع" />} column="location" {...eventSort} onSort={eventSort.sortBy} /><SortableTh label={<AdminText en="Date" ar="التاريخ" />} column="date" {...eventSort} onSort={eventSort.sortBy} /><SortableTh label={<AdminText en="Requests" ar="الطلبات" />} column="requests" {...eventSort} onSort={eventSort.sortBy} /><SortableTh label={<AdminText en="Status" ar="الحالة" />} column="status" {...eventSort} onSort={eventSort.sortBy} /><th></th></tr></thead>
         <tbody>{paging.pageRows.map((event, index) => {
           const isHidden = hidden.includes(event.slug) || event.isPublished === false
-          const reqCount = requestsForEventSlug(requests, event.slug).length
+          const reqCount = requestsForEventSlug(requests, event.slug)
           return <tr key={event.slug}>
             <td className="sp-row-number">{paging.from + index}</td>
             <td><strong>{event.title}</strong><br /><small style={{ color: 'var(--sp-muted)' }}>{event.category ?? 'Event'}{isCustomSlug(event.slug) ? (ar ? ' · محلي' : ' · local') : ''}</small></td>

@@ -4,7 +4,9 @@
 // server-authoritative settings (site settings, FX rates) + staff audit +
 // Phase 2B customer trip-request workflow (trip_requests + activity +
 // submission rate-limit attempts) + Phase 2C customer car-request workflow
-// (car_requests + activity + submission rate-limit attempts).
+// (car_requests + activity + submission rate-limit attempts) + Phase 2D
+// customer event-request workflow (event_requests + activity +
+// submission rate-limit attempts).
 // Catalogue content, bookings, payments, quotations and all other domains
 // belong to later phases and MUST NOT be added here.
 //
@@ -68,6 +70,7 @@ model User {
   auditActions StaffActionAudit[] @relation("AuditActor")
   tripRequests TripRequest[]
   carRequests  CarRequest[]
+  eventRequests EventRequest[]
 
   @@index([status])
   @@map("users")
@@ -352,4 +355,81 @@ model CarRequestAttempt {
   @@index([email, createdAt])
   @@index([ipAddress, createdAt])
   @@map("car_request_attempts")
+}
+
+enum EventRequestStatus {
+  NEW
+  REVIEWING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+/// Phase 2D: customer event request (Events / account / admin workflow).
+/// Mirrors the trip/car-request architecture: the contact block is a
+/// historical snapshot taken at submit time and is never rewritten by
+/// later profile changes. `userId` links the request to a registered
+/// CUSTOMER only when the submission happened under that customer's server
+/// session; guest submissions keep `userId` NULL and are identified solely
+/// by their contact snapshot. `eventSlug` is the requested event; the
+/// title/date/location columns are the snapshot taken at submit time.
+/// Customer requests are never edited after submission — customers may only
+/// cancel while new/reviewing. Staff-only discussion lives in internal
+/// EventRequestActivity rows and in NO customer-facing field.
+model EventRequest {
+  id            String            @id @default(cuid())
+  reference     String            @unique @db.VarChar(16)
+  userId        String?
+  eventSlug     String            @db.VarChar(80)
+  eventTitle    String            @db.VarChar(160)
+  eventDate     String            @db.VarChar(120)
+  eventLocation String            @db.VarChar(160)
+  attendees     Int               @default(1)
+  contactName   String            @db.VarChar(80)
+  contactEmail  String            @db.VarChar(190)
+  contactPhone  String            @db.VarChar(32)
+  contactDialCode String          @db.VarChar(8)
+  nationality   String            @db.Char(2)
+  notes         String?           @db.Text
+  status        EventRequestStatus @default(NEW)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  user       User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  activities EventRequestActivity[]
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@index([contactEmail])
+  @@index([eventSlug])
+  @@map("event_requests")
+}
+
+model EventRequestActivity {
+  id         String   @id @default(cuid())
+  requestId  String
+  actorRole  String   @db.VarChar(16)
+  action     String   @db.VarChar(160)
+  note       String?  @db.Text
+  isInternal Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  request EventRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId, createdAt])
+  @@map("event_request_activities")
+}
+
+/// Abuse-protection attempts for the public event-request endpoint.
+/// Same architecture as trip/car-request attempts: counted per
+/// email-OR-ip inside a time window, pruned opportunistically.
+model EventRequestAttempt {
+  id        String   @id @default(cuid())
+  email     String   @db.VarChar(190)
+  ipAddress String   @db.VarChar(64)
+  createdAt DateTime @default(now())
+
+  @@index([email, createdAt])
+  @@index([ipAddress, createdAt])
+  @@map("event_request_attempts")
 }

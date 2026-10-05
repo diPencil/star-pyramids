@@ -5,16 +5,17 @@ import { useState } from 'react'
 import { ArrowRight, Check, Minus, Plus, ShieldCheck } from 'lucide-react'
 import type { Event } from '@/data/types'
 import { getEventStatus } from '@/lib/events'
-import { createEventRequest, hasEventRequestErrors, validateEventRequestDraft } from '@/lib/event-request'
+import { hasEventRequestErrors, validateEventRequestDraft, type EventRequest } from '@/lib/event-request'
 import { countries, defaultCountry } from '@/data/countries'
 import { CountrySelect } from '@/components/country-select'
 import { InternationalPhoneInput } from '@/components/international-phone-input'
 import { useLocale } from './locale'
 
 /**
- * Honest local-prototype Event Request form.
- * Persists to browser localStorage (`sp-event-requests-v1`) with a stable
- * EVR- reference. Never claims backend confirmation, payment, or ticket issuance.
+ * Event Request form (Phase 2D: real backend).
+ * Persists to MySQL (`POST /api/event-requests`) with an official SP-ER-
+ * reference. Ownership links automatically when a CUSTOMER is signed in;
+ * guests stay unlinked. Never claims confirmation, payment, or ticket issuance.
  */
 export function EventRequestForm({ event }: { event: Event }) {
   const { locale } = useLocale()
@@ -28,6 +29,7 @@ export function EventRequestForm({ event }: { event: Event }) {
   const [note, setNote] = useState('')
   const [errors, setErrors] = useState<string | null>(null)
   const [ref, setRef] = useState<string | null>(null)
+  const [sending, setSending] = useState(false)
 
   const status = getEventStatus(event)
   const requestable = status === 'upcoming' || status === 'ongoing'
@@ -36,12 +38,12 @@ export function EventRequestForm({ event }: { event: Event }) {
     return (
       <div className="form-success" role="status">
         <Check size={34} />
-        <h2>{ar ? 'تم حفظ الطلب محليًا' : 'Request submitted locally'}</h2>
-        <span className="req-ref">{ar ? 'مرجع محلي على هذا المتصفح: ' : 'Browser-only reference: '}{ref}</span>
+        <h2>{ar ? 'تم إرسال الطلب' : 'Request submitted'}</h2>
+        <span className="req-ref">{ar ? 'المرجع الرسمي: ' : 'Official reference: '}{ref}</span>
         <p>
           {ar
-            ? 'هذا طلب مبدئي قيد المراجعة، وليس تذكرة مؤكدة. يمكنك متابعته من طلبات الفعاليات في حسابك على هذا المتصفح.'
-            : 'This is a preliminary request pending review. It is not a confirmed ticket. Track it under My Event Requests in your account on this browser.'}
+            ? 'هذا طلب مبدئي قيد المراجعة، وليس تذكرة مؤكدة. يمكنك متابعته من طلبات الفعاليات في حسابك.'
+            : 'This is a preliminary request pending review. It is not a confirmed ticket. Track it under My Event Requests in your account.'}
         </p>
         <Link href="/account/event-requests" className="primary-btn">
           {ar ? 'عرض طلبات الفعاليات' : 'View My Event Requests'} <ArrowRight size={17} />
@@ -68,6 +70,7 @@ export function EventRequestForm({ event }: { event: Event }) {
 
   const submit = (e: { preventDefault: () => void }) => {
     e.preventDefault()
+    if (sending) return
     const draft = {
       eventSlug: event.slug,
       eventTitle: event.title,
@@ -92,8 +95,22 @@ export function EventRequestForm({ event }: { event: Event }) {
       return
     }
     setErrors(null)
-    const created = createEventRequest(draft)
-    setRef(created.localRef)
+    setSending(true)
+    fetch('/api/event-requests', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(draft),
+    })
+      .then(async (res) => {
+        const data = (await res.json()) as EventRequest & { error?: string }
+        if (!res.ok) throw new Error(data.error || (ar ? 'تعذر إرسال الطلب. حاول مجددًا.' : 'Could not submit the request. Please try again.'))
+        setRef(data.reference)
+      })
+      .catch((error: unknown) => {
+        setErrors(error instanceof Error ? error.message : (ar ? 'تعذر إرسال الطلب. حاول مجددًا.' : 'Could not submit the request. Please try again.'))
+      })
+      .finally(() => setSending(false))
   }
 
   return (
@@ -111,9 +128,9 @@ export function EventRequestForm({ event }: { event: Event }) {
         </div>
         <div className="guest-row"><span><b>{ar ? 'عدد الحضور' : 'Attendees'}</b></span><div><button type="button" aria-label={ar ? 'إنقاص العدد' : 'Decrease attendees'} disabled={attendees <= 1} onClick={() => setAttendees(Math.max(1, attendees - 1))}><Minus size={14} /></button><b aria-live="polite">{attendees}</b><button type="button" aria-label={ar ? 'زيادة العدد' : 'Increase attendees'} disabled={attendees >= 50} onClick={() => setAttendees(Math.min(50, attendees + 1))}><Plus size={14} /></button></div></div>
         {errors && <p role="alert" className="form-error">{errors}</p>}
-        <button className="primary-btn" type="submit">{ar ? 'إرسال طلب الحضور' : 'Send event request'} <ArrowRight size={17} /></button>
+        <button className="primary-btn" type="submit" disabled={sending}>{sending ? (ar ? 'جارٍ الإرسال...' : 'Sending...') : (ar ? 'إرسال طلب الحضور' : 'Send event request')} <ArrowRight size={17} /></button>
       </form>
-      <p className="event-book-note"><ShieldCheck size={14} />{ar ? 'طلب مبدئي قيد المراجعة. ليس تذكرة مؤكدة ولا دفع الآن. يُحفظ محليًا على هذا المتصفح.' : 'A preliminary request pending review. Not a confirmed ticket, no payment now. Stored locally on this browser.'}</p>
+      <p className="event-book-note"><ShieldCheck size={14} />{ar ? 'طلب مبدئي قيد المراجعة. ليس تذكرة مؤكدة ولا دفع الآن.' : 'A preliminary request pending review. Not a confirmed ticket, no payment now.'}</p>
     </>
   )
 }

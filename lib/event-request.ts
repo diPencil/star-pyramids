@@ -1,33 +1,51 @@
-'use client'
+import { findEvent } from '@/data/content'
 
-import { useEffect, useState, useSyncExternalStore } from 'react'
+/**
+ * Event-request contract (Phase 2D: real backend).
+ *
+ * UI (`/events/[slug]`, `/account/event-requests`, `/admin/event-requests`)
+ * builds an `EventRequestDraft`, validates it with the deterministic helpers
+ * below, then talks to the server API (`POST /api/event-requests`,
+ * `/api/account/event-requests/*`, `/api/admin/event-requests/*`), which
+ * revalidates everything, links ownership from the server session, and
+ * issues the official reference (`SP-ER-…`).
+ *
+ * This module is intentionally neutral (no `'use client'`, no React, no
+ * storage): the client UI and `lib/server/event-requests.ts` share the
+ * lifecycle, labels, and validation-shape helpers. The browser never stores
+ * event requests; MySQL is the only store.
+ *
+ * An event request is a preliminary attendance request pending staff
+ * review — never a confirmed ticket, booking, or payment. Customers cannot
+ * edit submitted requests; they may only cancel while new/reviewing.
+ */
+
+export const EVENT_TITLE_MAX = 160
+export const EVENT_DATE_MAX = 120
+export const EVENT_LOCATION_MAX = 160
+export const EVENT_NOTE_MAX = 1000
+export const EVENT_NAME_MAX = 80
+export const EVENT_EMAIL_MAX = 120
+export const EVENT_PHONE_MAX = 32
+export const EVENT_ATTENDEES_MAX = 50
 
 export type EventRequestStatus = 'new' | 'reviewing' | 'approved' | 'rejected' | 'cancelled'
 
+export type EventRequestActor = 'customer' | 'staff' | 'system'
+
 export type EventRequestActivity = {
   at: string
-  by: 'customer' | 'admin'
+  by: EventRequestActor
   action: string
   note?: string
+  /** Staff-only marker. Never set on customer-facing rows. */
+  internal?: boolean
 }
 
-export type EventRequest = {
-  localRef: string
-  eventSlug: string
-  eventTitle: string
-  eventDate: string
-  eventLocation: string
+export type EventRequestContactView = {
   name: string
-  nationality: string
-  dialCode: string
-  phone: string
   email: string
-  attendees: number
-  note?: string
-  status: EventRequestStatus
-  createdAt: string
-  updatedAt: string
-  activity: EventRequestActivity[]
+  phone: string
 }
 
 export type EventRequestDraft = {
@@ -44,146 +62,45 @@ export type EventRequestDraft = {
   note?: string
 }
 
-const KEY = 'sp-event-requests-v1'
-const CHANNEL = 'sp-event-requests'
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
-
-let cache: EventRequest[] | null = null
-const listeners = new Set<() => void>()
-
-function emit() {
-  cache = null
-  listeners.forEach((fn) => fn())
-  try { window.dispatchEvent(new Event(CHANNEL)) } catch { /* noop */ }
+/**
+ * Server-issued request view (MySQL-backed). `reference` is the official
+ * public reference (`SP-ER-…`); database IDs are never exposed. The contact
+ * block is the historical snapshot taken at submit time. `nationality` is
+ * the 2-letter country code, `dialCode` the phone prefix (e.g. `+20`).
+ */
+export type EventRequest = {
+  reference: string
+  eventSlug: string
+  eventTitle: string
+  eventDate: string
+  eventLocation: string
+  attendees: number
+  contact: EventRequestContactView
+  nationality: string
+  dialCode: string
+  notes: string
+  status: EventRequestStatus
+  createdAt: string
+  updatedAt: string
+  activity: EventRequestActivity[]
 }
 
-function subscribe(fn: () => void) {
-  listeners.add(fn)
-  return () => { listeners.delete(fn) }
+/** Linked registered account info (staff views only, never customer-facing). */
+export type EventRequestAccount = {
+  email: string
+  name: string
+} | null
+
+export type StaffEventRequest = EventRequest & {
+  account: EventRequestAccount
 }
 
-function sanitizeRequest(value: unknown): EventRequest | null {
-  if (typeof value !== 'object' || value === null) return null
-  const r = value as Partial<EventRequest>
-  if (typeof r.localRef !== 'string' || !/^EVR-[A-Z0-9]{6,12}$/.test(r.localRef)) return null
-  if (typeof r.eventSlug !== 'string' || !r.eventSlug.trim()) return null
-  if (typeof r.name !== 'string' || !r.name.trim()) return null
-  if (typeof r.email !== 'string' || !EMAIL_PATTERN.test(r.email.trim())) return null
-  if (typeof r.phone !== 'string' || !r.phone.trim()) return null
-  const attendees = typeof r.attendees === 'number' && Number.isInteger(r.attendees) ? r.attendees : 0
-  if (attendees < 1 || attendees > 50) return null
-  const status: EventRequestStatus =
-    r.status === 'reviewing' || r.status === 'approved' || r.status === 'rejected' || r.status === 'cancelled' ? r.status : 'new'
-  if (typeof r.createdAt !== 'string' || typeof r.updatedAt !== 'string') return null
-  return {
-    localRef: r.localRef,
-    eventSlug: r.eventSlug.trim().slice(0, 80),
-    eventTitle: typeof r.eventTitle === 'string' ? r.eventTitle.slice(0, 160) : r.eventSlug,
-    eventDate: typeof r.eventDate === 'string' ? r.eventDate.slice(0, 120) : '',
-    eventLocation: typeof r.eventLocation === 'string' ? r.eventLocation.slice(0, 160) : '',
-    name: r.name.trim().slice(0, 80),
-    nationality: typeof r.nationality === 'string' ? r.nationality.slice(0, 8) : '',
-    dialCode: typeof r.dialCode === 'string' ? r.dialCode.slice(0, 8) : '',
-    phone: r.phone.trim().slice(0, 24),
-    email: r.email.trim().slice(0, 120),
-    attendees,
-    note: typeof r.note === 'string' && r.note.trim() ? r.note.trim().slice(0, 1000) : undefined,
-    status,
-    createdAt: r.createdAt,
-    updatedAt: r.updatedAt,
-    activity: Array.isArray(r.activity)
-      ? r.activity.filter((a): a is EventRequestActivity => typeof a === 'object' && a !== null && typeof (a as EventRequestActivity).at === 'string' && typeof (a as EventRequestActivity).action === 'string').slice(0, 50)
-      : [],
-  }
-}
+export const EVENT_REQUEST_STATUSES: readonly EventRequestStatus[] = ['new', 'reviewing', 'approved', 'rejected', 'cancelled']
 
-export function readEventRequests(): EventRequest[] {
-  if (typeof window === 'undefined') return []
-  try {
-    const raw = window.localStorage.getItem(KEY)
-    if (!raw) return []
-    const parsed: unknown = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return []
-    const out: EventRequest[] = []
-    for (const entry of parsed) {
-      const clean = sanitizeRequest(entry)
-      if (clean) out.push(clean)
-    }
-    return out.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, 200)
-  } catch {
-    return []
-  }
-}
+/** Customer-side cancel is allowed only while new or under review. No customer edit exists. */
+export const CUSTOMER_EVENT_CANCELLABLE_STATUSES: readonly EventRequestStatus[] = ['new', 'reviewing']
 
-function getSnapshot(): EventRequest[] {
-  if (cache === null) cache = readEventRequests()
-  return cache
-}
-
-function persist(list: EventRequest[]) {
-  try { window.localStorage.setItem(KEY, JSON.stringify(list.slice(0, 200))) } catch { /* storage unavailable */ }
-  emit()
-}
-
-export function createEventRequestReference(): string {
-  const time = Date.now().toString(36).toUpperCase().slice(-6).padStart(6, '0')
-  const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
-  let random = ''
-  for (let i = 0; i < 4; i++) random += alphabet[Math.floor(Math.random() * alphabet.length)]
-  return `EVR-${time}${random}`
-}
-
-export type EventRequestErrors = {
-  name?: 'required'
-  email?: 'required' | 'invalid'
-  phone?: 'required' | 'invalid'
-  attendees?: 'required' | 'invalid'
-  event?: 'invalid'
-}
-
-export function validateEventRequestDraft(draft: EventRequestDraft): EventRequestErrors {
-  const errors: EventRequestErrors = {}
-  if (!draft.name.trim()) errors.name = 'required'
-  if (!draft.email.trim()) errors.email = 'required'
-  else if (draft.email.trim().length > 120 || !EMAIL_PATTERN.test(draft.email.trim())) errors.email = 'invalid'
-  const digits = draft.phone.replace(/\D/g, '')
-  if (!draft.phone.trim()) errors.phone = 'required'
-  else if (digits.length < 7 || draft.phone.trim().length > 24) errors.phone = 'invalid'
-  if (!Number.isInteger(draft.attendees) || draft.attendees < 1 || draft.attendees > 50) errors.attendees = 'invalid'
-  if (!draft.eventSlug.trim()) errors.event = 'invalid'
-  return errors
-}
-
-export function hasEventRequestErrors(errors: EventRequestErrors) {
-  return Boolean(errors.name || errors.email || errors.phone || errors.attendees || errors.event)
-}
-
-export function createEventRequest(draft: EventRequestDraft): EventRequest {
-  const now = new Date().toISOString()
-  const item: EventRequest = {
-    localRef: createEventRequestReference(),
-    eventSlug: draft.eventSlug.trim(),
-    eventTitle: draft.eventTitle.trim().slice(0, 160) || draft.eventSlug.trim(),
-    eventDate: draft.eventDate.trim().slice(0, 120),
-    eventLocation: draft.eventLocation.trim().slice(0, 160),
-    name: draft.name.trim().slice(0, 80),
-    nationality: draft.nationality.trim().slice(0, 8),
-    dialCode: draft.dialCode.trim().slice(0, 8),
-    phone: draft.phone.trim().slice(0, 24),
-    email: draft.email.trim().slice(0, 120),
-    attendees: Math.max(1, Math.min(50, Math.floor(draft.attendees))),
-    note: draft.note?.trim() ? draft.note.trim().slice(0, 1000) : undefined,
-    status: 'new',
-    createdAt: now,
-    updatedAt: now,
-    activity: [{ at: now, by: 'customer', action: 'Request submitted locally' }],
-  }
-  const current = readEventRequests()
-  persist([item, ...current.filter((r) => r.localRef !== item.localRef)])
-  return item
-}
-
-const TRANSITIONS: Record<EventRequestStatus, EventRequestStatus[]> = {
+const EVENT_TRANSITIONS: Record<EventRequestStatus, EventRequestStatus[]> = {
   new: ['reviewing', 'cancelled'],
   reviewing: ['approved', 'rejected', 'cancelled'],
   approved: ['reviewing'],
@@ -191,64 +108,20 @@ const TRANSITIONS: Record<EventRequestStatus, EventRequestStatus[]> = {
   cancelled: [],
 }
 
-export function canTransitionEventRequest(from: EventRequestStatus, to: EventRequestStatus) {
-  return TRANSITIONS[from]?.includes(to) ?? false
+export function canTransitionEventRequest(from: EventRequestStatus, to: EventRequestStatus): boolean {
+  return EVENT_TRANSITIONS[from]?.includes(to) ?? false
 }
 
-export function transitionEventRequest(localRef: string, to: EventRequestStatus, by: 'customer' | 'admin', note?: string): EventRequest | null {
-  const current = readEventRequests()
-  const found = current.find((r) => r.localRef === localRef)
-  if (!found || !canTransitionEventRequest(found.status, to)) return null
-  const now = new Date().toISOString()
-  const next: EventRequest = {
-    ...found,
-    status: to,
-    updatedAt: now,
-    activity: [...found.activity, { at: now, by, action: `${found.status} → ${to}`, note: note?.slice(0, 300) }].slice(-50),
+/** Display strings are stored in English; UI maps known actions to Arabic. */
+export function labelForEventTransition(from: EventRequestStatus, to: EventRequestStatus): string {
+  if (to === 'reviewing' && (from === 'approved' || from === 'rejected' || from === 'cancelled')) return 'Reopened for review'
+  switch (to) {
+    case 'reviewing': return 'Review started'
+    case 'approved': return 'Request approved'
+    case 'rejected': return 'Request rejected'
+    case 'cancelled': return 'Request cancelled'
+    default: return 'Status updated'
   }
-  persist(current.map((r) => (r.localRef === localRef ? next : r)))
-  return next
-}
-
-export function cancelEventRequest(localRef: string): EventRequest | null {
-  return transitionEventRequest(localRef, 'cancelled', 'customer')
-}
-
-const EMPTY_REQUESTS: EventRequest[] = []
-
-export function useEventRequests(): EventRequest[] {
-  const list = useSyncExternalStore(subscribe, getSnapshot, () => EMPTY_REQUESTS)
-  useEffect(() => {
-    const sync = () => { cache = null; listeners.forEach((fn) => fn()) }
-    // Prime from storage on mount (SSR snapshot is []).
-    sync()
-    window.addEventListener(CHANNEL, sync)
-    window.addEventListener('storage', sync)
-    return () => {
-      window.removeEventListener(CHANNEL, sync)
-      window.removeEventListener('storage', sync)
-    }
-  }, [])
-  return list
-}
-
-export function useEventRequest(localRef: string): EventRequest | undefined {
-  const [item, setItem] = useState<EventRequest | undefined>(undefined)
-  useEffect(() => {
-    const sync = () => setItem(readEventRequests().find((r) => r.localRef === localRef))
-    sync()
-    window.addEventListener(CHANNEL, sync)
-    window.addEventListener('storage', sync)
-    return () => {
-      window.removeEventListener(CHANNEL, sync)
-      window.removeEventListener('storage', sync)
-    }
-  }, [localRef])
-  return item
-}
-
-export function requestsForEventSlug(list: readonly EventRequest[], slug: string) {
-  return list.filter((r) => r.eventSlug === slug)
 }
 
 export function eventRequestStatusLabel(status: EventRequestStatus, ar: boolean): string {
@@ -259,4 +132,72 @@ export function eventRequestStatusLabel(status: EventRequestStatus, ar: boolean)
     case 'rejected': return ar ? 'مرفوض' : 'Rejected'
     case 'cancelled': return ar ? 'ملغي' : 'Cancelled'
   }
+}
+
+export function eventActivityLabel(action: string, ar: boolean): string {
+  if (!ar) return action
+  switch (action) {
+    case 'Request created': return 'تم إنشاء الطلب'
+    case 'Review started': return 'بدأت المراجعة'
+    case 'Request approved': return 'تم قبول الطلب'
+    case 'Request rejected': return 'تم رفض الطلب'
+    case 'Request cancelled': return 'تم إلغاء الطلب'
+    case 'Reopened for review': return 'أعيد فتحه للمراجعة'
+    case 'Internal note added': return 'أضيفت ملاحظة داخلية'
+    default: return action
+  }
+}
+
+/**
+ * Official + legacy-tolerant reference shape for route params and links.
+ * The backend issues `SP-ER-XXXXXX`; older browser-local `EVR-…` refs are
+ * still routable so they fail honestly (not found) instead of crashing.
+ */
+const EVENT_REF_PATTERN = /^(SP-ER-[A-Z0-9]{6}|EVR-[A-Z0-9]{6,12})$/
+export const OFFICIAL_EVENT_REF_PATTERN = /^SP-ER-[A-Z0-9]{6}$/
+
+export function isEventReference(value: string): boolean {
+  return EVENT_REF_PATTERN.test(value.trim())
+}
+
+/**
+ * Canonical event display title for a request. Source of truth is the
+ * static catalogue; an unknown or removed slug falls back to the stored
+ * snapshot verbatim — never a fabricated title.
+ */
+export function eventDisplayTitle(slug: string, fallback: string): string {
+  return findEvent(slug)?.title ?? fallback
+}
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+const SLUG_PATTERN = /^[a-z0-9-]{1,80}$/
+
+export type EventRequestErrors = {
+  name?: 'required'
+  email?: 'required' | 'invalid'
+  phone?: 'required' | 'invalid'
+  attendees?: 'required' | 'invalid'
+  event?: 'invalid'
+}
+
+/** Deterministic frontend validation. The backend validates everything again. */
+export function validateEventRequestDraft(draft: EventRequestDraft): EventRequestErrors {
+  const errors: EventRequestErrors = {}
+  if (!draft.name.trim()) errors.name = 'required'
+  if (!draft.email.trim()) errors.email = 'required'
+  else if (draft.email.trim().length > EVENT_EMAIL_MAX || !EMAIL_PATTERN.test(draft.email.trim())) errors.email = 'invalid'
+  const digits = draft.phone.replace(/\D/g, '')
+  if (!draft.phone.trim()) errors.phone = 'required'
+  else if (digits.length < 7 || draft.phone.trim().length > EVENT_PHONE_MAX) errors.phone = 'invalid'
+  if (!Number.isInteger(draft.attendees) || draft.attendees < 1 || draft.attendees > EVENT_ATTENDEES_MAX) errors.attendees = 'invalid'
+  if (!draft.eventSlug.trim() || !SLUG_PATTERN.test(draft.eventSlug.trim())) errors.event = 'invalid'
+  return errors
+}
+
+export function hasEventRequestErrors(errors: EventRequestErrors): boolean {
+  return Boolean(errors.name || errors.email || errors.phone || errors.attendees || errors.event)
+}
+
+export function requestsForEventSlug(list: readonly { eventSlug: string }[], slug: string): number {
+  return list.filter((r) => r.eventSlug === slug).length
 }

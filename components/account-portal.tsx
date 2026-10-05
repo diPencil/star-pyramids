@@ -113,7 +113,7 @@ const sectionHeadings: Record<AccountSection, { en: string; ar: string; subEn: s
   overview: { en: 'Your travel desk', ar: 'مكتب رحلتك', subEn: 'Everything you need before, during, and after your Egypt journey.', subAr: 'كل ما تحتاجه قبل رحلتك إلى مصر وأثناءها وبعدها.' },
   bookings: { en: 'Bookings', ar: 'الحجوزات', subEn: 'Track requests, confirmations, travelers, and trip details.', subAr: 'تابع الطلبات والتأكيدات والمسافرين وتفاصيل الرحلات.' },
   'car-requests': { en: 'Car Requests', ar: 'طلبات السيارات', subEn: 'Review and manage your saved vehicle requests.', subAr: 'راجع طلبات السيارات المحفوظة وأدرها بسهولة.' },
-  'event-requests': { en: 'Event Requests', ar: 'طلبات الفعاليات', subEn: 'Track your local event attendance requests.', subAr: 'تابع طلبات حضور الفعاليات المحفوظة محليًا.' },
+  'event-requests': { en: 'Event Requests', ar: 'طلبات الفعاليات', subEn: 'Track your event attendance requests.', subAr: 'تابع طلبات حضور الفعاليات.' },
   'trip-requests': { en: 'Trip Requests', ar: 'طلبات الرحلات', subEn: 'Review your saved trip request or plan a new journey.', subAr: 'راجع طلب رحلتك المحفوظ أو خطط لرحلة جديدة.' },
   favorites: { en: 'Saved trips', ar: 'الرحلات المحفوظة', subEn: 'Keep ideas together until you are ready to book.', subAr: 'اجمع أفكار رحلتك في مكان واحد لحين الحجز.' },
   payments: { en: 'Payments & receipts', ar: 'المدفوعات والإيصالات', subEn: 'A clear record of payment status for every booking.', subAr: 'سجل واضح لحالة الدفع الخاصة بكل حجز.' },
@@ -274,7 +274,7 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
           <button type="button" onClick={() => stopImpersonation()}><LogOut size={15} />{ar ? 'إنهاء المعاينة' : 'Exit preview'}</button>
         </div>}
         <section className="customer-account-main">
-        <p className="customer-demo-notice" role="note"><FlaskConical size={16} /><span><strong>{ar ? 'الحساب متصل' : 'Account connected'}</strong>{ar ? 'هويتك وملفك الشخصي وتسجيل الدخول مدعومة بقاعدة البيانات، وطلبات الرحلات وطلبات السيارات تُحفظ في قاعدة البيانات. تظل الحجوزات وطلبات الفعاليات والمدفوعات والرسائل بيانات معاينة حتى مراحل الباك إند الخاصة بها.' : 'Your identity, profile, and sign-in are database-backed, and trip requests and car requests are saved to the database. Bookings, event requests, payments, and messages remain preview data until their backend phases.'}</span></p>
+        <p className="customer-demo-notice" role="note"><FlaskConical size={16} /><span><strong>{ar ? 'الحساب متصل' : 'Account connected'}</strong>{ar ? 'هويتك وملفك الشخصي وتسجيل الدخول مدعومة بقاعدة البيانات، وطلبات الرحلات وطلبات السيارات وطلبات الفعاليات تُحفظ في قاعدة البيانات. تظل الحجوزات والمدفوعات والرسائل بيانات معاينة حتى مراحل الباك إند الخاصة بها.' : 'Your identity, profile, and sign-in are database-backed, and trip requests, car requests, and event requests are saved to the database. Bookings, payments, and messages remain preview data until their backend phases.'}</span></p>
         <header className="customer-account-head">
           <div><span>{ar ? 'حساب STAR PYRAMIDS' : 'STAR PYRAMIDS account'}</span><h1>{ar ? heading.ar : heading.en}</h1><p>{ar ? heading.subAr : heading.subEn}</p></div>
           <div className="customer-account-head-actions">{headLeading}<Link href="/trips" className="account-icon-action"><Search size={17} />{ar ? 'استكشف الرحلات' : 'Explore trips'}</Link><Link href="/contact" className="account-icon-action primary"><HelpCircle size={17} />{ar ? 'اطلب مساعدة' : 'Get help'}</Link></div>
