@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useRef, useState, type MouseEvent as CardMouseEvent } from 'react'
-import { ChevronDown, Globe2, Heart, Menu, Search, Share2, ShoppingCart, X, ArrowRight, ArrowUp, Check, MapPin, Clock3, Users, CarFront, Mail, Phone, Star, Sun, Ship, Anchor, Package, Ticket, BadgePercent, Accessibility, BadgeCheck, Gift, Bell, Sparkles } from 'lucide-react'
+import { ChevronDown, Globe2, Heart, Menu, Search, Share2, ShoppingCart, X, ArrowRight, ArrowUp, Check, MapPin, Clock3, Users, CarFront, Mail, Phone, Star, Sun, Ship, Anchor, Package, Ticket, BadgePercent, Accessibility, BadgeCheck, Gift, Bell, Sparkles, UserRound, LayoutDashboard } from 'lucide-react'
 import { blogs, cars, destinations, events, faqs, offers, siteImages, policies, findBlog, findCar, findDestination, findEvent, findOffer } from '@/data/content'
 import { assignableOneDayTours, getCruiseTypeBySlug, getMultiDayToursForCategory, getOneDayToursForDestination, getPublishedMultiDayCategories, getPublishedOneDayDestinations, getToursByCategory, multiDayCategories, seasonalTours, tourCategories, tourImages } from '@/data/tours'
 import { matchPriceBand, parseTourListingQuery, tourListingSorts, tourPriceBands, type TourListingQuery } from '@/lib/query'
@@ -24,14 +24,17 @@ import { CountrySelect } from './country-select'
 import { SharedSelect } from './shared-select'
 import { defaultCountry } from '@/data/countries'
 import { DateInput } from './date-input'
+import { useCurrentUser } from '@/lib/use-current-user'
+import type { AuthenticatedUser } from '@/lib/auth-types'
 
 export const images = tourImages
 
 const oneDayTourBase = assignableOneDayTours
 const multiDayTourBase = getToursByCategory('multi-days-tours')
 
-const baseCopy = { en: { search:'Find places and things to do', signIn:'Sign in', home:'Home', tours:'Egypt Tours', rent:'Rent Car', about:'About Us', contact:'Contact Us', blogs:'Blogs', events:'Events', offer:'Special Offer', make:'Make Your Trip', language:'AR - EGP', switch:'العربية', promo:'Book any package tour and enjoy a FREE tour experience included along with it.' }, ar: { search:'ابحث عن الأماكن والأنشطة', signIn:'تسجيل الدخول', home:'الرئيسية', tours:'جولات مصر', rent:'تأجير السيارات', about:'من نحن', contact:'اتصل بنا', blogs:'المدونة', events:'الفعاليات', offer:'عروض خاصة', make:'خطط رحلتك', language:'EN - USD', switch:'English', promo:'احجز أي برنامج سياحي واستمتع بتجربة مجانية مشمولة معه.' } } as const
-const copy = { ...baseCopy, es: baseCopy.en, it: baseCopy.en } as const
+const baseCopy = { en: { search:'Find places and things to do', signIn:'Sign in', dashboard:'Dashboard', account:'Account', home:'Home', tours:'Egypt Tours', rent:'Rent Car', about:'About Us', contact:'Contact Us', blogs:'Blogs', events:'Events', offer:'Special Offer', make:'Make Your Trip', language:'AR - EGP', switch:'العربية', promo:'Book any package tour and enjoy a FREE tour experience included along with it.' }, ar: { search:'ابحث عن الأماكن والأنشطة', signIn:'تسجيل الدخول', dashboard:'لوحة التحكم', account:'حسابي', home:'الرئيسية', tours:'جولات مصر', rent:'تأجير السيارات', about:'من نحن', contact:'اتصل بنا', blogs:'المدونة', events:'الفعاليات', offer:'عروض خاصة', make:'خطط رحلتك', language:'EN - USD', switch:'English', promo:'احجز أي برنامج سياحي واستمتع بتجربة مجانية مشمولة معه.' } } as const
+// ES/IT reuse the English copy except where a native label exists (header account action).
+const copy = { ...baseCopy, es: { ...baseCopy.en, account: 'Cuenta' }, it: { ...baseCopy.en, account: 'Account' } } as const
 
 const baseExtra = {
   en: { promo2: 'Limited-time savings on top-rated Egypt tours. Grab your deal before it ends!', viewPackages: 'View Packages', viewOffers: 'View Offers', cat1: 'One Day Tours', cat2: 'Multi Days Tours', cat3: 'Nile Cruises', cat4: 'Shore Excursion', liveChat: 'Live Chat', modalTitle: 'Language and Currency', curTitle: 'Currency', regTitle: 'Region and Language', footerTag: 'We would be happy to help you discover Egypt.', footerLinks: 'STAR PYRAMIDS Links', contactInfo: 'Contact Info', address: COMPANY_ADDRESS, rights: 'All rights reserved to STAR PYRAMIDS company, Egypt ©2026', poweredBy: 'Powered by', tabMake: 'Make Your Trip', tabFind: 'Find your trip', tabRent: 'Rent Car', privacy: 'Privacy and Cookies', terms: 'Terms and Conditions', qWhen: 'When will you be traveling?', qExact: 'Have An Exact Time', qApprox: 'Have An Approximate Time', qUnsure: 'Not Sure Yet', fFrom: 'From', fTo: 'To', fFromPh: 'Select the start date of the trip', fToPh: 'Select the end date of the trip', makeTripBtn: 'Make Trip', qWhat: 'What are you looking for?', k1: 'One Day', k2: 'Multi Days', k3: 'Nile Cruise', k4: 'Shore', wWhere: 'Where?', wWherePh: 'Choose your favorite place in Egypt', wLong: 'How Long?', wLongPh: 'How many days do you stay in Egypt', searchBtn: 'Search', qType: 'Type of Trip?', tOne: 'One Way', tRound: 'Round Trip', cHolder: 'Car Holder', cHolderPh: 'Choose Pick-Up Location', cDrop: 'Drop Off Location', cDropPh: 'Choose Drop-Off Location', cDate: 'Pick Up Date and time', cDatePh: 'Choose the time and date for Pick Up', sendReq: 'Send Request', helpTitle: 'Need help to finding your trip?', helpSub: 'Share a few details and our team will contact you.', helpName: 'Full Name', helpNat: 'Nationality', helpPhone: 'Phone', helpBtn: 'Contact Now', helpDoneT: 'We got your details!', helpDoneP1: 'Thank you', helpDoneP2: '. Our travel team will contact you shortly.', contactTitle: 'Contact Us', contactSub: 'Call Us, Write Us, Or Knock on Our Door', addrT: 'Our Address', emailT: 'Email Address', formT: 'Connect with Us Today', sendMsg: 'Send a Message', msgPh: 'How can we help?', faqTeaser: 'Frequently Asked Questions', seeMore: 'See more', needHelp: 'Need Our Help?', footExplore: 'Explore', footCompany: 'Company', certBadge: 'Travelife Certified', guideLink: 'Egypt Travel Guide', faqsLink: 'FAQs', accessLink: 'Accessible Travel', accessNote: '5% discount on all our tour packages for guests requiring accessibility assistance.', readMoreBtn: 'Read More', callUs: 'Call us' },
@@ -135,8 +138,55 @@ function NotificationDropdown({ locale, onClose }: { locale: Locale; onClose: ()
   );
 }
 
+const STAFF_ROLE_KEYS = ['SUPER_ADMIN', 'ADMIN', 'STAFF'] as const
+
+function isStaffUser(user: AuthenticatedUser | null): boolean {
+  // Array.isArray guards against a malformed session payload: an
+  // authenticated user must still render the account branch, never crash.
+  return !!user && Array.isArray(user.roles) && user.roles.some((role) => (STAFF_ROLE_KEYS as readonly string[]).includes(role))
+}
+
+/**
+ * Shared public-header auth action (desktop bar, sticky bar, mobile menu).
+ * Source of truth is the DB-backed session (`GET /api/auth/me`); no
+ * localStorage auth state. Guests keep the existing Sign in link; customers
+ * get a compact Account link to /account; staff get a Dashboard link to
+ * /admin and are never routed to the customer account.
+ */
+function HeaderAuthAction({ user, loading, signInLabel, dashboardLabel, accountLabel, mobile = false, onNavigate }: {
+  user: AuthenticatedUser | null
+  loading: boolean
+  signInLabel: string
+  dashboardLabel: string
+  accountLabel: string
+  mobile?: boolean
+  onNavigate?: () => void
+}) {
+  // While the session resolves, hold layout space without flashing the wrong
+  // state. SSR and first hydration both render this placeholder, so there is
+  // no hydration mismatch.
+  if (loading) {
+    if (mobile) return null
+    return <span className="outline-btn header-auth-loading" aria-hidden="true">{signInLabel}</span>
+  }
+  if (!user) {
+    return mobile
+      ? <Link href="/login" onClick={onNavigate}>{signInLabel}</Link>
+      : <Link className="outline-btn" href="/login">{signInLabel}</Link>
+  }
+  if (isStaffUser(user)) {
+    return mobile
+      ? <Link href="/admin" onClick={onNavigate} aria-label={dashboardLabel}><LayoutDashboard size={16} />{dashboardLabel}</Link>
+      : <Link className="outline-btn header-account-btn header-auth-action" href="/admin" aria-label={dashboardLabel}><LayoutDashboard size={16} />{dashboardLabel}</Link>
+  }
+  return mobile
+    ? <Link className="header-auth-action" href="/account" onClick={onNavigate}><UserRound size={16} />{accountLabel}</Link>
+    : <Link className="outline-btn header-account-btn header-auth-action" href="/account"><UserRound size={16} />{accountLabel}</Link>
+}
+
 export function Header() {
   const [menu, setMenu] = useState(false)
+  const { user: headerUser, loading: headerUserLoading } = useCurrentUser()
   const [toursOpen, setToursOpen] = useState(false)
   const [stickyToursOpen, setStickyToursOpen] = useState(false)
   const [companyOpen, setCompanyOpen] = useState(false)
@@ -244,12 +294,12 @@ export function Header() {
             <div className="nav-dropdown"><button type="button" onClick={() => setToursOpen((value) => !value)} aria-expanded={toursOpen}>{t.tours} <ChevronDown size={14}/></button>{toursOpen && <div className="tour-menu">{tourLinks.map(([label, href]) => <Link key={href} href={href}>{label}</Link>)}</div>}</div>
             <Link href="/rent-car">{t.rent}</Link><Link href="/about">{t.about}</Link><Link href="/contact">{t.contact}</Link><Link href="/blogs">{t.blogs}</Link><Link href="/events">{t.events}</Link><Link className="special-link" href="/special-offers">{t.offer}</Link>
           </nav>
-          <div className="nav-right-actions"><Link className="make-trip-link" href="/make-your-trip">{t.make}</Link><Link className="outline-btn" href="/login">{t.signIn}</Link></div>
+          <div className="nav-right-actions"><Link className="make-trip-link" href="/make-your-trip">{t.make}</Link><HeaderAuthAction user={headerUser} loading={headerUserLoading} signInLabel={t.signIn} dashboardLabel={t.dashboard} accountLabel={t.account} /></div>
         </div>
       </div>
 
       {languageOpen && <LanguageModal locale={locale} currency={currency} onClose={() => setLanguageOpen(false)} onSelect={setLocale} onCurrency={setCurrency}/>}
-      {menu && <nav className="mobile-nav" aria-label={locale === 'ar' ? 'قائمة الموبايل' : 'Mobile navigation'}>{mobileLinks.map(([label, href]) => <Link key={href} href={href} onClick={() => setMenu(false)}>{label}</Link>)}</nav>}
+      {menu && <nav className="mobile-nav" aria-label={locale === 'ar' ? 'قائمة الموبايل' : 'Mobile navigation'}>{mobileLinks.map(([label, href]) => <Link key={href} href={href} onClick={() => setMenu(false)}>{label}</Link>)}<HeaderAuthAction mobile user={headerUser} loading={headerUserLoading} signInLabel={t.signIn} dashboardLabel={t.dashboard} accountLabel={t.account} onNavigate={() => setMenu(false)} /></nav>}
     </header>
 
     <div className={`sticky-nav-bar${scrolled ? ' is-visible' : ''}`} aria-hidden={!scrolled}>
@@ -268,7 +318,7 @@ export function Header() {
             <ShoppingCart size={17}/>
             {cartLines > 0 && <span className="cart-count-badge" aria-hidden="true">{cartLines > 9 ? '9+' : cartLines}</span>}
           </Link>
-          <Link className="make-trip-link" href="/make-your-trip">{t.make}</Link><Link className="outline-btn" href="/login">{t.signIn}</Link>
+          <Link className="make-trip-link" href="/make-your-trip">{t.make}</Link><HeaderAuthAction user={headerUser} loading={headerUserLoading} signInLabel={t.signIn} dashboardLabel={t.dashboard} accountLabel={t.account} />
         </div>
       </div>
     </div>

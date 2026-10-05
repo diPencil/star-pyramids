@@ -1,14 +1,14 @@
-'use client'
-
-import { Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
 import { CarRequestDetailPage } from '@/components/account-portal'
 
-function CarRequestDetailFromQuery() {
-  const params = useSearchParams()
-  return <CarRequestDetailPage reference={params.get('ref') ?? ''} />
+function first(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? (value[0] ?? '') : (value ?? '')
 }
 
-export default function Page() {
-  return <Suspense><CarRequestDetailFromQuery /></Suspense>
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ ref?: string | string[] }>
+}) {
+  const params = await searchParams
+  return <CarRequestDetailPage reference={first(params.ref)} />
 }

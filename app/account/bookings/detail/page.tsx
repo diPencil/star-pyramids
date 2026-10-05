@@ -1,14 +1,14 @@
-'use client'
-
-import { Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
 import { BookingDetailPage } from '@/components/account-portal'
 
-function BookingDetailFromQuery() {
-  const params = useSearchParams()
-  return <BookingDetailPage reference={params.get('ref') ?? ''} autoPrint={params.get('print') === '1'} />
+function first(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? (value[0] ?? '') : (value ?? '')
 }
 
-export default function Page() {
-  return <Suspense><BookingDetailFromQuery /></Suspense>
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ ref?: string | string[]; print?: string | string[] }>
+}) {
+  const params = await searchParams
+  return <BookingDetailPage reference={first(params.ref)} autoPrint={first(params.print) === '1'} />
 }

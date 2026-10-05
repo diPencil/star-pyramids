@@ -14,20 +14,14 @@ import { CountrySelect } from '@/components/country-select'
 import { SharedSelect } from '@/components/shared-select'
 import { displayInternationalPhone } from '@/lib/phone'
 import { InternationalPhoneInput } from '@/components/international-phone-input'
-import { readCustomerProfile } from '@/lib/customer-account'
 import { DateInput } from '@/components/date-input'
+import { useAuthenticatedUser } from '@/components/authenticated-user'
 import {
   TRIP_BUDGET_CAP,
   TRIP_NOTE_MAX,
-  cancelTripRequest,
-  createTripRequest,
-  getTripRequest,
   hasTripErrors,
-  updateTripRequest,
   tripRequestStatusLabel,
   tripActivityLabel,
-  useTripRequest,
-  useTripRequests,
   validateTripRequest,
   type MakeYourTripRequestDraft,
   type TripFieldErrors,
@@ -35,8 +29,6 @@ import {
   type TripRequestStatus,
   type TripTimeMode,
 } from '@/lib/trip-request'
-import { resolveTripCustomer, type PendingCustomer } from '@/lib/trip-customers'
-import { PendingAccountBox } from '@/components/trip-pending-account'
 
 function errText(field: keyof TripFieldErrors, code: 'required' | 'invalid', ar: boolean): string {
   const en: Record<string, string> = {
@@ -86,13 +78,67 @@ function StatusBadge({ status }: { status: TripRequestStatus }) {
   return <span className={`customer-status ${tone}`}>{tripRequestStatusLabel(status, ar)}</span>
 }
 
-type LastCreated = { ref: string; stub: PendingCustomer | null; existingCustomer: boolean } | null
+type LastCreated = { ref: string } | null
+
+async function apiList(): Promise<TripRequest[]> {
+  const res = await fetch('/api/account/trip-requests', { credentials: 'same-origin' })
+  if (!res.ok) throw new Error('Could not load your trip requests.')
+  const data = (await res.json()) as { requests?: TripRequest[] }
+  if (!Array.isArray(data.requests)) throw new Error('Could not load your trip requests.')
+  return data.requests
+}
+
+async function apiDetail(reference: string): Promise<TripRequest> {
+  const res = await fetch(`/api/account/trip-requests/${encodeURIComponent(reference)}`, { credentials: 'same-origin' })
+  const data = (await res.json()) as TripRequest & { error?: string }
+  if (!res.ok) throw new Error(data.error || 'Trip request not found.')
+  return data
+}
+
+async function apiSubmit(draft: MakeYourTripRequestDraft): Promise<TripRequest> {
+  const res = await fetch('/api/trip-requests', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    credentials: 'same-origin',
+    body: JSON.stringify(draft),
+  })
+  const data = (await res.json()) as TripRequest & { error?: string }
+  if (!res.ok) throw new Error(data.error || 'Could not save the request.')
+  return data
+}
+
+async function apiUpdate(reference: string, draft: MakeYourTripRequestDraft): Promise<TripRequest> {
+  const res = await fetch(`/api/account/trip-requests/${encodeURIComponent(reference)}`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    credentials: 'same-origin',
+    body: JSON.stringify({ action: 'update', draft }),
+  })
+  const data = (await res.json()) as TripRequest & { error?: string }
+  if (!res.ok) throw new Error(data.error || 'Could not save the changes.')
+  return data
+}
+
+async function apiCancel(reference: string): Promise<TripRequest> {
+  const res = await fetch(`/api/account/trip-requests/${encodeURIComponent(reference)}`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    credentials: 'same-origin',
+    body: JSON.stringify({ action: 'cancel' }),
+  })
+  const data = (await res.json()) as TripRequest & { error?: string }
+  if (!res.ok) throw new Error(data.error || 'Could not cancel the request.')
+  return data
+}
 
 function TripRequestsSection({ startNew = false, editRef = null }: { startNew?: boolean; editRef?: string | null }) {
   const { locale, currency } = useLocale()
   const ar = locale === 'ar'
   const router = useRouter()
-  const requests = useTripRequests()
+  const accountUser = useAuthenticatedUser()
+  const [requests, setRequests] = useState<TripRequest[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [mode, setMode] = useState<'list' | 'form'>(startNew || editRef ? 'form' : 'list')
   const [editingRef, setEditingRef] = useState<string | null>(null)
   const [cancellingRef, setCancellingRef] = useState<string | null>(null)
@@ -117,38 +163,62 @@ function TripRequestsSection({ startNew = false, editRef = null }: { startNew?: 
   const [note, setNote] = useState('')
   const [errors, setErrors] = useState<TripFieldErrors>({})
   const [summary, setSummary] = useState('')
+  const [submitting, setSubmitting] = useState(false)
   const [dateFilter, setDateFilter] = useState<'all' | 'upcoming' | 'past'>('all')
   const [statusFilter, setStatusFilter] = useState<'all' | TripRequestStatus>('all')
 
-  // Prefill contact from the browser-local customer profile so account
-  // users type less. These are editable copies; the profile is never
-  // written back automatically.
-  useEffect(() => {
-    const profile = readCustomerProfile()
-    if (profile.firstName || profile.lastName) {
-      setFullName(`${profile.firstName} ${profile.lastName}`.trim())
-      setEmail(profile.email && profile.email.includes('@') ? profile.email : '')
-      setPhone(profile.phone || '')
+  const prefillContact = () => {
+    const name = `${accountUser.firstName ?? ''} ${accountUser.lastName ?? ''}`.trim()
+    if (name) setFullName(name)
+    if (accountUser.email) setEmail(accountUser.email)
+    if (accountUser.countryCode) {
+      setNationality(accountUser.countryCode)
+      setPhoneCountry(accountUser.countryCode)
     }
-    const profileCountry = resolveCountryCode(profile.country)
-      || countryByDialCode(profile.dialCode).code
-    setNationality(profileCountry)
-    setPhoneCountry(countryByDialCode(profile.dialCode).code)
-    setPhone(profile.phone || '')
+    if (accountUser.phone) setPhone(accountUser.phone)
+  }
+
+  // Load the customer's real requests once. Contact details prefill from
+  // the signed-in account as editable copies.
+  useEffect(() => {
+    let cancelled = false
+    prefillContact()
+    apiList()
+      .then((rows) => { if (!cancelled) { setRequests(rows); setLoading(false) } })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setLoadError(error instanceof Error ? error.message : 'Could not load your trip requests.')
+          setLoading(false)
+        }
+      })
+    return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Deep links: `?edit=SP-…` loads that exact record; `?new=1` opens a
-  // blank form. The query is consumed once so refresh stays on the list.
+  // Deep links: `?edit=SP-TR-…` loads the customer's own record;
+  // `?new=1` opens a blank form. The query is consumed once so refresh
+  // stays on the list.
   useEffect(() => {
     if (editRef) {
-      const record = getTripRequest(editRef)
-      if (record && (record.status === 'new' || record.status === 'reviewing')) {
-        applyDraftRecord(record)
-        setEditingRef(record.localRef)
-        setMode('form')
-      }
-    } else if (startNew && mode === 'list') {
+      let cancelled = false
+      apiDetail(editRef)
+        .then((record) => {
+          if (cancelled) return
+          if (record.status !== 'new' && record.status !== 'reviewing') {
+            setSummary(ar ? 'هذا الطلب لم يعد قابلًا للتعديل.' : 'This request can no longer be edited.')
+            return
+          }
+          applyDraftRecord(record)
+          setEditingRef(record.reference)
+          setMode('form')
+        })
+        .catch((error: unknown) => {
+          if (!cancelled) setSummary(error instanceof Error ? error.message : 'Could not load the request.')
+        })
+      router.replace('/account/trip-requests', { scroll: false })
+      return () => { cancelled = true }
+    }
+    if (startNew && mode === 'list') {
       blankForm()
       setEditingRef(null)
       setMode('form')
@@ -173,14 +243,7 @@ function TripRequestsSection({ startNew = false, editRef = null }: { startNew?: 
     setNote('')
     setErrors({})
     setSummary('')
-    const profile = readCustomerProfile()
-    setFullName(`${profile.firstName} ${profile.lastName}`.trim())
-    setEmail(profile.email && profile.email.includes('@') ? profile.email : '')
-    setPhone(profile.phone || '')
-    const blankCountry = resolveCountryCode(profile.country)
-      || countryByDialCode(profile.dialCode).code
-    setNationality(blankCountry)
-    setPhoneCountry(countryByDialCode(profile.dialCode).code)
+    prefillContact()
   }
 
   const applyDraftRecord = (record: TripRequest) => {
@@ -247,42 +310,33 @@ function TripRequestsSection({ startNew = false, editRef = null }: { startNew?: 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (submitting) return
     const errs = validateTripRequest(buildDraft())
     setErrors(errs)
     if (hasTripErrors(errs)) {
       setSummary(ar ? 'تعذر حفظ الطلب. راجع الحقول الموضحة أدناه.' : 'Could not save the request. Review the highlighted fields below.')
       return
     }
-    if (editingRef) {
-      const updated = updateTripRequest(editingRef, { ...buildDraft(), notes: note.trim().slice(0, TRIP_NOTE_MAX) }, 'customer')
-      if (!updated) {
-        setSummary(ar ? 'تعذر حفظ التعديلات. ربما تغيرت حالة الطلب.' : 'Could not save the changes. The request status may have changed.')
-        return
-      }
-      setErrors({})
-      setSummary('')
-      setEditingRef(null)
-      setLastCreated(null)
-      setMode('list')
-      return
-    }
+    setSubmitting(true)
     const draft = { ...buildDraft(), notes: note.trim().slice(0, TRIP_NOTE_MAX) }
-    const resolution = resolveTripCustomer(draft.contact.email, {
-      name: draft.contact.name,
-      phone: draft.contact.phone,
-      dialCode: draft.dialCode,
-      nationality: draft.nationality,
-    })
-    const created = createTripRequest(draft, { customerId: resolution.customerId, ownership: resolution.ownership })
-    if (!created) {
-      setSummary(ar ? 'تعذر حفظ الطلب. راجع الحقول الموضحة أدناه.' : 'Could not save the request. Review the highlighted fields below.')
-      return
-    }
-    setErrors({})
-    setSummary('')
-    setEditingRef(null)
-    setLastCreated({ ref: created.localRef, stub: resolution.stubCreated ? resolution.stub : null, existingCustomer: resolution.existingCustomer })
-    setMode('list')
+    const request = editingRef ? apiUpdate(editingRef, draft) : apiSubmit(draft)
+    request
+      .then((saved) => {
+        setErrors({})
+        setSummary('')
+        setEditingRef(null)
+        setRequests((prev) => {
+          const rest = prev.filter((r) => r.reference !== saved.reference)
+          return [saved, ...rest]
+        })
+        if (!editingRef) setLastCreated({ ref: saved.reference })
+        else setLastCreated(null)
+        setMode('list')
+      })
+      .catch((error: unknown) => {
+        setSummary(error instanceof Error ? error.message : (ar ? 'تعذر حفظ الطلب. حاول مجددًا.' : 'Could not save the request. Please try again.'))
+      })
+      .finally(() => setSubmitting(false))
   }
 
   const requestNew = () => {
@@ -293,12 +347,12 @@ function TripRequestsSection({ startNew = false, editRef = null }: { startNew?: 
   }
 
   const startEdit = (ref: string) => {
-    const record = getTripRequest(ref)
+    const record = requests.find((r) => r.reference === ref)
     if (!record || (record.status !== 'new' && record.status !== 'reviewing')) return
     applyDraftRecord(record)
     setErrors({})
     setSummary('')
-    setEditingRef(record.localRef)
+    setEditingRef(record.reference)
     setLastCreated(null)
     setMode('form')
   }
@@ -391,9 +445,34 @@ function TripRequestsSection({ startNew = false, editRef = null }: { startNew?: 
             <label className="full">{ar ? 'ملاحظات إضافية' : 'Additional notes'}<textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} maxLength={TRIP_NOTE_MAX + 50} placeholder={ar ? 'اوصف رحلتك الحرة هنا: الأماكن والإيقاع وأي تفاصيل' : 'Describe your custom trip here: places, pace, anything'} />{fieldError('notes')}</label>
           </div>
           {summary && <p className="form-error" role="alert">{summary}</p>}
-          <button className="primary-btn" type="submit">{editingRef ? (ar ? 'حفظ التعديلات' : 'Save changes') : (ar ? 'حفظ طلب الرحلة' : 'Save trip request')}</button>
+          <button className="primary-btn" type="submit" disabled={submitting}>{submitting ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : editingRef ? (ar ? 'حفظ التعديلات' : 'Save changes') : (ar ? 'حفظ طلب الرحلة' : 'Save trip request')}</button>
         </form>
-        <p className="customer-block-note">{ar ? 'طلبات النموذج التجريبي محفوظة على هذا المتصفح فقط ولا تُرسل إلى نظام STAR PYRAMIDS الفعلي.' : 'Prototype requests are stored on this browser only and are not submitted to a live STAR PYRAMIDS backend.'}</p>
+        <p className="customer-block-note">{ar ? 'يُحفظ طلبك في حسابك فور الإرسال. الميزانية تفضيل منك وليست عرض سعر.' : 'Your request is saved to your account on submit. The budget is your preference, not a quote.'}</p>
+      </section>
+    )
+  }
+
+  if (loading) {
+    return <section className="customer-account-block customer-full-block"><div className="customer-empty" role="status"><h3>{ar ? 'جارٍ تحميل طلباتك…' : 'Loading your requests…'}</h3></div></section>
+  }
+
+  if (loadError && !requests.length) {
+    return (
+      <section className="customer-account-block customer-full-block">
+        <div className="customer-empty">
+          <h3>{ar ? 'تعذر تحميل الطلبات' : 'Could not load requests'}</h3>
+          <p>{loadError}</p>
+          <button type="button" className="account-icon-action" onClick={() => {
+            setLoading(true)
+            setLoadError('')
+            apiList()
+              .then((rows) => { setRequests(rows); setLoading(false) })
+              .catch((error: unknown) => {
+                setLoadError(error instanceof Error ? error.message : 'Could not load your trip requests.')
+                setLoading(false)
+              })
+          }}>{ar ? 'إعادة المحاولة' : 'Retry'}</button>
+        </div>
       </section>
     )
   }
@@ -411,17 +490,19 @@ function TripRequestsSection({ startNew = false, editRef = null }: { startNew?: 
   const viewLabel = ar ? 'عرض الطلب' : 'View request'
   return (
     <section className="customer-account-block customer-full-block">
+      {loadError && requests.length > 0 && (
+        <div style={{ padding: '18px 18px 0' }}>
+          <p className="form-error" role="alert">{loadError}</p>
+        </div>
+      )}
       {lastCreated && (
         <div style={{ padding: '18px 18px 0' }}>
           <div className="customer-inline-success" role="status">
             <strong>{ar ? 'تم حفظ طلب الرحلة' : 'Trip request saved'}</strong>
             <span dir="ltr">{lastCreated.ref}</span>
-            {lastCreated.existingCustomer && <small>{ar ? 'يوجد حساب بالفعل لهذا البريد. سجّل الدخول لإدارة الطلبات المرتبطة بحسابك.' : 'An account already exists for this email. Sign in to manage requests associated with your account.'}</small>}
+            <Link className="account-icon-action" href={`/account/trip-requests/detail?ref=${encodeURIComponent(lastCreated.ref)}`}>{ar ? 'عرض التفاصيل' : 'View details'}</Link>
             <button type="button" className="account-icon-action" onClick={() => setLastCreated(null)}>{ar ? 'إخفاء' : 'Dismiss'}</button>
           </div>
-          {lastCreated.stub && lastCreated.stub.status === 'pending' && (
-            <PendingAccountBox stub={lastCreated.stub} onCompleted={(updated) => setLastCreated({ ...lastCreated, stub: updated })} />
-          )}
         </div>
       )}
       <div className="customer-filterbar">
@@ -438,19 +519,19 @@ function TripRequestsSection({ startNew = false, editRef = null }: { startNew?: 
           <div className="customer-table-wrap"><table className="customer-table">
             <thead><tr><th>#</th><th>{ar ? 'الوجهة' : 'Destination'}</th><th>{ar ? 'التواريخ' : 'Dates'}</th><th>{ar ? 'المسافرون' : 'Travelers'}</th><th>{ar ? 'الميزانية' : 'Budget'}</th><th>{ar ? 'الحالة' : 'Status'}</th><th></th></tr></thead>
             <tbody>{paging.pageRows.map((r, index) => {
-              const detailHref = `/account/trip-requests/detail?ref=${encodeURIComponent(r.localRef)}`
+              const detailHref = `/account/trip-requests/detail?ref=${encodeURIComponent(r.reference)}`
               const editable = r.status === 'new' || r.status === 'reviewing'
-              return <tr key={r.localRef}>
+              return <tr key={r.reference}>
                 <td className="customer-row-number">{paging.from + index}</td>
-                <td><span className="customer-trip-cell"><span><strong><Link href={detailHref}>{titleOf(r)}</Link></strong><small><span dir="ltr">{r.localRef}</span></small></span></span></td>
+                <td><span className="customer-trip-cell"><span><strong><Link href={detailHref}>{titleOf(r)}</Link></strong><small><span dir="ltr">{r.reference}</span></small></span></span></td>
                 <td><span dir="ltr">{dateTextOf(r)}</span></td>
                 <td>{r.adults + r.children + r.infants}</td>
                 <td><span dir="ltr">{r.budgetMin.toLocaleString('en-US')} - {r.budgetMax.toLocaleString('en-US')} {r.currency}</span></td>
                 <td><StatusBadge status={r.status} /></td>
                 <td><span className="customer-table-actions">
                   <Link href={detailHref} aria-label={viewLabel} title={viewLabel}><Eye size={16} /></Link>
-                  {editable && <button type="button" onClick={() => startEdit(r.localRef)} aria-label={ar ? 'تعديل الطلب' : 'Edit request'} title={ar ? 'تعديل الطلب' : 'Edit request'}><Pencil size={16} /></button>}
-                  {editable && <button type="button" className="danger" onClick={() => setCancellingRef(r.localRef)} aria-label={ar ? 'إلغاء الطلب' : 'Cancel request'} title={ar ? 'إلغاء الطلب' : 'Cancel request'}><X size={16} /></button>}
+                  {editable && <button type="button" onClick={() => startEdit(r.reference)} aria-label={ar ? 'تعديل الطلب' : 'Edit request'} title={ar ? 'تعديل الطلب' : 'Edit request'}><Pencil size={16} /></button>}
+                  {editable && <button type="button" className="danger" onClick={() => setCancellingRef(r.reference)} aria-label={ar ? 'إلغاء الطلب' : 'Cancel request'} title={ar ? 'إلغاء الطلب' : 'Cancel request'}><X size={16} /></button>}
                 </span></td>
               </tr>
             })}</tbody>
@@ -458,7 +539,19 @@ function TripRequestsSection({ startNew = false, editRef = null }: { startNew?: 
           <CustomerConfirmDialog
             open={cancellingRef !== null}
             onClose={() => setCancellingRef(null)}
-            onConfirm={() => { if (cancellingRef) cancelTripRequest(cancellingRef, 'customer'); setCancellingRef(null) }}
+            onConfirm={() => {
+              const ref = cancellingRef
+              setCancellingRef(null)
+              if (!ref) return
+              apiCancel(ref)
+                .then((saved) => {
+                  setLoadError('')
+                  setRequests((prev) => prev.map((r) => (r.reference === saved.reference ? saved : r)))
+                })
+                .catch((error: unknown) => {
+                  setLoadError(error instanceof Error ? error.message : 'Could not cancel the request.')
+                })
+            }}
             title={ar ? 'إلغاء طلب الرحلة؟' : 'Cancel this trip request?'}
             copy={ar ? 'سيبقى هذا الطلب في سجلك بحالة ملغي.' : 'This request will remain in your history with a Cancelled status.'}
             confirmLabel={ar ? 'إلغاء الطلب' : 'Cancel request'}
@@ -466,7 +559,7 @@ function TripRequestsSection({ startNew = false, editRef = null }: { startNew?: 
           />
           <CustomerPagination page={paging.page} pageCount={paging.pageCount} onPage={paging.setPage} pageSize={paging.pageSize} onPageSize={paging.setPageSize} from={paging.from} to={paging.to} total={paging.total} />
           <div style={{ padding: '0 18px 18px' }}>
-            <p className="car-request-notice" role="note"><Clock3 size={15} /><span>{ar ? 'طلبات النموذج التجريبي محفوظة على هذا المتصفح فقط ولا تُرسل إلى نظام STAR PYRAMIDS الفعلي.' : 'Prototype requests are stored on this browser only and are not submitted to a live STAR PYRAMIDS backend.'}</span></p>
+            <p className="car-request-notice" role="note"><Clock3 size={15} /><span>{ar ? 'يتابع فريقنا طلبك وسيتواصل معك على بريدك عند وجود تحديث.' : 'Our team follows up on your request and will contact you by email with updates.'}</span></p>
           </div>
         </>
       ) : (
@@ -510,15 +603,39 @@ function HeadPlanTrip() {
 export function TripRequestDetailSection({ reference }: { reference: string }) {
   const { locale } = useLocale()
   const ar = locale === 'ar'
-  const item = useTripRequest(reference)
+  const [item, setItem] = useState<TripRequest | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [cancelling, setCancelling] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError('')
+    apiDetail(reference)
+      .then((record) => { if (!cancelled) { setItem(record); setLoading(false) } })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Trip request not found.')
+          setLoading(false)
+        }
+      })
+    return () => { cancelled = true }
+  }, [reference])
+  if (loading) {
+    return (
+      <div className="customer-inline-empty" role="status">
+        <Clock3 size={20} />
+        <span><strong>{ar ? 'جارٍ تحميل الطلب…' : 'Loading request…'}</strong></span>
+      </div>
+    )
+  }
   if (!item) {
     return (
       <div className="customer-inline-empty">
         <Clock3 size={20} />
         <span>
           <strong>{ar ? 'طلب الرحلة غير موجود' : 'Trip request not found'}</strong>
-          <small>{ar ? 'ربما تم حذفه أو أنه محفوظ في متصفح مختلف.' : 'It may have been removed or saved in a different browser.'}</small>
+          <small>{error || (ar ? 'ربما تم حذفه أو أنه يخص حسابًا آخر.' : 'It may have been removed or belong to a different account.')}</small>
         </span>
         <Link href="/account/trip-requests">{ar ? 'عودة لطلبات الرحلات' : 'Back to trip requests'}</Link>
       </div>
@@ -536,7 +653,7 @@ export function TripRequestDetailSection({ reference }: { reference: string }) {
         <StatusBadge status={item.status} />
       </header>
       <dl className="customer-detail-grid">
-        <div><dt>{ar ? 'المرجع المحلي' : 'Local reference'}</dt><dd dir="ltr">{item.localRef}</dd></div>
+        <div><dt>{ar ? 'المرجع' : 'Reference'}</dt><dd dir="ltr">{item.reference}</dd></div>
         <div><dt>{ar ? 'أُنشئ في' : 'Created'}</dt><dd>{new Date(item.createdAt).toLocaleString(ar ? 'ar-EG' : 'en-US')}</dd></div>
         <div><dt>{ar ? 'آخر تحديث' : 'Updated'}</dt><dd>{new Date(item.updatedAt).toLocaleString(ar ? 'ar-EG' : 'en-US')}</dd></div>
         <div><dt>{ar ? 'الوجهة' : 'Destination'}</dt><dd>{titleOf(item)}</dd></div>
@@ -559,8 +676,9 @@ export function TripRequestDetailSection({ reference }: { reference: string }) {
         </section>
       )}
       <div className="customer-detail-actions">
+        {error && <p className="form-error" role="alert" style={{ flexBasis: '100%' }}>{error}</p>}
         <Link href="/account/trip-requests" className="account-icon-action">{ar ? 'عودة للقائمة' : 'Back to list'}</Link>
-        {editable && <Link href={`/account/trip-requests?edit=${encodeURIComponent(item.localRef)}`} className="account-icon-action"><Pencil size={16} />{ar ? 'تعديل الطلب' : 'Edit request'}</Link>}
+        {editable && <Link href={`/account/trip-requests?edit=${encodeURIComponent(item.reference)}`} className="account-icon-action"><Pencil size={16} />{ar ? 'تعديل الطلب' : 'Edit request'}</Link>}
         {editable && (
           <button type="button" className="account-icon-action danger" onClick={() => setCancelling(true)}><X size={16} />{ar ? 'إلغاء الطلب' : 'Cancel request'}</button>
         )}
@@ -568,13 +686,20 @@ export function TripRequestDetailSection({ reference }: { reference: string }) {
       <CustomerConfirmDialog
         open={cancelling}
         onClose={() => setCancelling(false)}
-        onConfirm={() => { cancelTripRequest(item.localRef, 'customer'); setCancelling(false) }}
+        onConfirm={() => {
+          setCancelling(false)
+          apiCancel(item.reference)
+            .then((saved) => setItem(saved))
+            .catch((err: unknown) => {
+              setError(err instanceof Error ? err.message : 'Could not cancel the request.')
+            })
+        }}
         title={ar ? 'إلغاء طلب الرحلة؟' : 'Cancel this trip request?'}
         copy={ar ? 'سيبقى هذا الطلب في سجلك بحالة ملغي.' : 'This request will remain in your history with a Cancelled status.'}
         confirmLabel={ar ? 'إلغاء الطلب' : 'Cancel request'}
         cancelLabel={ar ? 'أبقِ الطلب' : 'Keep request'}
       />
-      <p className="customer-block-note">{ar ? 'طلبات النموذج التجريبي محفوظة على هذا المتصفح فقط ولا تُرسل إلى نظام STAR PYRAMIDS الفعلي. بيانات التواصل المعروضة لقطة تاريخية لهذا الطلب.' : 'Prototype requests are stored on this browser only and are not submitted to a live STAR PYRAMIDS backend. Contact details shown are a historical snapshot of this request.'}</p>
+      <p className="customer-block-note">{ar ? 'بيانات التواصل المعروضة لقطة تاريخية لهذا الطلب.' : 'Contact details shown are a historical snapshot of this request.'}</p>
     </div>
   )
 }

@@ -1,9 +1,11 @@
-// STAR PYRAMIDS — P0 backend schema (Phase 1A).
+// STAR PYRAMIDS — backend schema.
 //
 // SCOPE: auth foundation (users, roles, sessions, setup tokens) +
-// server-authoritative settings (site settings, FX rates) + staff audit.
-// Catalogue, requests, bookings, payments and all other domains belong to
-// later phases and MUST NOT be added here.
+// server-authoritative settings (site settings, FX rates) + staff audit +
+// Phase 2B customer trip-request workflow (trip_requests + activity +
+// submission rate-limit attempts).
+// Catalogue content, bookings, payments, quotations and all other domains
+// belong to later phases and MUST NOT be added here.
 //
 // Conventions:
 // - MySQL is authoritative. UTC datetimes (app writes Date = UTC epoch).
@@ -63,6 +65,7 @@ model User {
   sessions     Session[]
   setupTokens  AccountSetupToken[]
   auditActions StaffActionAudit[] @relation("AuditActor")
+  tripRequests TripRequest[]
 
   @@index([status])
   @@map("users")
@@ -179,4 +182,92 @@ model RegistrationAttempt {
   @@index([email, createdAt])
   @@index([ipAddress, createdAt])
   @@map("registration_attempts")
+}
+
+enum TripRequestStatus {
+  NEW
+  REVIEWING
+  PROPOSAL_READY
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum TripRequestTimeMode {
+  EXACT
+  APPROX
+  UNSURE
+}
+
+/// Phase 2B: customer trip request (Make Your Trip / account planner).
+/// The contact block is a historical snapshot taken at submit/edit time and
+/// is never rewritten by later profile changes. `userId` links the request
+/// to a registered CUSTOMER only when the submission happened under that
+/// customer's server session; guest submissions keep `userId` NULL and are
+/// identified solely by their contact snapshot. Staff-only discussion lives
+/// in internal TripRequestActivity rows and in NO customer-facing field.
+model TripRequest {
+  id              String            @id @default(cuid())
+  reference       String            @unique @db.VarChar(16)
+  userId          String?
+  contactName     String            @db.VarChar(80)
+  contactEmail    String            @db.VarChar(190)
+  contactPhone    String            @db.VarChar(32)
+  contactDialCode String            @db.VarChar(8)
+  nationality     String            @db.Char(2)
+  destinationSlug String?           @db.VarChar(80)
+  tourSlug        String?           @db.VarChar(80)
+  customTitle     String?           @db.VarChar(120)
+  requestedAddOns String            @default("[]") @db.Text
+  timeMode        TripRequestTimeMode @default(EXACT)
+  preferredFrom   DateTime?         @db.Date
+  preferredTo     DateTime?         @db.Date
+  adults          Int               @default(1)
+  children        Int               @default(0)
+  infants         Int               @default(0)
+  budgetMin       Int               @default(0)
+  budgetMax       Int               @default(0)
+  budgetCurrency  String            @default("USD") @db.Char(3)
+  flightOffer     Boolean           @default(false)
+  notes           String?           @db.Text
+  status          TripRequestStatus @default(NEW)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  user       User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  activities TripRequestActivity[]
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@index([contactEmail])
+  @@map("trip_requests")
+}
+
+model TripRequestActivity {
+  id         String   @id @default(cuid())
+  requestId  String
+  actorRole  String   @db.VarChar(16)
+  action     String   @db.VarChar(160)
+  note       String?  @db.Text
+  isInternal Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  request TripRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId, createdAt])
+  @@map("trip_request_activities")
+}
+
+/// Abuse-protection attempts for the public trip-request endpoint.
+/// Same architecture as login/registration attempts: counted per
+/// email-OR-ip inside a time window, pruned opportunistically.
+model TripRequestAttempt {
+  id        String   @id @default(cuid())
+  email     String   @db.VarChar(190)
+  ipAddress String   @db.VarChar(64)
+  createdAt DateTime @default(now())
+
+  @@index([email, createdAt])
+  @@index([ipAddress, createdAt])
+  @@map("trip_request_attempts")
 }

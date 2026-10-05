@@ -121,3 +121,30 @@ rate limiting, email sending, permission matrix, dashboard metrics.
 - Public storefront readers (`localStorage` brand/social/currency/l10n)
   are kept as a compatibility mirror written on successful admin save;
   MySQL is the source of truth. Full storefront migration is a later phase.
+
+## 11. Phase 2B — trip requests (Make Your Trip end-to-end)
+
+- Model: `TripRequest` (`reference` unique `SP-TR-XXXXXX`, nullable `userId`
+  → registered CUSTOMER or guest `NULL`, contact snapshot frozen at
+  submit/edit, slug/date/traveler/budget fields, `TripRequestStatus` +
+  `TripRequestTimeMode` enums) + `TripRequestActivity` (actor role, action,
+  optional note, `isInternal`) + `TripRequestAttempt` (submission
+  rate-limit, 10/hour per email-or-IP). Migration
+  `20261004235840_add_trip_requests`.
+- Reference: server-minted from an unambiguous alphabet, unique index +
+  retry on collision; DB ids never exposed.
+- Endpoints: `POST /api/trip-requests` (public, CSRF, rate-limited;
+  links CUSTOMER session, guests stay unlinked); `GET|PATCH`
+  `/api/account/trip-requests[/ref]` (owner-only safe projection,
+  edit/cancel while new/reviewing); `GET|PATCH`
+  `/api/admin/trip-requests[/ref]` (staff, transitions per shared map,
+  internal notes, `StaffActionAudit`).
+- Customer serializers strip internal notes; internal activity rows
+  surface action-only so status changes stay visible without leaking
+  staff discussion.
+- Removed trip-request browser mocks only (`lib/trip-customers.ts`,
+  `components/trip-pending-account.tsx`, localStorage store in
+  `lib/trip-request.ts`, now a neutral shared contract). Bookings,
+  payments, messages, quotations remain prototype (later phases).
+- Still TODO: quotation/proposal documents, booking+payment conversion,
+  email/WhatsApp notifications, retroactive guest→account linking.

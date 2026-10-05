@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowLeft, CalendarDays, FlaskConical, Users } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Card } from '@/components/admin/admin-ui'
@@ -15,13 +15,9 @@ import {
   canTransitionTripRequest,
   tripActivityLabel,
   tripRequestStatusLabel,
-  transitionTripRequest,
-  useTripRequest,
-  type TripRequest,
+  type StaffTripRequest,
   type TripRequestStatus,
 } from '@/lib/trip-request'
-import { normalizeEmail, useTripCustomers } from '@/lib/trip-customers'
-import { readCustomerProfile } from '@/lib/customer-account'
 
 const ACTIONS: { from: TripRequestStatus[]; to: TripRequestStatus; tone: 'primary' | 'danger' }[] = [
   { from: ['new'], to: 'reviewing', tone: 'primary' },
@@ -119,8 +115,8 @@ const manageHint: Record<TripRequestStatus, { en: string; ar: string }> = {
     ar: 'تم تحديد العرض كجاهز. هذه حالة سير عمل فقط؛ لم يُصدر أي مستند عرض أو سعر أو رابط دفع.',
   },
   approved: {
-    en: 'This request was approved as a prototype decision. You can reopen it to reviewing if it needs another look.',
-    ar: 'تمت الموافقة على هذا الطلب كقرار تجريبي. يمكنك إعادته للمراجعة إذا احتاج نظرة أخرى.',
+    en: 'This request was approved as an internal decision. It is not a booking confirmation and charges nothing. You can reopen it to reviewing if it needs another look.',
+    ar: 'تمت الموافقة على هذا الطلب كقرار داخلي. وليست تأكيد حجز ولا تخصم أي مبلغ. يمكنك إعادته للمراجعة إذا احتاج نظرة أخرى.',
   },
   rejected: {
     en: 'This request was rejected. You can reopen it to reviewing if the decision should be reconsidered.',
@@ -138,30 +134,109 @@ const timeCopy: Record<string, { en: string; ar: string }> = {
   unsure: { en: 'Not sure yet', ar: 'لم يحدد بعد' },
 }
 
-function routeOf(item: TripRequest): string {
+function routeOf(item: StaffTripRequest): string {
   if (item.customTitle) return item.customTitle
   if (item.tourSlug) return findTour(item.tourSlug)?.title ?? item.tourSlug
   if (item.destinationSlug) return destinations.find((d) => d.slug === item.destinationSlug)?.title ?? item.destinationSlug
   return ''
 }
 
-function dateOf(item: TripRequest): string {
+function dateOf(item: StaffTripRequest): string {
   if (item.preferredFrom && item.preferredTo && item.preferredFrom !== item.preferredTo) return `${item.preferredFrom} → ${item.preferredTo}`
   return item.preferredFrom || item.preferredTo || ''
 }
 
 export function TripRequestDetailContent({ requestId }: { requestId: string }) {
   const ar = useAdminLocale() === 'ar'
-  const item = useTripRequest(decodeURIComponent(requestId))
-  const stubs = useTripCustomers()
+  const reference = decodeURIComponent(requestId)
+  const [item, setItem] = useState<StaffTripRequest | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [pending, setPending] = useState<TripRequestStatus | null>(null)
+  const [mutating, setMutating] = useState(false)
+  const [mutationError, setMutationError] = useState('')
+  const [note, setNote] = useState('')
+  const [noteSaving, setNoteSaving] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setLoadError('')
+    fetch(`/api/admin/trip-requests/${encodeURIComponent(reference)}`, { credentials: 'same-origin' })
+      .then(async (res) => {
+        if (cancelled) return
+        if (!res.ok) throw new Error(ar ? 'الطلب غير موجود.' : 'Trip request not found.')
+        const data = (await res.json()) as StaffTripRequest
+        if (!cancelled) {
+          setItem(data)
+          setLoading(false)
+        }
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return
+        setLoadError(error instanceof Error ? error.message : 'Trip request not found.')
+        setLoading(false)
+      })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reference])
+
+  const mutate = (body: Record<string, unknown>, onDone: () => void) => {
+    setMutationError('')
+    fetch(`/api/admin/trip-requests/${encodeURIComponent(reference)}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(body),
+    })
+      .then(async (res) => {
+        const data = (await res.json()) as StaffTripRequest & { error?: string }
+        if (!res.ok) throw new Error(data.error || 'Could not save the change.')
+        setItem(data)
+        onDone()
+      })
+      .catch((error: unknown) => {
+        setMutationError(error instanceof Error ? error.message : 'Could not save the change.')
+      })
+      .finally(() => {
+        setMutating(false)
+        setNoteSaving(false)
+      })
+  }
+
+  const confirmTransition = () => {
+    if (mutating) return
+    if (!pending || !item || !canTransitionTripRequest(item.status, pending)) {
+      setPending(null)
+      return
+    }
+    setMutating(true)
+    mutate({ status: pending }, () => setPending(null))
+  }
+
+  const saveNote = () => {
+    if (note.trim() === '' || noteSaving) return
+    setNoteSaving(true)
+    mutate({ note: note.trim() }, () => setNote(''))
+  }
+
+  if (loading) {
+    return (
+      <>
+        <PageHead eyebrow="Requests" title="Trip request" titleAr="طلب رحلة" sub="Request detail" subAr="تفاصيل الطلب" />
+        <Card title={<AdminText en="Loading…" ar="جارٍ التحميل…" />}>
+          <p role="status"><AdminText en="Loading trip request…" ar="جارٍ تحميل طلب الرحلة…" /></p>
+        </Card>
+      </>
+    )
+  }
 
   if (!item) {
     return (
       <>
         <PageHead eyebrow="Requests" title="Trip request" titleAr="طلب رحلة" sub="Request detail" subAr="تفاصيل الطلب" />
         <Card title={<AdminText en="Request not found" ar="الطلب غير موجود" />}>
-          <p><AdminText en="This local request is not on this browser. It may have been removed or saved elsewhere." ar="هذا الطلب المحلي غير موجود على هذا المتصفح. ربما تم حذفه أو حفظه في مكان آخر." /></p>
+          <p>{loadError || <AdminText en="This request does not exist." ar="هذا الطلب غير موجود." />}</p>
           <p><Link className="sp-btn" href="/admin/trip-requests"><AdminText en="Back to trip requests" ar="عودة لطلبات الرحلات" /></Link></p>
         </Card>
       </>
@@ -170,22 +245,10 @@ export function TripRequestDetailContent({ requestId }: { requestId: string }) {
 
   const available = ACTIONS.filter((a) => a.from.includes(item.status))
   const fmtDateTime = (iso: string) => new Date(iso).toLocaleString(ar ? 'ar-EG' : 'en-US')
-  const stub = item.customerId ? stubs.find((s) => s.id === item.customerId) : undefined
   const travelers = item.adults + item.children + item.infants
   const copyFor = (to: TripRequestStatus): TransitionCopy =>
     transitionCopy[`${item.status}>${to}`] ?? fallbackTransitionCopy
   const dialogCopy = pending ? copyFor(pending) : fallbackTransitionCopy
-  // A linked stub whose email matches the browser-local customer profile is
-  // the visible demo account's own record (e.g. James Carter), not a guest
-  // awaiting verification — label it neutrally instead of "pending account".
-  const profileEmail = normalizeEmail(readCustomerProfile().email)
-  const isDemoIdentity = !!stub && profileEmail !== '' && normalizeEmail(stub.email) === profileEmail
-  const ownershipNote = !(item.ownership === 'linked' && stub) ? null
-    : stub.status !== 'pending'
-      ? (ar ? 'حساب محلي نشط' : 'active local account')
-      : isDemoIdentity
-        ? (ar ? 'عميل تجريبي محلي' : 'local demo customer')
-        : (ar ? 'حساب قيد الإنشاء' : 'pending account')
   const phoneCountryCode = item.contact.dialCode ? countryByDialCode(item.contact.dialCode).code : undefined
   const phoneDisplay = displayInternationalPhone(item.contact.dialCode, item.contact.phone)
   const phoneHref = telLink(phoneCountryCode, item.contact.phone)
@@ -194,8 +257,8 @@ export function TripRequestDetailContent({ requestId }: { requestId: string }) {
     <>
       <PageHead
         eyebrow="Requests"
-        title={item.localRef}
-        titleAr={item.localRef}
+        title={item.reference}
+        titleAr={item.reference}
         sub={`${routeOf(item) || (ar ? 'رحلة مخصصة' : 'Custom trip')} · ${travelers} ${ar ? 'مسافرين' : 'travelers'}`}
         subAr={`${routeOf(item) || 'رحلة مخصصة'} · ${travelers} مسافرين`}
         actions={<Link className="sp-btn" href="/admin/trip-requests"><ArrowLeft size={16} /> <AdminText en="Back to all requests" ar="عودة لكل الطلبات" /></Link>}
@@ -204,7 +267,7 @@ export function TripRequestDetailContent({ requestId }: { requestId: string }) {
         <div className="evr-main-col">
           <Card title={<AdminText en="Request overview" ar="نظرة عامة على الطلب" />}>
             <dl className="evr-kv">
-              <div><dt><AdminText en="Reference" ar="المرجع" /></dt><dd><code dir="ltr">{item.localRef}</code><span className="evr-local-tag"><AdminText en="Browser-local" ar="محلي على هذا المتصفح" /></span></dd></div>
+              <div><dt><AdminText en="Reference" ar="المرجع" /></dt><dd><code dir="ltr">{item.reference}</code></dd></div>
               <div><dt><AdminText en="Status" ar="الحالة" /></dt><dd><span className={`sp-status is-${item.status}`}>{tripRequestStatusLabel(item.status, ar)}</span></dd></div>
               <div><dt><AdminText en="Created" ar="أُنشئ" /></dt><dd>{fmtDateTime(item.createdAt)}</dd></div>
               <div><dt><AdminText en="Last updated" ar="آخر تحديث" /></dt><dd>{fmtDateTime(item.updatedAt)}</dd></div>
@@ -233,8 +296,8 @@ export function TripRequestDetailContent({ requestId }: { requestId: string }) {
             </dl>
             <p className="evr-note">
               <span><AdminText en="Ownership" ar="الملكية" /></span>
-              {ownershipNote && stub
-                ? (ar ? `عميل مرتبط: ${stub.email} (${ownershipNote})` : `Linked customer: ${stub.email} (${ownershipNote})`)
+              {item.account
+                ? (ar ? `حساب مسجل: ${item.account.email}` : `Registered account: ${item.account.email}`)
                 : (ar ? 'زائر غير موثّق. لم يتم التحقق من ملكية أي حساب.' : 'Unverified guest. No account ownership verified.')}
             </p>
           </Card>
@@ -245,7 +308,7 @@ export function TripRequestDetailContent({ requestId }: { requestId: string }) {
               {available.length ? (
                 <div className="evr-actions">
                   {available.map((a) => (
-                    <button key={a.to} type="button" className={`sp-btn ${a.tone === 'danger' ? 'danger' : 'primary'}`} onClick={() => setPending(a.to)}>
+                    <button key={a.to} type="button" className={`sp-btn ${a.tone === 'danger' ? 'danger' : 'primary'}`} onClick={() => setPending(a.to)} disabled={mutating}>
                       <AdminText en={copyFor(a.to).confirm.en} ar={copyFor(a.to).confirm.ar} />
                     </button>
                   ))}
@@ -253,7 +316,12 @@ export function TripRequestDetailContent({ requestId }: { requestId: string }) {
               ) : (
                 <p className="evr-manage-hint"><AdminText en="No further transitions. Cancelled requests are terminal." ar="لا توجد انتقالات أخرى. الطلبات الملغاة نهائية." /></p>
               )}
-              <p className="evr-proto" role="note"><FlaskConical size={15} /><span><strong><AdminText en="Prototype workflow" ar="سير عمل تجريبي" /></strong><AdminText en="Status changes are stored in this browser only. Approval does not confirm a booking or charge anything." ar="تُحفظ تغييرات الحالة في هذا المتصفح فقط. الموافقة لا تؤكد حجزًا ولا تخصم أي مبلغ." /></span></p>
+              <div className="sp-form" style={{ marginTop: 12 }}>
+                <label><AdminText en="Internal note (staff only, never shown to the customer)" ar="ملاحظة داخلية (للإدارة فقط، لا تظهر للعميل أبدًا)" /><textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} placeholder={ar ? 'اكتب ملاحظة داخلية…' : 'Write an internal note…'} disabled={noteSaving} /></label>
+                <div><button type="button" className="sp-btn" onClick={saveNote} disabled={noteSaving || note.trim() === ''}>{noteSaving ? <AdminText en="Saving…" ar="جارٍ الحفظ…" /> : <AdminText en="Save internal note" ar="حفظ ملاحظة داخلية" />}</button></div>
+              </div>
+              {mutationError && <p role="alert" style={{ color: '#b91c1c' }}>{mutationError}</p>}
+              <p className="evr-proto" role="note"><FlaskConical size={15} /><span><strong><AdminText en="Live workflow" ar="سير عمل فعلي" /></strong><AdminText en="Status changes are stored in the database and visible to the customer immediately. Approval is an internal decision, not a booking confirmation." ar="تُحفظ تغييرات الحالة في قاعدة البيانات وتظهر للعميل فورًا. الموافقة قرار داخلي وليست تأكيد حجز." /></span></p>
             </div>
           </Card>
         </div>
@@ -265,7 +333,7 @@ export function TripRequestDetailContent({ requestId }: { requestId: string }) {
               <li key={`${a.at}-${i}`}>
                 <span className="evr-dot" aria-hidden="true" />
                 <div>
-                  <strong>{tripActivityLabel(a.action, ar)}</strong>
+                  <strong>{tripActivityLabel(a.action, ar)}{a.internal ? (ar ? ' · داخلية' : ' · Internal') : ''}</strong>
                   <small>{a.by === 'staff' ? (ar ? 'الإدارة' : 'Staff') : a.by === 'system' ? (ar ? 'النظام' : 'System') : (ar ? 'العميل' : 'Customer')} · {new Date(a.at).toLocaleDateString(ar ? 'ar-EG' : 'en-US')} · {new Date(a.at).toLocaleTimeString(ar ? 'ar-EG' : 'en-US', { hour: 'numeric', minute: '2-digit' })}</small>
                   {a.note && <small className="evr-note-inline">{a.note}</small>}
                 </div>
@@ -278,10 +346,10 @@ export function TripRequestDetailContent({ requestId }: { requestId: string }) {
       </Card>
       <AdminConfirmDialog
         open={pending !== null}
-        onClose={() => setPending(null)}
-        onConfirm={() => { if (pending && canTransitionTripRequest(item.status, pending)) transitionTripRequest(item.localRef, pending, 'staff'); setPending(null) }}
+        onClose={() => { if (!mutating) setPending(null) }}
+        onConfirm={confirmTransition}
         title={<AdminText en={dialogCopy.title.en} ar={dialogCopy.title.ar} />}
-        description={<AdminText en={`Updates the same local record ${item.localRef}. The customer view on this browser reflects it immediately.`} ar={`يحدّث نفس السجل المحلي ${item.localRef}. وتنعكس على عرض العميل في هذا المتصفح فورًا.`} />}
+        description={<AdminText en={`Updates request ${item.reference}. The customer sees the new status immediately.`} ar={`يحدّث الطلب ${item.reference}. ويرى العميل الحالة الجديدة فورًا.`} />}
         confirmLabel={<AdminText en={dialogCopy.confirm.en} ar={dialogCopy.confirm.ar} />}
         cancelLabel={<AdminText en={dialogCopy.keep.en} ar={dialogCopy.keep.ar} />}
         tone={pending === 'rejected' || pending === 'cancelled' ? 'danger' : 'primary'}

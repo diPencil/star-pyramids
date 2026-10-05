@@ -7,6 +7,8 @@ const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 15 * 60 * 1000;
 const MAX_REGISTRATION_ATTEMPTS = 3;
 const REGISTRATION_WINDOW_MS = 60 * 60 * 1000;
+const MAX_TRIP_REQUEST_ATTEMPTS = 10;
+const TRIP_REQUEST_WINDOW_MS = 60 * 60 * 1000;
 
 export async function checkLoginRateLimit(
   email: string,
@@ -114,6 +116,53 @@ export async function recordRegistrationAttempt(
     },
   });
   void db.registrationAttempt.deleteMany({
+    where: { createdAt: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+  }).catch(() => undefined);
+}
+
+/**
+ * Abuse protection for the public trip-request endpoint. Guests and
+ * customers share one generous budget (10 submissions/hour per email or
+ * IP) so legitimate retries and travel-party duplicates are never harmed.
+ */
+export async function checkTripRequestRateLimit(
+  email: string,
+  ipAddress: string,
+): Promise<{ allowed: boolean; retryAfterSeconds: number }> {
+  const normalizedEmail = normalizeEmail(email).slice(0, 190);
+  const windowStart = new Date(Date.now() - TRIP_REQUEST_WINDOW_MS);
+  const selector = {
+    createdAt: { gte: windowStart },
+    OR: [{ email: normalizedEmail }, { ipAddress }],
+  };
+  const recentAttempts = await db.tripRequestAttempt.count({ where: selector });
+  if (recentAttempts < MAX_TRIP_REQUEST_ATTEMPTS) {
+    return { allowed: true, retryAfterSeconds: 0 };
+  }
+  const oldest = await db.tripRequestAttempt.findFirst({
+    where: selector,
+    orderBy: { createdAt: 'asc' },
+    select: { createdAt: true },
+  });
+  return {
+    allowed: false,
+    retryAfterSeconds: oldest
+      ? Math.max(1, Math.ceil((oldest.createdAt.getTime() + TRIP_REQUEST_WINDOW_MS - Date.now()) / 1000))
+      : Math.floor(TRIP_REQUEST_WINDOW_MS / 1000),
+  };
+}
+
+export async function recordTripRequestAttempt(
+  email: string,
+  ipAddress: string,
+): Promise<void> {
+  await db.tripRequestAttempt.create({
+    data: {
+      email: normalizeEmail(email).slice(0, 190),
+      ipAddress: ipAddress.slice(0, 64),
+    },
+  });
+  void db.tripRequestAttempt.deleteMany({
     where: { createdAt: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
   }).catch(() => undefined);
 }

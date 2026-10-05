@@ -139,23 +139,30 @@ function CustomerAvatar({ avatar, initials, className, name }: { avatar: string;
 function useAccountProfile(): CustomerProfile {
   const user = useAuthenticatedUser()
   const stored = useCustomerProfile()
-  const emailMatches = stored.email.trim().toLowerCase() === user.email.trim().toLowerCase()
-  const selectedCountry = countries.find((country) => country.code === user.countryCode) ?? defaultCountry
-  const emailName = user.email.split('@')[0] || 'traveler'
-  const firstName = user.firstName || emailName
-  const lastName = user.lastName || ''
-  return {
-    ...stored,
-    firstName,
-    lastName,
-    fullName: `${firstName} ${lastName}`.trim(),
-    username: user.username || emailName.replace(/[^A-Za-z0-9_]/g, '_'),
-    email: user.email,
-    country: selectedCountry.code,
-    dialCode: selectedCountry.dialCode,
-    phone: user.phone || '',
-    avatar: emailMatches ? stored.avatar : '',
-  }
+  // Memoized: consumers sync this value into local form state via
+  // `useEffect(..., [current])`. A fresh object identity on every render
+  // retriggered those effects endlessly ("Maximum update depth exceeded"),
+  // which broke client-side navigation out of profile/settings pages.
+  // `user` (context) and `stored` (useState) are both referentially stable.
+  return useMemo(() => {
+    const emailMatches = stored.email.trim().toLowerCase() === user.email.trim().toLowerCase()
+    const selectedCountry = countries.find((country) => country.code === user.countryCode) ?? defaultCountry
+    const emailName = user.email.split('@')[0] || 'traveler'
+    const firstName = user.firstName || emailName
+    const lastName = user.lastName || ''
+    return {
+      ...stored,
+      firstName,
+      lastName,
+      fullName: `${firstName} ${lastName}`.trim(),
+      username: user.username || emailName.replace(/[^A-Za-z0-9_]/g, '_'),
+      email: user.email,
+      country: selectedCountry.code,
+      dialCode: selectedCountry.dialCode,
+      phone: user.phone || '',
+      avatar: emailMatches ? stored.avatar : '',
+    }
+  }, [user, stored])
 }
 
 export function AccountShell({ section, children, headLeading }: { section: AccountSection; children: ReactNode; headLeading?: ReactNode }) {
@@ -256,7 +263,7 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
           <button type="button" onClick={() => stopImpersonation()}><LogOut size={15} />{ar ? 'إنهاء المعاينة' : 'Exit preview'}</button>
         </div>}
         <section className="customer-account-main">
-        <p className="customer-demo-notice" role="note"><FlaskConical size={16} /><span><strong>{ar ? 'الحساب متصل' : 'Account connected'}</strong>{ar ? 'هويتك وتسجيل الدخول مرتبطان بقاعدة البيانات. الحجوزات والطلبات والمدفوعات والرسائل تظل في وضع المعاينة حتى مراحل الباك إند التالية.' : 'Your identity and sign-in are database-backed. Bookings, requests, payments, and messages remain preview data until their backend phases.'}</span></p>
+        <p className="customer-demo-notice" role="note"><FlaskConical size={16} /><span><strong>{ar ? 'الحساب متصل' : 'Account connected'}</strong>{ar ? 'هويتك وملفك الشخصي وتسجيل الدخول مدعومة بقاعدة البيانات، وطلبات الرحلات تُحفظ في قاعدة البيانات. تظل الحجوزات وطلبات السيارات وطلبات الفعاليات والمدفوعات والرسائل بيانات معاينة حتى مراحل الباك إند الخاصة بها.' : 'Your identity, profile, and sign-in are database-backed, and trip requests are saved to the database. Bookings, car requests, event requests, payments, and messages remain preview data until their backend phases.'}</span></p>
         <header className="customer-account-head">
           <div><span>{ar ? 'حساب STAR PYRAMIDS' : 'STAR PYRAMIDS account'}</span><h1>{ar ? heading.ar : heading.en}</h1><p>{ar ? heading.subAr : heading.subEn}</p></div>
           <div className="customer-account-head-actions">{headLeading}<Link href="/trips" className="account-icon-action"><Search size={17} />{ar ? 'استكشف الرحلات' : 'Explore trips'}</Link><Link href="/contact" className="account-icon-action primary"><HelpCircle size={17} />{ar ? 'اطلب مساعدة' : 'Get help'}</Link></div>

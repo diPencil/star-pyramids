@@ -1,14 +1,14 @@
-'use client'
-
-import { Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
 import { CustomerEventRequestDetailPage } from '@/components/account-event-requests'
 
-function EventRequestDetailFromQuery() {
-  const params = useSearchParams()
-  return <CustomerEventRequestDetailPage reference={params.get('ref') ?? ''} />
+function first(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? (value[0] ?? '') : (value ?? '')
 }
 
-export default function Page() {
-  return <Suspense><EventRequestDetailFromQuery /></Suspense>
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ ref?: string | string[] }>
+}) {
+  const params = await searchParams
+  return <CustomerEventRequestDetailPage reference={first(params.ref)} />
 }

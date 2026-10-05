@@ -1,14 +1,14 @@
-'use client'
-
-import { Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
 import { CustomerTripRequestDetailPage } from '@/components/account-custom-trip'
 
-function TripRequestDetailFromQuery() {
-  const params = useSearchParams()
-  return <CustomerTripRequestDetailPage reference={params.get('ref') ?? ''} />
+function first(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? (value[0] ?? '') : (value ?? '')
 }
 
-export default function Page() {
-  return <Suspense><TripRequestDetailFromQuery /></Suspense>
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ ref?: string | string[] }>
+}) {
+  const params = await searchParams
+  return <CustomerTripRequestDetailPage reference={first(params.ref)} />
 }
