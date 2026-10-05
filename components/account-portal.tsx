@@ -19,9 +19,7 @@ import { estimateCart, isValidPreferredDate } from '@/lib/booking'
 import { useCart } from '@/lib/cart'
 import { useInquiries, useBrandSettings, useLiveCollection, useLiveTours, readImpersonation, stopImpersonation, type ImpersonatedCustomer } from '@/lib/admin-store'
 import { cars } from '@/data/content'
-import { clearCarPreview, useCarRequestPreview, type CarRequestPreview } from '@/lib/car-request'
-import { useCustomerEffectiveCarRequest, removeAmendmentsForRequest, useAmendments, AMENDMENT_STATUS_COPY, AMENDABLE_FIELD_COPY, type CarRequestAmendment } from '@/lib/car-request-amendments'
-import { RequestAmendmentBadge, RequestAmendmentsSection } from './account-car-change'
+import { carActivityLabel, carRequestStatusLabel, fleetVehicleTitle, type CarRequest, type CarRequestStatus } from '@/lib/car-request'
 import { usePagination } from '@/components/admin/admin-pagination'
 import { bookings as adminBookings, type BookingRow } from '@/components/admin/admin-data'
 import {
@@ -180,7 +178,20 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
   const unreadMessages = chatMessages.filter((message) => message.sender === 'agent' && !message.readByCustomer).length
   const favorites = useCustomerFavorites()
   const cart = useCart()
-  const carPreview = useCarRequestPreview()
+  const [carRequestCount, setCarRequestCount] = useState(0)
+  // Real car-request badge: count of the customer's database-backed
+  // requests. Failures leave the badge hidden rather than faked.
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/account/car-requests', { credentials: 'same-origin' })
+      .then(async (res) => {
+        if (!res.ok || cancelled) return
+        const data = (await res.json()) as { requests?: unknown }
+        if (!cancelled && Array.isArray(data.requests)) setCarRequestCount(data.requests.length)
+      })
+      .catch(() => undefined)
+    return () => { cancelled = true }
+  }, [])
   const liveTours = useLiveTours(catalogTours)
   const heading = sectionHeadings[section]
   const initials = profile.fullName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'SP'
@@ -216,7 +227,7 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
         <nav aria-label={ar ? 'قائمة الحساب' : 'Account navigation'}>
           {sectionLinks.map(({ id, href, Icon, en, ar: arLabel }) => {
             const active = section === id || (section === 'change-password' && id === 'settings')
-            return <Link key={id} href={href} onClick={() => setMobileOpen(false)} className={active ? 'active' : ''} aria-current={active ? 'page' : undefined}><Icon size={18} /><span>{ar ? arLabel : en}</span>{id === 'bookings' && bookings.length > 0 && <b>{bookings.length}</b>}{id === 'car-requests' && carPreview && <b>1</b>}{id === 'favorites' && favorites.slugs.length > 0 && <b>{favorites.slugs.length}</b>}{id === 'messages' && unreadMessages > 0 && <b>{unreadMessages}</b>}</Link>
+            return <Link key={id} href={href} onClick={() => setMobileOpen(false)} className={active ? 'active' : ''} aria-current={active ? 'page' : undefined}><Icon size={18} /><span>{ar ? arLabel : en}</span>{id === 'bookings' && bookings.length > 0 && <b>{bookings.length}</b>}{id === 'car-requests' && carRequestCount > 0 && <b>{carRequestCount}</b>}{id === 'favorites' && favorites.slugs.length > 0 && <b>{favorites.slugs.length}</b>}{id === 'messages' && unreadMessages > 0 && <b>{unreadMessages}</b>}</Link>
           })}
         </nav>
         <div className="customer-side-summary">
@@ -263,7 +274,7 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
           <button type="button" onClick={() => stopImpersonation()}><LogOut size={15} />{ar ? 'إنهاء المعاينة' : 'Exit preview'}</button>
         </div>}
         <section className="customer-account-main">
-        <p className="customer-demo-notice" role="note"><FlaskConical size={16} /><span><strong>{ar ? 'الحساب متصل' : 'Account connected'}</strong>{ar ? 'هويتك وملفك الشخصي وتسجيل الدخول مدعومة بقاعدة البيانات، وطلبات الرحلات تُحفظ في قاعدة البيانات. تظل الحجوزات وطلبات السيارات وطلبات الفعاليات والمدفوعات والرسائل بيانات معاينة حتى مراحل الباك إند الخاصة بها.' : 'Your identity, profile, and sign-in are database-backed, and trip requests are saved to the database. Bookings, car requests, event requests, payments, and messages remain preview data until their backend phases.'}</span></p>
+        <p className="customer-demo-notice" role="note"><FlaskConical size={16} /><span><strong>{ar ? 'الحساب متصل' : 'Account connected'}</strong>{ar ? 'هويتك وملفك الشخصي وتسجيل الدخول مدعومة بقاعدة البيانات، وطلبات الرحلات وطلبات السيارات تُحفظ في قاعدة البيانات. تظل الحجوزات وطلبات الفعاليات والمدفوعات والرسائل بيانات معاينة حتى مراحل الباك إند الخاصة بها.' : 'Your identity, profile, and sign-in are database-backed, and trip requests and car requests are saved to the database. Bookings, event requests, payments, and messages remain preview data until their backend phases.'}</span></p>
         <header className="customer-account-head">
           <div><span>{ar ? 'حساب STAR PYRAMIDS' : 'STAR PYRAMIDS account'}</span><h1>{ar ? heading.ar : heading.en}</h1><p>{ar ? heading.subAr : heading.subEn}</p></div>
           <div className="customer-account-head-actions">{headLeading}<Link href="/trips" className="account-icon-action"><Search size={17} />{ar ? 'استكشف الرحلات' : 'Explore trips'}</Link><Link href="/contact" className="account-icon-action primary"><HelpCircle size={17} />{ar ? 'اطلب مساعدة' : 'Get help'}</Link></div>
@@ -571,11 +582,10 @@ function BookingsSection() {
 }
 
 /**
- * Customer car requests (Phase E.4). Presentation model over the SINGLE
- * browser-local preview from lib/car-request.ts — never admin DEMO fixtures,
- * never admin overlays, statuses, notes, or assignments. Shaped so future
- * backend records can map into the same sections (overview / journey /
- * contact / notes / state notice) without redesigning this UI.
+ * Customer car requests (Phase 2C). Database-backed records owned by the
+ * signed-in customer: list, detail, edit (via /rent-car/request?edit=…),
+ * and cancel run against `/api/account/car-requests/*`. Staff-only notes
+ * never reach this UI — the customer serializer excludes them entirely.
  */
 function carRequestVehicleTitle(liveCars: { slug: string; title: string }[], slug: string): string {
   return liveCars.find((car) => car.slug === slug)?.title ?? slug
@@ -675,120 +685,161 @@ export function CustomerConfirmDialog({ open, title, copy, confirmLabel, cancelL
   )
 }
 
-/**
- * Original-request discard with amendment-history protection.
- * - A pending amendment BLOCKS the discard (explained, no confirm offered).
- * - Draft/decided history is removed together with the request, but only
- *   after an explicit confirmation that names the amendment count.
- * Documented rule: history is never destroyed silently.
- */
-function useDiscardCarPreview(requestRef: string) {
-  const [open, setOpen] = useState(false)
-  const amendments = useAmendments()
-  const related = amendments.filter((entry) => entry.requestRef === requestRef)
-  const pending = related.find((entry) => entry.status === 'pending') ?? null
-  const discard = () => {
-    if (pending) {
-      setOpen(false)
-      return
-    }
-    if (requestRef) removeAmendmentsForRequest(requestRef)
-    clearCarPreview()
-    setOpen(false)
-  }
-  return { open, setOpen, discard, pending, relatedCount: related.length }
+function CarStatusBadge({ status }: { status: CarRequestStatus }) {
+  const { locale } = useLocale()
+  const ar = locale === 'ar'
+  const tone = status === 'new' ? 'request_received' : status === 'reviewing' ? 'reviewing' : status === 'confirmed' ? 'confirmed' : 'cancelled'
+  return <span className={`customer-status ${tone}`}>{carRequestStatusLabel(status, ar)}</span>
+}
+
+async function apiCarList(): Promise<CarRequest[]> {
+  const res = await fetch('/api/account/car-requests', { credentials: 'same-origin' })
+  if (!res.ok) throw new Error('Could not load your car requests.')
+  const data = (await res.json()) as { requests?: CarRequest[] }
+  if (!Array.isArray(data.requests)) throw new Error('Could not load your car requests.')
+  return data.requests
+}
+
+async function apiCarDetail(reference: string): Promise<CarRequest> {
+  const res = await fetch(`/api/account/car-requests/${encodeURIComponent(reference)}`, { credentials: 'same-origin' })
+  const data = (await res.json()) as CarRequest & { error?: string }
+  if (!res.ok) throw new Error(data.error || 'Car request not found.')
+  return data
+}
+
+async function apiCarCancel(reference: string): Promise<CarRequest> {
+  const res = await fetch(`/api/account/car-requests/${encodeURIComponent(reference)}`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    credentials: 'same-origin',
+    body: JSON.stringify({ action: 'cancel' }),
+  })
+  const data = (await res.json()) as CarRequest & { error?: string }
+  if (!res.ok) throw new Error(data.error || 'Could not cancel the request.')
+  return data
 }
 
 function CarRequestsSection() {
   const { locale } = useLocale()
   const ar = locale === 'ar'
-  // Effective view: original preview plus any demo-approved amendment override.
-  const effective = useCustomerEffectiveCarRequest()
   const liveCars = useLiveCollection('cars', cars)
-  const amendments = useAmendments()
-  const { open, setOpen, discard, pending: pendingDiscard, relatedCount: discardRelated } = useDiscardCarPreview(effective?.preview.localRef ?? '')
-  const [filter, setFilter] = useState<'all' | 'active' | 'draft' | 'pending' | 'decided'>('all')
+  const [requests, setRequests] = useState<CarRequest[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const [cancellingRef, setCancellingRef] = useState<string | null>(null)
+  const [filter, setFilter] = useState<'all' | CarRequestStatus>('all')
 
-  if (!effective && !amendments.length) {
+  // Load the customer's real requests once.
+  useEffect(() => {
+    let cancelled = false
+    apiCarList()
+      .then((rows) => { if (!cancelled) { setRequests(rows); setLoading(false) } })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setLoadError(error instanceof Error ? error.message : 'Could not load your car requests.')
+          setLoading(false)
+        }
+      })
+    return () => { cancelled = true }
+  }, [])
+
+  const visible = requests.filter((r) => filter === 'all' || r.status === filter)
+  const paging = usePagination(visible)
+
+  if (loading) {
+    return <section className="customer-account-block customer-full-block"><div className="customer-empty" role="status"><h3>{ar ? 'جارٍ تحميل طلباتك…' : 'Loading your requests…'}</h3></div></section>
+  }
+
+  if (loadError && !requests.length) {
+    return (
+      <section className="customer-account-block customer-full-block">
+        <div className="customer-empty">
+          <h3>{ar ? 'تعذر تحميل الطلبات' : 'Could not load requests'}</h3>
+          <p>{loadError}</p>
+          <button type="button" className="account-icon-action" onClick={() => {
+            setLoading(true)
+            setLoadError('')
+            apiCarList()
+              .then((rows) => { setRequests(rows); setLoading(false) })
+              .catch((error: unknown) => {
+                setLoadError(error instanceof Error ? error.message : 'Could not load your car requests.')
+                setLoading(false)
+              })
+          }}>{ar ? 'إعادة المحاولة' : 'Retry'}</button>
+        </div>
+      </section>
+    )
+  }
+
+  if (!requests.length) {
     return <section className="customer-account-block customer-full-block"><EmptyState Icon={CarFront} title={ar ? 'لا توجد طلبات سيارات بعد' : 'No car requests yet'} copy={ar ? 'ابدأ طلب سيارة أو وسيلة انتقال وسيظهر هنا.' : 'Plan your transfer or vehicle request and it will appear here.'} href="/rent-car" action={ar ? 'استكشف السيارات' : 'Browse rental cars'} /></section>
   }
 
-  const drafts = amendments.filter((a) => a.status === 'draft')
-  const pendings = amendments.filter((a) => a.status === 'pending')
-  const decided = amendments.filter((a) => a.status === 'approved' || a.status === 'rejected')
-  const shownAmendments = filter === 'all' ? amendments : filter === 'draft' ? drafts : filter === 'pending' ? pendings : filter === 'decided' ? decided : []
-  const showRequest = Boolean(effective) && (filter === 'all' || filter === 'active')
   const tabs = [
     { id: 'all', en: 'All', ar: 'الكل' },
-    { id: 'active', en: 'Active request', ar: 'الطلب النشط' },
-    { id: 'draft', en: 'Draft changes', ar: 'مسودات التعديل' },
-    { id: 'pending', en: 'Pending review', ar: 'قيد المراجعة' },
-    { id: 'decided', en: 'Decided', ar: 'تم البت فيها' },
+    { id: 'new', en: 'New', ar: 'جديد' },
+    { id: 'reviewing', en: 'Reviewing', ar: 'قيد المراجعة' },
+    { id: 'confirmed', en: 'Confirmed', ar: 'مؤكد' },
+    { id: 'cancelled', en: 'Cancelled', ar: 'ملغي' },
   ] as const
-
-  const preview = effective?.preview ?? null
-  const draft = preview?.draft ?? null
-  const vehicleTitle = draft ? carRequestVehicleTitle(liveCars, draft.vehicleSlug) : ''
-  const vehicleImage = (draft && liveCars.find((car) => car.slug === draft.vehicleSlug)?.image) || '/egypt-hero.png'
-  const detailHref = preview ? `/account/car-requests/detail?ref=${encodeURIComponent(preview.localRef)}` : ''
-  const showReturn = draft?.tripType === 'Round Trip' && (draft?.preferredReturnDate ?? '') !== ''
   const viewLabel = ar ? 'عرض الطلب' : 'View request'
-  const changeLabel = ar ? 'طلب تعديل' : 'Request changes'
-  const discardLabel = ar ? 'تجاهل المعاينة' : 'Discard preview'
-  const amendmentTone = (status: CarRequestAmendment['status']) => status === 'draft' ? 'draft' : status === 'pending' ? 'reviewing' : status === 'approved' ? 'confirmed' : 'cancelled'
   return <>
     <section className="customer-account-block customer-full-block">
+      {loadError && (
+        <div style={{ padding: '18px 18px 0' }}>
+          <p className="form-error" role="alert">{loadError}</p>
+        </div>
+      )}
       <div className="customer-filterbar"><div role="tablist" aria-label={ar ? 'فلترة طلبات السيارات' : 'Filter car requests'}>{tabs.map((tab) => <button type="button" key={tab.id} className={filter === tab.id ? 'active' : ''} onClick={() => setFilter(tab.id)}>{ar ? tab.ar : tab.en}</button>)}</div><Link href="/rent-car"><Plus size={16} />{ar ? 'طلب سيارة' : 'Request a car'}</Link></div>
-      {showRequest && preview && draft ? <div className="customer-table-wrap"><table className="customer-table">
+      {paging.pageRows.length ? <><div className="customer-table-wrap"><table className="customer-table">
         <thead><tr><th>#</th><th>{ar ? 'السيارة' : 'Vehicle'}</th><th>{ar ? 'المسار' : 'Route'}</th><th>{ar ? 'التواريخ' : 'Dates'}</th><th>{ar ? 'المسافرون' : 'Passengers'}</th><th>{ar ? 'الحالة' : 'Status'}</th><th></th></tr></thead>
-        <tbody><tr>
-          <td className="customer-row-number">1</td>
-          <td><span className="customer-trip-cell"><img src={vehicleImage} alt="" /><span><strong><Link href={detailHref}>{vehicleTitle}</Link></strong><small><span dir="ltr">{preview.localRef}</span> · {carTripLabel(draft.tripType, ar)}{effective?.amended && <> · {ar ? 'محدّث بموافقة' : 'Updated on approval'}</>}</small></span></span></td>
-          <td><span dir="ltr">{draft.pickup} → {draft.dropoff}</span></td>
-          <td><span dir="ltr">{formatCarDate(draft.preferredPickupDate, ar)}</span>{showReturn && <><br /><small style={{ color: '#667283' }}><span dir="ltr">{formatCarDate(draft.preferredReturnDate, ar)}</span></small></>}</td>
-          <td>{passengerCountLabel(draft.passengers, ar)}</td>
-          <td><span className="customer-status local"><Clock3 size={13} />{ar ? 'معاينة محلية' : 'Local preview'}</span><RequestAmendmentBadge requestRef={preview.localRef} /></td>
-          <td><span className="customer-table-actions">
-            <Link href={detailHref} aria-label={viewLabel} title={viewLabel}><Eye size={16} /></Link>
-            <Link href={`/account/car-requests/change?ref=${encodeURIComponent(preview.localRef)}`} aria-label={changeLabel} title={changeLabel}><Pencil size={16} /></Link>
-            <button type="button" className="danger" onClick={() => setOpen(true)} aria-label={discardLabel} title={discardLabel}><Ban size={16} /></button>
-          </span></td>
-        </tr></tbody>
-      </table></div> : null}
-      {shownAmendments.length > 0 ? <div className="customer-table-wrap"><table className="customer-table">
-        <thead><tr><th>#</th><th>{ar ? 'التعديل' : 'Change'}</th><th>{ar ? 'البنود' : 'Fields'}</th><th>{ar ? 'آخر تحديث' : 'Updated'}</th><th>{ar ? 'الحالة' : 'Status'}</th><th></th></tr></thead>
-        <tbody>{shownAmendments.map((amendment, index) => {
-          const fields = amendment.changedFields.map((field) => ar ? AMENDABLE_FIELD_COPY[field].ar : AMENDABLE_FIELD_COPY[field].en)
-          const extra = fields.length > 3 ? ` +${fields.length - 3}` : ''
-          return <tr key={amendment.amendmentRef}>
-            <td className="customer-row-number">{index + 1}</td>
-            <td><span className="customer-trip-cell"><span><strong><Link href={`/account/car-requests/change/detail?ref=${encodeURIComponent(amendment.amendmentRef)}`}><span dir="ltr">{amendment.amendmentRef}</span></Link></strong><small><span dir="ltr">{amendment.requestRef}</span></small></span></span></td>
-            <td>{[...fields.slice(0, 3)].join(ar ? '، ' : ', ')}{extra}</td>
-            <td><span dir="ltr">{new Date(amendment.updatedAt).toLocaleDateString(ar ? 'ar-EG' : 'en-US')}</span></td>
-            <td><span className={`customer-status ${amendmentTone(amendment.status)}`}>{ar ? AMENDMENT_STATUS_COPY[amendment.status].ar : AMENDMENT_STATUS_COPY[amendment.status].en}</span></td>
+        <tbody>{paging.pageRows.map((item, index) => {
+          const detailHref = `/account/car-requests/detail?ref=${encodeURIComponent(item.reference)}`
+          const editable = item.status === 'new' || item.status === 'reviewing'
+          const vehicleTitle = carRequestVehicleTitle(liveCars, item.vehicleSlug)
+          const vehicleImage = liveCars.find((car) => car.slug === item.vehicleSlug)?.image || '/egypt-hero.png'
+          const showReturn = item.tripType === 'Round Trip' && item.preferredReturnDate !== ''
+          return <tr key={item.reference}>
+            <td className="customer-row-number">{paging.from + index}</td>
+            <td><span className="customer-trip-cell"><img src={vehicleImage} alt="" /><span><strong><Link href={detailHref}>{vehicleTitle}</Link></strong><small><span dir="ltr">{item.reference}</span> · {carTripLabel(item.tripType, ar)}</small></span></span></td>
+            <td><span dir="ltr">{item.pickup} → {item.dropoff}</span></td>
+            <td><span dir="ltr">{formatCarDate(item.preferredPickupDate, ar)}</span>{showReturn && <><br /><small style={{ color: '#667283' }}><span dir="ltr">{formatCarDate(item.preferredReturnDate, ar)}</span></small></>}</td>
+            <td>{passengerCountLabel(item.passengers, ar)}</td>
+            <td><CarStatusBadge status={item.status} /></td>
             <td><span className="customer-table-actions">
-              <Link href={`/account/car-requests/change/detail?ref=${encodeURIComponent(amendment.amendmentRef)}`} aria-label={ar ? 'عرض التعديل' : 'View change'} title={ar ? 'عرض التعديل' : 'View change'}><Eye size={16} /></Link>
-              {amendment.status === 'draft' && <Link href={`/account/car-requests/change?ref=${encodeURIComponent(amendment.requestRef)}&amendment=${encodeURIComponent(amendment.amendmentRef)}`} aria-label={ar ? 'متابعة التعديل' : 'Continue editing'} title={ar ? 'متابعة التعديل' : 'Continue editing'}><Pencil size={16} /></Link>}
+              <Link href={detailHref} aria-label={viewLabel} title={viewLabel}><Eye size={16} /></Link>
+              {editable && <Link href={`/rent-car/request?edit=${encodeURIComponent(item.reference)}`} aria-label={ar ? 'تعديل الطلب' : 'Edit request'} title={ar ? 'تعديل الطلب' : 'Edit request'}><Pencil size={16} /></Link>}
+              {editable && <button type="button" className="danger" onClick={() => setCancellingRef(item.reference)} aria-label={ar ? 'إلغاء الطلب' : 'Cancel request'} title={ar ? 'إلغاء الطلب' : 'Cancel request'}><X size={16} /></button>}
             </span></td>
           </tr>
         })}</tbody>
-      </table></div> : null}
-      {!showRequest && !shownAmendments.length ? <EmptyState Icon={CarFront} title={ar ? 'لا توجد عناصر في هذه الحالة' : 'No items in this view'} copy={ar ? 'جرب حالة مختلفة من الفلتر بالأعلى.' : 'Try a different status from the filter above.'} href="/rent-car" action={ar ? 'استكشف السيارات' : 'Browse rental cars'} /> : null}
+      </table></div>
+      <CustomerPagination page={paging.page} pageCount={paging.pageCount} onPage={paging.setPage} pageSize={paging.pageSize} onPageSize={paging.setPageSize} from={paging.from} to={paging.to} total={paging.total} />
+      </> : <div className="customer-empty"><span><CarFront size={24} /></span><h3>{ar ? 'لا توجد طلبات في هذا العرض' : 'No requests in this view'}</h3><p>{ar ? 'جرب فلترًا مختلفًا من الأعلى.' : 'Try a different filter above.'}</p><button type="button" className="account-icon-action" onClick={() => setFilter('all')}>{ar ? 'عرض الكل' : 'Show all'}</button></div>}
       <div style={{ padding: '14px 18px 18px' }}>
-        <p className="car-request-notice" role="note"><FlaskConical size={15} /><span>{ar ? 'محفوظ في هذا المتصفح فقط. لم يتم إرسال هذا الطلب إلى STAR PYRAMIDS.' : 'Saved in this browser only. This request has not been submitted to STAR PYRAMIDS.'}</span></p>
+        <p className="car-request-notice" role="note"><Clock3 size={15} /><span>{ar ? 'يتابع فريقنا طلبك وسيتواصل معك على بريدك عند وجود تحديث.' : 'Our team follows up on your request and will contact you by email with updates.'}</span></p>
       </div>
     </section>
     <CustomerConfirmDialog
-      open={open}
-      onClose={() => setOpen(false)}
-      onConfirm={discard}
-      title={ar ? 'تجاهل المعاينة المحلية؟' : 'Discard local preview?'}
-      copy={pendingDiscard
-        ? (ar ? `لا يمكن التجاهل الآن: التعديل ${pendingDiscard.amendmentRef} قيد المراجعة. بتّ فيه أولًا من صفحة التعديل.` : `Cannot discard now: change ${pendingDiscard.amendmentRef} is under review. Decide it from the change page first.`)
-        : discardRelated > 0
-          ? (ar ? `سيؤدي هذا إلى إزالة المعاينة المحلية ومعها ${discardRelated} من سجلات التعديل المرتبطة. لن يتأثر أي شيء آخر.` : `This removes the local preview plus its ${discardRelated} linked change record(s). Nothing else is affected.`)
-          : (ar ? 'سيؤدي هذا إلى إزالة معاينة الطلب المحفوظة في هذا المتصفح فقط. لن يتأثر أي شيء آخر.' : 'This removes only the browser-local request preview. Nothing else is affected.')}
-      confirmLabel={pendingDiscard ? undefined : (ar ? 'تجاهل المعاينة' : 'Discard preview')}
+      open={cancellingRef !== null}
+      onClose={() => setCancellingRef(null)}
+      onConfirm={() => {
+        const ref = cancellingRef
+        setCancellingRef(null)
+        if (!ref) return
+        apiCarCancel(ref)
+          .then((saved) => {
+            setLoadError('')
+            setRequests((prev) => prev.map((r) => (r.reference === saved.reference ? saved : r)))
+          })
+          .catch((error: unknown) => {
+            setLoadError(error instanceof Error ? error.message : 'Could not cancel the request.')
+          })
+      }}
+      title={ar ? 'إلغاء طلب السيارة؟' : 'Cancel this car request?'}
+      copy={ar ? 'سيبقى هذا الطلب في سجلك بحالة ملغي.' : 'This request will remain in your history with a Cancelled status.'}
+      confirmLabel={ar ? 'إلغاء الطلب' : 'Cancel request'}
+      cancelLabel={ar ? 'أبقِ الطلب' : 'Keep request'}
     />
   </>
 }
@@ -796,75 +847,122 @@ function CarRequestsSection() {
 function CarRequestDetailSection({ reference }: { reference: string }) {
   const { locale } = useLocale()
   const ar = locale === 'ar'
-  const effective = useCustomerEffectiveCarRequest()
   const liveCars = useLiveCollection('cars', cars)
-  const matched = effective && effective.preview.localRef === reference ? effective : null
-  const { open, setOpen, discard, pending: pendingDiscard, relatedCount: discardRelated } = useDiscardCarPreview(reference)
+  const [item, setItem] = useState<CarRequest | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [cancelling, setCancelling] = useState(false)
 
-  if (!matched) {
-    return <EmptyState Icon={CarFront} title={ar ? 'طلب السيارة غير موجود' : 'Car request not found'} copy={ar ? 'ربما تم تجاهله أو أنه محفوظ في متصفح مختلف.' : 'It may have been discarded or saved in a different browser.'} href="/account/car-requests" action={ar ? 'عودة لطلبات السيارات' : 'Back to car requests'} />
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError('')
+    apiCarDetail(reference)
+      .then((record) => { if (!cancelled) { setItem(record); setLoading(false) } })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Car request not found.')
+          setLoading(false)
+        }
+      })
+    return () => { cancelled = true }
+  }, [reference])
+
+  if (loading) {
+    return (
+      <div className="customer-inline-empty" role="status">
+        <Clock3 size={20} />
+        <span><strong>{ar ? 'جارٍ تحميل الطلب…' : 'Loading request…'}</strong></span>
+      </div>
+    )
   }
 
-  const draft: CarRequestPreview['draft'] = matched.preview.draft
-  const vehicleTitle = carRequestVehicleTitle(liveCars, draft.vehicleSlug)
+  if (!item) {
+    return (
+      <div className="customer-inline-empty">
+        <Clock3 size={20} />
+        <span>
+          <strong>{ar ? 'طلب السيارة غير موجود' : 'Car request not found'}</strong>
+          <small>{error || (ar ? 'ربما تم حذفه أو أنه يخص حسابًا آخر.' : 'It may have been removed or belong to a different account.')}</small>
+        </span>
+        <Link href="/account/car-requests">{ar ? 'عودة لطلبات السيارات' : 'Back to car requests'}</Link>
+      </div>
+    )
+  }
+
+  const editable = item.status === 'new' || item.status === 'reviewing'
+  const vehicleTitle = carRequestVehicleTitle(liveCars, item.vehicleSlug)
+  const assignedTitle = item.assignedVehicleSlug ? carRequestVehicleTitle(liveCars, item.assignedVehicleSlug) : ''
   return <>
     <section className="customer-account-block">
-      <header><div><span>{ar ? 'طلب سيارة' : 'Car request'}</span><h2>{vehicleTitle}</h2></div><span className="customer-status local"><Clock3 size={13} />{ar ? 'معاينة محلية' : 'Local preview'}</span></header>
-      <p className="car-request-notice" role="note"><FlaskConical size={15} /><span><span dir="ltr">{matched.preview.localRef}</span>{ar ? ' · محفوظ في هذا المتصفح فقط. لم يتم إرسال هذا الطلب إلى STAR PYRAMIDS.' : ' · Saved in this browser only. This request has not been submitted to STAR PYRAMIDS.'}{matched.amended && (ar ? ' · يشمل تعديلات تمت الموافقة عليها.' : ' · Includes approved changes.')}</span></p>
+      <header><div><span>{ar ? 'طلب سيارة' : 'Car request'}</span><h2>{vehicleTitle}</h2></div><CarStatusBadge status={item.status} /></header>
       <div className="customer-detail-grid">
+        <div><small>{ar ? 'المرجع' : 'Reference'}</small><strong dir="ltr">{item.reference}</strong></div>
+        <div><small>{ar ? 'أُنشئ في' : 'Created'}</small><strong>{new Date(item.createdAt).toLocaleString(ar ? 'ar-EG' : 'en-US')}</strong></div>
+        <div><small>{ar ? 'آخر تحديث' : 'Updated'}</small><strong>{new Date(item.updatedAt).toLocaleString(ar ? 'ar-EG' : 'en-US')}</strong></div>
         <div><small>{ar ? 'السيارة المطلوبة' : 'Requested vehicle'}</small><strong>{vehicleTitle}</strong></div>
-        <div><small>{ar ? 'النوع' : 'Trip type'}</small><strong>{carTripLabel(draft.tripType, ar)}</strong></div>
-        <div><small>{ar ? 'الركاب' : 'Passengers'}</small><strong>{draft.passengers}</strong></div>
+        <div><small>{ar ? 'النوع' : 'Trip type'}</small><strong>{carTripLabel(item.tripType, ar)}</strong></div>
+        <div><small>{ar ? 'الركاب' : 'Passengers'}</small><strong>{item.passengers}</strong></div>
+        {assignedTitle !== '' && <div><small>{ar ? 'المركبة المخصصة' : 'Assigned vehicle'}</small><strong>{assignedTitle}</strong></div>}
       </div>
     </section>
 
     <section className="customer-account-block">
       <header><div><span>{ar ? 'المسار' : 'Route'}</span><h2>{ar ? 'الرحلة' : 'Journey'}</h2></div></header>
       <div className="customer-detail-grid">
-        <div><small>{ar ? 'نقطة الانطلاق' : 'Pickup'}</small><strong>{draft.pickup}</strong></div>
-        <div><small>{ar ? 'الوجهة' : 'Drop-off'}</small><strong>{draft.dropoff}</strong></div>
-        <div><small>{ar ? 'تاريخ الانطلاق' : 'Pick-up date'}</small><strong dir="ltr">{formatCarDate(draft.preferredPickupDate, ar)}</strong></div>
-        <div><small>{ar ? 'تاريخ العودة' : 'Return date'}</small><strong dir="ltr">{draft.tripType === 'Round Trip' && draft.preferredReturnDate ? formatCarDate(draft.preferredReturnDate, ar) : '—'}</strong></div>
+        <div><small>{ar ? 'نقطة الانطلاق' : 'Pickup'}</small><strong>{item.pickup}</strong></div>
+        <div><small>{ar ? 'الوجهة' : 'Drop-off'}</small><strong>{item.dropoff}</strong></div>
+        <div><small>{ar ? 'تاريخ الانطلاق' : 'Pick-up date'}</small><strong dir="ltr">{formatCarDate(item.preferredPickupDate, ar)}</strong></div>
+        <div><small>{ar ? 'تاريخ العودة' : 'Return date'}</small><strong dir="ltr">{item.tripType === 'Round Trip' && item.preferredReturnDate ? formatCarDate(item.preferredReturnDate, ar) : '—'}</strong></div>
       </div>
     </section>
 
     <section className="customer-account-block">
       <header><div><span>{ar ? 'التواصل' : 'Contact'}</span><h2>{ar ? 'بيانات التواصل' : 'Contact details'}</h2></div></header>
       <div className="customer-detail-grid">
-        <div><small>{ar ? 'الاسم الكامل' : 'Full name'}</small><strong>{draft.contact.fullName}</strong></div>
-        <div><small>{ar ? 'البريد الإلكتروني' : 'Email'}</small><strong dir="ltr">{draft.contact.email}</strong></div>
-        <div><small>{ar ? 'رقم الهاتف' : 'Phone'}</small><strong dir="ltr">{draft.contact.phone}</strong></div>
+        <div><small>{ar ? 'الاسم الكامل' : 'Full name'}</small><strong>{item.contact.name}</strong></div>
+        <div><small>{ar ? 'البريد الإلكتروني' : 'Email'}</small><strong dir="ltr">{item.contact.email}</strong></div>
+        <div><small>{ar ? 'رقم الهاتف' : 'Phone'}</small><strong dir="ltr">{item.contact.phone}</strong></div>
       </div>
     </section>
 
     <section className="customer-account-block">
       <header><div><span>{ar ? 'إضافي' : 'Additional'}</span><h2>{ar ? 'طلب إضافي' : 'Additional request'}</h2></div></header>
-      {draft.notes !== '' ? <p style={{ margin: 0, fontSize: 13, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{draft.notes}</p> : <p style={{ margin: 0, color: '#667085', fontSize: 12 }}>{ar ? 'لا توجد ملاحظات إضافية.' : 'No additional notes.'}</p>}
+      {item.notes !== '' ? <p style={{ margin: 0, fontSize: 13, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{item.notes}</p> : <p style={{ margin: 0, color: '#667085', fontSize: 12 }}>{ar ? 'لا توجد ملاحظات إضافية.' : 'No additional notes.'}</p>}
     </section>
 
-    <RequestAmendmentsSection requestRef={matched.preview.localRef} />
+    {item.activity.length > 0 && (
+      <section className="customer-activity" aria-label={ar ? 'سجل الطلب' : 'Request activity'}>
+        <h3>{ar ? 'سجل الطلب' : 'Activity'}</h3>
+        <ul>{item.activity.map((a, i) => <li key={`${a.at}-${i}`}><span>{new Date(a.at).toLocaleString(ar ? 'ar-EG' : 'en-US')}</span><strong>{carActivityLabel(a.action, ar)}</strong>{a.note && <small>{a.action === 'Assigned vehicle updated' ? fleetVehicleTitle(liveCars, a.note) : a.note}</small>}</li>)}</ul>
+      </section>
+    )}
 
     <section className="customer-account-block">
       <header><div><span>{ar ? 'الحالة' : 'State'}</span><h2>{ar ? 'حالة الطلب' : 'Request state'}</h2></div></header>
-      <p style={{ margin: '0 0 8px', fontSize: 13, lineHeight: 1.7 }}>{ar ? 'محفوظ في هذا المتصفح فقط. لم يتم إرسال هذا الطلب إلى STAR PYRAMIDS.' : 'Saved in this browser only. This request has not been submitted to STAR PYRAMIDS.'}</p>
-      <p style={{ margin: 0, color: '#667085', fontSize: 12, lineHeight: 1.7 }}>{ar ? 'لم يتم حجز أي سيارة ولم يتم التحقق من التوافر أو تأكيد أي سعر.' : 'No vehicle has been reserved, no availability was checked, and no rate was confirmed.'}</p>
+      <p style={{ margin: '0 0 8px', fontSize: 13, lineHeight: 1.7 }}>{ar ? 'يتابع فريقنا طلبك وسيتواصل معك على بريدك عند وجود تحديث.' : 'Our team follows up on your request and will contact you by email with updates.'}</p>
+      <p style={{ margin: 0, color: '#667085', fontSize: 12, lineHeight: 1.7 }}>{ar ? 'بيانات التواصل المعروضة لقطة تاريخية لهذا الطلب.' : 'Contact details shown are a historical snapshot of this request.'}</p>
       <div className="customer-detail-actions">
-        <Link href={`/account/car-requests/change?ref=${encodeURIComponent(matched.preview.localRef)}`} className="account-icon-action"><Pencil size={16} />{ar ? 'طلب تعديل' : 'Request changes'}</Link>
-        <Link href="/rent-car" className="account-icon-action"><CarFront size={16} />{ar ? 'استكشف السيارات' : 'Browse cars'}</Link>
-        <button type="button" className="account-icon-action danger" onClick={() => setOpen(true)}><Ban size={16} />{ar ? 'تجاهل المعاينة' : 'Discard preview'}</button>
+        <Link href="/account/car-requests" className="account-icon-action">{ar ? 'عودة للقائمة' : 'Back to list'}</Link>
+        {editable && <Link href={`/rent-car/request?edit=${encodeURIComponent(item.reference)}`} className="account-icon-action"><Pencil size={16} />{ar ? 'تعديل الطلب' : 'Edit request'}</Link>}
+        {editable && <button type="button" className="account-icon-action danger" onClick={() => setCancelling(true)}><X size={16} />{ar ? 'إلغاء الطلب' : 'Cancel request'}</button>}
       </div>
     </section>
     <CustomerConfirmDialog
-      open={open}
-      onClose={() => setOpen(false)}
-      onConfirm={discard}
-      title={ar ? 'تجاهل المعاينة المحلية؟' : 'Discard local preview?'}
-      copy={pendingDiscard
-        ? (ar ? `لا يمكن التجاهل الآن: التعديل ${pendingDiscard.amendmentRef} قيد المراجعة. بتّ فيه أولًا من صفحة التعديل.` : `Cannot discard now: change ${pendingDiscard.amendmentRef} is under review. Decide it from the change page first.`)
-        : discardRelated > 0
-          ? (ar ? `سيؤدي هذا إلى إزالة المعاينة المحلية ومعها ${discardRelated} من سجلات التعديل المرتبطة. لن يتأثر أي شيء آخر.` : `This removes the local preview plus its ${discardRelated} linked change record(s). Nothing else is affected.`)
-          : (ar ? 'سيؤدي هذا إلى إزالة معاينة الطلب المحفوظة في هذا المتصفح فقط. لن يتأثر أي شيء آخر.' : 'This removes only the browser-local request preview. Nothing else is affected.')}
-      confirmLabel={pendingDiscard ? undefined : (ar ? 'تجاهل المعاينة' : 'Discard preview')}
+      open={cancelling}
+      onClose={() => setCancelling(false)}
+      onConfirm={() => {
+        setCancelling(false)
+        apiCarCancel(item.reference)
+          .then((saved) => setItem(saved))
+          .catch((err: unknown) => {
+            setError(err instanceof Error ? err.message : 'Could not cancel the request.')
+          })
+      }}
+      title={ar ? 'إلغاء طلب السيارة؟' : 'Cancel this car request?'}
+      copy={ar ? 'سيبقى هذا الطلب في سجلك بحالة ملغي.' : 'This request will remain in your history with a Cancelled status.'}
+      confirmLabel={ar ? 'إلغاء الطلب' : 'Cancel request'}
+      cancelLabel={ar ? 'أبقِ الطلب' : 'Keep request'}
     />
   </>
 }

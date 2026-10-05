@@ -1,17 +1,16 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { CalendarClock, CheckCircle2, ClipboardList, Eye, Inbox, Play } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { CalendarClock, ClipboardList, Eye, Inbox, CheckCircle2 } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
-import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableTools, AdminTableWrap, AdminText, Avatar, Card, StatusPill } from '@/components/admin/admin-ui'
+import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableTools, AdminTableWrap, AdminText, Avatar, Card } from '@/components/admin/admin-ui'
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
-import { StartReviewDialog } from '@/components/admin/car-request-dialogs'
-import { type AdminCarRequestStatus, type AdminCarTripType, type AdminCarRequest } from '@/components/admin/car-requests-data'
-import { getEffectiveRequests, useCarRequestOps, type EffectiveCarRequest } from '@/lib/car-request-ops'
-import { AMENDABLE_FIELD_COPY, AMENDMENT_STATUS_COPY, useAmendments, type AmendmentStatus } from '@/lib/car-request-amendments'
+import { useLiveCollection } from '@/lib/admin-store'
+import { cars } from '@/data/content'
 import { SharedSelect } from '@/components/shared-select'
+import { carRequestStatusLabel, type CarRequestStatus, type StaffCarRequest } from '@/lib/car-request'
 
 const statusTabs = [
   { id: 'all', en: 'All', ar: 'الكل' },
@@ -22,123 +21,140 @@ const statusTabs = [
 ] as const
 
 type StatusFilter = (typeof statusTabs)[number]['id']
-type TripFilter = 'all' | AdminCarTripType
+type TripFilter = 'all' | 'One Way' | 'Round Trip'
 type VehicleFilter = 'all' | string
 
-function matchesQuery(row: AdminCarRequest, query: string) {
-  const q = query.trim().toLowerCase()
-  if (!q) return true
-  return `${row.ref} ${row.customerName} ${row.customerEmail} ${row.vehicleName} ${row.vehicleSlug} ${row.pickup} ${row.dropoff}`.toLowerCase().includes(q)
+function vehicleTitle(liveCars: { slug: string; title: string }[], slug: string): string {
+  return liveCars.find((car) => car.slug === slug)?.title ?? slug
+}
+
+function dateLabel(row: StaffCarRequest): string {
+  if (row.preferredPickupDate && row.preferredReturnDate && row.preferredPickupDate !== row.preferredReturnDate) {
+    return `${row.preferredPickupDate} → ${row.preferredReturnDate}`
+  }
+  return row.preferredPickupDate || ''
 }
 
 export default function CarRequestsPage() {
   const ar = useAdminLocale() === 'ar'
+  const liveCars = useLiveCollection('cars', cars, { includeHidden: true })
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<StatusFilter>('all')
   const [tripType, setTripType] = useState<TripFilter>('all')
   const [vehicle, setVehicle] = useState<VehicleFilter>('all')
-  const [reviewRef, setReviewRef] = useState<string | null>(null)
+  const [requests, setRequests] = useState<StaffCarRequest[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
 
-  // Merged fixture + local demo overlay: transitions update list, KPIs, and
-  // filters immediately through the shared reactive store.
-  const opsStore = useCarRequestOps()
-  const requests = useMemo(() => getEffectiveRequests(opsStore), [opsStore])
-  const amendments = useAmendments()
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/admin/car-requests', { credentials: 'same-origin' })
+      .then(async (res) => {
+        if (cancelled) return
+        if (!res.ok) throw new Error(ar ? 'تعذر تحميل طلبات السيارات.' : 'Could not load car requests.')
+        const data = (await res.json()) as { requests?: StaffCarRequest[] }
+        if (cancelled) return
+        setRequests(Array.isArray(data.requests) ? data.requests : [])
+        setLoading(false)
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return
+        setLoadError(error instanceof Error ? error.message : 'Could not load car requests.')
+        setLoading(false)
+      })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const vehicleOptions = useMemo(
-    () => Array.from(new Map(requests.map((row) => [row.vehicleSlug, row.vehicleName])).entries()),
-    [requests],
+    () => Array.from(new Map(requests.map((row) => [row.vehicleSlug, vehicleTitle(liveCars, row.vehicleSlug)])).entries()),
+    [requests, liveCars],
   )
 
+  const matchesQuery = (row: StaffCarRequest, q: string) => {
+    const needle = q.trim().toLowerCase()
+    if (!needle) return true
+    return `${row.reference} ${row.contact.name} ${row.contact.email} ${row.vehicleSlug} ${vehicleTitle(liveCars, row.vehicleSlug)} ${row.pickup} ${row.dropoff}`.toLowerCase().includes(needle)
+  }
+
   const visible = useMemo(() => requests
-    .filter((row) => status === 'all' || row.status === (status as AdminCarRequestStatus))
+    .filter((row) => status === 'all' || row.status === (status as CarRequestStatus))
     .filter((row) => tripType === 'all' || row.tripType === tripType)
     .filter((row) => vehicle === 'all' || row.vehicleSlug === vehicle || row.assignedVehicleSlug === vehicle)
     .filter((row) => matchesQuery(row, query)),
-  [requests, status, tripType, vehicle, query])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [requests, status, tripType, vehicle, query, liveCars])
 
-  const requestSort = useAdminTableSort<EffectiveCarRequest>(visible, {
-    request: (row) => row.ref,
-    customer: (row) => row.customerName,
-    vehicle: (row) => row.vehicleName,
+  const requestSort = useAdminTableSort<StaffCarRequest>(visible, {
+    request: (row) => row.reference,
+    customer: (row) => row.contact.name,
+    vehicle: (row) => vehicleTitle(liveCars, row.vehicleSlug),
     route: (row) => `${row.pickup} ${row.dropoff}`,
     dates: (row) => row.preferredPickupDate,
     passengers: (row) => row.passengers,
+    submitted: (row) => row.createdAt,
     status: (row) => row.status,
-  }, 'request', 'asc')
+  }, 'submitted', 'desc')
   const paging = usePagination(requestSort.sortedRows)
+
+  const count = (s: CarRequestStatus) => requests.filter((row) => row.status === s).length
 
   return (
     <>
-      <PageHead eyebrow="Rentals" title="Car Requests" titleAr="طلبات السيارات" sub="Customer vehicle rental enquiries and request management" subAr="استفسارات وإدارة طلبات تأجير السيارات" />
+      <PageHead eyebrow="Rentals" title="Car Requests" titleAr="طلبات السيارات" sub="Live vehicle rental requests from the website and customer accounts" subAr="طلبات تأجير السيارات من الموقع وحسابات العملاء" />
       <AdminStats items={[
-        { label: <AdminText en="Total requests" ar="إجمالي الطلبات" />, value: requests.length, note: <AdminText en="Demo fixture rows" ar="صفوف تجريبية" />, icon: ClipboardList },
-        { label: <AdminText en="New" ar="جديدة" />, value: requests.filter((row) => row.status === 'new').length, note: <AdminText en="Awaiting review" ar="بانتظار المراجعة" />, icon: Inbox, tone: 'orange' },
-        { label: <AdminText en="Reviewing" ar="قيد المراجعة" />, value: requests.filter((row) => row.status === 'reviewing').length, note: <AdminText en="Under staff review" ar="قيد مراجعة الفريق" />, icon: CalendarClock, tone: 'violet' },
-        { label: <AdminText en="Confirmed" ar="المؤكدة" />, value: requests.filter((row) => row.status === 'confirmed').length, note: <AdminText en="Demo state only" ar="حالة تجريبية فقط" />, icon: CheckCircle2, tone: 'green' },
+        { label: <AdminText en="Total requests" ar="إجمالي الطلبات" />, value: requests.length, note: <AdminText en="Stored requests" ar="طلبات محفوظة" />, icon: ClipboardList },
+        { label: <AdminText en="New" ar="جديدة" />, value: count('new'), note: <AdminText en="Awaiting review" ar="بانتظار المراجعة" />, icon: Inbox, tone: 'orange' },
+        { label: <AdminText en="Reviewing" ar="قيد المراجعة" />, value: count('reviewing'), note: <AdminText en="Under staff review" ar="قيد مراجعة الفريق" />, icon: CalendarClock, tone: 'violet' },
+        { label: <AdminText en="Confirmed" ar="المؤكدة" />, value: count('confirmed'), note: <AdminText en="Confirmed requests" ar="طلبات مؤكدة" />, icon: CheckCircle2, tone: 'green' },
       ]} />
       <Card
         title={<AdminText en="Car requests" ar="طلبات السيارات" />}
-        sub={<AdminText en={`${visible.length} of ${requests.length} requests shown · Demo fixtures, not customer submissions`} ar={`عرض ${visible.length} من ${requests.length} طلبات · بيانات تجريبية وليست طلبات عملاء`} />}
-      >
-        <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث بطلب أو عميل أو مركبة أو مسار...' : 'Search request, customer, vehicle or route...'} className="sp-request-tools">
+        sub={loading
+          ? <AdminText en="Loading…" ar="جارٍ التحميل…" />
+          : <AdminText en={`${visible.length} of ${requests.length} requests shown`} ar={`عرض ${visible.length} من ${requests.length} طلبات`} />}>
+        {loading && <p role="status"><AdminText en="Loading car requests…" ar="جارٍ تحميل طلبات السيارات…" /></p>}
+        {!loading && loadError && (
+          <div className="sp-form">
+            <p role="alert" style={{ color: '#b91c1c' }}>{loadError}</p>
+            <div><button type="button" className="sp-btn" onClick={() => window.location.reload()}><AdminText en="Retry" ar="إعادة المحاولة" /></button></div>
+          </div>
+        )}
+        {!loading && !loadError && (
+        <>
+        <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث بطلب أو عميل أو مركبة أو مسار...' : 'Search request, customer, vehicle or route...'}>
           <SharedSelect value={vehicle} onChange={setVehicle} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حسب المركبة' : 'Filter by vehicle'} popupWidth="trigger" options={[{ value: 'all', label: ar ? 'كل المركبات' : 'All vehicles' }, ...vehicleOptions.map(([slug, name]) => ({ value: slug, label: name }))]} />
           <SharedSelect value={tripType} onChange={(next) => setTripType(next as TripFilter)} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حسب نوع الرحلة' : 'Filter by trip type'} options={[{ value: 'all', label: ar ? 'كل أنواع الرحلات' : 'All trip types' }, { value: 'One Way', label: ar ? 'ذهاب فقط' : 'One Way' }, { value: 'Round Trip', label: ar ? 'ذهاب وعودة' : 'Round Trip' }]} />
-          <div className="sp-tabs">
-            {statusTabs.map((tab) => <button key={tab.id} type="button" className={status === tab.id ? 'active' : ''} onClick={() => setStatus(tab.id)}>{ar ? tab.ar : tab.en}</button>)}
-          </div>
+          <SharedSelect value={status} onChange={(next) => setStatus(next as StatusFilter)} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حسب الحالة' : 'Filter by status'} options={statusTabs.map((t) => ({ value: t.id, label: ar ? t.ar : t.en }))} />
         </AdminTableTools>
-        {visible.length ? <AdminTableWrap><table className="sp-table">
-          <thead><tr><th className="sp-row-number">#</th><SortableTh label={<AdminText en="Request" ar="الطلب" />} column="request" {...requestSort} onSort={requestSort.sortBy} /><SortableTh label={<AdminText en="Customer" ar="العميل" />} column="customer" {...requestSort} onSort={requestSort.sortBy} /><SortableTh label={<AdminText en="Vehicle" ar="المركبة" />} column="vehicle" {...requestSort} onSort={requestSort.sortBy} /><SortableTh label={<AdminText en="Route" ar="المسار" />} column="route" {...requestSort} onSort={requestSort.sortBy} /><SortableTh label={<AdminText en="Preferred dates" ar="التواريخ المفضلة" />} column="dates" {...requestSort} onSort={requestSort.sortBy} /><SortableTh label={<AdminText en="Passengers" ar="الركاب" />} column="passengers" {...requestSort} onSort={requestSort.sortBy} /><SortableTh label={<AdminText en="Status" ar="الحالة" />} column="status" {...requestSort} onSort={requestSort.sortBy} /><th></th></tr></thead>
-          <tbody>
-            {paging.pageRows.map((row, index) => (
-              <tr key={row.ref}>
-                <td className="sp-row-number">{paging.from + index}</td>
-                <td><strong dir="ltr">{row.ref}</strong><br /><small style={{ color: 'var(--sp-muted)' }}>{row.tripType}</small></td>
-                <td><span className="sp-cust"><Avatar name={row.customerName} size={32} /><span><strong>{row.customerName}</strong><small dir="ltr">{row.customerEmail}</small></span></span></td>
-                <td><strong>{row.vehicleName}</strong><br /><small style={{ color: 'var(--sp-muted)' }}>{row.vehicleSlug}</small></td>
-                <td><span>{row.pickup}</span><br /><small style={{ color: 'var(--sp-muted)' }}>→ {row.dropoff}</small></td>
-                <td><span dir="ltr">{row.preferredPickupDate}</span>{row.tripType === 'Round Trip' && row.preferredReturnDate ? <><br /><small style={{ color: 'var(--sp-muted)' }}><span dir="ltr">{row.preferredReturnDate}</span></small></> : null}</td>
-                <td>{row.passengers}</td>
-                <td><StatusPill status={row.status} /></td>
-                <td><AdminTableActions>
-                  {row.status === 'new' && (
-                    <AdminIconAction icon={Play} label={ar ? `بدء مراجعة ${row.ref}` : `Start review of ${row.ref}`} tone="success" onClick={() => setReviewRef(row.ref)} />
-                  )}
-                  <AdminIconAction icon={Eye} label={ar ? `عرض ${row.ref}` : `View ${row.ref}`} href={`/admin/car-requests/${row.ref}`} />
-                </AdminTableActions></td>
-              </tr>
-            ))}
-          </tbody>
-        </table></AdminTableWrap> : <AdminEmpty title={<AdminText en="No requests found" ar="لا توجد طلبات" />} copy={<AdminText en="Try changing the search or filters." ar="جرب تغيير البحث أو الفلاتر." />} />}
+        {visible.length ? (
+          <AdminTableWrap>
+            <table className="sp-table">
+              <thead><tr><th className="sp-row-number">#</th><SortableTh label={<AdminText en="Request" ar="الطلب" />} column="request" {...requestSort} onSort={requestSort.sortBy} /><SortableTh label={<AdminText en="Customer" ar="العميل" />} column="customer" {...requestSort} onSort={requestSort.sortBy} /><SortableTh label={<AdminText en="Vehicle" ar="المركبة" />} column="vehicle" {...requestSort} onSort={requestSort.sortBy} /><SortableTh label={<AdminText en="Route" ar="المسار" />} column="route" {...requestSort} onSort={requestSort.sortBy} /><SortableTh label={<AdminText en="Preferred dates" ar="التواريخ المفضلة" />} column="dates" {...requestSort} onSort={requestSort.sortBy} /><SortableTh label={<AdminText en="Passengers" ar="الركاب" />} column="passengers" {...requestSort} onSort={requestSort.sortBy} /><SortableTh label={<AdminText en="Status" ar="الحالة" />} column="status" {...requestSort} onSort={requestSort.sortBy} /><th /></tr></thead>
+              <tbody>
+                {paging.pageRows.map((row, index) => (
+                  <tr key={row.reference}>
+                    <td className="sp-row-number">{paging.from + index}</td>
+                    <td><strong dir="ltr">{row.reference}</strong><br /><small style={{ color: 'var(--sp-muted)' }}>{row.tripType}</small></td>
+                    <td><span className="sp-cust"><Avatar name={row.contact.name} size={32} /><span><strong>{row.contact.name || (ar ? 'بدون اسم' : 'No name')}</strong><small dir="ltr">{row.contact.email}</small><br /><small style={{ color: 'var(--sp-muted)' }}>{row.account ? <AdminText en="Registered account" ar="حساب مسجل" /> : <AdminText en="Guest" ar="زائر" />}</small></span></span></td>
+                    <td><strong>{vehicleTitle(liveCars, row.vehicleSlug)}</strong><br /><small style={{ color: 'var(--sp-muted)' }}>{row.vehicleSlug}</small>{row.assignedVehicleSlug !== '' && <><br /><small style={{ color: 'var(--sp-muted)' }}><AdminText en="Assigned: " ar="المخصصة: " />{vehicleTitle(liveCars, row.assignedVehicleSlug)}</small></>}</td>
+                    <td><span>{row.pickup}</span><br /><small style={{ color: 'var(--sp-muted)' }}>→ {row.dropoff}</small></td>
+                    <td><span dir="ltr">{dateLabel(row) || (ar ? 'غير محدد' : 'Not set')}</span></td>
+                    <td>{row.passengers}</td>
+                    <td><span className={`sp-status is-${row.status}`}>{carRequestStatusLabel(row.status, ar)}</span></td>
+                    <td><AdminTableActions><AdminIconAction icon={Eye} label={ar ? `عرض ${row.reference}` : `View ${row.reference}`} href={`/admin/car-requests/${row.reference}`} /></AdminTableActions></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </AdminTableWrap>
+        ) : (
+          <AdminEmpty title={<AdminText en="No car requests found" ar="لا توجد طلبات سيارات" />} copy={<AdminText en="Vehicle rental requests created from the website or a customer account appear here." ar="طلبات تأجير السيارات المنشأة من الموقع أو حساب عميل تظهر هنا." />} />
+        )}
         {visible.length > 0 && <AdminPagination page={paging.page} pageCount={paging.pageCount} onPage={paging.setPage} pageSize={paging.pageSize} onPageSize={paging.setPageSize} from={paging.from} to={paging.to} total={paging.total} />}
+        </>
+        )}
       </Card>
-      <Card
-        title={<AdminText en="Customer change requests" ar="طلبات تعديل العميل" />}
-        sub={<AdminText en="Local browser demo — same-device customer proposals only, not server data" ar="تجريبي محلي — مقترحات العملاء على نفس المتصفح فقط، وليست بيانات خادم" />}
-      >
-        {amendments.length ? <AdminTableWrap><table className="sp-table">
-          <thead><tr><th className="sp-row-number">#</th><th><AdminText en="Amendment" ar="التعديل" /></th><th><AdminText en="Original request" ar="الطلب الأصلي" /></th><th><AdminText en="Changes" ar="التغييرات" /></th><th><AdminText en="Status" ar="الحالة" /></th><th></th></tr></thead>
-          <tbody>
-            {amendments.map((entry, index) => {
-              const pill = entry.status === 'draft' ? 'is-draft' : entry.status === 'pending' ? 'is-pending' : entry.status === 'approved' ? 'is-confirmed' : 'is-cancelled'
-              const copy: { en: string; ar: string } = AMENDMENT_STATUS_COPY[entry.status as AmendmentStatus]
-              return (
-                <tr key={entry.amendmentRef}>
-                  <td className="sp-row-number">{index + 1}</td>
-                  <td><strong dir="ltr">{entry.amendmentRef}</strong></td>
-                  <td><span dir="ltr">{entry.requestRef}</span></td>
-                  <td><small style={{ color: 'var(--sp-muted)' }}>{entry.changedFields.map((field) => (ar ? AMENDABLE_FIELD_COPY[field].ar : AMENDABLE_FIELD_COPY[field].en)).join(' · ')}</small></td>
-                  <td><span className={`sp-pill ${pill}`}><AdminText en={copy.en} ar={copy.ar} /></span></td>
-                  <td><AdminTableActions>
-                    <AdminIconAction icon={Eye} label={ar ? `عرض ${entry.amendmentRef}` : `View ${entry.amendmentRef}`} href={`/admin/car-requests/amendments/detail?ref=${entry.amendmentRef}`} />
-                  </AdminTableActions></td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table></AdminTableWrap> : <AdminEmpty title={<AdminText en="No local change requests" ar="لا توجد طلبات تعديل محلية" />} copy={<AdminText en="Customer proposals from this browser will appear here for demo review." ar="ستظهر مقترحات العملاء من هذا المتصفح هنا للمراجعة التجريبية." />} />}
-      </Card>
-      <StartReviewDialog requestRef={reviewRef} open={reviewRef !== null} onClose={() => setReviewRef(null)} />
     </>
   )
 }

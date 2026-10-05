@@ -12,12 +12,13 @@ import { phoneHref, whatsappHref } from '@/data/company'
 import { findTour, getTourOffer, seasonalOfferDeadline, seasonalTours } from '@/data/tours'
 import type { Blog, Car, Event, Offer, Tour } from '@/data/types'
 import { parseCarRequestQuery, parseSearchQuery } from '@/lib/query'
-import { CAR_LOCATION_MAX, CAR_NOTE_MAX, clearCarPreview, hasCarErrors, readCarPreview, recordCarRequestPreview, validateCarRequest, type CarFieldErrors, type CarRequestDraft, type CarRequestPreview } from '@/lib/car-request'
+import { CAR_LOCATION_MAX, CAR_NOTE_MAX, hasCarErrors, isCarReference, sanitizeCarDraft, validateCarRequest, type CarFieldErrors, type CarRequest, type CarRequestDraft } from '@/lib/car-request'
 import { ImpersonationBanner } from './impersonation-banner'
 import { useLocale, formatPrice } from './locale'
 import { Breadcrumb, Heading, HelpCTA, PageShowcaseHero, SiteShell, TourCard, extra, images } from '@/components/site'
 import { PromotionCard, promotionGalleryForTour } from '@/components/promotion-card'
 import { InternationalPhoneInput } from './international-phone-input'
+import { useCurrentUser } from '@/lib/use-current-user'
 import { SharedSelect } from '@/components/shared-select'
 import { telLink, whatsappLink } from '@/lib/phone'
 import { DateInput } from '@/components/date-input'
@@ -186,7 +187,7 @@ function focusCarField(id: string) {
   }
 }
 
-function CarRequestForm({ values, errors, summary, onChange, onSubmit }: { values: CarRequestValues; errors: CarFieldErrors; summary: string; onChange: (patch: Partial<CarRequestValues>) => void; onSubmit: (e: React.FormEvent) => void }) {
+function CarRequestForm({ values, errors, summary, submitting, editing, onChange, onSubmit }: { values: CarRequestValues; errors: CarFieldErrors; summary: string; submitting: boolean; editing: boolean; onChange: (patch: Partial<CarRequestValues>) => void; onSubmit: (e: React.FormEvent) => void }) {
   const { currency, locale } = useLocale()
   const ar = locale === 'ar'
   const liveCars = useLiveCollection('cars', cars)
@@ -240,7 +241,7 @@ function CarRequestForm({ values, errors, summary, onChange, onSubmit }: { value
       <label htmlFor="car-phone">{ar ? 'رقم الهاتف' : 'Phone'} <em className="req" aria-hidden="true">*</em><InternationalPhoneInput id="car-phone" required value={values.phone} onChange={(phone) => onChange({ phone })} locale={locale} invalid={Boolean(errors.phone)} describedBy={errors.phone ? 'car-phone-error' : undefined} />{errors.phone && <span className="field-error" id="car-phone-error" role="alert">{errText('phone')}</span>}</label>
       <label className="full" htmlFor="car-notes">{ar ? 'ملاحظات (اختياري)' : 'Notes (optional)'}<textarea id="car-notes" placeholder={ar ? 'حدثنا عن خط سيرك' : 'Tell us about your route'} maxLength={CAR_NOTE_MAX + 1} value={values.notes} onChange={(e) => onChange({ notes: e.target.value })} aria-invalid={Boolean(errors.notes)} aria-describedby={errors.notes ? 'car-notes-error' : 'car-notes-hint'} />{errors.notes && <span className="field-error" id="car-notes-error" role="alert">{errText('notes')}</span>}<small id="car-notes-hint" style={{ color: 'var(--muted)', fontWeight: 500 }}>{values.notes.length}/{CAR_NOTE_MAX}</small></label>
     </div>
-    <button className="primary-btn" type="submit">{ar ? 'تجهيز الطلب' : 'Prepare request'} <ArrowRight size={17} /></button>
+    <button className="primary-btn" type="submit" disabled={submitting}>{submitting ? (ar ? 'جارٍ الإرسال…' : 'Submitting…') : editing ? (ar ? 'حفظ التعديلات' : 'Save changes') : (ar ? 'إرسال الطلب' : 'Submit request')} <ArrowRight size={17} /></button>
   </form>
 }
 
@@ -258,35 +259,86 @@ function CarRequestContent() {
   })()
   const { currency, locale } = useLocale()
   const ar = locale === 'ar'
+  const { user: sessionUser } = useCurrentUser()
   const liveCars = useLiveCollection('cars', cars)
   const [values, setValues] = useState<CarRequestValues>({ vehicleSlug: initial.vehicle?.slug ?? rawVehicleSlug, tripType: initial.tripType ?? '', pickup: initial.pickup, dropoff: initial.dropoff, pickupDate: initial.date, returnDate: '', passengers: '', fullName: '', email: '', phone: '', notes: '' })
-  const [placed, setPlaced] = useState<CarRequestPreview | null>(null)
-  const [storedBanner, setStoredBanner] = useState<CarRequestPreview | null>(null)
-  // Stable identity of the currently saved browser-local preview. Set when a
-  // preview is created or a stored one is resumed; cleared only on discard.
-  // Edit keeps it, so preparing the preview again re-records the SAME request.
-  const [activeRef, setActiveRef] = useState<string | null>(null)
+  const [placed, setPlaced] = useState<CarRequest | null>(null)
+  const [editingRef, setEditingRef] = useState<string | null>(null)
   const [errors, setErrors] = useState<CarFieldErrors>({})
   const [summary, setSummary] = useState('')
+  const [submitting, setSubmitting] = useState(false)
   const patch = (p: Partial<CarRequestValues>) => setValues((v) => ({ ...v, ...p }))
   const vehicle = liveCars.find((car) => car.slug === values.vehicleSlug)
   const step = placed ? 3 : vehicle ? 2 : 1
   const notSet = ar ? 'لم يحدد' : 'Not set'
   const tripLabel = values.tripType === '' ? notSet : values.tripType === 'One Way' ? (ar ? 'ذهاب فقط' : 'One Way') : (ar ? 'ذهاب وعودة' : 'Round Trip')
-  const steps = [ar ? 'اختيار السيارة' : 'Choose vehicle', ar ? 'تفاصيل الرحلة' : 'Trip details', ar ? 'معاينة الطلب' : 'Request preview']
+  const steps = [ar ? 'اختيار السيارة' : 'Choose vehicle', ar ? 'تفاصيل الرحلة' : 'Trip details', ar ? 'تم الإرسال' : 'Submitted']
   const hasQuerySignal = Boolean(initial.vehicle || rawVehicleSlug || initial.pickup || initial.dropoff || initial.date || initial.tripType)
+  const editParam = (() => {
+    const raw = (params.get('edit') ?? '').trim()
+    return isCarReference(raw) ? raw : null
+  })()
 
-  // Resume: prefill the form from the single versioned browser-local preview
-  // when the URL carries no request signal of its own. Refresh only reads and
-  // restores here — it never generates a reference. Malformed data is ignored.
+  // Prefill contact details from the signed-in account as editable copies.
   useEffect(() => {
-    if (hasQuerySignal) return
-    const stored = readCarPreview()
-    if (!stored) return
-    const d = stored.draft
-    setValues({ vehicleSlug: d.vehicleSlug, tripType: d.tripType, pickup: d.pickup, dropoff: d.dropoff, pickupDate: d.preferredPickupDate, returnDate: d.preferredReturnDate, passengers: String(d.passengers), fullName: d.contact.fullName, email: d.contact.email, phone: d.contact.phone, notes: d.notes })
-    setActiveRef(stored.localRef)
-    setStoredBanner(stored)
+    if (!sessionUser) return
+    setValues((v) => {
+      const name = `${sessionUser.firstName ?? ''} ${sessionUser.lastName ?? ''}`.trim()
+      return {
+        ...v,
+        fullName: v.fullName || name,
+        email: v.email || sessionUser.email || '',
+        phone: v.phone || sessionUser.phone || '',
+      }
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionUser])
+
+  // Edit mode: `?edit=SP-CR-…` loads the customer's own record for editing.
+  // The query is read once; a foreign or missing record fails honestly.
+  useEffect(() => {
+    if (!editParam || hasQuerySignal) return
+    let cancelled = false
+    fetch(`/api/account/car-requests/${encodeURIComponent(editParam)}`, { credentials: 'same-origin' })
+      .then(async (res) => {
+        if (cancelled) return
+        const data = (await res.json()) as CarRequest & { error?: string }
+        if (!res.ok) throw new Error(data.error || 'Car request not found.')
+        if (data.status !== 'new' && data.status !== 'reviewing') {
+          throw new Error(ar ? 'هذا الطلب لم يعد قابلًا للتعديل.' : 'This request can no longer be edited.')
+        }
+        const shaped = sanitizeCarDraft({
+          vehicleSlug: data.vehicleSlug,
+          tripType: data.tripType,
+          pickup: data.pickup,
+          dropoff: data.dropoff,
+          preferredPickupDate: data.preferredPickupDate,
+          preferredReturnDate: data.preferredReturnDate,
+          passengers: data.passengers,
+          notes: data.notes,
+          contact: { fullName: data.contact.name, email: data.contact.email, phone: data.contact.phone },
+          currency,
+        })
+        if (!shaped || cancelled) return
+        setValues({
+          vehicleSlug: shaped.vehicleSlug,
+          tripType: shaped.tripType,
+          pickup: shaped.pickup,
+          dropoff: shaped.dropoff,
+          pickupDate: shaped.preferredPickupDate,
+          returnDate: shaped.preferredReturnDate,
+          passengers: String(shaped.passengers),
+          fullName: shaped.contact.fullName,
+          email: shaped.contact.email,
+          phone: shaped.contact.phone,
+          notes: shaped.notes,
+        })
+        setEditingRef(data.reference)
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setSummary(error instanceof Error ? error.message : 'Car request not found.')
+      })
+    return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -308,12 +360,13 @@ function CarRequestContent() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (submitting) return
     const raw = buildDraft()
     const errs = validateCarRequest(raw)
     if (!vehicle) errs.vehicle = 'invalid'
     setErrors(errs)
     if (hasCarErrors(errs)) {
-      setSummary(ar ? 'تعذر إنشاء المعاينة. راجع الحقول الموضحة أدناه.' : 'Could not create the preview. Review the highlighted fields below.')
+      setSummary(ar ? 'تعذر إرسال الطلب. راجع الحقول الموضحة أدناه.' : 'Could not submit the request. Review the highlighted fields below.')
       const ids: Record<keyof CarFieldErrors, string> = { vehicle: 'car-vehicle', tripType: 'req-trip-label', pickup: 'car-pickup', dropoff: 'car-dropoff', pickupDate: 'car-pickup-date', returnDate: 'car-return-date', passengers: values.tripType === 'Round Trip' ? 'car-passengers-rt' : 'car-passengers', name: 'car-name', email: 'car-email', phone: 'car-phone', notes: 'car-notes' }
       const order: Array<keyof CarFieldErrors> = ['vehicle', 'tripType', 'pickup', 'dropoff', 'pickupDate', 'returnDate', 'passengers', 'name', 'email', 'phone', 'notes']
       for (const field of order) {
@@ -324,13 +377,30 @@ function CarRequestContent() {
       }
       return
     }
-    const preview = recordCarRequestPreview({ ...raw, notes: raw.notes.slice(0, CAR_NOTE_MAX) }, activeRef)
-    setErrors({})
-    setSummary('')
-    setStoredBanner(null)
-    setActiveRef(preview.localRef)
-    setPlaced(preview)
-    window.setTimeout(() => focusCarField('car-preview-title'), 50)
+    const preview = { ...raw, notes: raw.notes.slice(0, CAR_NOTE_MAX) }
+    setSubmitting(true)
+    const url = editingRef
+      ? `/api/account/car-requests/${encodeURIComponent(editingRef)}`
+      : '/api/car-requests'
+    fetch(url, {
+      method: editingRef ? 'PATCH' : 'POST',
+      headers: { 'content-type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(editingRef ? { action: 'update', draft: preview } : preview),
+    })
+      .then(async (res) => {
+        const data = (await res.json()) as CarRequest & { error?: string }
+        if (!res.ok) throw new Error(data.error || 'Could not submit the request.')
+        setErrors({})
+        setSummary('')
+        setEditingRef(null)
+        setPlaced(data)
+        window.setTimeout(() => focusCarField('car-preview-title'), 50)
+      })
+      .catch((error: unknown) => {
+        setSummary(error instanceof Error ? error.message : (ar ? 'تعذر إرسال الطلب. حاول مجددًا.' : 'Could not submit the request. Please try again.'))
+      })
+      .finally(() => setSubmitting(false))
   }
 
   const handleEdit = () => {
@@ -338,23 +408,26 @@ function CarRequestContent() {
     window.setTimeout(() => focusCarField('car-vehicle'), 50)
   }
 
-  const handleDiscard = () => {
-    clearCarPreview()
-    setPlaced(null)
-    setStoredBanner(null)
-    setActiveRef(null)
-  }
-
-  const renderPreview = (preview: CarRequestPreview) => {
-    const d = preview.draft
+  const renderPreview = (record: CarRequest) => {
+    const d = {
+      vehicleSlug: record.vehicleSlug,
+      tripType: record.tripType,
+      pickup: record.pickup,
+      dropoff: record.dropoff,
+      preferredPickupDate: record.preferredPickupDate,
+      preferredReturnDate: record.preferredReturnDate,
+      passengers: record.passengers,
+      notes: record.notes,
+      contact: { fullName: record.contact.name, email: record.contact.email, phone: record.contact.phone },
+    }
     const previewCar = liveCars.find((car) => car.slug === d.vehicleSlug)
     const dateRows = d.tripType === 'Round Trip' && d.preferredReturnDate !== ''
       ? [{ label: ar ? 'تاريخ العودة المفضل' : 'Preferred return date', value: d.preferredReturnDate, ltr: true }]
       : []
     return <div className="form-success large">
       <Check size={42} />
-      <h1 id="car-preview-title" tabIndex={-1}>{ar ? 'تم إنشاء معاينة لطلب السيارة' : 'Car request preview created'}</h1>
-      <span className="req-ref" dir="ltr">{ar ? 'المرجع المحلي: ' : 'Local ref: '}{preview.localRef}</span>
+      <h1 id="car-preview-title" tabIndex={-1}>{ar ? 'تم إرسال طلب السيارة' : 'Car request submitted'}</h1>
+      <span className="req-ref" dir="ltr">{ar ? 'المرجع: ' : 'Reference: '}{record.reference}</span>
       <div className="req-summary-rows" style={{ maxWidth: 520, margin: '18px auto', textAlign: 'start' }}>
         <div><span>{ar ? 'السيارة المطلوبة' : 'Requested vehicle'}</span><strong>{previewCar?.title ?? d.vehicleSlug}</strong></div>
         <div><span>{ar ? 'النوع' : 'Trip type'}</span><strong>{d.tripType === 'One Way' ? (ar ? 'ذهاب فقط' : 'One Way') : d.tripType === 'Round Trip' ? (ar ? 'ذهاب وعودة' : 'Round Trip') : notSet}</strong></div>
@@ -368,14 +441,16 @@ function CarRequestContent() {
         <div><span>{ar ? 'رقم الهاتف' : 'Phone'}</span><strong dir="ltr">{d.contact.phone}</strong></div>
         {d.notes !== '' && <div><span>{ar ? 'ملاحظات' : 'Notes'}</span><strong style={{ whiteSpace: 'pre-wrap' }}>{d.notes}</strong></div>}
       </div>
-      <p><CircleAlert size={15} style={{ verticalAlign: '-2px', marginInlineEnd: 6 }} />{ar ? 'محفوظ في هذا المتصفح فقط. لم يتم إرسال هذا الطلب إلى STAR PYRAMIDS.' : 'Saved in this browser only. This request has not been submitted to STAR PYRAMIDS.'}</p>
+      <p><CircleAlert size={15} style={{ verticalAlign: '-2px', marginInlineEnd: 6 }} />{ar ? 'استلمنا طلبك وسيراجعه فريقنا. احتفظ بالمرجع أعلاه.' : 'We have received your request and our team will review it. Keep the reference above.'}</p>
       <p>{ar ? 'لم يتم حجز أي سيارة ولم يتم التحقق من التوافر أو تأكيد أي سعر.' : 'No vehicle has been reserved, no availability was checked, and no rate was confirmed.'}</p>
       <div className="car-success-actions">
-        <button type="button" className="outline-btn" onClick={handleEdit}>{ar ? 'تعديل الطلب' : 'Edit request'}</button>
-        <Link className="primary-btn" href="/rent-car">{ar ? 'استعرض السيارات' : 'Explore cars'}</Link>
+        {sessionUser
+          ? <><button type="button" className="outline-btn" onClick={handleEdit}>{ar ? 'تعديل الطلب' : 'Edit request'}</button>
+            <Link className="primary-btn" href={`/account/car-requests/detail?ref=${encodeURIComponent(record.reference)}`}>{ar ? 'عرض تفاصيل الطلب' : 'View request details'}</Link></>
+          : <><Link className="primary-btn" href="/register">{ar ? 'إنشاء حساب لمتابعة طلباتي' : 'Create an account to track my requests'}</Link>
+            <Link className="outline-btn" href={`/login?next=${encodeURIComponent('/account/car-requests')}`}>{ar ? 'تسجيل الدخول' : 'Sign in'}</Link></>}
         <Link className="outline-btn" href="/contact">{ar ? 'تواصل مع فريقنا' : 'Contact our team'}</Link>
       </div>
-      <p><button type="button" className="text-link" style={{ border: 0, background: 'none', cursor: 'pointer', padding: 0, font: 'inherit', textDecoration: 'underline' }} onClick={handleDiscard}>{ar ? 'تجاهل المعاينة المحلية' : 'Discard local preview'}</button></p>
     </div>
   }
 
@@ -385,7 +460,7 @@ function CarRequestContent() {
       <header className="car-request-head">
         <span className="eyebrow">{ar ? 'نقل خاص' : 'Private transport'}</span>
         <h1>{ar ? 'أخبرنا كيف تريد التنقل.' : 'Tell us how you want to move.'}</h1>
-        <p>{ar ? 'املأ تفاصيل طلبك وسنجهز لك معاينة محلية يمكنك مراجعتها قبل التواصل معنا.' : 'Fill in your request details and we will prepare a local preview you can review before contacting us.'}</p>
+        <p>{ar ? 'املأ تفاصيل طلبك وسيراجع فريقنا طلبك وسيتواصل معك.' : 'Fill in your request details and our team will review your request and contact you.'}</p>
       </header>
       <ol className="stepper req-stepper" aria-label={ar ? 'مراحل طلب السيارة' : 'Vehicle request progress'}>
         {steps.map((label, i) => {
@@ -400,7 +475,6 @@ function CarRequestContent() {
           </li>
         })}
       </ol>
-      {storedBanner !== null && placed === null && <div className="car-form-card" role="note" style={{ padding: 18, marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between' }}><p style={{ margin: 0, color: 'var(--muted)', fontSize: 14 }}>{ar ? 'لديك معاينة محلية محفوظة في هذا المتصفح.' : 'You have a saved local preview in this browser.'} <span dir="ltr">({storedBanner.localRef})</span></p><div style={{ display: 'flex', gap: 10 }}><button type="button" className="outline-btn" onClick={() => { setActiveRef(storedBanner.localRef); setPlaced(storedBanner) }}>{ar ? 'عرض المعاينة' : 'View preview'}</button><button type="button" className="text-link" style={{ border: 0, background: 'none', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => { clearCarPreview(); setStoredBanner(null); setActiveRef(null) }}>{ar ? 'تجاهل' : 'Discard'}</button></div></div>}
       {placed
         ? renderPreview(placed)
         : <div className="car-request-layout">
@@ -422,7 +496,7 @@ function CarRequestContent() {
               <a className="req-wa" href={whatsappHref(brand.whatsapp)} target="_blank" rel="noreferrer">{ar ? 'تواصل عبر واتساب' : 'Chat on WhatsApp'}</a>
             </div>
           </aside>
-          <div className="car-form-card"><CarRequestForm values={values} errors={errors} summary={summary} onChange={patch} onSubmit={handleSubmit} /></div>
+          <div className="car-form-card"><CarRequestForm values={values} errors={errors} summary={summary} submitting={submitting} editing={editingRef !== null} onChange={patch} onSubmit={handleSubmit} /></div>
         </div>}
     </main>
   </>

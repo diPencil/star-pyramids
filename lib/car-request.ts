@@ -1,44 +1,24 @@
-'use client'
-
-import { useEffect, useState } from 'react'
-import { createLocalReference } from '@/lib/booking'
 import type { Currency } from '@/components/locale'
 
 /**
- * Phase E car-request boundary (separate domain from trip requests).
+ * Car-request contract (Phase 2C: real backend).
  *
- * UI (`/rent-car/request`) builds a `CarRequestDraft`, validates it with the
- * deterministic helpers below, then hands it to the local prototype adapter
- * (`recordCarRequestPreview`) which stores a browser-local preview.
+ * UI (`/rent-car/request`, `/account/car-requests`, `/admin/car-requests`)
+ * builds a `CarRequestDraft`, validates it with the deterministic helpers
+ * below, then talks to the server API (`POST /api/car-requests`,
+ * `/api/account/car-requests/*`, `/api/admin/car-requests/*`), which
+ * revalidates everything, links ownership from the server session, and
+ * issues the official reference (`SP-CR-…`).
  *
- * Later this becomes: UI -> CarRequestDraft -> real backend service/API,
- * which will resolve the vehicle slug, revalidate everything, check fleet
- * availability, confirm the rate, and issue the official reference. The draft
- * carries only user-entered/requested values: no availability, assigned
- * vehicle, confirmed rate/total, booking or payment status, payment method,
- * or server reference. Those belong to the future backend.
+ * This module is intentionally neutral (no `'use client'`, no React, no
+ * storage): the client UI and `lib/server/car-requests.ts` share the
+ * lifecycle, labels, and validation-shape helpers. The browser never stores
+ * car requests; MySQL is the only store.
  *
- * The local reference is labelled `Local ref` in the UI and will be replaced
- * by the backend later. A car request is NOT a cart item, booking, or payment.
+ * A car request is NOT a cart item, booking, or payment. It must never be
+ * inserted into the Trip Cart. Requested vehicle is a customer preference
+ * only: it never confirms availability, assignment, rate, or booking.
  */
-
-export const CAR_REQUEST_STORAGE_KEY = 'sp-car-request-v1'
-const CAR_REQUEST_STORAGE_VERSION = 1
-
-/**
- * Same-tab notification channel for preview writes/clears. Cross-tab updates
- * arrive through the native `storage` event. The storage key stays the single
- * source of truth — this event carries no payload.
- */
-const CAR_REQUEST_EVENT = 'sp-car-request'
-
-function emitCarRequestChange() {
-  try {
-    window.dispatchEvent(new Event(CAR_REQUEST_EVENT))
-  } catch {
-    // Non-browser or dispatch unavailable; readers still see storage directly.
-  }
-}
 
 export const CAR_LOCATION_MAX = 160
 export const CAR_NOTE_MAX = 1000
@@ -73,15 +53,21 @@ export type CarRequestDraft = {
   currency: Currency
 }
 
-export type CarRequestPreview = {
-  draft: CarRequestDraft
-  /** Browser-local reference only. Never presented as a server reference. */
-  localRef: string
-}
-
 const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 const SLUG_PATTERN = /^[a-z0-9-]{1,80}$/
+
+/**
+ * Official + legacy-tolerant reference shape for route params and links.
+ * The backend issues `SP-CR-XXXXXX`; older browser-local `SP-…` refs are
+ * still routable so they fail honestly (not found) instead of crashing.
+ */
+const CAR_REF_PATTERN = /^SP-(CR-)?[A-Z0-9]{6,12}$/
+export const OFFICIAL_CAR_REF_PATTERN = /^SP-CR-[A-Z0-9]{6}$/
+
+export function isCarReference(value: string): boolean {
+  return CAR_REF_PATTERN.test(value.trim())
+}
 
 /** Preferred/requested date only. There is no live availability backend. */
 export function isValidCarDate(value: string): boolean {
@@ -125,7 +111,7 @@ function safeSlug(value: unknown): string {
   return SLUG_PATTERN.test(slug) ? slug : ''
 }
 
-/** Deterministic frontend validation. The future backend validates again. */
+/** Deterministic frontend validation. The backend validates everything again. */
 export function validateCarRequest(draft: CarRequestDraft): CarFieldErrors {
   const errors: CarFieldErrors = {}
 
@@ -176,9 +162,9 @@ export function hasCarErrors(errors: CarFieldErrors): boolean {
 }
 
 /**
- * Stored previews are UNTRUSTED browser input. Malformed records are dropped
- * (null) so stale data fails safely instead of crashing or substituting
- * unrelated values.
+ * Untrusted-input shaping for drafts (edit prefill). Malformed input is
+ * dropped (null) so stale data fails safely instead of crashing or
+ * substituting unrelated values.
  */
 export function sanitizeCarDraft(value: unknown): CarRequestDraft | null {
   if (typeof value !== 'object' || value === null) return null
@@ -210,91 +196,116 @@ export function sanitizeCarDraft(value: unknown): CarRequestDraft | null {
   }
 }
 
-function sanitizeStoredPreview(value: unknown): CarRequestPreview | null {
-  if (typeof value !== 'object' || value === null) return null
-  const raw = value as { version?: unknown; draft?: unknown; localRef?: unknown }
-  if (raw.version !== CAR_REQUEST_STORAGE_VERSION) return null
-  const draft = sanitizeCarDraft(raw.draft)
-  const localRef = typeof raw.localRef === 'string' ? raw.localRef.trim() : ''
-  if (!draft || !localRef) return null
-  return { draft, localRef }
+export type CarRequestStatus = 'new' | 'reviewing' | 'confirmed' | 'cancelled'
+
+export type CarRequestActor = 'customer' | 'staff' | 'system'
+
+export type CarRequestActivity = {
+  at: string
+  by: CarRequestActor
+  action: string
+  note?: string
+  /** Staff-only marker. Never set on customer-facing rows. */
+  internal?: boolean
 }
 
-export function readCarPreview(): CarRequestPreview | null {
-  if (typeof window === 'undefined') return null
-  try {
-    const raw = window.localStorage.getItem(CAR_REQUEST_STORAGE_KEY)
-    if (!raw) return null
-    return sanitizeStoredPreview(JSON.parse(raw))
-  } catch {
-    return null
+export type CarRequestContactView = {
+  name: string
+  email: string
+  phone: string
+}
+
+/**
+ * Server-issued request view (MySQL-backed). `reference` is the official
+ * public reference (`SP-CR-…`); database IDs are never exposed. The contact
+ * block is the historical snapshot taken at submit/edit time.
+ * `assignedVehicleSlug` is the staff-assigned fleet vehicle, if any.
+ */
+export type CarRequest = {
+  reference: string
+  vehicleSlug: string
+  assignedVehicleSlug: string
+  tripType: CarTripType
+  pickup: string
+  dropoff: string
+  preferredPickupDate: string
+  preferredReturnDate: string
+  passengers: number
+  contact: CarRequestContactView
+  notes: string
+  status: CarRequestStatus
+  createdAt: string
+  updatedAt: string
+  activity: CarRequestActivity[]
+}
+
+/** Linked registered account info (staff views only, never customer-facing). */
+export type CarRequestAccount = {
+  email: string
+  name: string
+} | null
+
+export type StaffCarRequest = CarRequest & {
+  account: CarRequestAccount
+}
+
+export const CAR_REQUEST_STATUSES: readonly CarRequestStatus[] = ['new', 'reviewing', 'confirmed', 'cancelled']
+
+/** Customer-side edit/cancel is allowed only while new or under review. */
+export const CUSTOMER_CAR_EDITABLE_STATUSES: readonly CarRequestStatus[] = ['new', 'reviewing']
+
+const CAR_TRANSITIONS: Record<CarRequestStatus, CarRequestStatus[]> = {
+  new: ['reviewing', 'cancelled'],
+  reviewing: ['confirmed', 'cancelled'],
+  confirmed: [],
+  cancelled: ['reviewing'],
+}
+
+export function canTransitionCarRequest(from: CarRequestStatus, to: CarRequestStatus): boolean {
+  return CAR_TRANSITIONS[from]?.includes(to) ?? false
+}
+
+/** Display strings are stored in English; UI maps known actions to Arabic. */
+export function labelForCarTransition(from: CarRequestStatus, to: CarRequestStatus): string {
+  if (to === 'reviewing' && from === 'cancelled') return 'Reopened for review'
+  switch (to) {
+    case 'reviewing': return 'Review started'
+    case 'confirmed': return 'Request confirmed'
+    case 'cancelled': return 'Request cancelled'
+    default: return 'Status updated'
+  }
+}
+
+export function carRequestStatusLabel(status: CarRequestStatus, ar: boolean): string {
+  switch (status) {
+    case 'new': return ar ? 'جديد' : 'New'
+    case 'reviewing': return ar ? 'قيد المراجعة' : 'Reviewing'
+    case 'confirmed': return ar ? 'مؤكد' : 'Confirmed'
+    case 'cancelled': return ar ? 'ملغي' : 'Cancelled'
   }
 }
 
 /**
- * Local prototype adapter: the single car-request boundary.
- *
- * UI -> CarRequestDraft -> local browser preview (today).
- * UI -> CarRequestDraft -> real backend service/API (later).
- *
- * The local reference is the stable identity of ONE saved preview:
- * generated only for a genuinely new preview (first creation, or after the
- * previous preview was discarded). An `existingRef` is reused only when it
- * matches the currently stored preview, proving the same saved request is
- * being re-recorded (edit/resume/view). Refresh/reload only reads and
- * restores — it never generates.
- *
- * The result is truthful: browser-local only, labelled `Local ref`, never
- * presented as submitted, confirmed, reserved, priced, or emailed.
+ * Canonical fleet display title for a vehicle slug. Source of truth is the
+ * caller's fleet list (base catalogue plus admin overrides); an unknown or
+ * removed slug falls back to the stored slug verbatim — never a fabricated
+ * capitalization.
  */
-export function recordCarRequestPreview(draft: CarRequestDraft, existingRef?: string | null): CarRequestPreview {
-  const stored = readCarPreview()
-  const carried = typeof existingRef === 'string' ? existingRef.trim() : ''
-  let localRef: string
-  if (carried !== '' && stored !== null && stored.localRef === carried) {
-    localRef = carried
-  } else {
-    localRef = createLocalReference()
-    if (stored && localRef === stored.localRef) localRef = createLocalReference()
-  }
-  const preview: CarRequestPreview = { draft, localRef }
-  try {
-    window.localStorage.setItem(
-      CAR_REQUEST_STORAGE_KEY,
-      JSON.stringify({ version: CAR_REQUEST_STORAGE_VERSION, draft, localRef }),
-    )
-  } catch {
-    // Preview stays in memory only when storage is unavailable.
-  }
-  emitCarRequestChange()
-  return preview
+export function fleetVehicleTitle(fleet: { slug: string; title: string }[], slug: string): string {
+  return fleet.find((car) => car.slug === slug)?.title ?? slug
 }
 
-export function clearCarPreview() {
-  try {
-    window.localStorage.removeItem(CAR_REQUEST_STORAGE_KEY)
-  } catch {
-    // Storage can be unavailable; nothing to clear.
+export function carActivityLabel(action: string, ar: boolean): string {
+  if (!ar) return action
+  switch (action) {
+    case 'Request created': return 'تم إنشاء الطلب'
+    case 'Request updated': return 'تم تحديث الطلب'
+    case 'Review started': return 'بدأت المراجعة'
+    case 'Request confirmed': return 'تم تأكيد الطلب'
+    case 'Request cancelled': return 'تم إلغاء الطلب'
+    case 'Reopened for review': return 'أعيد فتحه للمراجعة'
+    case 'Assigned vehicle updated': return 'تم تحديث المركبة المخصصة'
+    case 'Internal note added': return 'أضيفت ملاحظة داخلية'
+    default: return action
   }
-  emitCarRequestChange()
-}
-
-/**
- * Reactive reader for the single browser-local preview. Re-renders on
- * prepare/edit/discard in this tab and on `storage` events from other tabs.
- * No polling; no duplicate key. Returns null when nothing is stored.
- */
-export function useCarRequestPreview(): CarRequestPreview | null {
-  const [preview, setPreview] = useState<CarRequestPreview | null>(null)
-  useEffect(() => {
-    const sync = () => setPreview(readCarPreview())
-    sync()
-    window.addEventListener(CAR_REQUEST_EVENT, sync)
-    window.addEventListener('storage', sync)
-    return () => {
-      window.removeEventListener(CAR_REQUEST_EVENT, sync)
-      window.removeEventListener('storage', sync)
-    }
-  }, [])
-  return preview
 }

@@ -1,20 +1,21 @@
 'use client'
 
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
 import { ArrowLeft, CarFront, Eye, EyeOff, Pencil } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminTableWrap, AdminText, Card, StatusPill } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { isCustomSlug, setCarHidden, useCarOverride, useHiddenCars, useLiveCollection } from '@/lib/admin-store'
 import { cars } from '@/data/content'
-import { getEffectiveRequests, useCarRequestOps } from '@/lib/car-request-ops'
+import type { StaffCarRequest } from '@/lib/car-request'
 
 /**
  * Fleet vehicle detail. Only honest/computable data: overview, source
  * (base fleet / locally overridden / admin-created), website visibility
- * (never called availability), and related DEMO requests matched by
- * requested or assigned vehicle slug. No availability, rentals, revenue,
- * maintenance, or ratings — those belong to the backend phase.
+ * (never called availability), and related database-backed requests matched
+ * by requested or assigned vehicle slug. No availability, rentals, revenue,
+ * maintenance, or ratings — those belong to a later backend phase.
  */
 export function VehicleDetailContent({ vehicleSlug }: { vehicleSlug: string }) {
   const ar = useAdminLocale() === 'ar'
@@ -24,7 +25,18 @@ export function VehicleDetailContent({ vehicleSlug }: { vehicleSlug: string }) {
   const car = liveCars.find((entry) => entry.slug === slug)
   const override = useCarOverride(slug)
   const hiddenCars = useHiddenCars()
-  const opsStore = useCarRequestOps()
+  const [staffRequests, setStaffRequests] = useState<StaffCarRequest[]>([])
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/admin/car-requests', { credentials: 'same-origin' })
+      .then(async (res) => {
+        if (!res.ok || cancelled) return
+        const data = (await res.json()) as { requests?: StaffCarRequest[] }
+        if (!cancelled && Array.isArray(data.requests)) setStaffRequests(data.requests)
+      })
+      .catch(() => undefined)
+    return () => { cancelled = true }
+  }, [])
 
   if (!car) {
     return <>
@@ -41,8 +53,8 @@ export function VehicleDetailContent({ vehicleSlug }: { vehicleSlug: string }) {
       ? { en: 'Locally overridden', ar: 'معدّلة محليًا' }
       : { en: 'Base fleet', ar: 'الأسطول الأساسي' }
 
-  const related = getEffectiveRequests(opsStore).filter(
-    (row) => row.vehicleSlug === car.slug || (row.assignmentTouched && row.assignedVehicleSlug === car.slug),
+  const related = staffRequests.filter(
+    (row) => row.vehicleSlug === car.slug || (row.assignedVehicleSlug !== '' && row.assignedVehicleSlug === car.slug),
   )
 
   return <>
@@ -105,7 +117,7 @@ export function VehicleDetailContent({ vehicleSlug }: { vehicleSlug: string }) {
 
     <Card
       title={<AdminText en="Related car requests" ar="طلبات السيارات المرتبطة" />}
-      sub={<AdminText en={`${related.length} demo requests · matched by requested or assigned vehicle`} ar={`${related.length} طلبات تجريبية · مطابقة بالمركبة المطلوبة أو المخصصة`} />}
+      sub={<AdminText en={`${related.length} stored requests · matched by requested or assigned vehicle`} ar={`${related.length} طلبات محفوظة · مطابقة بالمركبة المطلوبة أو المخصصة`} />}
     >
       {related.length ? (
         <AdminTableWrap><table className="sp-table">
@@ -122,11 +134,11 @@ export function VehicleDetailContent({ vehicleSlug }: { vehicleSlug: string }) {
           <tbody>
             {related.map((row) => {
               const requested = row.vehicleSlug === car.slug
-              const assigned = row.assignmentTouched && row.assignedVehicleSlug === car.slug
+              const assigned = row.assignedVehicleSlug !== '' && row.assignedVehicleSlug === car.slug
               return (
-                <tr key={row.ref}>
-                  <td><Link href={`/admin/car-requests/${row.ref}`} style={{ fontWeight: 700 }} dir="ltr">{row.ref}</Link></td>
-                  <td>{row.customerName}</td>
+                <tr key={row.reference}>
+                  <td><Link href={`/admin/car-requests/${row.reference}`} style={{ fontWeight: 700 }} dir="ltr">{row.reference}</Link></td>
+                  <td>{row.contact.name}</td>
                   <td>{row.tripType}</td>
                   <td dir="ltr">{row.preferredPickupDate}</td>
                   <td>{row.passengers}</td>
@@ -137,14 +149,14 @@ export function VehicleDetailContent({ vehicleSlug }: { vehicleSlug: string }) {
                       {assigned && <span className="sp-pill is-reviewing"><AdminText en="Assigned" ar="مخصصة" /></span>}
                     </span>
                   </td>
-                  <td><Link className="sp-btn" href={`/admin/car-requests/${row.ref}`}><AdminText en="Open" ar="فتح" /></Link></td>
+                  <td><Link className="sp-btn" href={`/admin/car-requests/${row.reference}`}><AdminText en="Open" ar="فتح" /></Link></td>
                 </tr>
               )
             })}
           </tbody>
         </table></AdminTableWrap>
       ) : (
-        <AdminEmpty title={<AdminText en="No demo requests for this vehicle" ar="لا توجد طلبات تجريبية لهذه السيارة" />} />
+        <AdminEmpty title={<AdminText en="No stored requests for this vehicle" ar="لا توجد طلبات محفوظة لهذه السيارة" />} />
       )}
     </Card>
   </>
