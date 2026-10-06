@@ -2,6 +2,7 @@ import { dayTourTerms, findTour, getBookingTotal } from '@/data/tours'
 import type { CartItem } from '@/lib/cart'
 import type { Tour } from '@/data/types'
 import { localeFromAr, pickLocaleText, type Locale } from '@/lib/locale-config'
+import type { BookingPaymentSummary } from '@/lib/payment'
 
 /**
  * Booking contract (Phase 2E: real backend).
@@ -77,6 +78,12 @@ export type Booking = {
   updatedAt: string
   status: BookingStatus
   paymentStatus: BookingPaymentStatus
+  /**
+   * Derived payment summary from real Payment rows (Phase 2F-A).
+   * Present on database-backed views; absent on local preview
+   * literals, which must be treated as unpaid.
+   */
+  paymentSummary?: BookingPaymentSummary
   /** Established payment method, when genuinely known. Omitted in Phase 2E. */
   paymentMethod?: 'card' | 'arrival'
   subtotal: number

@@ -131,6 +131,11 @@
 .sp-pill.is-cancelled { background: #fee2e2; color: #b91c1c; }
 .sp-pill.is-custom { background: #e0e7ff; color: #3730a3; }
 .sp-pill.is-inactive, .sp-pill.is-hidden { background: #eef1f7; color: #64748b; }
+/* Payment lifecycle pills (Phase 2F-A): same token palette as booking pills. */
+.sp-pill.is-paid { background: #dcfce7; color: #15803d; }
+.sp-pill.is-processing { background: #e0e7ff; color: #3730a3; }
+.sp-pill.is-failed { background: #fee2e2; color: #b91c1c; }
+.sp-pill.is-refunded, .sp-pill.is-partially_refunded { background: #f1eafe; color: #6d28d9; }
 .sp-modal-backdrop { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 20px; background: rgba(13,34,80,.5); }
 .sp-modal { width: min(560px, 100%); max-height: min(86vh, 720px); overflow-y: auto; background: #fff; border-radius: 22px; padding: 24px; box-shadow: 0 30px 80px rgba(13,34,80,.35); }
 .sp-modal-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }

@@ -24,9 +24,14 @@ import {
   type Booking,
   type BookingActivity,
   type BookingLine,
+  type BookingPaymentStatus,
   type BookingStatus,
   type StaffBooking,
 } from '@/lib/booking';
+import {
+  deriveBookingPaymentSummary,
+  FROM_DB_PAYMENT_STATUS,
+} from './payments';
 
 const REF_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const REF_ATTEMPTS = 5;
@@ -267,7 +272,12 @@ export function validateBookingDraft(input: unknown): ValidatedBookingDraft {
 }
 
 type BookingRow = Prisma.BookingGetPayload<{
-  include: { items: true; activities: true; user: { select: { email: true; firstName: true; lastName: true } } };
+  include: {
+    items: true;
+    activities: true;
+    payments: { select: { status: true; amountPaid: true; amountRefunded: true; reference: true; createdAt: true } };
+    user: { select: { email: true; firstName: true; lastName: true } };
+  };
 }>;
 
 function accountName(row: BookingRow): string {
@@ -321,15 +331,32 @@ function toActivityViews(
 /**
  * Customer-safe projection: no database IDs, no user linkage, no
  * internal activity. Internal activity rows are excluded entirely so
- * staff notes never reach customer responses.
+ * staff notes never reach customer responses. The payment state is
+ * DERIVED from real Payment rows (never browser input): bookings
+ * with no payment record stay honestly unpaid.
  */
 export function toCustomerView(row: BookingRow): Booking {
+  const storedPayment: BookingPaymentStatus =
+    row.paymentStatus === 'PAID' ? 'paid' : row.paymentStatus === 'REFUNDED' ? 'refunded' : 'pending';
+  const summary = deriveBookingPaymentSummary(
+    row.payments.map((p) => ({
+      status: FROM_DB_PAYMENT_STATUS[p.status],
+      amountPaidCents: decimalToCents(p.amountPaid),
+      amountRefundedCents: decimalToCents(p.amountRefunded),
+      reference: p.reference,
+      createdAt: p.createdAt,
+    })),
+    decimalToCents(row.total),
+  );
+  const paymentStatus: BookingPaymentStatus =
+    summary.state === 'paid' ? 'paid' : summary.state === 'refunded' ? 'refunded' : storedPayment;
   return {
     reference: row.reference,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     status: FROM_DB_STATUS[row.status],
-    paymentStatus: row.paymentStatus === 'PAID' ? 'paid' : row.paymentStatus === 'REFUNDED' ? 'refunded' : 'pending',
+    paymentStatus,
+    paymentSummary: summary,
     subtotal: dollars(decimalToCents(row.subtotal)),
     discount: dollars(decimalToCents(row.discount)),
     total: dollars(decimalToCents(row.total)),
@@ -355,9 +382,20 @@ export function toStaffView(row: BookingRow): StaffBooking {
   };
 }
 
+const paymentSelect: Prisma.BookingInclude['payments'] = {
+  select: {
+    status: true,
+    amountPaid: true,
+    amountRefunded: true,
+    reference: true,
+    createdAt: true,
+  },
+};
+
 const rowInclude = {
   items: true,
   activities: true,
+  payments: paymentSelect,
   user: { select: { email: true, firstName: true, lastName: true } },
 } satisfies Prisma.BookingInclude;
 
@@ -442,7 +480,7 @@ export async function listCustomerBookings(userId: string): Promise<Booking[]> {
   const rows = await db.booking.findMany({
     where: { userId },
     orderBy: { createdAt: 'desc' },
-    include: { items: true, activities: false, user: false },
+    include: { items: true, activities: false, payments: paymentSelect, user: false },
   });
   return rows.map((row) =>
     toCustomerView({ ...row, activities: [], user: null }),
@@ -494,7 +532,7 @@ export async function cancelCustomerBooking(
 export async function listStaffBookings(): Promise<StaffBooking[]> {
   const rows = await db.booking.findMany({
     orderBy: { createdAt: 'desc' },
-    include: { items: true, activities: false, user: { select: { email: true, firstName: true, lastName: true } } },
+    include: { items: true, activities: false, payments: paymentSelect, user: { select: { email: true, firstName: true, lastName: true } } },
   });
   return rows.map((row) =>
     toStaffView({ ...row, activities: [] }),

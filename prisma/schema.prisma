@@ -7,9 +7,10 @@
 // (car_requests + activity + submission rate-limit attempts) + Phase 2D
 // customer event-request workflow (event_requests + activity +
 // submission rate-limit attempts) + Phase 2E customer booking workflow
-// (bookings + items + activity + submission rate-limit attempts).
-// Catalogue content, payments, quotations and all other domains
-// belong to later phases and MUST NOT be added here.
+// (bookings + items + activity + submission rate-limit attempts) + Phase 2F-A
+// payment core (payments + immutable payment events + initiation
+// rate-limit attempts). Provider gateway adapters, quotations and all
+// other domains belong to later phases and MUST NOT be added here.
 //
 // Conventions:
 // - MySQL is authoritative. UTC datetimes (app writes Date = UTC epoch).
@@ -485,6 +486,7 @@ model Booking {
   user       User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
   items      BookingItem[]
   activities BookingActivity[]
+  payments   Payment[]
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
@@ -549,4 +551,91 @@ model BookingAttempt {
   @@index([email, createdAt])
   @@index([ipAddress, createdAt])
   @@map("booking_attempts")
+}
+
+/// Phase 2F-A payment lifecycle. A Payment is the money record for one
+/// booking; the booking lifecycle (PENDING/CONFIRMED/...) and the
+/// payment lifecycle evolve independently — a confirmed booking is NOT
+/// automatically paid. `provider` is the gateway key that settled (or
+/// will settle) the payment; `pending` means created locally and
+/// awaiting provider handoff in Phase 2F-B. No card numbers, CVV, raw
+/// card details, or gateway credentials are ever stored here —
+/// `metadata` holds non-sensitive provider payload only.
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  CANCELLED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+/// Phase 2F-A: provider-agnostic payment record for one booking.
+/// `amount` is the server-authoritative amount due, frozen from the
+/// booking total at initiation (integer cents in, DECIMAL stored).
+/// `amountPaid`/`amountRefunded` accumulate settled money only — they
+/// are written by server-side transitions (future provider webhooks
+/// or audited offline workflows), never by browser input.
+model Payment {
+  id                String        @id @default(cuid())
+  reference         String        @unique @db.VarChar(16)
+  bookingId         String
+  provider          String        @default("pending") @db.VarChar(64)
+  providerPaymentId String?       @unique @db.VarChar(128)
+  status            PaymentStatus @default(PENDING)
+  currency          String        @default("USD") @db.Char(3)
+  amount            Decimal       @db.Decimal(10, 2)
+  amountPaid        Decimal       @default(0) @db.Decimal(10, 2)
+  amountRefunded    Decimal       @default(0) @db.Decimal(10, 2)
+  failureCode       String?       @db.VarChar(64)
+  failureMessage    String?       @db.VarChar(255)
+  idempotencyKey    String?       @unique @db.VarChar(64)
+  initiatedAt       DateTime      @default(now())
+  paidAt            DateTime?
+  failedAt          DateTime?
+  cancelledAt       DateTime?
+  refundedAt        DateTime?
+  metadata          String?       @db.Text
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  booking Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  events  PaymentEvent[]
+
+  @@index([bookingId, createdAt])
+  @@index([status, createdAt])
+  @@map("payments")
+}
+
+/// Immutable payment history. Every server-side payment transition
+/// appends one row; rows are never updated or deleted except by
+/// booking cascade. Customer-facing views exclude internal rows.
+model PaymentEvent {
+  id        String   @id @default(cuid())
+  paymentId String
+  actorRole String   @db.VarChar(16)
+  action    String   @db.VarChar(160)
+  note      String?  @db.Text
+  isInternal Boolean @default(false)
+  createdAt DateTime @default(now())
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId, createdAt])
+  @@map("payment_events")
+}
+
+/// Abuse-protection attempts for the payment-initiation endpoint.
+/// Same architecture as booking attempts: counted per email-OR-ip
+/// inside a time window, pruned opportunistically.
+model PaymentAttempt {
+  id        String   @id @default(cuid())
+  email     String   @db.VarChar(190)
+  ipAddress String   @db.VarChar(64)
+  createdAt DateTime @default(now())
+
+  @@index([email, createdAt])
+  @@index([ipAddress, createdAt])
+  @@map("payment_attempts")
 }

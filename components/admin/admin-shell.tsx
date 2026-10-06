@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ClipboardList,
   Compass,
+  CreditCard,
   ExternalLink,
   Globe2,
   LayoutDashboard,
@@ -41,6 +42,7 @@ const groups = [
     items: [
       { href: '/admin/dashboard', icon: LayoutDashboard, en: 'Dashboard', ar: 'لوحة المؤشرات' },
       { href: '/admin/bookings', icon: ShoppingCart, en: 'Bookings', ar: 'الحجوزات' },
+      { href: '/admin/payments', icon: CreditCard, en: 'Payments', ar: 'المدفوعات' },
       { href: '/admin/trips', icon: Map, en: 'Trips', ar: 'الرحلات' },
       { href: '/admin/destinations', icon: MapPinned, en: 'Destinations', ar: 'الوجهات' },
       { href: '/admin/multi-day-categories', icon: Tags, en: 'Multi Day Categories', ar: 'فئات الرحلات' },

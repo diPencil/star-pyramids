@@ -130,6 +130,12 @@ export function BookingDetailContent({ reference }: { reference: string }) {
               <div><dt><AdminText en="Reference" ar="المرجع" /></dt><dd><code dir="ltr">{item.reference}</code></dd></div>
               <div><dt><AdminText en="Status" ar="الحالة" /></dt><dd><span className={`sp-status is-${item.status}`}>{bookingStatusLabel(item.status, ar)}</span></dd></div>
               <div><dt><AdminText en="Payment" ar="الدفع" /></dt><dd>{bookingPaymentStatusLabel(item.paymentStatus, ar)}</dd></div>
+              {item.paymentSummary && item.paymentSummary.latestReference && (
+                <div><dt><AdminText en="Payment record" ar="سجل الدفع" /></dt><dd><Link href={`/admin/payments/${encodeURIComponent(item.paymentSummary.latestReference)}`}><code dir="ltr">{item.paymentSummary.latestReference}</code></Link><small style={{ color: 'var(--sp-muted)' }}>${item.paymentSummary.paidTotal.toLocaleString('en-US')} paid · {item.paymentSummary.payments} attempt{item.paymentSummary.payments === 1 ? '' : 's'}</small></dd></div>
+              )}
+              {item.paymentSummary && !item.paymentSummary.latestReference && (
+                <div><dt><AdminText en="Payment record" ar="سجل الدفع" /></dt><dd><small style={{ color: 'var(--sp-muted)' }}>{ar ? 'لا يوجد سجل دفع — غير مدفوع' : 'No payment record — unpaid'}</small></dd></div>
+              )}
               <div><dt><AdminText en="Guests" ar="الضيوف" /></dt><dd><Users size={14} />{guests}</dd></div>
               <div><dt><AdminText en="Subtotal" ar="المجموع الفرعي" /></dt><dd>${item.subtotal.toLocaleString('en-US')}</dd></div>
               <div><dt><AdminText en="Total" ar="الإجمالي" /></dt><dd><strong>${item.total.toLocaleString('en-US')} USD</strong></dd></div>
