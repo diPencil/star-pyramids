@@ -9,7 +9,8 @@
 // submission rate-limit attempts) + Phase 2E customer booking workflow
 // (bookings + items + activity + submission rate-limit attempts) + Phase 2F-A
 // payment core (payments + immutable payment events + initiation
-// rate-limit attempts). Provider gateway adapters, quotations and all
+// rate-limit attempts) + Phase 2G customer favorites (favorite_items).
+// Provider gateway adapters, quotations and all
 // other domains belong to later phases and MUST NOT be added here.
 //
 // Conventions:
@@ -74,6 +75,7 @@ model User {
   carRequests  CarRequest[]
   eventRequests EventRequest[]
   bookings     Booking[]
+  favorites    FavoriteItem[]
 
   @@index([status])
   @@map("users")
@@ -638,4 +640,24 @@ model PaymentAttempt {
   @@index([email, createdAt])
   @@index([ipAddress, createdAt])
   @@map("payment_attempts")
+}
+
+/// Phase 2G: customer saved trips (favorites). One row per saved
+/// catalogue item per customer — never a copy of the tour itself.
+/// Only the stable catalogue key is stored (`itemType` + `itemSlug`);
+/// titles, images, and prices always resolve live from the catalogue,
+/// so saved rows stay readable if catalogue copy changes. The
+/// `@@unique` constraint makes double-saving impossible.
+model FavoriteItem {
+  id        String   @id @default(cuid())
+  userId    String
+  itemType  String   @default("tour") @db.VarChar(32)
+  itemSlug  String   @db.VarChar(120)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, itemType, itemSlug])
+  @@index([userId, createdAt])
+  @@map("favorite_items")
 }

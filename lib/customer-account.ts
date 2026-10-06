@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useSyncExternalStore } from 'react'
+import { useEffect, useState } from 'react'
 import { readInquiries, saveInquiry } from '@/lib/admin-store'
 import type { EnabledLocale } from '@/lib/locale-config'
 
@@ -101,19 +101,6 @@ function emitAccountChange() {
   window.dispatchEvent(new Event('sp-customer-account'))
 }
 
-function subscribe(listener: () => void) {
-  accountListeners.add(listener)
-  const syncExternalTab = () => {
-    favoritesCache = null
-    listener()
-  }
-  window.addEventListener('storage', syncExternalTab)
-  return () => {
-    accountListeners.delete(listener)
-    window.removeEventListener('storage', syncExternalTab)
-  }
-}
-
 export type MessageDraft = { reference: string; title: string }
 
 const DRAFT_KEY = 'sp-message-draft-v1'
@@ -154,7 +141,68 @@ function getFavoritesSnapshot() {
   return favoritesCache
 }
 
+/**
+ * Authenticated favorites state (Phase 2G).
+ *
+ * The database is authoritative for signed-in customers: the hook
+ * loads `/api/account/favorites` once per mount and every mutation
+ * round-trips through the API. Guests (or unreachable API) fall back
+ * to the legacy browser-local set — guest hearts stay temporary and
+ * are never written to the server. The local key is left untouched
+ * so existing guest data is never deleted by development.
+ */
+let serverSlugsCache: string[] | null = null
+let serverMode: boolean | null = null
+let serverFetch: Promise<string[] | null> | null = null
+let serverSettledAt = 0
+/** Mounts within this window reuse the settled cache instead of
+ *  refetching, so pages with many heart buttons and fast
+ *  navigations issue at most one favorites request per window. */
+const SERVER_CACHE_TTL_MS = 30 * 1000
+
+function fetchServerFavorites(): Promise<string[] | null> {
+  if (!serverFetch) {
+    serverFetch = fetch('/api/account/favorites', { credentials: 'same-origin' })
+      .then(async (res) => {
+        if (!res.ok) return null
+        const data = (await res.json()) as { favorites?: unknown }
+        return Array.isArray(data.favorites) ? data.favorites.filter((slug): slug is string => typeof slug === 'string') : null
+      })
+      .catch(() => null)
+      .finally(() => { serverFetch = null })
+  }
+  return serverFetch
+}
+
+/** Cross-tab changes always refetch, bypassing the settled cache. */
+function refreshServerFavorites(): Promise<string[] | null> {
+  serverFetch = null
+  return fetchServerFavorites()
+}
+
+async function mutateServerFavorite(slug: string, adding: boolean) {
+  const res = await fetch('/api/account/favorites', {
+    method: adding ? 'POST' : 'DELETE',
+    headers: { 'content-type': 'application/json' },
+    credentials: 'same-origin',
+    body: JSON.stringify({ slug }),
+  })
+  const data = (await res.json()) as { favorites?: unknown }
+  if (!res.ok) throw new Error('Could not update saved trips.')
+  if (!Array.isArray(data.favorites)) throw new Error('Could not update saved trips.')
+  return data.favorites.filter((entry): entry is string => typeof entry === 'string')
+}
+
 export function toggleCustomerFavorite(slug: string) {
+  if (serverMode === true) {
+    const adding = !(serverSlugsCache ?? []).includes(slug)
+    serverSlugsCache = adding ? [slug, ...(serverSlugsCache ?? [])] : (serverSlugsCache ?? []).filter((item) => item !== slug)
+    emitAccountChange()
+    mutateServerFavorite(slug, adding)
+      .then((slugs) => { serverSlugsCache = slugs; serverSettledAt = Date.now(); emitAccountChange() })
+      .catch(() => { serverSlugsCache = null; emitAccountChange() })
+    return
+  }
   const current = getFavoritesSnapshot()
   favoritesCache = current.includes(slug) ? current.filter((item) => item !== slug) : [slug, ...current]
   try { window.localStorage.setItem(FAVORITES_KEY, JSON.stringify(favoritesCache)) } catch { /* storage can be unavailable */ }
@@ -162,8 +210,75 @@ export function toggleCustomerFavorite(slug: string) {
 }
 
 export function useCustomerFavorites() {
-  const slugs = useSyncExternalStore(subscribe, getFavoritesSnapshot, () => EMPTY_FAVORITES)
-  return { slugs, has: (slug: string) => slugs.includes(slug), toggle: toggleCustomerFavorite }
+  const [slugs, setSlugs] = useState<string[]>(() => (serverMode === true && serverSlugsCache ? [...serverSlugsCache] : serverMode === false ? getFavoritesSnapshot() : []))
+  const [loading, setLoading] = useState(serverMode === null)
+  useEffect(() => {
+    let cancelled = false
+    // Reuse a freshly settled cache so pages with many heart buttons
+    // and fast navigations do not refetch on every mount.
+    if (serverMode === true && serverSlugsCache && Date.now() - serverSettledAt < SERVER_CACHE_TTL_MS) {
+      setSlugs([...serverSlugsCache])
+      setLoading(false)
+    } else {
+      fetchServerFavorites().then((rows) => {
+        if (cancelled) return
+        if (rows === null) {
+          // Guest (or unreachable API): browser-local set stays in
+          // charge and remains temporary by design.
+          serverMode = false
+          serverSlugsCache = null
+          setSlugs(getFavoritesSnapshot())
+        } else {
+          serverMode = true
+          serverSlugsCache = rows
+          serverSettledAt = Date.now()
+          setSlugs([...rows])
+        }
+        setLoading(false)
+      }).catch(() => {
+        // Any unexpected failure (e.g. unparsable response) must
+        // still settle loading — fall back to the guest-local set
+        // instead of hanging on the loading state.
+        if (cancelled) return
+        serverMode = false
+        serverSlugsCache = null
+        setSlugs(getFavoritesSnapshot())
+        setLoading(false)
+      })
+    }
+    const sync = (event?: Event) => {
+      if (cancelled) return
+      if (serverMode === true) {
+        // Same-tab mutations already updated the shared cache
+        // optimistically. A cross-tab write to the favorites key
+        // refetches; unrelated storage keys are ignored to avoid
+        // refetch churn.
+        if (event instanceof StorageEvent) {
+          if (event.key !== null && event.key !== FAVORITES_KEY) return
+          refreshServerFavorites().then((rows) => {
+            if (!cancelled && rows !== null) {
+              serverSlugsCache = rows
+              serverSettledAt = Date.now()
+              setSlugs([...rows])
+            }
+          }).catch(() => { /* best-effort cross-tab sync keeps the current set */ })
+        } else if (serverSlugsCache) {
+          setSlugs([...serverSlugsCache])
+        }
+      } else {
+        favoritesCache = null
+        setSlugs(getFavoritesSnapshot())
+      }
+    }
+    const storageSync = (event: StorageEvent) => sync(event)
+    accountListeners.add(sync)
+    window.addEventListener('storage', storageSync)
+    return () => {
+      accountListeners.delete(sync)
+      window.removeEventListener('storage', storageSync)
+    }
+  }, [])
+  return { slugs, has: (slug: string) => slugs.includes(slug), toggle: toggleCustomerFavorite, loading }
 }
 
 export function readCustomerProfile(): CustomerProfile {
