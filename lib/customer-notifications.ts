@@ -69,6 +69,17 @@ async function patchNotifications(body: { action: 'read' | 'read-all'; id?: stri
 }
 
 /**
+ * Revalidate the shared notification cache from the server (Phase 2I
+ * read-sync). Called after a conversation read resolves matching
+ * notifications server-side, so the bell reflects the new state
+ * immediately without polling or manual refresh.
+ */
+export function invalidateNotifications(): void {
+  settled = false
+  void fetchNotifications()
+}
+
+/**
  * Authoritative authenticated notification state (Phase 2H).
  *
  * Single shared cache across every consumer (account bell, panels):

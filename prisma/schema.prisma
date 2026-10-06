@@ -10,7 +10,9 @@
 // (bookings + items + activity + submission rate-limit attempts) + Phase 2F-A
 // payment core (payments + immutable payment events + initiation
 // rate-limit attempts) + Phase 2G customer favorites (favorite_items)
-// + Phase 2H customer in-app notifications (notifications).
+// + Phase 2H customer in-app notifications (notifications)
+// + Phase 2I customer↔staff support chat (support_conversations +
+// support_messages).
 // Provider gateway adapters, quotations and all
 // other domains belong to later phases and MUST NOT be added here.
 //
@@ -78,6 +80,9 @@ model User {
   bookings     Booking[]
   favorites    FavoriteItem[]
   notifications Notification[]
+  supportConversations SupportConversation[] @relation("SupportCustomer")
+  assignedSupportConversations SupportConversation[] @relation("SupportAssignee")
+  supportMessages SupportMessage[]
 
   @@index([status])
   @@map("users")
@@ -686,4 +691,63 @@ model Notification {
   @@index([userId, createdAt])
   @@index([userId, readAt])
   @@map("notifications")
+}
+
+/// Phase 2I: internal STAR PYRAMIDS support conversations (customer ↔
+/// staff). One conversation thread per customer support need; the
+/// customer UX centers on their latest thread while staff work from a
+/// cross-customer inbox. `customerId` is the owning customer (server
+/// session, never browser input). `assignedStaffId` is the staff owner
+/// (nullable, staff-set only). `subject` is an optional short context
+/// label (e.g. a booking reference the question relates to). `status`
+/// is OPEN or CLOSED; closed threads are read-only history — new
+/// customer messages open a fresh thread. `lastMessageAt` orders the
+/// staff inbox. External/WhatsApp channels are NOT modeled here.
+enum SupportConversationStatus {
+  OPEN
+  CLOSED
+}
+
+model SupportConversation {
+  id              String                    @id @default(cuid())
+  reference       String                    @unique @db.VarChar(16)
+  customerId      String
+  subject         String?                   @db.VarChar(160)
+  status          SupportConversationStatus @default(OPEN)
+  assignedStaffId String?
+  lastMessageAt   DateTime                  @default(now())
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+  closedAt        DateTime?
+
+  customer User  @relation("SupportCustomer", fields: [customerId], references: [id], onDelete: Cascade)
+  assignee User? @relation("SupportAssignee", fields: [assignedStaffId], references: [id], onDelete: SetNull)
+  messages SupportMessage[]
+
+  @@index([customerId, updatedAt])
+  @@index([status, lastMessageAt])
+  @@map("support_conversations")
+}
+
+/// Phase 2I: plain-text support messages. `senderRole` is stamped
+/// server-side from the authenticated session ('customer' | 'staff') —
+/// the browser never declares who sends. `body` is validated plain
+/// text (1–2000 chars, no control characters); rendering must treat it
+/// as text, never HTML. `readAt` is the recipient-side read marker:
+/// NULL means unread by the other side. No attachments, reactions, or
+/// external-channel payloads in this phase.
+model SupportMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  senderId       String
+  senderRole     String   @db.VarChar(16)
+  body           String   @db.VarChar(2000)
+  readAt         DateTime?
+  createdAt      DateTime @default(now())
+
+  conversation SupportConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User                @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("support_messages")
 }

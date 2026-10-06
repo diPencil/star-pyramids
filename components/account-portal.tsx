@@ -7,7 +7,7 @@ import {
   ArrowRight, ArrowLeft, Ban, Bell, CalendarDays, CarFront, Check, CheckCircle2, ChevronDown, ChevronRight, Compass,
   CircleDollarSign, Clock3, CreditCard, ExternalLink, Globe2, Heart, HelpCircle,
   CheckCheck, Download, Eye, EyeOff, FileText, FlaskConical, ImagePlus, KeyRound, Laptop, LayoutDashboard, LockKeyhole, LogOut, Mail, Menu,
-  MessageCircle, PackageCheck, Paperclip, Pencil, Plus, ReceiptText, Search, Send,
+  MessageCircle, PackageCheck, Pencil, Plus, ReceiptText, Search, Send,
   Settings2, ShieldCheck, ShoppingBag, ShoppingCart, Star, Ticket, Trash2, UserRound,
   Users, WalletCards, X,
 } from 'lucide-react'
@@ -32,10 +32,7 @@ import {
   useCustomerNotifications, type CustomerNotification,
 } from '@/lib/customer-notifications'
 import { NotificationPanel as SharedNotificationPanel } from '@/components/notification-panel'
-import {
-  markCustomerChatRead, sendCustomerChatMessage, useCustomerChatMessages,
-  type CustomerChatAttachment,
-} from '@/lib/customer-chat'
+import { useSupportChat } from '@/lib/support-chat'
 import { whatsappHref } from '@/data/company'
 import { CountrySelect } from '@/components/country-select'
 import { InternationalPhoneInput } from '@/components/international-phone-input'
@@ -262,8 +259,8 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
     : storedProfile
   const bookings = useVisibleBookings()
   const inquiries = useVisibleInquiries()
-  const chatMessages = useCustomerChatMessages()
-  const unreadMessages = chatMessages.filter((message) => message.sender === 'agent' && !message.readByCustomer).length
+  const supportChat = useSupportChat()
+  const unreadMessages = supportChat.unreadCount
   const favorites = useCustomerFavorites()
   const notifications = useCustomerNotifications()
   const cart = useCart()
@@ -363,7 +360,7 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
           <button type="button" onClick={() => stopImpersonation()}><LogOut size={15} />{tx(locale, { en: 'Exit preview', es: 'Salir de la vista previa', it: 'Esci dall’anteprima', ar: 'إنهاء المعاينة' })}</button>
         </div>}
         <section className="customer-account-main">
-        <p className="customer-demo-notice" role="note"><FlaskConical size={16} /><span><strong>{tx(locale, { en: 'Account connected', es: 'Cuenta conectada', it: 'Account collegato', ar: 'الحساب متصل' })}</strong>{tx(locale, { en: 'Your identity, profile, sign-in, bookings, payments, trip requests, car requests, event requests, and notifications are database-backed. Online card payment opens here once a provider is connected — messages remain preview data until their backend phase.', ar: 'هويتك وملفك الشخصي وتسجيل الدخول والحجوزات والمدفوعات وطلبات الرحلات وطلبات السيارات وطلبات الفعاليات والإشعارات مدعومة بقاعدة البيانات. ستظهر بوابة الدفع الإلكتروني هنا عند ربط مزود — تظل الرسائل بيانات معاينة حتى مرحلة الباك إند الخاصة بها.' })}</span></p>
+        <p className="customer-demo-notice" role="note"><FlaskConical size={16} /><span><strong>{tx(locale, { en: 'Account connected', es: 'Cuenta conectada', it: 'Account collegato', ar: 'الحساب متصل' })}</strong>{tx(locale, { en: 'Your identity, profile, sign-in, bookings, payments, trip requests, car requests, event requests, notifications, and messages are database-backed. Online card payment opens here once a provider is connected.', ar: 'هويتك وملفك الشخصي وتسجيل الدخول والحجوزات والمدفوعات وطلبات الرحلات وطلبات السيارات وطلبات الفعاليات والإشعارات والرسائل مدعومة بقاعدة البيانات. ستظهر بوابة الدفع الإلكتروني هنا عند ربط مزود.' })}</span></p>
         <header className="customer-account-head">
           <div><span>{tx(locale, { en: 'STAR PYRAMIDS account', es: 'Cuenta de STAR PYRAMIDS', it: 'Account STAR PYRAMIDS', ar: 'حساب STAR PYRAMIDS' })}</span><h1>{tx(locale, heading)}</h1><p>{tx(locale, { en: heading.subEn, es: heading.subEs, it: heading.subIt, ar: heading.subAr })}</p></div>
           <div className="customer-account-head-actions">{headLeading}<Link href="/trips" className="account-icon-action"><Search size={17} />{tx(locale, { en: 'Explore trips', es: 'Explorar viajes', it: 'Esplora i viaggi', ar: 'استكشف الرحلات' })}</Link><Link href="/contact" className="account-icon-action primary"><HelpCircle size={17} />{tx(locale, { en: 'Get help', es: 'Obtener ayuda', it: 'Richiedi assistenza', ar: 'اطلب مساعدة' })}</Link></div>
@@ -474,7 +471,8 @@ function OverviewSection() {
   const bookings = useVisibleBookings()
   const favorites = useCustomerFavorites()
   const inquiries = useVisibleInquiries()
-  const chatMessages = useCustomerChatMessages()
+  const supportThread = useSupportChat()
+  const hasSupportThread = supportThread.conversation !== null || supportThread.messages.length > 0
   const cart = useCart()
   const cartEstimate = useMemo(() => estimateCart(cart.items), [cart.items])
   const latestBooking = bookings[0]
@@ -490,7 +488,7 @@ function OverviewSection() {
       <Metric Icon={ShoppingBag} value={bookings.length} label={tx(locale, { en: 'Bookings', es: 'Reservas', it: 'Prenotazioni', ar: 'الحجوزات' })} note={tx(locale, { en: 'All requests', es: 'Todas las solicitudes', it: 'Tutte le richieste', ar: 'كل الطلبات' })} tone="blue" />
       <Metric Icon={Heart} value={favorites.slugs.length} label={tx(locale, { en: 'Saved', es: 'Guardado', it: 'Salvato', ar: 'المحفوظة' })} note={tx(locale, { en: 'Trip ideas', es: 'Ideas de viaje', it: 'Idee di viaggio', ar: 'أفكار للرحلة' })} tone="orange" />
       <Metric Icon={ShoppingCart} value={cart.lines} label={tx(locale, { en: 'In cart', es: 'En la cesta', it: 'Nel carrello', ar: 'في السلة' })} note={cart.lines ? formatPrice(cartEstimate.subtotal, currency, locale) : (tx(locale, { en: 'Cart is empty', es: 'La cesta está vacía', it: 'Il carrello è vuoto', ar: 'السلة فارغة' }))} tone="green" />
-      <Metric Icon={MessageCircle} value={inquiries.length + (chatMessages.length ? 1 : 0)} label={tx(locale, { en: 'Conversations', es: 'Conversaciones', it: 'Conversazioni', ar: 'المحادثات' })} note={chatMessages.length ? (tx(locale, { en: 'Active support chat', es: 'Chat de asistencia activa', it: 'Chat di assistenza attiva', ar: 'دعم مباشر نشط' })) : (tx(locale, { en: 'Recorded enquiries', es: 'Consultas registradas', it: 'Richieste registrate', ar: 'طلبات مسجلة' }))} tone="violet" />
+      <Metric Icon={MessageCircle} value={inquiries.length + (hasSupportThread ? 1 : 0)} label={tx(locale, { en: 'Conversations', es: 'Conversaciones', it: 'Conversazioni', ar: 'المحادثات' })} note={hasSupportThread ? (tx(locale, { en: 'Active support chat', es: 'Chat de asistencia activa', it: 'Chat di assistenza attiva', ar: 'دعم مباشر نشط' })) : (tx(locale, { en: 'Recorded enquiries', es: 'Consultas registradas', it: 'Richieste registrate', ar: 'طلبات مسجلة' }))} tone="violet" />
     </div>
     <div className="customer-overview-grid">
       <section className="customer-account-block customer-span-2">
@@ -1372,10 +1370,12 @@ function MessagesSection() {
   const profile = useAccountProfile()
   const impersonated = useImpersonated()
   const bookings = useVisibleBookings()
-  const messages = useCustomerChatMessages()
+  const thread = useSupportChat()
+  const messages = thread.messages
+  const conversation = thread.conversation
+  const closed = conversation?.status === 'closed'
   const [draft, setDraft] = useState('')
-  const [attachment, setAttachment] = useState<CustomerChatAttachment | undefined>()
-  const [fileError, setFileError] = useState('')
+  const [sendError, setSendError] = useState('')
 
   useEffect(() => {
     const pending = readMessageDraft()
@@ -1389,42 +1389,40 @@ function MessagesSection() {
   const latestBooking = bookings[0]
 
   useEffect(() => {
-    markCustomerChatRead('customer')
+    if (!thread.loading && messages.some((message) => message.senderRole === 'staff' && !message.readAt)) {
+      void thread.markRead()
+    }
     const frame = window.requestAnimationFrame(() => bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight, behavior: 'smooth' }))
     return () => window.cancelAnimationFrame(frame)
-  }, [messages.length])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages.length, thread.loading])
 
-  const send = () => {
-    if (impersonated || (!draft.trim() && !attachment)) return
-    sendCustomerChatMessage(draft, attachment)
-    setDraft('')
-    setAttachment(undefined)
-    setFileError('')
-  }
-
-  const chooseAttachment = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-    if (file.size > 1.5 * 1024 * 1024) {
-      setFileError(tx(locale, { en: 'Attachments must be smaller than 1.5 MB.', es: 'Los adjuntos deben ser menores de 1,5 MB.', it: 'Gli allegati devono essere inferiori a 1,5 MB.', ar: 'الحد الأقصى للمرفق 1.5 ميجابايت.' }))
-      return
+  const send = async () => {
+    if (impersonated || thread.sending || !draft.trim()) return
+    const result = await thread.send(draft)
+    if (result.ok) {
+      setDraft('')
+      setSendError('')
+    } else if (result.error) {
+      setSendError(result.error)
     }
-    const reader = new FileReader()
-    reader.onload = () => {
-      if (typeof reader.result !== 'string') return
-      setAttachment({ name: file.name, type: file.type || 'application/octet-stream', size: file.size, url: reader.result })
-      setFileError('')
-    }
-    reader.readAsDataURL(file)
-    event.target.value = ''
   }
 
   const keyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()
-      send()
+      void send()
     }
   }
+
+  // Auto-grow the composer up to the CSS max-height, then internal scroll.
+  const composerRef = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => {
+    const el = composerRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, 132)}px`
+  }, [draft])
 
   return <div className="customer-chat-layout">
     <section className="customer-chat-panel">
@@ -1435,25 +1433,29 @@ function MessagesSection() {
       </header>
 
       <div className="customer-chat-body" ref={bodyRef} aria-live="polite">
-        {!messages.length && <div className="customer-chat-welcome"><span><MessageCircle size={25} /></span><h2>{locale === 'es' ? `Hola ${profile.fullName.split(' ')[0]}` : locale === 'it' ? `Ciao ${profile.fullName.split(' ')[0]}` : locale === 'ar' ? `أهلًا ${profile.fullName.split(' ')[0]}` : `Hi ${profile.fullName.split(' ')[0]}`}</h2><p>{tx(locale, { en: 'Ask about a booking, pricing, or trip details. The team reply will stay here in this conversation.', es: 'Pregunta por una reserva, precios o detalles del viaje. La respuesta del equipo quedará aquí, en esta conversación.', it: 'Chiedi info su una prenotazione, prezzi o dettagli del viaggio. La risposta del team resterà qui in questa conversazione.', ar: 'اكتب سؤالك عن الحجز أو الأسعار أو تفاصيل رحلتك، وسيظهر الرد هنا في نفس المحادثة.' })}</p><div>{(locale === 'es' ? ['Quiero seguir mi reserva', 'Quiero cambiar la fecha de mi viaje', 'Tengo una pregunta sobre un pago'] : locale === 'it' ? ['Voglio seguire la mia prenotazione', 'Voglio cambiare la data del viaggio', 'Ho una domanda su un pagamento'] : locale === 'ar' ? ['أريد متابعة حجزي', 'أحتاج تعديل موعد الرحلة', 'لدي سؤال عن الدفع'] : ['Track my booking', 'Change my travel date', 'I have a payment question']).map((prompt) => <button type="button" key={prompt} onClick={() => setDraft(prompt)}>{prompt}</button>)}</div></div>}
-        {messages.map((message) => <div key={message.id} className={`customer-chat-row ${message.sender}`}>
-          {message.sender === 'agent' && <span className="customer-chat-bubble-avatar"><img src="/favicon.png" alt="" /></span>}
-          <div>
-            <span className="customer-chat-bubble">
-              {message.text && <p>{message.text}</p>}
-              {message.attachment && <a href={message.attachment.url} download={message.attachment.name}><FileText size={17} /><span><strong>{message.attachment.name}</strong><small>{Math.max(1, Math.round(message.attachment.size / 1024))} KB</small></span></a>}
-            </span>
-            <small className="customer-chat-time">{new Date(message.createdAt).toLocaleTimeString(locale === 'ar' ? 'ar-EG' : locale === 'es' ? 'es-ES' : locale === 'it' ? 'it-IT' : 'en-GB', { hour: '2-digit', minute: '2-digit' })}{message.sender === 'customer' && <CheckCheck size={13} aria-label={message.readByAdmin ? (tx(locale, { en: 'Seen', es: 'Visto', it: 'Visualizzato', ar: 'مقروءة' })) : (tx(locale, { en: 'Sent', es: 'Enviado', it: 'Inviato', ar: 'تم الإرسال' }))} />}</small>
-          </div>
-        </div>)}
+        {thread.loading
+          ? <div className="customer-chat-welcome"><span><MessageCircle size={25} /></span><h2>{tx(locale, { en: 'Loading messages…', es: 'Cargando mensajes…', it: 'Caricamento messaggi…', ar: 'جارٍ تحميل الرسائل…' })}</h2></div>
+          : thread.loadError && !messages.length
+            ? <div className="customer-chat-welcome"><span><MessageCircle size={25} /></span><h2>{tx(locale, { en: 'Messages unavailable', es: 'Mensajes no disponibles', it: 'Messaggi non disponibili', ar: 'الرسائل غير متاحة' })}</h2><p>{thread.loadError}</p><div><button type="button" onClick={thread.refresh}>{tx(locale, { en: 'Try again', es: 'Reintentar', it: 'Riprova', ar: 'حاول مجددًا' })}</button></div></div>
+            : <>
+                {!messages.length && <div className="customer-chat-welcome"><span><MessageCircle size={25} /></span><h2>{locale === 'es' ? `Hola ${profile.fullName.split(' ')[0]}` : locale === 'it' ? `Ciao ${profile.fullName.split(' ')[0]}` : locale === 'ar' ? `أهلًا ${profile.fullName.split(' ')[0]}` : `Hi ${profile.fullName.split(' ')[0]}`}</h2><p>{tx(locale, { en: 'Ask about a booking, pricing, or trip details. The team reply will stay here in this conversation.', es: 'Pregunta por una reserva, precios o detalles del viaje. La respuesta del equipo quedará aquí, en esta conversación.', it: 'Chiedi info su una prenotazione, prezzi o dettagli del viaggio. La risposta del team resterà qui in questa conversazione.', ar: 'اكتب سؤالك عن الحجز أو الأسعار أو تفاصيل رحلتك، وسيظهر الرد هنا في نفس المحادثة.' })}</p><div>{(locale === 'es' ? ['Quiero seguir mi reserva', 'Quiero cambiar la fecha de mi viaje', 'Tengo una pregunta sobre un pago'] : locale === 'it' ? ['Voglio seguire la mia prenotazione', 'Voglio cambiare la data del viaggio', 'Ho una domanda su un pagamento'] : locale === 'ar' ? ['أريد متابعة حجزي', 'أحتاج تعديل موعد الرحلة', 'لدي سؤال عن الدفع'] : ['Track my booking', 'Change my travel date', 'I have a payment question']).map((prompt) => <button type="button" key={prompt} onClick={() => setDraft(prompt)}>{prompt}</button>)}</div></div>}
+                {messages.map((message) => <div key={message.id} className={`customer-chat-row ${message.senderRole === 'staff' ? 'agent' : 'customer'}`}>
+                  {message.senderRole === 'staff' && <span className="customer-chat-bubble-avatar"><img src="/favicon.png" alt="" /></span>}
+                  <div>
+                    <span className="customer-chat-bubble">
+                      <p>{message.body}</p>
+                    </span>
+                    <small className="customer-chat-time">{new Date(message.createdAt).toLocaleTimeString(locale === 'ar' ? 'ar-EG' : locale === 'es' ? 'es-ES' : locale === 'it' ? 'it-IT' : 'en-GB', { hour: '2-digit', minute: '2-digit' })}{message.senderRole === 'customer' && <CheckCheck size={13} aria-label={message.readAt ? (tx(locale, { en: 'Seen', es: 'Visto', it: 'Visualizzato', ar: 'مقروءة' })) : (tx(locale, { en: 'Sent', es: 'Enviado', it: 'Inviato', ar: 'تم الإرسال' }))} />}</small>
+                  </div>
+                </div>)}
+              </>}
       </div>
 
-      {attachment && <div className="customer-chat-attachment"><FileText size={17} /><span><strong>{attachment.name}</strong><small>{Math.max(1, Math.round(attachment.size / 1024))} KB</small></span><button type="button" onClick={() => setAttachment(undefined)} aria-label={tx(locale, { en: 'Remove attachment', es: 'Quitar el adjunto', it: 'Rimuovi allegato', ar: 'إزالة المرفق' })}><X size={15} /></button></div>}
-      {fileError && <p className="customer-chat-error">{fileError}</p>}
-      <form className="customer-chat-composer" onSubmit={(event) => { event.preventDefault(); send() }}>
-        <label title={tx(locale, { en: 'Attach file', es: 'Adjuntar archivo', it: 'Allega file', ar: 'إرفاق ملف' })}><Paperclip size={18} /><input type="file" accept="image/*,.pdf,.doc,.docx" onChange={chooseAttachment} disabled={Boolean(impersonated)} /></label>
-        <textarea rows={1} value={draft} disabled={Boolean(impersonated)} onChange={(event) => setDraft(event.target.value)} onKeyDown={keyDown} placeholder={impersonated ? (tx(locale, { en: 'Sending is disabled during staff preview', es: 'El envío está desactivado durante la vista previa del personal', it: 'Invio disabilitato durante l’anteprima staff', ar: 'الإرسال متوقف أثناء معاينة الموظفين' })) : (tx(locale, { en: 'Write a message...', es: 'Escribe un mensaje…', it: 'Scrivi un messaggio…', ar: 'اكتب رسالتك...' }))} />
-        <button type="submit" disabled={Boolean(impersonated) || (!draft.trim() && !attachment)} aria-label={tx(locale, { en: 'Send message', es: 'Enviar mensaje', it: 'Invia messaggio', ar: 'إرسال الرسالة' })}><Send size={18} /></button>
+      {closed && <p className="customer-chat-error">{tx(locale, { en: 'This conversation was closed by our team. Send a new message to start a fresh conversation.', es: 'Esta conversación fue cerrada por nuestro equipo. Envía un mensaje nuevo para abrir otra.', it: 'Questa conversazione è stata chiusa dal nostro team. Invia un nuovo messaggio per aprirne un’altra.', ar: 'أغلق فريقنا هذه المحادثة. أرسل رسالة جديدة لبدء محادثة جديدة.' })}</p>}
+      {sendError && <p className="customer-chat-error">{sendError}</p>}
+      <form className="customer-chat-composer" onSubmit={(event) => { event.preventDefault(); void send() }}>
+        <textarea ref={composerRef} rows={1} value={draft} disabled={Boolean(impersonated) || closed || thread.sending} onChange={(event) => setDraft(event.target.value)} onKeyDown={keyDown} aria-label={tx(locale, { en: 'Write a message to our travel team', es: 'Escribe un mensaje a nuestro equipo', it: 'Scrivi un messaggio al nostro team', ar: 'اكتب رسالة إلى فريقنا' })} placeholder={impersonated ? (tx(locale, { en: 'Sending is disabled during staff preview', es: 'El envío está desactivado durante la vista previa del personal', it: 'Invio disabilitato durante l’anteprima staff', ar: 'الإرسال متوقف أثناء معاينة الموظفين' })) : (tx(locale, { en: 'Write a message to our travel team...', es: 'Escribe un mensaje a nuestro equipo…', it: 'Scrivi un messaggio al nostro team…', ar: 'اكتب رسالة إلى فريقنا...' }))} />
+        <button type="submit" disabled={Boolean(impersonated) || closed || thread.sending || !draft.trim()} aria-label={tx(locale, { en: 'Send message', es: 'Enviar mensaje', it: 'Invia messaggio', ar: 'إرسال الرسالة' })}><Send size={18} /></button>
       </form>
     </section>
 

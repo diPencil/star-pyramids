@@ -38,6 +38,8 @@ const NOTIFICATION_TYPES = new Set([
   'admin_car_request_submitted',
   'admin_event_request_submitted',
   'admin_payment_initiated',
+  'support_message_received',
+  'admin_support_message_received',
 ]);
 
 export type NotificationType =
@@ -59,7 +61,9 @@ export type NotificationType =
   | 'admin_trip_request_submitted'
   | 'admin_car_request_submitted'
   | 'admin_event_request_submitted'
-  | 'admin_payment_initiated';
+  | 'admin_payment_initiated'
+  | 'support_message_received'
+  | 'admin_support_message_received';
 
 const TITLE_MAX = 160;
 const MESSAGE_MAX = 500;
@@ -149,6 +153,46 @@ export async function markNotificationRead(userId: string, id: string): Promise<
 export async function markAllNotificationsRead(userId: string): Promise<number> {
   const result = await db.notification.updateMany({
     where: { userId, readAt: null },
+    data: { readAt: new Date() },
+  });
+  return result.count;
+}
+
+/** Exact href builders for support-chat notifications. The conversation
+ *  reference is embedded so read-sync can scope to one thread with an
+ *  exact href match — never substring matching. */
+export function customerSupportHref(reference: string): string {
+  return `/account/messages?conversation=${encodeURIComponent(reference)}`;
+}
+
+export function adminSupportHref(reference: string): string {
+  return `/admin/inbox?conversation=${encodeURIComponent(reference)}`;
+}
+
+/** Legacy customer support href (pre-conversation-scoping). Included in
+ *  read-sync sets so older "go read your messages" pointers resolve
+ *  when the customer opens their thread. */
+export const LEGACY_CUSTOMER_SUPPORT_HREF = '/account/messages';
+
+/**
+ * Mark unread notifications read for one recipient, one type, and an
+ * exact set of hrefs. Used ONLY by read-sync when a conversation is
+ * opened: recipient + type + href scoping guarantees unrelated
+ * notifications (other types, other threads, other users) are never
+ * touched. Returns rows changed.
+ */
+export async function markNotificationsReadByHref(
+  userId: string,
+  type: string,
+  hrefs: string[],
+): Promise<number> {
+  if (!NOTIFICATION_TYPES.has(type)) return 0;
+  // Fail closed: blank/whitespace/malformed hrefs must never widen the
+  // match — an empty `IN ()` set would otherwise risk broad updates.
+  const exact = [...new Set(hrefs)].filter((href) => typeof href === 'string' && href.trim() !== '' && href.length <= HREF_MAX && isValidHref(href));
+  if (exact.length === 0) return 0;
+  const result = await db.notification.updateMany({
+    where: { userId, type, href: { in: exact }, readAt: null },
     data: { readAt: new Date() },
   });
   return result.count;
