@@ -9,7 +9,7 @@ import { CountrySelect } from '@/components/country-select'
 import { InternationalPhoneInput } from '@/components/international-phone-input'
 import { FacebookIcon, GoogleIcon } from './brand-icons'
 import { siteImages } from '@/data/content'
-import { LocaleProvider, useLocale } from './locale'
+import { LocaleProvider, tx, useLocale } from './locale'
 import { LanguageSelector } from './language-selector'
 import { Logo } from './site'
 import { getCopy } from '@/lib/locale-helpers'
@@ -35,9 +35,27 @@ const baseAuthCopy = {
     imageCopy: 'ارجع لرحلاتك المحفوظة، كمّل التخطيط، وخلي تفاصيل رحلتك قريبة منك.',
     benefits: ['احفظ الرحلات لوقت لاحق', 'اجمع طلبات الرحلة في مكان واحد', 'كمّل التخطيط من أي جهاز'],
   },
+  es: {
+    loginTitle: 'Bienvenido de nuevo a tus planes de Egipto.',
+    loginCopy: 'Inicia sesión para tener tus viajes guardados, tus consultas y tus datos de viaje en un solo lugar.',
+    registerTitle: 'Crea tu cuenta de viaje.',
+    registerCopy: 'Guarda viajes inspiradores y mantén toda tu conversación con nuestro equipo en Egipto en un solo lugar.',
+    imageTitle: 'Tu próxima historia en Egipto, en un solo lugar.',
+    imageCopy: 'Vuelve a tus viajes guardados, sigue planificando y ten los detalles de tu viaje a mano.',
+    benefits: ['Guarda tours para después', 'Mantén tus consultas juntas', 'Sigue planificando en todos tus dispositivos'],
+  },
+  it: {
+    loginTitle: 'Bentornato ai tuoi piani per l’Egitto.',
+    loginCopy: 'Accedi per ritrovare viaggi salvati, richieste e dati di viaggio in un unico posto.',
+    registerTitle: 'Crea il tuo account di viaggio.',
+    registerCopy: 'Salva viaggi interessanti e tieni ogni conversazione con il nostro team in Egitto in un unico posto.',
+    imageTitle: 'La tua prossima storia in Egitto, in un unico posto.',
+    imageCopy: 'Torna ai viaggi salvati, continua a pianificare e tieni i dettagli del viaggio con te.',
+    benefits: ['Salva i tour per dopo', 'Tieni insieme le richieste di viaggio', 'Continua a pianificare su ogni dispositivo'],
+  },
 } as const
 
-const authCopy = { ...baseAuthCopy, es: baseAuthCopy.en, it: baseAuthCopy.en } as const
+const authCopy = { ...baseAuthCopy } as const
 
 function AuthField({ label, icon, children, className = '' }: { label: string; icon: ReactNode; children: ReactNode; className?: string }) {
   return <label className={`auth-v2-field ${className}`}><span>{label}</span><div>{icon}{children}</div></label>
@@ -46,14 +64,14 @@ function AuthField({ label, icon, children, className = '' }: { label: string; i
 function PasswordField({ label, name, autoComplete }: { label: string; name: string; autoComplete: string }) {
   const { locale } = useLocale()
   const [show, setShow] = useState(false)
-  return <AuthField label={label} icon={<LockKeyhole size={18} />}><input required name={name} minLength={6} maxLength={8} type={show ? 'text' : 'password'} autoComplete={autoComplete} placeholder={locale === 'ar' ? '٦-٨ أحرف' : '6-8 characters'} /><button type="button" onClick={() => setShow((value) => !value)} aria-label={show ? (locale === 'ar' ? 'إخفاء كلمة المرور' : 'Hide password') : (locale === 'ar' ? 'إظهار كلمة المرور' : 'Show password')}>{show ? <EyeOff size={18} /> : <Eye size={18} />}</button></AuthField>
+  return <AuthField label={label} icon={<LockKeyhole size={18} />}><input required name={name} minLength={6} maxLength={8} type={show ? 'text' : 'password'} autoComplete={autoComplete} placeholder={tx(locale, { en: '6-8 characters', es: '6-8 caracteres', it: '6-8 caratteri', ar: '٦-٨ أحرف' })} /><button type="button" onClick={() => setShow((value) => !value)} aria-label={show ? tx(locale, { en: 'Hide password', es: 'Ocultar contraseña', it: 'Nascondi password', ar: 'إخفاء كلمة المرور' }) : tx(locale, { en: 'Show password', es: 'Mostrar contraseña', it: 'Mostra password', ar: 'إظهار كلمة المرور' })}>{show ? <EyeOff size={18} /> : <Eye size={18} />}</button></AuthField>
 }
 
 function SocialButtons({ onSelect }: { onSelect: (provider: SocialProvider) => void }) {
   const { locale } = useLocale()
   return <div className="auth-v2-socials">
-    <button type="button" onClick={() => onSelect('Google')}><GoogleIcon /><span>{locale === 'ar' ? 'المتابعة باستخدام Google' : 'Continue with Google'}</span></button>
-    <button type="button" onClick={() => onSelect('Facebook')}><FacebookIcon /><span>{locale === 'ar' ? 'المتابعة باستخدام Facebook' : 'Continue with Facebook'}</span></button>
+    <button type="button" onClick={() => onSelect('Google')}><GoogleIcon /><span>{tx(locale, { en: 'Continue with Google', es: 'Continuar con Google', it: 'Continua con Google', ar: 'المتابعة باستخدام Google' })}</span></button>
+    <button type="button" onClick={() => onSelect('Facebook')}><FacebookIcon /><span>{tx(locale, { en: 'Continue with Facebook', es: 'Continuar con Facebook', it: 'Continua con Facebook', ar: 'المتابعة باستخدام Facebook' })}</span></button>
   </div>
 }
 
@@ -61,13 +79,13 @@ function LoginForm() {
   const { locale } = useLocale()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const ar = locale === 'ar'
   const text = getCopy(authCopy, locale)
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const genericError = tx(locale, { en: 'An error occurred. Please try again.', es: 'Se produjo un error. Inténtalo de nuevo.', it: 'Si è verificato un errore. Riprova.', ar: 'حدث خطأ. حاول مرة أخرى.' })
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -88,9 +106,9 @@ function LoginForm() {
         return
       }
       const data = await res.json().catch(() => ({}))
-      setError(data.error || (ar ? 'حدث خطأ. حاول مرة أخرى.' : 'An error occurred. Please try again.'))
+      setError(data.error || genericError)
     } catch {
-      setError(ar ? 'حدث خطأ. حاول مرة أخرى.' : 'An error occurred. Please try again.')
+      setError(genericError)
     } finally {
       setLoading(false)
     }
@@ -98,30 +116,30 @@ function LoginForm() {
 
   return <main className="auth-v2">
     <section className="auth-v2-visual">
-      <img src={siteImages.pyramids} alt={ar ? 'أهرامات الجيزة في مصر' : 'The Pyramids of Giza in Egypt'} />
+      <img src={siteImages.pyramids} alt={tx(locale, { en: 'The Pyramids of Giza in Egypt', es: 'Las pirámides de Guiza en Egipto', it: 'Le piramidi di Giza in Egitto', ar: 'أهرامات الجيزة في مصر' })} />
       <div className="auth-v2-shade" />
       <div className="auth-v2-visual-content">
         <Logo />
-        <div><span>{ar ? 'حساب STAR PYRAMIDS' : 'Your STAR PYRAMIDS account'}</span><h2>{text.imageTitle}</h2><p>{text.imageCopy}</p><ul>{text.benefits.map((benefit) => <li key={benefit}><Check size={16} />{benefit}</li>)}</ul></div>
+        <div><span>{tx(locale, { en: 'Your STAR PYRAMIDS account', es: 'Tu cuenta de STAR PYRAMIDS', it: 'Il tuo account STAR PYRAMIDS', ar: 'حساب STAR PYRAMIDS' })}</span><h2>{text.imageTitle}</h2><p>{text.imageCopy}</p><ul>{text.benefits.map((benefit) => <li key={benefit}><Check size={16} />{benefit}</li>)}</ul></div>
       </div>
     </section>
 
     <section className="auth-v2-panel">
-      <header className="auth-v2-top"><Link href="/" aria-label={ar ? 'العودة للرئيسية' : 'Back to home'}><ArrowRight size={18} />{ar ? 'الرئيسية' : 'Home'}</Link><LanguageSelector /></header>
+      <header className="auth-v2-top"><Link href="/" aria-label={tx(locale, { en: 'Back to home', es: 'Volver al inicio', it: 'Torna alla home', ar: 'العودة للرئيسية' })}><ArrowRight size={18} />{tx(locale, { en: 'Home', es: 'Inicio', it: 'Home', ar: 'الرئيسية' })}</Link><LanguageSelector /></header>
       <div className="auth-v2-card">
-        <div className="auth-v2-heading"><span>{ar ? 'مرحبًا بعودتك' : 'Welcome back'}</span><h1>{text.loginTitle}</h1><p>{text.loginCopy}</p></div>
+        <div className="auth-v2-heading"><span>{tx(locale, { en: 'Welcome back', es: 'Bienvenido de nuevo', it: 'Bentornato', ar: 'مرحبًا بعودتك' })}</span><h1>{text.loginTitle}</h1><p>{text.loginCopy}</p></div>
         {error && <p className="auth-v2-notice" role="alert"><ShieldCheck size={17} />{error}</p>}
         <form className="auth-v2-form" onSubmit={handleSubmit}>
-          <AuthField label={ar ? 'البريد الإلكتروني أو اسم المستخدم' : 'Email or username'} icon={<Mail size={18} />}>
-            <input required name="username" type="text" autoComplete="username" placeholder={ar ? 'you@example.com أو اسم المستخدم' : 'you@example.com or username'} value={identifier} onChange={(e) => setIdentifier(e.target.value)} />
+          <AuthField label={tx(locale, { en: 'Email or username', es: 'Correo electrónico o nombre de usuario', it: 'Email o nome utente', ar: 'البريد الإلكتروني أو اسم المستخدم' })} icon={<Mail size={18} />}>
+            <input required name="username" type="text" autoComplete="username" placeholder={tx(locale, { en: 'you@example.com or username', es: 'you@example.com o nombre de usuario', it: 'you@example.com o nome utente', ar: 'you@example.com أو اسم المستخدم' })} value={identifier} onChange={(e) => setIdentifier(e.target.value)} />
           </AuthField>
-          <AuthField label={ar ? 'كلمة المرور' : 'Password'} icon={<LockKeyhole size={18} />}>
-            <input required name="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" placeholder={ar ? '٦-٨ أحرف' : '6-8 characters'} value={password} onChange={(e) => setPassword(e.target.value)} />
-            <button type="button" onClick={() => setShowPassword((v) => !v)} aria-label={showPassword ? (ar ? 'إخفاء كلمة المرور' : 'Hide password') : (ar ? 'إظهار كلمة المرور' : 'Show password')}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
+          <AuthField label={tx(locale, { en: 'Password', es: 'Contraseña', it: 'Password', ar: 'كلمة المرور' })} icon={<LockKeyhole size={18} />}>
+            <input required name="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" placeholder={tx(locale, { en: '6-8 characters', es: '6-8 caracteres', it: '6-8 caratteri', ar: '٦-٨ أحرف' })} value={password} onChange={(e) => setPassword(e.target.value)} />
+            <button type="button" onClick={() => setShowPassword((v) => !v)} aria-label={showPassword ? tx(locale, { en: 'Hide password', es: 'Ocultar contraseña', it: 'Nascondi password', ar: 'إخفاء كلمة المرور' }) : tx(locale, { en: 'Show password', es: 'Mostrar contraseña', it: 'Mostra password', ar: 'إظهار كلمة المرور' })}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
           </AuthField>
-          <button className="auth-v2-primary" type="submit" disabled={loading}>{loading ? (ar ? 'جارٍ تسجيل الدخول...' : 'Signing in...') : (ar ? 'تسجيل الدخول' : 'Sign in')} <ArrowRight size={18} /></button>
+          <button className="auth-v2-primary" type="submit" disabled={loading}>{loading ? tx(locale, { en: 'Signing in...', es: 'Iniciando sesión...', it: 'Accesso in corso...', ar: 'جارٍ تسجيل الدخول...' }) : tx(locale, { en: 'Sign in', es: 'Iniciar sesión', it: 'Accedi', ar: 'تسجيل الدخول' })} <ArrowRight size={18} /></button>
         </form>
-        <p className="auth-v2-switch">{ar ? 'جديد على STAR PYRAMIDS؟ ' : 'New to Star Pyramids? '}<Link href="/register">{ar ? 'أنشئ حسابك' : 'Create an account'}</Link></p>
+        <p className="auth-v2-switch">{tx(locale, { en: 'New to Star Pyramids? ', es: '¿Nuevo en Star Pyramids? ', it: 'Nuovo su Star Pyramids? ', ar: 'جديد على STAR PYRAMIDS؟ ' })}<Link href="/register">{tx(locale, { en: 'Create an account', es: 'Crea una cuenta', it: 'Crea un account', ar: 'أنشئ حسابك' })}</Link></p>
       </div>
     </section>
   </main>
@@ -131,22 +149,22 @@ function RegisterForm() {
   const { locale } = useLocale()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const ar = locale === 'ar'
   const text = getCopy(authCopy, locale)
   const [countryCode, setCountryCode] = useState(defaultCountry.code)
   const [phoneCountry, setPhoneCountry] = useState(defaultCountry.code)
   const [phone, setPhone] = useState('')
   const [notice, setNotice] = useState('')
   const [loading, setLoading] = useState(false)
+  const createFailed = tx(locale, { en: 'Could not create the account. Please try again.', es: 'No se pudo crear la cuenta. Inténtalo de nuevo.', it: 'Impossibile creare l’account. Riprova.', ar: 'تعذر إنشاء الحساب. حاول مرة أخرى.' })
 
-  const socialPreview = (provider: SocialProvider) => setNotice(ar ? `${provider} جاهز في التصميم، لكن الربط الحقيقي محتاج إعداد OAuth في الباك إند.` : `${provider} is ready in the interface, but real sign-in requires backend OAuth configuration.`)
+  const socialPreview = (provider: SocialProvider) => setNotice(`${provider}${tx(locale, { en: ' is ready in the interface, but real sign-in requires backend OAuth configuration.', es: ' está listo en la interfaz, pero el inicio de sesión real requiere configuración OAuth en el backend.', it: ' è pronto nell’interfaccia, ma l’accesso reale richiede la configurazione OAuth nel backend.', ar: ' جاهز في التصميم، لكن الربط الحقيقي محتاج إعداد OAuth في الباك إند.' })}`)
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (loading) return
     setNotice('')
     const form = new FormData(event.currentTarget)
     if (form.get('password') !== form.get('confirmPassword')) {
-      setNotice(ar ? 'كلمتا المرور غير متطابقتين.' : 'The passwords do not match.')
+      setNotice(tx(locale, { en: 'The passwords do not match.', es: 'Las contraseñas no coinciden.', it: 'Le password non corrispondono.', ar: 'كلمتا المرور غير متطابقتين.' }))
       return
     }
     setLoading(true)
@@ -170,13 +188,13 @@ function RegisterForm() {
       })
       const data = await response.json().catch(() => ({}))
       if (!response.ok) {
-        setNotice(data.error || (ar ? 'تعذر إنشاء الحساب. حاول مرة أخرى.' : 'Could not create the account. Please try again.'))
+        setNotice(data.error || createFailed)
         return
       }
       router.replace(typeof data.redirectTo === 'string' ? data.redirectTo : '/account')
       router.refresh()
     } catch {
-      setNotice(ar ? 'تعذر إنشاء الحساب. حاول مرة أخرى.' : 'Could not create the account. Please try again.')
+      setNotice(createFailed)
     } finally {
       setLoading(false)
     }
@@ -184,38 +202,38 @@ function RegisterForm() {
 
   return <main className={`auth-v2 is-register`}>
     <section className="auth-v2-visual">
-      <img src={siteImages.pyramids} alt={ar ? 'أهرامات الجيزة في مصر' : 'The Pyramids of Giza in Egypt'} />
+      <img src={siteImages.pyramids} alt={tx(locale, { en: 'The Pyramids of Giza in Egypt', es: 'Las pirámides de Guiza en Egipto', it: 'Le piramidi di Giza in Egitto', ar: 'أهرامات الجيزة في مصر' })} />
       <div className="auth-v2-shade" />
       <div className="auth-v2-visual-content">
         <Logo />
-        <div><span>{ar ? 'حساب STAR PYRAMIDS' : 'Your STAR PYRAMIDS account'}</span><h2>{text.imageTitle}</h2><p>{text.imageCopy}</p><ul>{text.benefits.map((benefit) => <li key={benefit}><Check size={16} />{benefit}</li>)}</ul></div>
+        <div><span>{tx(locale, { en: 'Your STAR PYRAMIDS account', es: 'Tu cuenta de STAR PYRAMIDS', it: 'Il tuo account STAR PYRAMIDS', ar: 'حساب STAR PYRAMIDS' })}</span><h2>{text.imageTitle}</h2><p>{text.imageCopy}</p><ul>{text.benefits.map((benefit) => <li key={benefit}><Check size={16} />{benefit}</li>)}</ul></div>
       </div>
     </section>
 
     <section className="auth-v2-panel">
-      <header className="auth-v2-top"><Link href="/" aria-label={ar ? 'العودة للرئيسية' : 'Back to home'}><ArrowRight size={18} />{ar ? 'الرئيسية' : 'Home'}</Link><LanguageSelector /></header>
+      <header className="auth-v2-top"><Link href="/" aria-label={tx(locale, { en: 'Back to home', es: 'Volver al inicio', it: 'Torna alla home', ar: 'العودة للرئيسية' })}><ArrowRight size={18} />{tx(locale, { en: 'Home', es: 'Inicio', it: 'Home', ar: 'الرئيسية' })}</Link><LanguageSelector /></header>
       <div className="auth-v2-card">
         <>
-          <div className="auth-v2-heading"><span>{ar ? 'انضم لينا' : 'Join STAR PYRAMIDS'}</span><h1>{text.registerTitle}</h1><p>{text.registerCopy}</p></div>
+          <div className="auth-v2-heading"><span>{tx(locale, { en: 'Join STAR PYRAMIDS', es: 'Únete a STAR PYRAMIDS', it: 'Unisciti a STAR PYRAMIDS', ar: 'انضم لينا' })}</span><h1>{text.registerTitle}</h1><p>{text.registerCopy}</p></div>
           <SocialButtons onSelect={socialPreview} />
           {notice && <p className="auth-v2-notice" role="alert"><ShieldCheck size={17} />{notice}</p>}
-          <div className="auth-v2-divider"><span>{ar ? 'أو استخدم بياناتك' : 'or use your details'}</span></div>
+          <div className="auth-v2-divider"><span>{tx(locale, { en: 'or use your details', es: 'o usa tus datos', it: 'oppure usa i tuoi dati', ar: 'أو استخدم بياناتك' })}</span></div>
           <form className="auth-v2-form" onSubmit={submit}>
             <div className="auth-v2-grid">
-              <AuthField label={ar ? 'الاسم الأول' : 'First name'} icon={<User size={18} />}><input required name="firstName" autoComplete="given-name" placeholder={ar ? 'الاسم الأول' : 'First name'} /></AuthField>
-              <AuthField label={ar ? 'اسم العائلة' : 'Last name'} icon={<User size={18} />}><input required name="lastName" autoComplete="family-name" placeholder={ar ? 'اسم العائلة' : 'Last name'} /></AuthField>
+              <AuthField label={tx(locale, { en: 'First name', es: 'Nombre', it: 'Nome', ar: 'الاسم الأول' })} icon={<User size={18} />}><input required name="firstName" autoComplete="given-name" placeholder={tx(locale, { en: 'First name', es: 'Nombre', it: 'Nome', ar: 'الاسم الأول' })} /></AuthField>
+              <AuthField label={tx(locale, { en: 'Last name', es: 'Apellidos', it: 'Cognome', ar: 'اسم العائلة' })} icon={<User size={18} />}><input required name="lastName" autoComplete="family-name" placeholder={tx(locale, { en: 'Last name', es: 'Apellidos', it: 'Cognome', ar: 'اسم العائلة' })} /></AuthField>
             </div>
-            <AuthField label={ar ? 'اسم المستخدم' : 'Username'} icon={<AtSign size={18} />}><input required name="username" autoComplete="username" minLength={3} maxLength={24} pattern="[A-Za-z0-9_]+" title={ar ? 'استخدم حروف إنجليزية وأرقام وشرطة سفلية فقط' : 'Use letters, numbers, and underscores only'} placeholder="traveler_name" /></AuthField>
-            <AuthField label={ar ? 'البريد الإلكتروني' : 'Email address'} icon={<Mail size={18} />}><input required name="email" type="email" autoComplete="email" placeholder="you@example.com" /></AuthField>
+            <AuthField label={tx(locale, { en: 'Username', es: 'Nombre de usuario', it: 'Nome utente', ar: 'اسم المستخدم' })} icon={<AtSign size={18} />}><input required name="username" autoComplete="username" minLength={3} maxLength={24} pattern="[A-Za-z0-9_]+" title={tx(locale, { en: 'Use letters, numbers, and underscores only', es: 'Usa solo letras, números y guiones bajos', it: 'Usa solo lettere, numeri e trattini bassi', ar: 'استخدم حروف إنجليزية وأرقام وشرطة سفلية فقط' })} placeholder="traveler_name" /></AuthField>
+            <AuthField label={tx(locale, { en: 'Email address', es: 'Correo electrónico', it: 'Indirizzo email', ar: 'البريد الإلكتروني' })} icon={<Mail size={18} />}><input required name="email" type="email" autoComplete="email" placeholder="you@example.com" /></AuthField>
             <div className="auth-v2-grid auth-v2-country-row">
-              <AuthField label={ar ? 'الدولة' : 'Country'} icon={<MapPin size={18} />}><CountrySelect value={countryCode} onChange={(code) => { setCountryCode(code); setPhoneCountry(code) }} locale={locale} /></AuthField>
-              <AuthField label={ar ? 'رقم الموبايل' : 'Mobile number'} icon={<Phone size={18} />} className="auth-v2-phone-field"><InternationalPhoneInput required value={phone} onChange={setPhone} locale={locale} countryCode={phoneCountry} onCountryChange={setPhoneCountry} placeholder={ar ? 'رقم الموبايل' : 'Mobile number'} /></AuthField>
+              <AuthField label={tx(locale, { en: 'Country', es: 'País', it: 'Paese', ar: 'الدولة' })} icon={<MapPin size={18} />}><CountrySelect value={countryCode} onChange={(code) => { setCountryCode(code); setPhoneCountry(code) }} locale={locale} /></AuthField>
+              <AuthField label={tx(locale, { en: 'Mobile number', es: 'Número de móvil', it: 'Numero di cellulare', ar: 'رقم الموبايل' })} icon={<Phone size={18} />} className="auth-v2-phone-field"><InternationalPhoneInput required value={phone} onChange={setPhone} locale={locale} countryCode={phoneCountry} onCountryChange={setPhoneCountry} placeholder={tx(locale, { en: 'Mobile number', es: 'Número de móvil', it: 'Numero di cellulare', ar: 'رقم الموبايل' })} /></AuthField>
             </div>
-            <div className="auth-v2-grid"><PasswordField label={ar ? 'كلمة المرور' : 'Password'} name="password" autoComplete="new-password" /><PasswordField label={ar ? 'تأكيد كلمة المرور' : 'Confirm password'} name="confirmPassword" autoComplete="new-password" /></div>
-            <label className="auth-v2-check"><input required name="acceptedTerms" type="checkbox" /><span><Check size={13} /></span><em>{ar ? 'أوافق على ' : 'I agree to the '}<Link href="/terms">{ar ? 'الشروط والأحكام' : 'Terms and Conditions'}</Link>{ar ? ' و' : ' and '}<Link href="/privacy">{ar ? 'سياسة الخصوصية' : 'Privacy Policy'}</Link>.</em></label>
-            <button className="auth-v2-primary" type="submit" disabled={loading}>{loading ? (ar ? 'جارٍ إنشاء الحساب...' : 'Creating account...') : (ar ? 'إنشاء الحساب' : 'Create account')} <ArrowRight size={18} /></button>
+            <div className="auth-v2-grid"><PasswordField label={tx(locale, { en: 'Password', es: 'Contraseña', it: 'Password', ar: 'كلمة المرور' })} name="password" autoComplete="new-password" /><PasswordField label={tx(locale, { en: 'Confirm password', es: 'Confirmar contraseña', it: 'Conferma password', ar: 'تأكيد كلمة المرور' })} name="confirmPassword" autoComplete="new-password" /></div>
+            <label className="auth-v2-check"><input required name="acceptedTerms" type="checkbox" /><span><Check size={13} /></span><em>{tx(locale, { en: 'I agree to the ', es: 'Acepto los ', it: 'Accetto i ', ar: 'أوافق على ' })}<Link href="/terms">{tx(locale, { en: 'Terms and Conditions', es: 'Términos y condiciones', it: 'Termini e condizioni', ar: 'الشروط والأحكام' })}</Link>{tx(locale, { en: ' and ', es: ' y ', it: ' e ', ar: ' و' })}<Link href="/privacy">{tx(locale, { en: 'Privacy Policy', es: 'Política de privacidad', it: 'Informativa sulla privacy', ar: 'سياسة الخصوصية' })}</Link>.</em></label>
+            <button className="auth-v2-primary" type="submit" disabled={loading}>{loading ? tx(locale, { en: 'Creating account...', es: 'Creando cuenta...', it: 'Creazione account in corso...', ar: 'جارٍ إنشاء الحساب...' }) : tx(locale, { en: 'Create account', es: 'Crear cuenta', it: 'Crea account', ar: 'إنشاء الحساب' })} <ArrowRight size={18} /></button>
           </form>
-          <p className="auth-v2-switch">{ar ? 'عندك حساب بالفعل؟ ' : 'Already have an account? '}<Link href="/login">{ar ? 'سجّل دخولك' : 'Sign in'}</Link></p>
+          <p className="auth-v2-switch">{tx(locale, { en: 'Already have an account? ', es: '¿Ya tienes una cuenta? ', it: 'Hai già un account? ', ar: 'عندك حساب بالفعل؟ ' })}<Link href="/login">{tx(locale, { en: 'Sign in', es: 'Iniciar sesión', it: 'Accedi', ar: 'سجّل دخولك' })}</Link></p>
         </>
       </div>
     </section>

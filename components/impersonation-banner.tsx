@@ -4,11 +4,10 @@ import { useEffect, useState } from 'react'
 import { LogOut } from 'lucide-react'
 import { bookings } from '@/components/admin/admin-data'
 import { readImpersonation, stopImpersonation, type ImpersonatedCustomer } from '@/lib/admin-store'
-import { useLocale } from './locale'
+import { useLocale, tx } from './locale'
 
 export function ImpersonationBanner() {
   const { locale } = useLocale()
-  const ar = locale === 'ar'
   const [impersonated, setImpersonated] = useState<ImpersonatedCustomer | null>(null)
 
   useEffect(() => {
@@ -29,14 +28,14 @@ export function ImpersonationBanner() {
   return (
     <div className="impersonate-banner" role="status">
       <div>
-        <strong>{ar ? 'معاينة الموظفين' : 'Staff preview'}</strong>
+        <strong>{tx(locale, { en: 'Staff preview', es: 'Vista previa del personal', it: 'Anteprima staff', ar: 'معاينة الموظفين' })}</strong>
         <span>
-          {ar ? 'تشاهد الحساب باسم' : 'Viewing as'} <b>{impersonated.name}</b>
-          {mine.length > 0 && <> · {mine.length} {ar ? 'حجوزات' : 'bookings'} · ${spent.toLocaleString('en-US')} {ar ? 'إنفاق مؤكد' : 'confirmed spend'}</>}
+          {tx(locale, { en: 'Viewing as', es: 'Viendo como', it: 'Visualizzazione come', ar: 'تشاهد الحساب باسم' })} <b>{impersonated.name}</b>
+          {mine.length > 0 && <> · {mine.length} {tx(locale, { en: 'bookings', es: 'reservas', it: 'prenotazioni', ar: 'حجوزات' })} · ${spent.toLocaleString('en-US')} {tx(locale, { en: 'confirmed spend', es: 'gasto confirmado', it: 'spesa confermata', ar: 'إنفاق مؤكد' })}</>}
         </span>
       </div>
       <button type="button" onClick={() => { stopImpersonation(); setImpersonated(null) }}>
-        <LogOut size={15} />{ar ? 'إنهاء المعاينة' : 'Exit preview'}
+        <LogOut size={15} />{tx(locale, { en: 'Exit preview', es: 'Salir de la vista previa', it: 'Esci dall\'anteprima', ar: 'إنهاء المعاينة' })}
       </button>
     </div>
   )

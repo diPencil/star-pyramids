@@ -47,3 +47,22 @@ export function sanitizeLocale(value: string | null | undefined): EnabledLocale 
   }
   return DEFAULT_LOCALE;
 }
+
+/**
+ * Neutral localized-text picker (no React, safe for server + client).
+ * Missing translations fall back to English — catalogue/editorial
+ * content without a real ES/IT source intentionally omits them.
+ */
+export type LocaleText = { en: string; es?: string; it?: string; ar?: string };
+
+export function pickLocaleText(locale: Locale, v: LocaleText): string {
+  if (locale === 'es' && v.es !== undefined) return v.es;
+  if (locale === 'it' && v.it !== undefined) return v.it;
+  if (locale === 'ar' && v.ar !== undefined) return v.ar;
+  return v.en;
+}
+
+/** Normalize the legacy `ar: boolean` label argument to a Locale. */
+export function localeFromAr(ar: boolean | Locale): Locale {
+  return ar === true || ar === 'ar' ? 'ar' : ar === 'es' ? 'es' : ar === 'it' ? 'it' : 'en';
+}

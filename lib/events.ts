@@ -1,6 +1,7 @@
 'use client'
 
 import type { Event } from '@/data/types'
+import { localeFromAr, pickLocaleText, type Locale } from '@/lib/locale-config'
 
 const SLUG_PATTERN = /^[a-z0-9-]{1,80}$/
 const CUSTOM_PREFIX = 'custom-'
@@ -305,10 +306,11 @@ export function eventPriceLabel(event: Pick<Event, 'pricingType' | 'price' | 'cu
   return ar ? 'السعر عند الطلب' : 'Request price'
 }
 
-export function eventStatusLabel(status: EventStatus, ar: boolean): string | null {
-  if (status === 'upcoming') return ar ? 'قادم' : 'Upcoming'
-  if (status === 'ongoing') return ar ? 'يُقام الآن' : 'Ongoing'
-  if (status === 'past') return ar ? 'انتهى' : 'Past'
+export function eventStatusLabel(status: EventStatus, ar: boolean | Locale): string | null {
+  const locale = localeFromAr(ar)
+  if (status === 'upcoming') return pickLocaleText(locale, { en: 'Upcoming', es: 'Próximo', it: 'In arrivo', ar: 'قادم' })
+  if (status === 'ongoing') return pickLocaleText(locale, { en: 'Ongoing', es: 'En curso', it: 'In corso', ar: 'يُقام الآن' })
+  if (status === 'past') return pickLocaleText(locale, { en: 'Past', es: 'Finalizado', it: 'Concluso', ar: 'انتهى' })
   return null
 }
 

@@ -5,6 +5,7 @@ import { Phone } from 'lucide-react'
 import { countryByCode, countryFromPhone, internationalPhone, nationalPhone } from '@/data/countries'
 import { stripTrunkZero } from '@/lib/phone'
 import { CountrySelect } from '@/components/country-select'
+import { tx } from '@/components/locale'
 import type { Locale } from '@/lib/locale-config'
 
 type InternationalPhoneInputProps = {
@@ -49,9 +50,9 @@ export function InternationalPhoneInput({ value, onChange, locale = 'en', id, re
       onChange={selectCountry}
       locale={locale}
       disabled={disabled}
-      label={locale === 'ar' ? `الدولة وكود الاتصال: ${selectedCountry.nameAr} (${selectedCountry.dialCode})` : `Country and calling code: ${selectedCountry.name} (${selectedCountry.dialCode})`}
+      label={`${tx(locale, { en: 'Country and calling code', es: 'País y código de llamada', it: 'Paese e prefisso', ar: 'الدولة وكود الاتصال' })}: ${locale === 'ar' ? selectedCountry.nameAr : selectedCountry.name} (${selectedCountry.dialCode})`}
     />
     <span className="ipf-divider" aria-hidden="true" />
-    <input id={id} type="tel" inputMode="tel" autoComplete="tel-national" dir="ltr" required={required} disabled={disabled} value={nationalPhone(value, selectedCountry.dialCode)} onChange={(event) => onChange(internationalPhone(selectedCountry.dialCode, stripTrunkZero(selectedCountry.code, event.target.value)))} placeholder={placeholder ?? (locale === 'ar' ? 'رقم الهاتف' : 'Phone number')} maxLength={maxLength} aria-invalid={invalid} aria-describedby={describedBy} />
+    <input id={id} type="tel" inputMode="tel" autoComplete="tel-national" dir="ltr" required={required} disabled={disabled} value={nationalPhone(value, selectedCountry.dialCode)} onChange={(event) => onChange(internationalPhone(selectedCountry.dialCode, stripTrunkZero(selectedCountry.code, event.target.value)))} placeholder={placeholder ?? tx(locale, { en: 'Phone number', es: 'Número de teléfono', it: 'Numero di telefono', ar: 'رقم الهاتف' })} maxLength={maxLength} aria-invalid={invalid} aria-describedby={describedBy} />
   </span>
 }

@@ -224,7 +224,7 @@ function PlannerInner() {
           setEditRef(record.reference)
         })
         .catch(() => {
-          if (!cancelled) setSummary(locale === 'ar' ? 'تعذر تحميل الطلب. حاول مجددًا.' : 'Could not load the request. Please try again.')
+          if (!cancelled) setSummary(locale === 'ar' ? 'تعذر تحميل الطلب. حاول مجددًا.' : locale === 'es' ? 'No se pudo cargar la solicitud. Inténtalo de nuevo.' : locale === 'it' ? 'Impossibile caricare la richiesta. Riprova.' : 'Could not load the request. Please try again.')
         })
       return () => { cancelled = true }
     }
@@ -468,7 +468,7 @@ function PlannerInner() {
         window.setTimeout(() => focusById('myt-preview-title'), 50)
       })
       .catch((error: unknown) => {
-        setSummary(error instanceof Error ? error.message : (locale === 'ar' ? 'تعذر حفظ الطلب. حاول مجددًا.' : 'Could not save the request. Please try again.'))
+        setSummary(error instanceof Error ? error.message : (locale === 'ar' ? 'تعذر حفظ الطلب. حاول مجددًا.' : locale === 'es' ? 'No se pudo guardar la solicitud. Inténtalo de nuevo.' : locale === 'it' ? 'Impossibile salvare la richiesta. Riprova.' : 'Could not save the request. Please try again.'))
       })
       .finally(() => setSubmitting(false))
   }

@@ -5,7 +5,8 @@ import { useMemo } from "react"
 import { ExternalLink, Play } from "lucide-react"
 import type { TourJourneyVideo, TourVideoPlatform } from "@/data/types"
 import { HorizontalSlider } from "./horizontal-slider"
-import type { Locale } from '@/lib/locale-config'
+import { tx } from "./locale"
+import { pickLocaleText, type Locale } from '@/lib/locale-config'
 
 type VideoSource = {
   kind: "embed" | "direct" | "external"
@@ -84,39 +85,38 @@ export function TourVideoGallery({ videos, posters, locale, tourTitle }: { video
     .map((video) => ({ video, source: getVideoSource(video) }))
     .filter((item): item is { video: TourJourneyVideo; source: VideoSource } => Boolean(item.source)), [videos])
 
-  const ar = locale === "ar"
   const previewPosters = useMemo(() => {
     const available = (posters ?? []).filter(Boolean)
     if (!available.length) return []
     return Array.from({ length: Math.max(5, available.length) }, (_, index) => available[index % available.length])
   }, [posters])
-  const previousLabel = ar ? "الفيديو السابق" : "Previous video"
-  const nextLabel = ar ? "الفيديو التالي" : "Next video"
+  const previousLabel = tx(locale, { en: "Previous video", es: "Vídeo anterior", it: "Video precedente", ar: "الفيديو السابق" })
+  const nextLabel = tx(locale, { en: "Next video", es: "Vídeo siguiente", it: "Video successivo", ar: "الفيديو التالي" })
 
   return <section className="tour-content-section tour-video-section" aria-labelledby="journey-videos-title">
     <div className="tour-video-heading">
       <div>
-        <span>{ar ? "أحدث الفيديوهات أولاً" : "Newest stories first"}</span>
-        <h2 id="journey-videos-title">{ar ? "فيديوهات من رحلاتنا" : "Gallery of Exciting Journeys"}</h2>
-        <p>{ar ? "لحظات حقيقية من هذه الرحلة عبر منصاتنا." : `Real moments from ${tourTitle}, collected from our social channels.`}</p>
+        <span>{tx(locale, { en: "Newest stories first", es: "Historias recientes primero", it: "Le storie più recenti prima", ar: "أحدث الفيديوهات أولاً" })}</span>
+        <h2 id="journey-videos-title">{tx(locale, { en: "Gallery of Exciting Journeys", es: "Galería de viajes fascinantes", it: "Galleria di viaggi emozionanti", ar: "فيديوهات من رحلاتنا" })}</h2>
+        <p>{tx(locale, { en: `Real moments from ${tourTitle}, collected from our social channels.`, es: `Momentos reales de ${tourTitle}, recogidos de nuestros canales sociales.`, it: `Momenti autentici di ${tourTitle}, raccolti dai nostri canali social.`, ar: "لحظات حقيقية من هذه الرحلة عبر منصاتنا." })}</p>
       </div>
     </div>
-    {items.length ? <HorizontalSlider className="tour-video-track" ariaLabel={ar ? "فيديوهات الرحلة" : "Journey videos"} previousLabel={previousLabel} nextLabel={nextLabel}>
+    {items.length ? <HorizontalSlider className="tour-video-track" ariaLabel={tx(locale, { en: "Journey videos", es: "Vídeos del viaje", it: "Video del viaggio", ar: "فيديوهات الرحلة" })} previousLabel={previousLabel} nextLabel={nextLabel}>
       {items.map(({ video, source }) => {
-        const title = ar && video.titleAr ? video.titleAr : video.title
+        const title = pickLocaleText(locale, { en: video.title, ar: video.titleAr })
         const date = formattedDate(video.publishedAt, locale)
         return <article className="tour-video-reel" key={video.id}>
           <div className="tour-video-frame">
             {source.kind === "embed" && <iframe title={title} src={source.src} loading="lazy" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen referrerPolicy="strict-origin-when-cross-origin"/>}
-            {source.kind === "direct" && <video controls playsInline preload="metadata" poster={video.thumbnail}><source src={source.src}/>{ar ? "متصفحك لا يدعم تشغيل الفيديو." : "Your browser does not support video playback."}</video>}
-            {source.kind === "external" && <a href={source.src} target="_blank" rel="noopener noreferrer" className="tour-video-external"><span><Play size={28} fill="currentColor"/></span><b>{ar ? "شاهد الفيديو على المنصة" : "Watch on the original platform"}</b><ExternalLink size={18}/></a>}
+            {source.kind === "direct" && <video controls playsInline preload="metadata" poster={video.thumbnail}><source src={source.src}/>{tx(locale, { en: "Your browser does not support video playback.", es: "Tu navegador no admite la reproducción de vídeo.", it: "Il tuo browser non supporta la riproduzione video.", ar: "متصفحك لا يدعم تشغيل الفيديو." })}</video>}
+            {source.kind === "external" && <a href={source.src} target="_blank" rel="noopener noreferrer" className="tour-video-external"><span><Play size={28} fill="currentColor"/></span><b>{tx(locale, { en: "Watch on the original platform", es: "Ver en la plataforma original", it: "Guarda sulla piattaforma originale", ar: "شاهد الفيديو على المنصة" })}</b><ExternalLink size={18}/></a>}
             <span className={`tour-video-platform platform-${source.platform}`}>{platformNames[source.platform]}</span>
           </div>
           <div className="tour-video-meta"><strong>{title}</strong>{date && <time dateTime={video.publishedAt}>{date}</time>}</div>
         </article>
       })}
     </HorizontalSlider> : previewPosters.length ? <>
-      <HorizontalSlider className="tour-video-track" ariaLabel={ar ? "معاينات فيديوهات الرحلة" : "Journey video previews"} previousLabel={previousLabel} nextLabel={nextLabel}>
+      <HorizontalSlider className="tour-video-track" ariaLabel={tx(locale, { en: "Journey video previews", es: "Avances de los vídeos del viaje", it: "Anteprime dei video di viaggio", ar: "معاينات فيديوهات الرحلة" })} previousLabel={previousLabel} nextLabel={nextLabel}>
         {previewPosters.map((poster, index) => {
           const platform = ["youtube", "instagram", "facebook", "youtube", "instagram"][index % 5]
           return <article className="tour-video-reel tour-video-preview" key={`${poster}-${index}`}>
@@ -129,7 +129,7 @@ export function TourVideoGallery({ videos, posters, locale, tourTitle }: { video
           </article>
         })}
       </HorizontalSlider>
-      <p className="tour-video-dashboard-note">{ar ? "ستُستبدل هذه المعاينات تلقائياً بأحدث فيديوهات الرحلة عند نشرها من لوحة التحكم." : "These previews will be replaced automatically by the latest journey videos published from the dashboard."}</p>
-    </> : <div className="tour-video-empty" role="status"><Play size={22} fill="currentColor"/><span>{ar ? "ستظهر فيديوهات الرحلة هنا بعد إضافتها من لوحة التحكم." : "Journey videos will appear here when they are added from the dashboard."}</span></div>}
+      <p className="tour-video-dashboard-note">{tx(locale, { en: "These previews will be replaced automatically by the latest journey videos published from the dashboard.", es: "Estas vistas previas se reemplazarán automáticamente con los últimos vídeos publicados desde el panel.", it: "Queste anteprime saranno sostituite automaticamente dagli ultimi video pubblicati dalla dashboard.", ar: "ستُستبدل هذه المعاينات تلقائياً بأحدث فيديوهات الرحلة عند نشرها من لوحة التحكم." })}</p>
+    </> : <div className="tour-video-empty" role="status"><Play size={22} fill="currentColor"/><span>{tx(locale, { en: "Journey videos will appear here when they are added from the dashboard.", es: "Los vídeos del viaje aparecerán aquí cuando se añadan desde el panel.", it: "I video del viaggio appariranno qui quando saranno aggiunti dalla dashboard.", ar: "ستظهر فيديوهات الرحلة هنا بعد إضافتها من لوحة التحكم." })}</span></div>}
   </section>
 }

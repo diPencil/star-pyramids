@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { Ship, ArrowRight, Star, Users, Waves, Anchor } from 'lucide-react'
 import { Breadcrumb, SiteShell, HelpCTA, TourCategoryHero } from '@/components/site'
-import { useLocale } from '@/components/locale'
+import { tx, useLocale } from '@/components/locale'
+import { pickLocaleText } from '@/lib/locale-config'
 import { cruiseTypes, getCruisesByType } from '@/data/tours'
 import { localizeTourDuration, localizeTourLocation } from '@/lib/tour-format'
 
@@ -14,7 +15,10 @@ const baseCopy = {
   ar: { title: 'رحلات النيل', viewCruises: 'شاهد الرحلات', tour: 'رحلة', tours: 'رحلات', eyebrow: 'أبحر في النيل', intro: 'اختر رحلتك النيلية من الرحلات المتاحة في كتالوجنا، بمسارات بين الأقصر وأسوان ومدد مختلفة.', feats: [{ Icon: Ship, text: 'مسارات نيلية' }, { Icon: Users, text: 'خيارات متعددة' }] },
 } as const
 
-const copy = { ...baseCopy, es: baseCopy.en, it: baseCopy.en } as const
+const copy = { ...baseCopy,
+  es: { ...baseCopy.en, title: 'Cruceros por el Nilo', viewCruises: 'Ver cruceros', tour: 'crucero', tours: 'cruceros', eyebrow: 'Navega por el Nilo', intro: 'Elige un viaje por el Nilo entre los cruceros de nuestro catálogo, con rutas entre Luxor y Asuán y opciones de distinta duración.', feats: [{ Icon: Ship, text: 'Itinerarios por el Nilo' }, { Icon: Users, text: 'Opciones de crucero' }] },
+  it: { ...baseCopy.en, title: 'Crociere sul Nilo', viewCruises: 'Vedi le crociere', tour: 'crociera', tours: 'crociere', eyebrow: 'Naviga sul Nilo', intro: 'Scegli un viaggio sul Nilo tra le crociere del nostro catalogo, con rotte tra Luxor e Assuan e opzioni di diversa durata.', feats: [{ Icon: Ship, text: 'Itinerari sul Nilo' }, { Icon: Users, text: 'Opzioni di crociera' }] },
+} as const
 
 export function NileCruisesPage() {
   return <SiteShell><NileCruisesContent/></SiteShell>
@@ -32,17 +36,17 @@ function NileCruisesContent() {
       eyebrow={t.eyebrow}
       title={t.title}
       intro={t.intro}
-      primaryLabel={locale === 'ar' ? 'استكشف أنواع الكروز' : 'Explore cruise styles'}
+      primaryLabel={tx(locale, { en: 'Explore cruise styles', es: 'Explora los estilos de crucero', it: 'Esplora gli stili di crociera', ar: 'استكشف أنواع الكروز' })}
       primaryHref="#cruise-types"
-      featuredLabel={locale === 'ar' ? 'كروز مميز' : 'Featured Nile cruise'}
-      featuredTitle={locale === 'ar' && featured.titleAr ? featured.titleAr : featured.title}
+      featuredLabel={tx(locale, { en: 'Featured Nile cruise', es: 'Crucero destacado por el Nilo', it: 'Crociera sul Nilo in evidenza', ar: 'كروز مميز' })}
+      featuredTitle={pickLocaleText(locale, { en: featured.title, ar: featured.titleAr })}
       featuredHref={`/egypt-tours/${featured.slug}`}
       featuredLocation={locale === 'ar' ? localizeTourLocation(featured.location) : featured.location}
       featuredDuration={locale === 'ar' ? localizeTourDuration(featured.duration) : featured.duration}
-      statsLabel={locale === 'ar' ? 'ملخص رحلات النيل' : 'Nile cruises summary'}
+      statsLabel={tx(locale, { en: 'Nile cruises summary', es: 'Resumen de cruceros por el Nilo', it: 'Riepilogo delle crociere sul Nilo', ar: 'ملخص رحلات النيل' })}
       stats={[
-        { value: allCruises.length, label: locale === 'ar' ? 'رحلات متاحة' : 'Cruises available' },
-        { value: cruiseTypes.length, label: locale === 'ar' ? 'أنواع كروز' : 'Cruise styles' },
+        { value: allCruises.length, label: tx(locale, { en: 'Cruises available', es: 'Cruceros disponibles', it: 'Crociere disponibili', ar: 'رحلات متاحة' }) },
+        { value: cruiseTypes.length, label: tx(locale, { en: 'Cruise styles', es: 'Estilos de crucero', it: 'Stili di crociera', ar: 'أنواع كروز' }) },
       ]}
     />
     <Breadcrumb items={['Egypt Tours', 'Nile Cruises']}/>

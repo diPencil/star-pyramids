@@ -14,7 +14,7 @@ import {
 } from 'react'
 import { Popover } from '@base-ui/react/popover'
 import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
-import { useLocale } from '@/components/locale'
+import { tx, useLocale } from '@/components/locale'
 import {
   clampViewMonth,
   compareMonth,
@@ -113,7 +113,8 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(function D
   forwardedRef,
 ) {
   const resolvedLocale = useDateLocale()
-  const ar = resolvedLocale === 'ar'
+  const { locale: siteLocale } = useLocale()
+  const isRtl = resolvedLocale === 'ar'
   const popupId = useId()
   const gridRef = useRef<HTMLDivElement | null>(null)
   const [open, setOpen] = useState(false)
@@ -227,7 +228,7 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(function D
     if (!(active instanceof HTMLButtonElement)) return
     const iso = active.getAttribute('data-day')
     if (!iso) return
-    const rtl = ar
+    const rtl = isRtl
     switch (event.key) {
       case 'ArrowLeft':
         event.preventDefault()
@@ -273,8 +274,8 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(function D
   const defaultFocusKey = selectedISO || (cells.some((c) => c.key === todayKey && !isDisabledDay(c.key)) ? toISO(todayYMD()) : null)
 
   const showClear = selectedISO !== '' && !required && interactive
-  const PrevIcon = ar ? ChevronRight : ChevronLeft
-  const NextIcon = ar ? ChevronLeft : ChevronRight
+  const PrevIcon = isRtl ? ChevronRight : ChevronLeft
+  const NextIcon = isRtl ? ChevronLeft : ChevronRight
 
   const fieldClasses = ['native-date-input', 'sp-date-field', className ?? ''].filter(Boolean).join(' ')
   // Base UI types Trigger props for its default `<button>`; at runtime it
@@ -330,7 +331,7 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(function D
             <Popover.Popup
               className="sp-date-popup"
               id={popupId}
-              aria-label={ar ? 'اختر التاريخ' : 'Choose date'}
+              aria-label={tx(siteLocale, { en: 'Choose date', es: 'Elige la fecha', it: 'Scegli la data', ar: 'اختر التاريخ' })}
             >
               <div className="sp-date-head">
                 <button
@@ -338,7 +339,7 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(function D
                   className="sp-date-nav"
                   onClick={() => moveView(-1)}
                   disabled={!canGoPrev}
-                  aria-label={ar ? 'الشهر السابق' : 'Previous month'}
+                  aria-label={tx(siteLocale, { en: 'Previous month', es: 'Mes anterior', it: 'Mese precedente', ar: 'الشهر السابق' })}
                 >
                   <PrevIcon size={16} />
                 </button>
@@ -348,7 +349,7 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(function D
                   className="sp-date-nav"
                   onClick={() => moveView(1)}
                   disabled={!canGoNext}
-                  aria-label={ar ? 'الشهر التالي' : 'Next month'}
+                  aria-label={tx(siteLocale, { en: 'Next month', es: 'Mes siguiente', it: 'Mese successivo', ar: 'الشهر التالي' })}
                 >
                   <NextIcon size={16} />
                 </button>
@@ -395,11 +396,11 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(function D
                   setView(clampViewMonth({ y: today.y, m: today.m }, minPart, maxPart))
                   focusDay(toISO(today))
                 }}>
-                  {ar ? 'اليوم' : 'Today'}
+                  {tx(siteLocale, { en: 'Today', es: 'Hoy', it: 'Oggi', ar: 'اليوم' })}
                 </button>
                 {showClear && (
                   <button type="button" className="sp-date-foot-btn is-clear" onClick={handleClear}>
-                    {ar ? 'مسح' : 'Clear'}
+                    {tx(siteLocale, { en: 'Clear', es: 'Borrar', it: 'Cancella', ar: 'مسح' })}
                   </button>
                 )}
               </div>

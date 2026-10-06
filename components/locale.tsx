@@ -5,12 +5,27 @@ import {
   DEFAULT_LOCALE,
   sanitizeLocale,
   isLocaleRTL,
+  pickLocaleText,
   type EnabledLocale,
   type Locale,
 } from '@/lib/locale-config'
 
 export type { Locale }
 export type Currency = 'USD' | 'EUR' | 'EGP'
+
+/**
+ * Canonical localized-text picker (EN/ES/IT public + preserved AR).
+ *
+ * Replaces binary `ar ? arabic : english` logic: every user-facing
+ * string becomes `{ en, es, it, ar }` with a safe English fallback for
+ * any missing translation. Catalogue/editorial content without a real
+ * ES/IT source intentionally omits `es`/`it` and falls back to English.
+ */
+export type LText = { en: string; es?: string; it?: string; ar?: string }
+
+export function tx(locale: Locale, v: LText): string {
+  return pickLocaleText(locale, v)
+}
 
 const defaultRates: Record<Currency, number> = { USD: 1, EUR: 0.92, EGP: 48 }
 

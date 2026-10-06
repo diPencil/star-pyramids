@@ -1,4 +1,5 @@
 import type { Currency } from '@/components/locale'
+import { localeFromAr, pickLocaleText, type Locale } from '@/lib/locale-config'
 
 /**
  * Car-request contract (Phase 2C: real backend).
@@ -276,12 +277,13 @@ export function labelForCarTransition(from: CarRequestStatus, to: CarRequestStat
   }
 }
 
-export function carRequestStatusLabel(status: CarRequestStatus, ar: boolean): string {
+export function carRequestStatusLabel(status: CarRequestStatus, ar: boolean | Locale): string {
+  const locale = localeFromAr(ar)
   switch (status) {
-    case 'new': return ar ? 'جديد' : 'New'
-    case 'reviewing': return ar ? 'قيد المراجعة' : 'Reviewing'
-    case 'confirmed': return ar ? 'مؤكد' : 'Confirmed'
-    case 'cancelled': return ar ? 'ملغي' : 'Cancelled'
+    case 'new': return pickLocaleText(locale, { en: 'New', es: 'Nueva', it: 'Nuova', ar: 'جديد' })
+    case 'reviewing': return pickLocaleText(locale, { en: 'Reviewing', es: 'En revisión', it: 'In revisione', ar: 'قيد المراجعة' })
+    case 'confirmed': return pickLocaleText(locale, { en: 'Confirmed', es: 'Confirmada', it: 'Confermata', ar: 'مؤكد' })
+    case 'cancelled': return pickLocaleText(locale, { en: 'Cancelled', es: 'Cancelada', it: 'Annullata', ar: 'ملغي' })
   }
 }
 
@@ -295,17 +297,20 @@ export function fleetVehicleTitle(fleet: { slug: string; title: string }[], slug
   return fleet.find((car) => car.slug === slug)?.title ?? slug
 }
 
-export function carActivityLabel(action: string, ar: boolean): string {
-  if (!ar) return action
-  switch (action) {
-    case 'Request created': return 'تم إنشاء الطلب'
-    case 'Request updated': return 'تم تحديث الطلب'
-    case 'Review started': return 'بدأت المراجعة'
-    case 'Request confirmed': return 'تم تأكيد الطلب'
-    case 'Request cancelled': return 'تم إلغاء الطلب'
-    case 'Reopened for review': return 'أعيد فتحه للمراجعة'
-    case 'Assigned vehicle updated': return 'تم تحديث المركبة المخصصة'
-    case 'Internal note added': return 'أضيفت ملاحظة داخلية'
-    default: return action
+export function carActivityLabel(action: string, ar: boolean | Locale): string {
+  const locale = localeFromAr(ar)
+  if (locale === 'en') return action
+  const map: Record<string, { es?: string; it?: string; ar?: string }> = {
+    'Request created': { es: 'Solicitud creada', it: 'Richiesta creata', ar: 'تم إنشاء الطلب' },
+    'Request updated': { es: 'Solicitud actualizada', it: 'Richiesta aggiornata', ar: 'تم تحديث الطلب' },
+    'Review started': { es: 'Revisión iniciada', it: 'Revisione avviata', ar: 'بدأت المراجعة' },
+    'Request confirmed': { es: 'Solicitud confirmada', it: 'Richiesta confermata', ar: 'تم تأكيد الطلب' },
+    'Request cancelled': { es: 'Solicitud cancelada', it: 'Richiesta annullata', ar: 'تم إلغاء الطلب' },
+    'Reopened for review': { es: 'Reabierta para revisión', it: 'Riaperto per la revisione', ar: 'أعيد فتحه للمراجعة' },
+    'Assigned vehicle updated': { es: 'Vehículo asignado actualizado', it: 'Veicolo assegnato aggiornato', ar: 'تم تحديث المركبة المخصصة' },
+    'Internal note added': { es: 'Nota interna añadida', it: 'Nota interna aggiunta', ar: 'أضيفت ملاحظة داخلية' },
   }
+  const entry = map[action]
+  if (!entry) return action
+  return pickLocaleText(locale, { en: action, ...entry })
 }

@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { Check, ChevronDown } from 'lucide-react'
 import { Select } from '@base-ui/react/select'
 import type { CountryPopupWidth } from '@/components/country-select'
+import { tx } from '@/components/locale'
 import type { Locale } from '@/lib/locale-config'
 
 export type SharedSelectOption = {
@@ -56,7 +57,7 @@ export function SharedSelect({
   popupWidth = 'content',
 }: SharedSelectProps) {
   const dir = locale === 'ar' ? 'rtl' : 'ltr'
-  const dropdownHint = label ?? (locale === 'ar' ? 'اختر من القائمة' : 'Choose from the list')
+  const dropdownHint = label ?? tx(locale, { en: 'Choose from the list', es: 'Elige de la lista', it: 'Scegli dalla lista', ar: 'اختر من القائمة' })
 
   return (
     <span dir={dir} className={`cselect${className ? ` ${className}` : ''}`}>

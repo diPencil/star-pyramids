@@ -4,6 +4,7 @@ import { Check, ChevronDown } from 'lucide-react'
 import { Select } from '@base-ui/react/select'
 import { countries, type CountryOption } from '@/data/countries'
 import { CountryFlag } from '@/components/country-flag'
+import { tx } from '@/components/locale'
 import type { Locale } from '@/lib/locale-config'
 
 export type CountrySelectVariant = 'country' | 'phone'
@@ -71,13 +72,13 @@ export function CountrySelect({
   className = '',
   popupWidth = 'content',
 }: CountrySelectProps) {
-  const ar = locale === 'ar'
-  const dir = ar ? 'rtl' : 'ltr'
+  const isRtl = locale === 'ar'
+  const dir = isRtl ? 'rtl' : 'ltr'
   const selected = value ? (countries.find((country) => country.code === value) ?? null) : null
   const effective = selected
 
   const triggerName = labelledBy ? undefined : label
-  const dropdownHint = ar ? 'اختر الدولة' : 'Choose a country'
+  const dropdownHint = tx(locale, { en: 'Choose a country', es: 'Elige un país', it: 'Scegli un paese', ar: 'اختر الدولة' })
 
   return (
     <span dir={dir} className={`cselect${variant === 'phone' ? ' is-phone' : ''}${className ? ` ${className}` : ''}`}>

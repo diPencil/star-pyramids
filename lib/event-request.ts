@@ -1,4 +1,5 @@
 import { findEvent } from '@/data/content'
+import { localeFromAr, pickLocaleText, type Locale } from '@/lib/locale-config'
 
 /**
  * Event-request contract (Phase 2D: real backend).
@@ -124,28 +125,32 @@ export function labelForEventTransition(from: EventRequestStatus, to: EventReque
   }
 }
 
-export function eventRequestStatusLabel(status: EventRequestStatus, ar: boolean): string {
+export function eventRequestStatusLabel(status: EventRequestStatus, ar: boolean | Locale): string {
+  const locale = localeFromAr(ar)
   switch (status) {
-    case 'new': return ar ? 'جديد' : 'New'
-    case 'reviewing': return ar ? 'قيد المراجعة' : 'Reviewing'
-    case 'approved': return ar ? 'مقبول مبدئيًا' : 'Approved'
-    case 'rejected': return ar ? 'مرفوض' : 'Rejected'
-    case 'cancelled': return ar ? 'ملغي' : 'Cancelled'
+    case 'new': return pickLocaleText(locale, { en: 'New', es: 'Nueva', it: 'Nuova', ar: 'جديد' })
+    case 'reviewing': return pickLocaleText(locale, { en: 'Reviewing', es: 'En revisión', it: 'In revisione', ar: 'قيد المراجعة' })
+    case 'approved': return pickLocaleText(locale, { en: 'Approved', es: 'Aprobada', it: 'Approvata', ar: 'مقبول مبدئيًا' })
+    case 'rejected': return pickLocaleText(locale, { en: 'Rejected', es: 'Rechazada', it: 'Rifiutata', ar: 'مرفوض' })
+    case 'cancelled': return pickLocaleText(locale, { en: 'Cancelled', es: 'Cancelada', it: 'Annullata', ar: 'ملغي' })
   }
 }
 
-export function eventActivityLabel(action: string, ar: boolean): string {
-  if (!ar) return action
-  switch (action) {
-    case 'Request created': return 'تم إنشاء الطلب'
-    case 'Review started': return 'بدأت المراجعة'
-    case 'Request approved': return 'تم قبول الطلب'
-    case 'Request rejected': return 'تم رفض الطلب'
-    case 'Request cancelled': return 'تم إلغاء الطلب'
-    case 'Reopened for review': return 'أعيد فتحه للمراجعة'
-    case 'Internal note added': return 'أضيفت ملاحظة داخلية'
-    default: return action
+export function eventActivityLabel(action: string, ar: boolean | Locale): string {
+  const locale = localeFromAr(ar)
+  if (locale === 'en') return action
+  const map: Record<string, { es?: string; it?: string; ar?: string }> = {
+    'Request created': { es: 'Solicitud creada', it: 'Richiesta creata', ar: 'تم إنشاء الطلب' },
+    'Review started': { es: 'Revisión iniciada', it: 'Revisione avviata', ar: 'بدأت المراجعة' },
+    'Request approved': { es: 'Solicitud aprobada', it: 'Richiesta approvata', ar: 'تم قبول الطلب' },
+    'Request rejected': { es: 'Solicitud rechazada', it: 'Richiesta rifiutata', ar: 'تم رفض الطلب' },
+    'Request cancelled': { es: 'Solicitud cancelada', it: 'Richiesta annullata', ar: 'تم إلغاء الطلب' },
+    'Reopened for review': { es: 'Reabierta para revisión', it: 'Riaperto per la revisione', ar: 'أعيد فتحه للمراجعة' },
+    'Internal note added': { es: 'Nota interna añadida', it: 'Nota interna aggiunta', ar: 'أضيفت ملاحظة داخلية' },
   }
+  const entry = map[action]
+  if (!entry) return action
+  return pickLocaleText(locale, { en: action, ...entry })
 }
 
 /**

@@ -1,5 +1,6 @@
 import { countryCode } from '@/data/countries'
 import type { Currency } from '@/components/locale'
+import { localeFromAr, pickLocaleText, type Locale } from '@/lib/locale-config'
 
 /**
  * Custom-trip request contract (Phase 2B: real backend).
@@ -336,29 +337,33 @@ export function labelForTransition(from: TripRequestStatus, to: TripRequestStatu
   }
 }
 
-export function tripRequestStatusLabel(status: TripRequestStatus, ar: boolean): string {
+export function tripRequestStatusLabel(status: TripRequestStatus, ar: boolean | Locale): string {
+  const locale = localeFromAr(ar)
   switch (status) {
-    case 'new': return ar ? 'جديد' : 'New'
-    case 'reviewing': return ar ? 'قيد المراجعة' : 'Reviewing'
-    case 'proposal_ready': return ar ? 'العرض جاهز' : 'Proposal ready'
-    case 'approved': return ar ? 'تمت الموافقة' : 'Approved'
-    case 'rejected': return ar ? 'مرفوض' : 'Rejected'
-    case 'cancelled': return ar ? 'ملغي' : 'Cancelled'
+    case 'new': return pickLocaleText(locale, { en: 'New', es: 'Nueva', it: 'Nuova', ar: 'جديد' })
+    case 'reviewing': return pickLocaleText(locale, { en: 'Reviewing', es: 'En revisión', it: 'In revisione', ar: 'قيد المراجعة' })
+    case 'proposal_ready': return pickLocaleText(locale, { en: 'Proposal ready', es: 'Propuesta lista', it: 'Proposta pronta', ar: 'العرض جاهز' })
+    case 'approved': return pickLocaleText(locale, { en: 'Approved', es: 'Aprobada', it: 'Approvata', ar: 'تمت الموافقة' })
+    case 'rejected': return pickLocaleText(locale, { en: 'Rejected', es: 'Rechazada', it: 'Rifiutata', ar: 'مرفوض' })
+    case 'cancelled': return pickLocaleText(locale, { en: 'Cancelled', es: 'Cancelada', it: 'Annullata', ar: 'ملغي' })
   }
 }
 
-export function tripActivityLabel(action: string, ar: boolean): string {
-  if (!ar) return action
-  switch (action) {
-    case 'Request created': return 'تم إنشاء الطلب'
-    case 'Request updated': return 'تم تحديث الطلب'
-    case 'Review started': return 'بدأت المراجعة'
-    case 'Proposal marked ready': return 'تم تحديد العرض كجاهز'
-    case 'Request approved': return 'تمت الموافقة على الطلب'
-    case 'Request rejected': return 'تم رفض الطلب'
-    case 'Request cancelled': return 'تم إلغاء الطلب'
-    case 'Reopened for review': return 'أعيد فتحه للمراجعة'
-    case 'Internal note added': return 'أضيفت ملاحظة داخلية'
-    default: return action
+export function tripActivityLabel(action: string, ar: boolean | Locale): string {
+  const locale = localeFromAr(ar)
+  if (locale === 'en') return action
+  const map: Record<string, { es?: string; it?: string; ar?: string }> = {
+    'Request created': { es: 'Solicitud creada', it: 'Richiesta creata', ar: 'تم إنشاء الطلب' },
+    'Request updated': { es: 'Solicitud actualizada', it: 'Richiesta aggiornata', ar: 'تم تحديث الطلب' },
+    'Review started': { es: 'Revisión iniciada', it: 'Revisione avviata', ar: 'بدأت المراجعة' },
+    'Proposal marked ready': { es: 'Propuesta marcada como lista', it: 'Proposta contrassegnata come pronta', ar: 'تم تحديد العرض كجاهز' },
+    'Request approved': { es: 'Solicitud aprobada', it: 'Richiesta approvata', ar: 'تمت الموافقة على الطلب' },
+    'Request rejected': { es: 'Solicitud rechazada', it: 'Richiesta rifiutata', ar: 'تم رفض الطلب' },
+    'Request cancelled': { es: 'Solicitud cancelada', it: 'Richiesta annullata', ar: 'تم إلغاء الطلب' },
+    'Reopened for review': { es: 'Reabierta para revisión', it: 'Riaperto per la revisione', ar: 'أعيد فتحه للمراجعة' },
+    'Internal note added': { es: 'Nota interna añadida', it: 'Nota interna aggiunta', ar: 'أضيفت ملاحظة داخلية' },
   }
+  const entry = map[action]
+  if (!entry) return action
+  return pickLocaleText(locale, { en: action, ...entry })
 }
