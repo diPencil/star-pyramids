@@ -228,6 +228,12 @@
 .sp-form label { display: grid; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--sp-blue-deep); }
 .sp-form input, .sp-form select, .sp-form textarea { min-height: 46px; padding: 0 14px; border: 1px solid var(--sp-border); border-radius: 12px; font: inherit; font-weight: 500; background: #fff; color: var(--sp-text); width: 100%; }
 .sp-form textarea { padding: 12px 14px; min-height: 96px; resize: vertical; }
+/* Shared admin form controls: orange focus ring, no default black outline, no layout shift (border stays 1px). */
+.sp-form input:focus, .sp-form select:focus, .sp-form textarea:focus, .evr-manage input:focus, .evr-manage select:focus, .evr-manage textarea:focus { outline: none; border-color: var(--sp-orange); box-shadow: 0 0 0 3px rgba(247,149,29,.18); }
+.sp-form input:focus-visible, .sp-form select:focus-visible, .sp-form textarea:focus-visible, .evr-manage input:focus-visible, .evr-manage select:focus-visible, .evr-manage textarea:focus-visible { outline: none; border-color: var(--sp-orange); box-shadow: 0 0 0 3px rgba(247,149,29,.30); }
+/* Booking/event detail side-column note fields are bare textareas: give them the shared card-input appearance. */
+.evr-manage textarea, .evr-manage input, .evr-manage select { width: 100%; min-height: 46px; padding: 0 14px; border: 1px solid var(--sp-border); border-radius: 12px; background: #fff; color: var(--sp-text); font: inherit; font-weight: 500; }
+.evr-manage textarea { padding: 12px 14px; min-height: 96px; resize: vertical; }
 .sp-form-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .sp-phone-field { display: grid; grid-template-columns: auto minmax(0,1fr); min-height: 46px; overflow: hidden; border: 1px solid var(--sp-border); border-radius: 12px; background: #fff; }
 .sp-phone-field:focus-within { border-color: var(--sp-blue); box-shadow: 0 0 0 3px rgba(31,80,190,.1); }
