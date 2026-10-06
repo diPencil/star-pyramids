@@ -34,7 +34,7 @@ export default function NewBlogPage() {
   }
 
   return <>
-    <PageHead eyebrow="Blogs" title="New story" titleAr="مقال جديد" sub="Published to the journal and homepage" subAr="ينشر في المجلة والرئيسية" actions={<button type="button" className="sp-btn dark" onClick={save}><AdminText en="Publish story" ar="نشر المقال" /></button>} />
+    <PageHead eyebrow="Blogs" title="New story" titleAr="مقال جديد" sub="Published to the journal and homepage" subAr="ينشر في المجلة والرئيسية" backHref="/admin/blogs" actions={<button type="button" className="sp-btn dark" onClick={save}><AdminText en="Publish story" ar="نشر المقال" /></button>} />
     <Card title={<AdminText en="Story details" ar="بيانات المقال" />}>
       <div className="sp-form">
         <div className="sp-form-2">

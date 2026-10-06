@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Tour } from '@/data/types';
 
 const asStringArray = (value: unknown): string[] =>
@@ -93,16 +93,21 @@ async function fetchDbTours(): Promise<Map<string, Tour> | null> {
 }
 
 export function useDbTours(base: readonly Tour[]): Tour[] {
-  const [, force] = useState(0);
+  // Bumped when the shared DB cache resolves so the memo below recomputes.
+  const [version, setVersion] = useState(0);
   useEffect(() => {
     if (cachedBySlug) return;
-    const notify = () => force((n) => n + 1);
+    const notify = () => setVersion((n) => n + 1);
     listeners.add(notify);
     void fetchDbTours();
     return () => {
       listeners.delete(notify);
     };
   }, []);
-  if (!cachedBySlug) return [...base];
-  return base.map((entry) => cachedBySlug!.get(entry.slug) ?? entry);
+  // Referentially stable: identical `base` yields an identical result, so
+  // consumers can safely depend on it in effects without render loops.
+  return useMemo(() => {
+    if (!cachedBySlug) return [...base];
+    return base.map((entry) => cachedBySlug!.get(entry.slug) ?? entry);
+  }, [base, version]);
 }

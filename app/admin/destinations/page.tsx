@@ -9,12 +9,30 @@ import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-so
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
 import { destinations } from '@/data/content'
-import { isCustomSlug, removeCustomItem, useLiveDestinations } from '@/lib/admin-store'
+import { useDbDestinations } from '@/lib/catalogue-client'
 
 export default function DestinationsPage() {
   const ar = useAdminLocale() === 'ar'
   const [query, setQuery] = useState('')
-  const liveDestinations = useLiveDestinations(destinations)
+  const [removeError, setRemoveError] = useState('')
+  const liveDestinations = useDbDestinations(destinations)
+  const removeDestination = async (slug: string) => {
+    setRemoveError('')
+    try {
+      const res = await fetch(`/api/destinations/${encodeURIComponent(slug)}`, {
+        method: 'DELETE',
+        credentials: 'same-origin',
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({} as { error?: string }))
+        throw new Error(data.error || 'Failed to delete destination.')
+      }
+      // Refresh from the DB source of truth.
+      window.location.reload()
+    } catch (err) {
+      setRemoveError(err instanceof Error ? err.message : 'Failed to delete destination.')
+    }
+  }
   const rows = useMemo(() => liveDestinations.filter((d) =>
     `${d.title} ${d.nameAr ?? ''} ${d.copy}`.toLowerCase().includes(query.trim().toLowerCase())
   ), [liveDestinations, query])
@@ -26,7 +44,7 @@ export default function DestinationsPage() {
     experiences: (row) => row.detail.experiences.length,
     tours: (row) => row.detail.tourSlugs.length,
     oneday: (row) => row.showInOneDayTours ? 'one-day' : 'editorial',
-    status: (row) => row.isPublished === false ? 'hidden' : isCustomSlug(row.slug) ? 'custom' : 'published',
+    status: (row) => row.isPublished === false ? 'hidden' : 'published',
   }, 'destination', 'asc')
   const paging = usePagination(destinationSort.sortedRows)
 
@@ -40,6 +58,7 @@ export default function DestinationsPage() {
     ]} />
     <Card title={<AdminText en="All destinations" ar="كل الوجهات" />} sub={<AdminText en={`${rows.length} of ${liveDestinations.length} shown`} ar={`عرض ${rows.length} من ${liveDestinations.length}`} />}>
       <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث في الوجهات...' : 'Search destinations...'} />
+      {removeError ? <p role="alert" style={{ color: '#b91c1c', margin: '8px 0 0' }}>{removeError}</p> : null}
       {rows.length ? <AdminTableWrap><table className="sp-table">
         <thead><tr><th className="sp-row-number">#</th><SortableTh label={<AdminText en="Destination" ar="الوجهة" />} column="destination" {...destinationSort} onSort={destinationSort.sortBy} /><SortableTh label={<AdminText en="Experiences" ar="التجارب" />} column="experiences" {...destinationSort} onSort={destinationSort.sortBy} /><SortableTh label={<AdminText en="Linked tours" ar="الرحلات المرتبطة" />} column="tours" {...destinationSort} onSort={destinationSort.sortBy} /><SortableTh label={<AdminText en="One Day Tours" ar="رحلات اليوم الواحد" />} column="oneday" {...destinationSort} onSort={destinationSort.sortBy} /><SortableTh label={<AdminText en="Status" ar="الحالة" />} column="status" {...destinationSort} onSort={destinationSort.sortBy} /><th></th></tr></thead>
         <tbody>{paging.pageRows.map((d, index) => <tr key={d.slug}>
@@ -48,11 +67,11 @@ export default function DestinationsPage() {
           <td>{d.detail.experiences.length}</td>
           <td>{d.detail.tourSlugs.length}</td>
           <td>{d.showInOneDayTours ? <StatusPill status="active" /> : <span style={{ color: 'var(--sp-muted)' }}>—</span>}</td>
-          <td><StatusPill status={d.isPublished === false ? 'hidden' : isCustomSlug(d.slug) ? 'custom' : 'published'} /></td>
+          <td><StatusPill status={d.isPublished === false ? 'hidden' : 'published'} /></td>
           <td><AdminTableActions>
             <AdminIconAction icon={Pencil} label={ar ? `تعديل ${d.title}` : `Edit ${d.title}`} href={`/admin/destinations/new?slug=${d.slug}`} />
             <AdminIconAction icon={ExternalLink} label={ar ? `عرض ${d.title}` : `View ${d.title}`} href={d.showInDestinations === false ? `/egypt-tours/one-day-tours/${d.slug}` : `/destinations/${d.slug}`} />
-            {isCustomSlug(d.slug) && <button type="button" className="sp-delete-btn" onClick={() => removeCustomItem('destinations', d.slug)}><AdminText en="Delete" ar="حذف" /></button>}
+            {<button type="button" className="sp-delete-btn" onClick={() => removeDestination(d.slug)}><AdminText en="Delete" ar="حذف" /></button>}
           </AdminTableActions></td>
         </tr>)}</tbody>
       </table></AdminTableWrap> : <AdminEmpty title={<AdminText en="No destinations found" ar="لا توجد وجهات" />} copy={<AdminText en="Try changing the search or filters." ar="جرب تغيير البحث أو الفلاتر." />} />}

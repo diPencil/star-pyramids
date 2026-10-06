@@ -8,6 +8,7 @@ import { LocaleProvider, tx, useLocale, type Locale } from '@/components/locale'
 import { AccountShell, CustomerConfirmDialog, CustomerPagination, EmptyState } from './account-portal'
 import { usePagination } from '@/components/admin/admin-pagination'
 import { destinations } from '@/data/content'
+import { useDbDestinations } from '@/lib/catalogue-client'
 import { catalogTours } from '@/data/tours'
 import { countries, countryByDialCode, countryCode as resolveCountryCode, countryDisplayName, defaultCountry } from '@/data/countries'
 import { CountrySelect } from '@/components/country-select'
@@ -169,6 +170,7 @@ function TripRequestsSection({ startNew = false, editRef = null }: { startNew?: 
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [destination, setDestination] = useState('')
+  const dbDestinations = useDbDestinations(destinations)
   const [tourSlug, setTourSlug] = useState('')
   const [tripName, setTripName] = useState('')
   const [fullName, setFullName] = useState('')
@@ -430,7 +432,7 @@ function TripRequestsSection({ startNew = false, editRef = null }: { startNew?: 
               <SharedSelect value={tourSlug} onChange={pickTour} locale={locale} label={tx(locale, { en: 'Ready-made tour', es: 'Tour organizado', it: 'Tour organizzato', ar: 'رحلة جاهزة' })} popupWidth="trigger" options={[{ value: '', label: tx(locale, { en: 'Fully custom trip in my own words', es: 'Viaje totalmente a medida según mi idea', it: 'Viaggio completamente su misura secondo la mia idea', ar: 'رحلة حرة بوصفك الخاص' }) }, ...catalogTours.map((tour) => ({ value: tour.slug, label: locale === 'ar' ? tour.titleAr ?? tour.title : tour.title }))]} />
             </label>
             <label className="full">{tx(locale, { en: 'Destination (optional)', es: 'Destino (opcional)', it: 'Destinazione (facoltativo)', ar: 'الوجهة (اختياري)' })}
-              <SharedSelect value={destination} onChange={setDestination} locale={locale} label={tx(locale, { en: 'Destination', es: 'Destino', it: 'Destinazione', ar: 'الوجهة' })} popupWidth="trigger" options={[{ value: '', label: tx(locale, { en: 'Choose a place in Egypt', es: 'Elige un lugar de Egipto', it: 'Scegli un luogo in Egitto', ar: 'اختر وجهة في مصر' }) }, ...destinations.map((item) => ({ value: item.slug, label: locale === 'ar' ? item.nameAr ?? item.title : item.title }))]} />
+              <SharedSelect value={destination} onChange={setDestination} locale={locale} label={tx(locale, { en: 'Destination', es: 'Destino', it: 'Destinazione', ar: 'الوجهة' })} popupWidth="trigger" options={[{ value: '', label: tx(locale, { en: 'Choose a place in Egypt', es: 'Elige un lugar de Egipto', it: 'Scegli un luogo in Egitto', ar: 'اختر وجهة في مصر' }) }, ...dbDestinations.map((item) => ({ value: item.slug, label: locale === 'ar' ? item.nameAr ?? item.title : item.title }))]} />
             </label>
           </div>
           <div className="customer-time-tabs" role="radiogroup" aria-label={tx(locale, { en: 'Travel time', es: 'Fecha del viaje', it: 'Data del viaggio', ar: 'موعد السفر' })}>
@@ -547,7 +549,7 @@ function TripRequestsSection({ startNew = false, editRef = null }: { startNew?: 
               const editable = r.status === 'new' || r.status === 'reviewing'
               return <tr key={r.reference}>
                 <td className="customer-row-number">{paging.from + index}</td>
-                <td><span className="customer-trip-cell"><span><strong><Link href={detailHref}>{titleOf(r)}</Link></strong><small><span dir="ltr">{r.reference}</span></small></span></span></td>
+                <td><span className="customer-trip-cell"><span><strong><Link href={detailHref}>{titleOf(r, dbDestinations)}</Link></strong><small><span dir="ltr">{r.reference}</span></small></span></span></td>
                 <td><span dir="ltr">{dateTextOf(r)}</span></td>
                 <td>{r.adults + r.children + r.infants}</td>
                 <td><span dir="ltr">{r.budgetMin.toLocaleString('en-US')} - {r.budgetMax.toLocaleString('en-US')} {r.currency}</span></td>
@@ -593,10 +595,10 @@ function TripRequestsSection({ startNew = false, editRef = null }: { startNew?: 
   )
 }
 
-function titleOf(r: TripRequest): string {
+function titleOf(r: TripRequest, dbDestinations: readonly { slug: string; title: string }[]): string {
   if (r.customTitle) return r.customTitle
   if (r.tourSlug) return catalogTours.find((item) => item.slug === r.tourSlug)?.title ?? r.tourSlug
-  if (r.destinationSlug) return destinations.find((item) => item.slug === r.destinationSlug)?.title ?? r.destinationSlug
+  if (r.destinationSlug) return dbDestinations.find((item) => item.slug === r.destinationSlug)?.title ?? r.destinationSlug
   return 'Custom trip'
 }
 
@@ -630,6 +632,7 @@ export function TripRequestDetailSection({ reference }: { reference: string }) {
   const [error, setError] = useState('')
   const [cancelling, setCancelling] = useState(false)
   const dateTimeLocale = locale === 'ar' ? 'ar-EG' : locale === 'es' ? 'es-ES' : locale === 'it' ? 'it-IT' : 'en-US'
+  const dbDestinations = useDbDestinations(destinations)
   useEffect(() => {
     let cancelled = false
     setLoading(true)
@@ -671,7 +674,7 @@ export function TripRequestDetailSection({ reference }: { reference: string }) {
       <header>
         <div>
           <span>{tx(locale, { en: 'Trip request detail', es: 'Detalle de la solicitud', it: 'Dettaglio richiesta di viaggio', ar: 'تفاصيل طلب الرحلة' })}</span>
-          <h2>{titleOf(item)}</h2>
+          <h2>{titleOf(item, dbDestinations)}</h2>
         </div>
         <StatusBadge status={item.status} />
       </header>
@@ -679,7 +682,7 @@ export function TripRequestDetailSection({ reference }: { reference: string }) {
         <div><dt>{tx(locale, { en: 'Reference', es: 'Referencia', it: 'Riferimento', ar: 'المرجع' })}</dt><dd dir="ltr">{item.reference}</dd></div>
         <div><dt>{tx(locale, { en: 'Created', es: 'Creada', it: 'Creata', ar: 'أُنشئ في' })}</dt><dd>{new Date(item.createdAt).toLocaleString(dateTimeLocale)}</dd></div>
         <div><dt>{tx(locale, { en: 'Updated', es: 'Actualizada', it: 'Aggiornata', ar: 'آخر تحديث' })}</dt><dd>{new Date(item.updatedAt).toLocaleString(dateTimeLocale)}</dd></div>
-        <div><dt>{tx(locale, { en: 'Destination', es: 'Destino', it: 'Destinazione', ar: 'الوجهة' })}</dt><dd>{titleOf(item)}</dd></div>
+        <div><dt>{tx(locale, { en: 'Destination', es: 'Destino', it: 'Destinazione', ar: 'الوجهة' })}</dt><dd>{titleOf(item, dbDestinations)}</dd></div>
         <div><dt>{tx(locale, { en: 'Dates', es: 'Fechas', it: 'Date', ar: 'التواريخ' })}</dt><dd dir="ltr">{dateTextOf(item) || tx(locale, { en: 'Flexible date', es: 'Fecha flexible', it: 'Data flessibile', ar: 'موعد مرن' })}</dd></div>
         <div><dt>{tx(locale, { en: 'Date flexibility', es: 'Flexibilidad de fechas', it: 'Flessibilità date', ar: 'إيقاع المواعيد' })}</dt><dd>{timeLabel}</dd></div>
         <div><dt>{tx(locale, { en: 'Travelers', es: 'Viajeros', it: 'Viaggiatori', ar: 'المسافرون' })}</dt><dd>{tx(locale, { en: `${item.adults} adults, ${item.children} children, ${item.infants} infants`, es: `${item.adults} adultos, ${item.children} niños, ${item.infants} bebés`, it: `${item.adults} adulti, ${item.children} bambini, ${item.infants} neonati`, ar: `${item.adults} بالغ، ${item.children} أطفال، ${item.infants} رضع` })}</dd></div>

@@ -4,13 +4,14 @@ import Link from 'next/link'
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { ArrowRight, CalendarCheck, CalendarDays, Camera, Check, CircleAlert, Clock3, Compass, CarFront, Gift, Headphones, Mail, MapPin, MessageCircle, Minus, Phone, Plus, Search, Send, Share2, ShieldCheck, Sparkles, Star, Sun, Ticket, Users, type LucideIcon } from 'lucide-react'
-import { blogs, cars, destinations, events, faqs, offers, policies, siteImages, allSearchItems, findBlog, findCar, findDestination, findEvent, findOffer } from '@/data/content'
-import { isCustomSlug, useBrandSettings, useLiveCollection, useLiveDestinations, useLiveEvents, useLiveFind } from '@/lib/admin-store'
+import { blogs, cars, destinations, events, faqs, offers, policies, siteImages, allSearchItems, findBlog, findCar, findEvent, findOffer } from '@/data/content'
+import { isCustomSlug, useBrandSettings, useLiveCollection, useLiveEvents, useLiveFind } from '@/lib/admin-store'
+import { useDbDestinations } from '@/lib/catalogue-client'
 import { useDbTours } from '@/lib/tours-client'
 import { eventCity, eventMapQuery, eventPriceLabel, eventStatusLabel, getEventStatus, getPublishedEvents, getRelatedEvents, isEventPublished, parseLegacyEventRange, resolveEventRange } from '@/lib/events'
 import { EventRequestForm } from './event-request-form'
 import { phoneHref, whatsappHref } from '@/data/company'
-import { findTour, getTourOffer, seasonalOfferDeadline, seasonalTours } from '@/data/tours'
+import { catalogTours, getTourOffer, seasonalOfferDeadline, seasonalTours } from '@/data/tours'
 import type { Blog, Car, Event, Offer, Tour } from '@/data/types'
 import { parseCarRequestQuery, parseSearchQuery } from '@/lib/query'
 import { CAR_LOCATION_MAX, CAR_NOTE_MAX, hasCarErrors, isCarReference, sanitizeCarDraft, validateCarRequest, type CarFieldErrors, type CarRequest, type CarRequestDraft } from '@/lib/car-request'
@@ -527,18 +528,21 @@ function CarRequestContent() {
   </>
 }
 
-export function DestinationsPage() { const { locale } = useLocale(); const ar = locale === 'ar'; const liveDestinations = useLiveDestinations(destinations).filter((d) => d.showInDestinations !== false && d.isPublished !== false); return <SiteShell><EditorialHero eyebrow={tx(locale, { en: 'See the full picture', es: 'Mira el panorama completo', it: 'Guarda il quadro completo', ar: 'الصورة الكاملة' })} title={tx(locale, { en: 'Every destination tells a different Egypt story', es: 'Cada destino cuenta una historia distinta de Egipto', it: 'Ogni destinazione racconta una storia diversa dell\'Egitto', ar: 'كل وجهة تحكي قصة مختلفة عن مصر' })} copy={tx(locale, { en: 'Build a trip around the places that make you curious, from ancient capitals to salt-white deserts and coral-blue seas.', es: 'Crea un viaje en torno a los lugares que despierten tu curiosidad, desde capitales antiguas hasta desiertos blancos y mares de coral.', it: 'Costruisci un viaggio intorno ai luoghi che accendono la tua curiosità, dalle antiche capitali ai deserti bianchi e ai mari corallini.', ar: 'ابنِ رحلتك حول الأماكن التي تثير فضولك، من العواصم القديمة للصحارى البيضاء والشواطئ المرجانية.' })} image={siteImages.desert} href="/make-your-trip" action={tx(locale, { en: 'Build my route', es: 'Crea mi ruta', it: 'Crea il mio itinerario', ar: 'ابنِ خط سيرك' })}/><main className="section container"><div className="destination-large-grid">{liveDestinations.map(item=><article className="destination-large" key={item.slug}><img src={item.image} alt={item.title}/><div><span className="eyebrow">{tx(locale, { en: 'Discover Egypt', es: 'Descubre Egipto', it: 'Scopri l\'Egitto', ar: 'اكتشف مصر' })}</span><h2>{item.title}</h2><p>{item.copy}</p><Link href={`/destinations/${item.slug}`} className="text-link">{tx(locale, { en: 'Explore destination', es: 'Descubre el destino', it: 'Scopri la destinazione', ar: 'استكشف الوجهة' })} <ArrowRight size={15}/></Link></div></article>)}</div></main></SiteShell> }
+export function DestinationsPage() { const { locale } = useLocale(); const ar = locale === 'ar'; const liveDestinations = useDbDestinations(destinations).filter((d) => d.showInDestinations !== false && d.isPublished !== false); return <SiteShell><EditorialHero eyebrow={tx(locale, { en: 'See the full picture', es: 'Mira el panorama completo', it: 'Guarda il quadro completo', ar: 'الصورة الكاملة' })} title={tx(locale, { en: 'Every destination tells a different Egypt story', es: 'Cada destino cuenta una historia distinta de Egipto', it: 'Ogni destinazione racconta una storia diversa dell\'Egitto', ar: 'كل وجهة تحكي قصة مختلفة عن مصر' })} copy={tx(locale, { en: 'Build a trip around the places that make you curious, from ancient capitals to salt-white deserts and coral-blue seas.', es: 'Crea un viaje en torno a los lugares que despierten tu curiosidad, desde capitales antiguas hasta desiertos blancos y mares de coral.', it: 'Costruisci un viaggio intorno ai luoghi che accendono la tua curiosità, dalle antiche capitali ai deserti bianchi e ai mari corallini.', ar: 'ابنِ رحلتك حول الأماكن التي تثير فضولك، من العواصم القديمة للصحارى البيضاء والشواطئ المرجانية.' })} image={siteImages.desert} href="/make-your-trip" action={tx(locale, { en: 'Build my route', es: 'Crea mi ruta', it: 'Crea il mio itinerario', ar: 'ابنِ خط سيرك' })}/><main className="section container"><div className="destination-large-grid">{liveDestinations.map(item=><article className="destination-large" key={item.slug}><img src={item.image} alt={item.title}/><div><span className="eyebrow">{tx(locale, { en: 'Discover Egypt', es: 'Descubre Egipto', it: 'Scopri l\'Egitto', ar: 'اكتشف مصر' })}</span><h2>{item.title}</h2><p>{item.copy}</p><Link href={`/destinations/${item.slug}`} className="text-link">{tx(locale, { en: 'Explore destination', es: 'Descubre el destino', it: 'Scopri la destinazione', ar: 'استكشف الوجهة' })} <ArrowRight size={15}/></Link></div></article>)}</div></main></SiteShell> }
 
 const destinationFactIcons = [Clock3, Sun, Compass, MapPin]
 
 export function DestinationDetailPage({ slug }: { slug: string }) {
   const { locale } = useLocale()
   const ar = locale === 'ar'
-  const liveItem = useLiveFind('destinations', destinations, slug)
+  const liveItem = useDbDestinations(destinations).find((entry) => entry.slug === slug)
+  const dbTours = useDbTours(catalogTours)
   const item = liveItem && liveItem.isPublished !== false ? liveItem : undefined
   if (!item) return <DetailNotFound title={tx(locale, { en: 'Destination not found', es: 'Destino no encontrado', it: 'Destinazione non trovata', ar: 'الوجهة غير موجودة' })} copy={tx(locale, { en: 'The destination you were looking for has taken a different route.', es: 'El destino que buscabas ha tomado otro camino.', it: 'La destinazione che cercavi ha preso un\'altra strada.', ar: 'الوجهة التي تبحث عنها سلكت طريقًا آخر.' })} backHref="/destinations" backLabel={tx(locale, { en: 'Explore destinations', es: 'Descubre los destinos', it: 'Scopri le destinazioni', ar: 'استكشف الوجهات' })}/>
   const detail = item.detail
-  const relatedTours = detail.tourSlugs.map(findTour).filter((tour): tour is Tour => Boolean(tour))
+  const relatedTours = detail.tourSlugs
+    .map((tourSlug) => dbTours.find((tour) => tour.slug === tourSlug))
+    .filter((tour): tour is Tour => Boolean(tour))
 
   return <SiteShell>
     <main className="destination-detail-page">

@@ -59,6 +59,11 @@
 .sp-user-chip small { color: var(--sp-muted); font-size: 11px; }
 .sp-content { padding: 26px; display: grid; gap: 20px; align-content: start; max-width: 1460px; width: 100%; margin-inline: auto; }
 .sp-pagehead { display: flex; align-items: end; justify-content: space-between; gap: 16px; }
+.sp-pagehead-title-row { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
+.sp-pagehead-title-row > div { min-width: 0; }
+.sp-back-btn { margin-top: 2px; flex: none; }
+html[dir="rtl"] .sp-back-btn svg { transform: scaleX(-1); }
+@media (max-width: 560px) { .sp-pagehead-title-row { gap: 10px; } }
 .sp-pagehead p { margin: 0 0 4px; color: var(--sp-orange); font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
 .sp-pagehead h1 { margin: 0; font-size: clamp(24px, 3vw, 34px); letter-spacing: -.02em; }
 .sp-pagehead > div > span { color: var(--sp-muted); font-size: 13px; }

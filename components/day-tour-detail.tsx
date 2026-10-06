@@ -18,6 +18,7 @@ import { TourVideoGallery } from "./tour-video-gallery"
 import { AskQuestionButton } from "./ask-question"
 import { HorizontalSlider } from "./horizontal-slider"
 import { TourLocationMap } from "./tour-detail"
+import { useDbDestinations } from '@/lib/catalogue-client'
 import { DateInput } from "./date-input"
 
 type GalleryImage = { src: string; alt: string }
@@ -25,7 +26,10 @@ type GalleryImage = { src: string; alt: string }
 const cairoStreet = "https://images.unsplash.com/photo-1707172889437-dc6f210ea44a?auto=format&fit=crop&w=1400&q=86"
 const redSeaReef = "https://images.unsplash.com/photo-1581088053806-9ea7682a41e8?auto=format&fit=crop&w=1400&q=86"
 
-const regionGalleries: Record<string, readonly GalleryImage[]> = {
+const luxorHeroFallback = findDestination("luxor")!.detail.heroImage
+const aswanHeroFallback = findDestination("aswan")!.detail.heroImage
+
+const buildRegionGalleries = (luxorHero: string, aswanHero: string): Record<string, readonly GalleryImage[]> => ({
   Cairo: [
     { src: cairoStreet, alt: "Historic street in Cairo" },
     { src: siteImages.pyramids, alt: "Pyramids and Sphinx in nearby Giza" },
@@ -35,11 +39,11 @@ const regionGalleries: Record<string, readonly GalleryImage[]> = {
     { src: "https://images.unsplash.com/photo-1636020833630-89d4a5a75807?auto=format&fit=crop&w=1400&q=86", alt: "Sphinx and Pyramid of Khafre" },
   ],
   Luxor: [
-    { src: findDestination("luxor")!.detail.heroImage, alt: "Karnak Temple in Luxor" },
+    { src: luxorHero, alt: "Karnak Temple in Luxor" },
     { src: "/egypt-hero.png", alt: "Temple columns in Luxor" },
   ],
   Aswan: [
-    { src: findDestination("aswan")!.detail.heroImage, alt: "Nubian village beside the Nile in Aswan" },
+    { src: aswanHero, alt: "Nubian village beside the Nile in Aswan" },
     { src: "https://images.unsplash.com/photo-1655163394179-8b30a553dd6c?auto=format&fit=crop&w=1400&q=86", alt: "Nubian houses beside the Nile" },
   ],
   Hurghada: [
@@ -50,7 +54,7 @@ const regionGalleries: Record<string, readonly GalleryImage[]> = {
     { src: siteImages.redSea, alt: "Red Sea diving scene" },
     { src: redSeaReef, alt: "Coral and fish in the Red Sea" },
   ],
-}
+})
 
 export function DayTourDetailPage({ tour: sourceTour, related: relatedProp }: { tour: Tour; related?: Tour[] }) {
   const { currency, locale } = useLocale()
@@ -59,8 +63,13 @@ export function DayTourDetailPage({ tour: sourceTour, related: relatedProp }: { 
   const included = detail?.included ?? dayTourTerms.included
   const excluded = detail?.excluded ?? dayTourTerms.excluded
   const addOns: readonly TourAddOn[] = detail?.addOns ?? dayTourTerms.addOns
-  const gallery = detail?.gallery?.length ? detail.gallery : regionGalleries[tour.location] ?? [{ src: tour.image, alt: `${tour.location} travel scene` }]
-  const region = destinations.find((item) => item.slug === getTourDestinationSlug(sourceTour))
+  const dbDestinations = useDbDestinations(destinations)
+  const galleries = buildRegionGalleries(
+    dbDestinations.find((d) => d.slug === 'luxor')?.detail.heroImage || luxorHeroFallback,
+    dbDestinations.find((d) => d.slug === 'aswan')?.detail.heroImage || aswanHeroFallback,
+  )
+  const gallery = detail?.gallery?.length ? detail.gallery : galleries[tour.location] ?? [{ src: tour.image, alt: `${tour.location} travel scene` }]
+  const region = dbDestinations.find((item) => item.slug === getTourDestinationSlug(sourceTour))
   const regionName = region ? pickLocaleText(locale, { en: region.title, ar: region.nameAr }) : tour.location
   const locationName = locale === 'ar' ? localizeTourLocation(tour.location) : tour.location
   const durationName = locale === 'ar' ? localizeTourDuration(tour.duration) : tour.duration
@@ -130,7 +139,7 @@ export function DayTourDetailPage({ tour: sourceTour, related: relatedProp }: { 
 
           <TourVideoGallery videos={tour.journeyVideos} posters={gallery.map((item) => item.src)} locale={locale} tourTitle={tour.title} />
 
-          {related.length > 0 && <section className="tour-content-section"><div className="section-title-row"><h2>{tx(locale, { en: 'Related Tours', es: 'Viajes relacionados', it: 'Viaggi correlati', ar: 'رحلات ذات صلة' })}</h2><Link href={regionHref} className="text-link">{tx(locale, { en: 'View all', es: 'Ver todo', it: 'Vedi tutto', ar: 'شاهد الكل' })} <ArrowRight size={16} /></Link></div><HorizontalSlider className="related-tours" ariaLabel={tx(locale, { en: 'Related Tours', es: 'Viajes relacionados', it: 'Viaggi correlati', ar: 'رحلات ذات صلة' })} previousLabel={tx(locale, { en: 'Previous tours', es: 'Viajes anteriores', it: 'Viaggi precedenti', ar: 'الرحلات السابقة' })} nextLabel={tx(locale, { en: 'Next tours', es: 'Viajes siguientes', it: 'Viaggi successivi', ar: 'الرحلات التالية' })} autoAdvanceMs={5000}>{related.map((item) => <Link key={item.slug} href={`/egypt-tours/${item.slug}`}><Image src={regionGalleries[item.location]?.[0]?.src ?? item.image} alt={`${item.location} travel scene`} width={260} height={150} /><b>{item.title}</b><span>{tx(locale, { en: 'From', es: 'Desde', it: 'Da', ar: 'يبدأ من' })} {formatPrice(item.price, currency, locale)}</span></Link>)}</HorizontalSlider></section>}
+          {related.length > 0 && <section className="tour-content-section"><div className="section-title-row"><h2>{tx(locale, { en: 'Related Tours', es: 'Viajes relacionados', it: 'Viaggi correlati', ar: 'رحلات ذات صلة' })}</h2><Link href={regionHref} className="text-link">{tx(locale, { en: 'View all', es: 'Ver todo', it: 'Vedi tutto', ar: 'شاهد الكل' })} <ArrowRight size={16} /></Link></div><HorizontalSlider className="related-tours" ariaLabel={tx(locale, { en: 'Related Tours', es: 'Viajes relacionados', it: 'Viaggi correlati', ar: 'رحلات ذات صلة' })} previousLabel={tx(locale, { en: 'Previous tours', es: 'Viajes anteriores', it: 'Viaggi precedenti', ar: 'الرحلات السابقة' })} nextLabel={tx(locale, { en: 'Next tours', es: 'Viajes siguientes', it: 'Viaggi successivi', ar: 'الرحلات التالية' })} autoAdvanceMs={5000}>{related.map((item) => <Link key={item.slug} href={`/egypt-tours/${item.slug}`}><Image src={galleries[item.location]?.[0]?.src ?? item.image} alt={`${item.location} travel scene`} width={260} height={150} /><b>{item.title}</b><span>{tx(locale, { en: 'From', es: 'Desde', it: 'Da', ar: 'يبدأ من' })} {formatPrice(item.price, currency, locale)}</span></Link>)}</HorizontalSlider></section>}
         </div>
 
         <aside className="tour-booking-card" aria-label={tx(locale, { en: 'Plan this day tour', es: 'Planifica este circuito de un día', it: 'Pianifica questo tour di un giorno', ar: 'خطط لرحلة اليوم' })}><div className="booking-top"><div><small>{tx(locale, { en: 'From', es: 'Desde', it: 'Da', ar: 'يبدأ من' })}</small><strong>{formatPrice(tour.price, currency, locale)}</strong><span>{tx(locale, { en: 'per person', es: 'por persona', it: 'per persona', ar: 'للشخص' })}</span></div></div><div className="booking-divider" /><label>{tx(locale, { en: 'Preferred date', es: 'Fecha preferida', it: 'Data preferita', ar: 'التاريخ المفضل' })}<DateInput hideNativeIndicator value={travelDate} onChange={(event) => setTravelDate(event.target.value)} /></label><div className="guest-rows">{([['adults', adults, setAdults, tx(locale, { en: 'Adults', es: 'Adultos', it: 'Adulti', ar: 'بالغون' }), tx(locale, { en: 'Ages 12+', es: '12 años o más', it: '12 anni o più', ar: '12 سنة فأكثر' }), 1], ['children', children, setChildren, tx(locale, { en: 'Children', es: 'Niños', it: 'Bambini', ar: 'أطفال' }), tx(locale, { en: 'Ages 3-11', es: '3-11 años', it: '3-11 anni', ar: '3 - 11 سنة' }), 0], ['infants', infants, setInfants, tx(locale, { en: 'Infants', es: 'Bebés', it: 'Neonati', ar: 'رضّع' }), tx(locale, { en: 'Under 3', es: 'Menores de 3', it: 'Sotto i 3 anni', ar: 'أقل من 3 سنوات' }), 0]] as const).map(([key, value, set, label, ages, min]) => <div key={key} className="guest-row"><span><Users size={15}/><b>{label}</b><small>{ages}</small></span><div><button type="button" aria-label={label} disabled={value <= min} onClick={() => set(Math.max(min, value - 1))}><Minus size={14}/></button><b aria-live="polite">{value}</b><button type="button" aria-label={label} disabled={value >= 50} onClick={() => set(Math.min(50, value + 1))}><Plus size={14}/></button></div></div>)}</div><div className="booking-total"><span>{tx(locale, { en: 'Estimated total', es: 'Total estimado', it: 'Totale stimato', ar: 'الإجمالي التقديري' })}{hasUnpricedAddOns ? tx(locale, { en: ' + add-ons on request', es: ' + extras a petición', it: ' + extra su richiesta', ar: ' + إضافات حسب الطلب' }) : ''}</span><strong>{formatPrice(pricing.total + selectedAddOnTotal, currency, locale)}</strong></div><button type="button" className="primary-btn booking-cta" onClick={() => { addToCart({ tourSlug: tour.slug, title: tour.title, image: gallery[0].src, date: travelDate, adults, children, infants, addons: selectedAddOns.map((i) => addOns[i]?.title ?? ''), addonTotal: selectedAddOnTotal, adultUnit: pricing.adult, childUnit: pricing.child, infantUnit: pricing.infant, total: pricing.total + selectedAddOnTotal }); router.push('/cart') }}>{tx(locale, { en: 'Book now', es: 'Reserva ahora', it: 'Prenota ora', ar: 'احجز الآن' })} <ArrowRight size={17} /></button><div className="booking-side-row"><button type="button" className="outline-btn booking-half" onClick={shareTour}><Share2 size={16} /> {tx(locale, { en: 'Share', es: 'Compartir', it: 'Condividi', ar: 'مشاركة' })}</button><button type="button" className="outline-btn booking-half" onClick={() => favorites.toggle(tour.slug)} aria-pressed={favorite}><Heart size={16} fill={favorite ? "#f7951d" : "none"} /> {favorite ? tx(locale, { en: 'Saved', es: 'Guardado', it: 'Salvato', ar: 'محفوظ' }) : tx(locale, { en: 'Favorites', es: 'Favoritos', it: 'Preferiti', ar: 'المفضلة' })}</button></div><AskQuestionButton tourSlug={tour.slug} tourTitle={tour.title} label={tx(locale, { en: 'Ask a question', es: 'Haz una pregunta', it: 'Fai una domanda', ar: 'اسألنا' })} /><small className="booking-note"><ShieldCheck size={14} /> {tx(locale, { en: 'Final price, route, and terms are confirmed before booking.', es: 'El precio final, la ruta y las condiciones se confirman antes de reservar.', it: 'Prezzo finale, itinerario e condizioni si confermano prima della prenotazione.', ar: 'السعر النهائي وخط السير والشروط تُؤكد قبل الحجز.' })}</small></aside>

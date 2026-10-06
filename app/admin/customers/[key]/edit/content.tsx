@@ -1,8 +1,6 @@
 'use client'
 
-import Link from 'next/link'
 import { useState } from 'react'
-import { ArrowLeft } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminText, Avatar, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
@@ -42,7 +40,7 @@ export function EditCustomerContent({ customerKey }: { customerKey: string }) {
 
   if (!original && !bookingName) {
     return <>
-      <PageHead eyebrow="CRM" title="Edit customer" titleAr="تعديل العميل" actions={<Link className="sp-btn" href="/admin/customers"><ArrowLeft size={16} /> <AdminText en="Back" ar="رجوع" /></Link>} />
+      <PageHead eyebrow="CRM" title="Edit customer" titleAr="تعديل العميل" backHref="/admin/customers" />
       <AdminEmpty title={<AdminText en="Customer not found" ar="العميل غير موجود" />} />
     </>
   }
@@ -82,8 +80,7 @@ export function EditCustomerContent({ customerKey }: { customerKey: string }) {
   }
 
   return <>
-    <PageHead eyebrow="CRM" title="Edit customer" titleAr="تعديل العميل" sub={displayName} actions={<>
-      <Link className="sp-btn" href={`/admin/customers/${encodeURIComponent(key)}`}><ArrowLeft size={16} /> <AdminText en="Back" ar="رجوع" /></Link>
+    <PageHead eyebrow="CRM" title="Edit customer" titleAr="تعديل العميل" sub={displayName} backHref={`/admin/customers/${encodeURIComponent(key)}`} actions={<>
       <button type="button" className="sp-btn dark" onClick={save}><AdminText en="Save changes" ar="حفظ التغييرات" /></button>
     </>} />
     <Card title={<AdminText en="Customer details" ar="بيانات العميل" />}>

@@ -8,6 +8,7 @@ import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-so
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
 import { destinations } from '@/data/content'
+import { useDbDestinations } from '@/lib/catalogue-client'
 import { findTour } from '@/data/tours'
 import { SharedSelect } from '@/components/shared-select'
 import { tripRequestStatusLabel, type StaffTripRequest, type TripRequestStatus } from '@/lib/trip-request'
@@ -24,10 +25,10 @@ const statusTabs = [
 
 type StatusFilter = (typeof statusTabs)[number]['id']
 
-function routeLabel(row: StaffTripRequest): string {
+function routeLabel(row: StaffTripRequest, dbDestinations: readonly { slug: string; title: string }[]): string {
   if (row.customTitle) return row.customTitle
   if (row.tourSlug) return findTour(row.tourSlug)?.title ?? row.tourSlug
-  if (row.destinationSlug) return destinations.find((d) => d.slug === row.destinationSlug)?.title ?? row.destinationSlug
+  if (row.destinationSlug) return dbDestinations.find((d) => d.slug === row.destinationSlug)?.title ?? row.destinationSlug
   return ''
 }
 
@@ -44,6 +45,7 @@ export default function TripRequestsPage() {
   const [requests, setRequests] = useState<StaffTripRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
+  const dbDestinations = useDbDestinations(destinations)
 
   useEffect(() => {
     let cancelled = false
@@ -66,24 +68,24 @@ export default function TripRequestsPage() {
   }, [])
 
   const routeOptions = useMemo(
-    () => Array.from(new Set(requests.map((row) => routeLabel(row)).filter(Boolean))).sort(),
-    [requests],
+    () => Array.from(new Set(requests.map((row) => routeLabel(row, dbDestinations)).filter(Boolean))).sort(),
+    [requests, dbDestinations],
   )
 
   const visible = useMemo(() => requests
     .filter((row) => status === 'all' || row.status === (status as TripRequestStatus))
-    .filter((row) => route === 'all' || routeLabel(row) === route)
+    .filter((row) => route === 'all' || routeLabel(row, dbDestinations) === route)
     .filter((row) => {
       const q = query.trim().toLowerCase()
       if (!q) return true
-      return `${row.reference} ${row.contact.name} ${row.contact.email} ${row.contact.phone} ${routeLabel(row)}`.toLowerCase().includes(q)
+      return `${row.reference} ${row.contact.name} ${row.contact.email} ${row.contact.phone} ${routeLabel(row, dbDestinations)}`.toLowerCase().includes(q)
     }),
-  [requests, status, route, query])
+  [requests, status, route, query, dbDestinations])
 
   const requestSort = useAdminTableSort<StaffTripRequest>(visible, {
     request: (row) => row.reference,
     customer: (row) => row.contact.name,
-    route: (row) => routeLabel(row),
+    route: (row) => routeLabel(row, dbDestinations),
     dates: (row) => row.preferredFrom || row.preferredTo,
     travelers: (row) => row.adults + row.children + row.infants,
     budget: (row) => row.budgetMax,
@@ -131,7 +133,7 @@ export default function TripRequestsPage() {
                     <td className="sp-row-number">{paging.from + index}</td>
                     <td dir="ltr"><strong>{row.reference}</strong></td>
                     <td>{row.contact.name || (ar ? 'بدون اسم' : 'No name')}<br /><small style={{ color: 'var(--sp-muted)' }} dir="ltr">{row.contact.email}</small><br /><small style={{ color: 'var(--sp-muted)' }}>{row.account ? <AdminText en="Registered account" ar="حساب مسجل" /> : <AdminText en="Guest" ar="زائر" />}</small></td>
-                    <td><strong>{routeLabel(row) || (ar ? 'رحلة مخصصة' : 'Custom trip')}</strong></td>
+                    <td><strong>{routeLabel(row, dbDestinations) || (ar ? 'رحلة مخصصة' : 'Custom trip')}</strong></td>
                     <td><span dir="ltr">{dateLabel(row) || (ar ? 'موعد مرن' : 'Flexible')}</span></td>
                     <td>{row.adults + row.children + row.infants}</td>
                     <td><span dir="ltr">{row.budgetMin.toLocaleString('en-US')} - {row.budgetMax.toLocaleString('en-US')} {row.currency}</span></td>

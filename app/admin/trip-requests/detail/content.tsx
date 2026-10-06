@@ -1,13 +1,13 @@
 'use client'
 
-import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { ArrowLeft, CalendarDays, FlaskConical, Users } from 'lucide-react'
+import { CalendarDays, FlaskConical, Users } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Card } from '@/components/admin/admin-ui'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { destinations } from '@/data/content'
+import { useDbDestinations } from '@/lib/catalogue-client'
 import { countryByDialCode, countryDisplayName } from '@/data/countries'
 import { displayInternationalPhone, telLink } from '@/lib/phone'
 import { findTour } from '@/data/tours'
@@ -134,10 +134,10 @@ const timeCopy: Record<string, { en: string; ar: string }> = {
   unsure: { en: 'Not sure yet', ar: 'لم يحدد بعد' },
 }
 
-function routeOf(item: StaffTripRequest): string {
+function routeOf(item: StaffTripRequest, dbDestinations: readonly { slug: string; title: string }[]): string {
   if (item.customTitle) return item.customTitle
   if (item.tourSlug) return findTour(item.tourSlug)?.title ?? item.tourSlug
-  if (item.destinationSlug) return destinations.find((d) => d.slug === item.destinationSlug)?.title ?? item.destinationSlug
+  if (item.destinationSlug) return dbDestinations.find((d) => d.slug === item.destinationSlug)?.title ?? item.destinationSlug
   return ''
 }
 
@@ -157,6 +157,7 @@ export function TripRequestDetailContent({ requestId }: { requestId: string }) {
   const [mutationError, setMutationError] = useState('')
   const [note, setNote] = useState('')
   const [noteSaving, setNoteSaving] = useState(false)
+  const dbDestinations = useDbDestinations(destinations)
 
   useEffect(() => {
     let cancelled = false
@@ -223,7 +224,7 @@ export function TripRequestDetailContent({ requestId }: { requestId: string }) {
   if (loading) {
     return (
       <>
-        <PageHead eyebrow="Requests" title="Trip request" titleAr="طلب رحلة" sub="Request detail" subAr="تفاصيل الطلب" />
+        <PageHead eyebrow="Requests" title="Trip request" titleAr="طلب رحلة" sub="Request detail" subAr="تفاصيل الطلب" backHref="/admin/trip-requests" />
         <Card title={<AdminText en="Loading…" ar="جارٍ التحميل…" />}>
           <p role="status"><AdminText en="Loading trip request…" ar="جارٍ تحميل طلب الرحلة…" /></p>
         </Card>
@@ -234,10 +235,9 @@ export function TripRequestDetailContent({ requestId }: { requestId: string }) {
   if (!item) {
     return (
       <>
-        <PageHead eyebrow="Requests" title="Trip request" titleAr="طلب رحلة" sub="Request detail" subAr="تفاصيل الطلب" />
+        <PageHead eyebrow="Requests" title="Trip request" titleAr="طلب رحلة" sub="Request detail" subAr="تفاصيل الطلب" backHref="/admin/trip-requests" />
         <Card title={<AdminText en="Request not found" ar="الطلب غير موجود" />}>
           <p>{loadError || <AdminText en="This request does not exist." ar="هذا الطلب غير موجود." />}</p>
-          <p><Link className="sp-btn" href="/admin/trip-requests"><AdminText en="Back to trip requests" ar="عودة لطلبات الرحلات" /></Link></p>
         </Card>
       </>
     )
@@ -259,9 +259,9 @@ export function TripRequestDetailContent({ requestId }: { requestId: string }) {
         eyebrow="Requests"
         title={item.reference}
         titleAr={item.reference}
-        sub={`${routeOf(item) || (ar ? 'رحلة مخصصة' : 'Custom trip')} · ${travelers} ${ar ? 'مسافرين' : 'travelers'}`}
-        subAr={`${routeOf(item) || 'رحلة مخصصة'} · ${travelers} مسافرين`}
-        actions={<Link className="sp-btn" href="/admin/trip-requests"><ArrowLeft size={16} /> <AdminText en="Back to all requests" ar="عودة لكل الطلبات" /></Link>}
+        sub={`${routeOf(item, dbDestinations) || (ar ? 'رحلة مخصصة' : 'Custom trip')} · ${travelers} ${ar ? 'مسافرين' : 'travelers'}`}
+        subAr={`${routeOf(item, dbDestinations) || 'رحلة مخصصة'} · ${travelers} مسافرين`}
+        backHref="/admin/trip-requests"
       />
       <div className="evr-detail-grid">
         <div className="evr-main-col">
@@ -276,7 +276,7 @@ export function TripRequestDetailContent({ requestId }: { requestId: string }) {
           </Card>
           <Card title={<AdminText en="Trip requirements" ar="تفاصيل الرحلة المطلوبة" />}>
             <dl className="evr-kv">
-              <div><dt><AdminText en="Route" ar="المسار" /></dt><dd>{routeOf(item) || (ar ? 'رحلة مخصصة' : 'Custom trip')}</dd></div>
+              <div><dt><AdminText en="Route" ar="المسار" /></dt><dd>{routeOf(item, dbDestinations) || (ar ? 'رحلة مخصصة' : 'Custom trip')}</dd></div>
               <div><dt><AdminText en="Dates" ar="التواريخ" /></dt><dd><CalendarDays size={14} /><span dir="ltr">{dateOf(item) || (ar ? 'موعد مرن' : 'Flexible')}</span></dd></div>
               <div><dt><AdminText en="Date flexibility" ar="إيقاع المواعيد" /></dt><dd>{ar ? timeCopy[item.timeMode].ar : timeCopy[item.timeMode].en}</dd></div>
               <div><dt><AdminText en="Travelers" ar="المسافرون" /></dt><dd><Users size={14} />{ar ? `${item.adults} بالغ، ${item.children} أطفال، ${item.infants} رضع` : `${item.adults} adults, ${item.children} children, ${item.infants} infants`}</dd></div>

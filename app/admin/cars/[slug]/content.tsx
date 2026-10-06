@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { ArrowLeft, CarFront, Eye, EyeOff, Pencil } from 'lucide-react'
+import { CarFront, Eye, EyeOff, Pencil } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminTableWrap, AdminText, Card, StatusPill } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
@@ -40,7 +40,7 @@ export function VehicleDetailContent({ vehicleSlug }: { vehicleSlug: string }) {
 
   if (!car) {
     return <>
-      <PageHead eyebrow="Fleet" title="Vehicle" titleAr="السيارة" actions={<Link className="sp-btn" href="/admin/cars"><ArrowLeft size={16} /> <AdminText en="Back to fleet" ar="رجوع للأسطول" /></Link>} />
+      <PageHead eyebrow="Fleet" title="Vehicle" titleAr="السيارة" backHref="/admin/cars" />
       <AdminEmpty title={<AdminText en="Vehicle not found" ar="السيارة غير موجودة" />} copy={<AdminText en="This vehicle slug does not exist in the fleet." ar="معرف السيارة هذا غير موجود في الأسطول." />} />
     </>
   }
@@ -63,8 +63,8 @@ export function VehicleDetailContent({ vehicleSlug }: { vehicleSlug: string }) {
       title={car.title}
       titleAr={car.title}
       sub={car.slug}
+      backHref="/admin/cars"
       actions={<>
-        <Link className="sp-btn" href="/admin/cars"><ArrowLeft size={16} /> <AdminText en="Back to fleet" ar="رجوع للأسطول" /></Link>
         <Link className="sp-btn" href={`/admin/cars/new?slug=${car.slug}`}><Pencil size={16} /> <AdminText en="Edit vehicle" ar="تعديل السيارة" /></Link>
         <Link className="sp-btn" href="/rent-car"><CarFront size={16} /> <AdminText en="Rent-car page" ar="صفحة التأجير" /></Link>
       </>}

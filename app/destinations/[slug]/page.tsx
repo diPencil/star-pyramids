@@ -1,15 +1,21 @@
 import { notFound } from 'next/navigation'
 import { DestinationDetailPage } from '@/components/extended-pages'
-import { destinations, findDestination } from '@/data/content'
+import { findDestinationBySlug, listDestinationSlugs } from '@/lib/server/destinations'
 
-export function generateStaticParams() {
-  return destinations.map((item) => ({ slug: item.slug }))
+export async function generateStaticParams() {
+  // DB-authoritative static params; no pre-render when DB is unreachable.
+  try {
+    const slugs = await listDestinationSlugs()
+    return slugs.map((slug) => ({ slug }))
+  } catch {
+    return []
+  }
 }
 
 export default async function Page({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  // Admin-prototype items use the shared `custom-` prefix (see CUSTOM_PREFIX in lib/admin-store)
-  // and resolve client-side via live overrides; only canonical misses are real 404s.
-  if (!findDestination(slug) && !slug.startsWith('custom-')) notFound()
+  // DB-authoritative existence check; unknown slugs are real 404s.
+  const destination = await findDestinationBySlug(slug).catch(() => null)
+  if (!destination) notFound()
   return <DestinationDetailPage slug={slug} />
 }

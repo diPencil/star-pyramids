@@ -7,12 +7,11 @@ import { ExternalLink, Plus, Trash2 } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
-import { saveCustomItem, slugify, useLiveDestinations } from '@/lib/admin-store'
+import { useDbDestinations, invalidateCatalogueCache, dbSlugify } from '@/lib/catalogue-client'
 import { useDbTours } from '@/lib/tours-client'
 import { ImageField } from '@/components/admin/image-field'
 import { destinations } from '@/data/content'
 import { assignableOneDayTours, getOneDayToursForDestination } from '@/data/tours'
-import type { Destination } from '@/data/types'
 
 const lines = (v: string) => v.split('\n').map((s) => s.trim()).filter(Boolean)
 const oneDayBase = assignableOneDayTours
@@ -21,9 +20,14 @@ export default function DestinationEditorPage() {
   const ar = useAdminLocale() === 'ar'
   const router = useRouter()
   const [editSlug, setEditSlug] = useState('')
-  const liveDestinations = useLiveDestinations(destinations)
+  const liveDestinations = useDbDestinations(destinations)
   const liveTours = useDbTours(oneDayBase)
-  const editing = liveDestinations.find((d) => d.slug === editSlug)
+  // Stable record identity: the init effect below re-runs only when the
+  // edited record itself (not list identities) changes.
+  const editing = useMemo(
+    () => (editSlug ? liveDestinations.find((d) => d.slug === editSlug) : undefined),
+    [liveDestinations, editSlug],
+  )
 
   const [title, setTitle] = useState('')
   const [nameAr, setNameAr] = useState('')
@@ -70,7 +74,7 @@ export default function DestinationEditorPage() {
       setInitialSlugs(linked)
     }
     setReady(true)
-  }, [editSlug, editing, liveDestinations, liveTours])
+  }, [editSlug, editing, liveTours])
 
   const availableTours = useMemo(() => {
     const q = tourQuery.trim().toLowerCase()
@@ -85,10 +89,10 @@ export default function DestinationEditorPage() {
   const save = async () => {
     setError('')
     if (!title.trim()) { setError(ar ? 'اكتب اسم الوجهة.' : 'Enter the destination name.'); return }
-    const finalSlug = editSlug || slugify(slug.trim() ? slug : title)
+    const finalSlug = editSlug || dbSlugify(slug.trim() ? slug : title)
     if (!/^[a-z0-9-]{1,80}$/.test(finalSlug)) { setError(ar ? 'الرابط غير صالح.' : 'Invalid slug.'); return }
     const parsedOrder = Number(order)
-    const item: Destination = {
+    const body = {
       title: title.trim(),
       slug: finalSlug,
       image: image.trim(),
@@ -112,12 +116,29 @@ export default function DestinationEditorPage() {
         tourSlugs: tourSlugs.split(',').map((s) => s.trim()).filter(Boolean),
       },
     }
-    saveCustomItem('destinations', item)
-    // Tour assignments are DB-authoritative: write destinationSlug straight
-    // to the tours table (the destination record itself stays browser-local
-    // until its backend phase lands).
+    // Destination record is DB-authoritative (POST for new, PUT for edit).
     if (saving) return
     setSaving(true)
+    try {
+      const url = editSlug
+        ? `/api/destinations/${encodeURIComponent(editSlug)}`
+        : '/api/destinations'
+      const res = await fetch(url, {
+        method: editSlug ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        credentials: 'same-origin',
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({} as { error?: string }))
+        throw new Error(data.error || 'Failed to save destination.')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save destination.')
+      setSaving(false)
+      return
+    }
+    // Tour assignments stay DB-authoritative alongside the record.
     try {
       const failures: string[] = []
       const putTour = async (tourSlug: string, destinationSlug: string | null) => {
@@ -145,6 +166,7 @@ export default function DestinationEditorPage() {
         setError(ar ? `تعذر حفظ ارتباط الرحلات في قاعدة البيانات: ${failures.join(', ')}` : `Could not save tour links to the database: ${failures.join(', ')}`)
         return
       }
+      invalidateCatalogueCache()
       router.push('/admin/destinations')
     } finally {
       setSaving(false)
@@ -152,7 +174,7 @@ export default function DestinationEditorPage() {
   }
 
   return <>
-    <PageHead eyebrow="Catalogue" title={editSlug ? 'Edit destination' : 'New destination'} titleAr={editSlug ? 'تعديل الوجهة' : 'وجهة جديدة'} sub={ar ? 'تنشر في الوجهات والرئيسية' : 'Published to destinations and the homepage'} actions={<button type="button" className="sp-btn dark" onClick={save} disabled={saving}><AdminText en="Save destination" ar="حفظ الوجهة" /></button>} />
+    <PageHead eyebrow="Catalogue" title={editSlug ? 'Edit destination' : 'New destination'} titleAr={editSlug ? 'تعديل الوجهة' : 'وجهة جديدة'} sub={ar ? 'تنشر في الوجهات والرئيسية' : 'Published to destinations and the homepage'} backHref="/admin/destinations" actions={<button type="button" className="sp-btn dark" onClick={save} disabled={saving}><AdminText en="Save destination" ar="حفظ الوجهة" /></button>} />
     {!ready ? <Card title={<AdminText en="Loading" ar="جار التحميل" />}><p style={{ color: 'var(--sp-muted)' }}><AdminText en="Loading destination..." ar="جار تحميل الوجهة..." /></p></Card> : editSlug && !editing ? (
       <Card title={<AdminText en="Destination not found" ar="الوجهة غير موجودة" />}><p style={{ color: 'var(--sp-muted)' }}><AdminText en="The requested destination does not exist." ar="الوجهة المطلوبة غير موجودة." /></p></Card>
     ) : <>

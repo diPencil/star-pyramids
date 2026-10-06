@@ -95,7 +95,7 @@ export default function NewOfferPage() {
   }
 
   return <>
-    <PageHead eyebrow="Special Offers" title="New offer" titleAr="عرض جديد" sub="Link an existing tour or publish a standalone offer" subAr="اربط رحلة موجودة أو انشر عرضا مستقلا" actions={<button type="button" className="sp-btn dark" onClick={save} disabled={saving}><AdminText en="Publish offer" ar="نشر العرض" /></button>} />
+    <PageHead eyebrow="Special Offers" title="New offer" titleAr="عرض جديد" sub="Link an existing tour or publish a standalone offer" subAr="اربط رحلة موجودة أو انشر عرضا مستقلا" backHref="/admin/offers" actions={<button type="button" className="sp-btn dark" onClick={save} disabled={saving}><AdminText en="Publish offer" ar="نشر العرض" /></button>} />
     <Card title={<AdminText en="Creation method" ar="طريقة الإنشاء" />} sub={<AdminText en="Linking a tour adds the discount badge on the website automatically" ar="ربط رحلة يضيف شارة الخصم عليها في الموقع تلقائيا" />}>
       <div className="sp-tabs" style={{ marginBottom: 16 }}>
         <button type="button" className={mode === 'existing' ? 'active' : ''} onClick={() => setMode('existing')}><AdminText en="Link existing tour" ar="سحب رحلة موجودة" /></button>

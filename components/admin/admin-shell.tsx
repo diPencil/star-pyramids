@@ -37,6 +37,7 @@ import { useCurrentUser } from '@/lib/use-current-user'
 import { useAdminNotifications, type AdminNotification } from '@/lib/admin-notifications'
 import { NotificationPanel as SharedNotificationPanel } from '@/components/notification-panel'
 import { Avatar } from './admin-ui'
+import { AdminBackButton } from './admin-back'
 
 function timeAgo(iso: string, ar: boolean): string {
   const then = new Date(iso).getTime()
@@ -442,6 +443,9 @@ export function PageHead({
   sub,
   subAr,
   actions,
+  backHref,
+  backLabelEn,
+  backLabelAr,
 }: {
   eyebrow: string
   title: string
@@ -449,6 +453,9 @@ export function PageHead({
   sub?: string
   subAr?: string
   actions?: React.ReactNode
+  backHref?: string
+  backLabelEn?: string
+  backLabelAr?: string
 }) {
   const [locale, setLocale] = useState<'en' | 'ar'>('en')
   useEffect(() => {
@@ -459,10 +466,13 @@ export function PageHead({
   }, [])
   return (
     <div className="sp-pagehead">
-      <div>
-        <p>{eyebrow}</p>
-        <h1>{locale === 'ar' && titleAr ? titleAr : title}</h1>
-        {sub && <span>{locale === 'ar' && subAr ? subAr : sub}</span>}
+      <div className="sp-pagehead-title-row">
+        {backHref && <AdminBackButton href={backHref} labelEn={backLabelEn ?? 'Back'} labelAr={backLabelAr ?? 'رجوع'} />}
+        <div>
+          <p>{eyebrow}</p>
+          <h1>{locale === 'ar' && titleAr ? titleAr : title}</h1>
+          {sub && <span>{locale === 'ar' && subAr ? subAr : sub}</span>}
+        </div>
       </div>
       {actions && <div className="sp-pagehead-actions">{actions}</div>}
     </div>

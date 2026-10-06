@@ -9,13 +9,31 @@ import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-so
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
 import { getMultiDayToursForCategory, getToursByCategory, multiDayCategories } from '@/data/tours'
-import { isCustomSlug, removeCustomItem, useLiveMultiDayCategories } from '@/lib/admin-store'
+import { useDbCategories } from '@/lib/catalogue-client'
 import { useDbTours } from '@/lib/tours-client'
 
 export default function MultiDayCategoriesPage() {
   const ar = useAdminLocale() === 'ar'
   const [query, setQuery] = useState('')
-  const liveCategories = useLiveMultiDayCategories(multiDayCategories)
+  const [removeError, setRemoveError] = useState('')
+  const liveCategories = useDbCategories(multiDayCategories)
+  const removeCategory = async (slug: string) => {
+    setRemoveError('')
+    try {
+      const res = await fetch(`/api/multi-day-categories/${encodeURIComponent(slug)}`, {
+        method: 'DELETE',
+        credentials: 'same-origin',
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({} as { error?: string }))
+        throw new Error(data.error || 'Failed to delete category.')
+      }
+      // Refresh from the DB source of truth.
+      window.location.reload()
+    } catch (err) {
+      setRemoveError(err instanceof Error ? err.message : 'Failed to delete category.')
+    }
+  }
   const liveTours = useDbTours(getToursByCategory('multi-days-tours'))
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -28,7 +46,7 @@ export default function MultiDayCategoriesPage() {
   const categorySort = useAdminTableSort(rows, {
     category: (row) => row.category.name,
     tours: (row) => row.linked,
-    status: (row) => (!row.category.active ? 'hidden' : isCustomSlug(row.category.slug) ? 'custom' : 'published'),
+    status: (row) => (!row.category.active ? 'hidden' : 'published'),
     order: (row) => row.category.order,
   }, 'order', 'asc')
   const paging = usePagination(categorySort.sortedRows)
@@ -43,18 +61,19 @@ export default function MultiDayCategoriesPage() {
     ]} />
     <Card title={<AdminText en="All categories" ar="كل الفئات" />} sub={<AdminText en={`${rows.length} of ${liveCategories.length} shown`} ar={`عرض ${rows.length} من ${liveCategories.length}`} />}>
       <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث في الفئات...' : 'Search categories...'} />
+      {removeError ? <p role="alert" style={{ color: '#b91c1c', margin: '8px 0 0' }}>{removeError}</p> : null}
       {rows.length ? <AdminTableWrap><table className="sp-table">
         <thead><tr><th className="sp-row-number">#</th><SortableTh label={<AdminText en="Category" ar="الفئة" />} column="category" {...categorySort} onSort={categorySort.sortBy} /><SortableTh label={<AdminText en="Linked tours" ar="الرحلات المرتبطة" />} column="tours" {...categorySort} onSort={categorySort.sortBy} /><SortableTh label={<AdminText en="Status" ar="الحالة" />} column="status" {...categorySort} onSort={categorySort.sortBy} /><SortableTh label={<AdminText en="Order" ar="الترتيب" />} column="order" {...categorySort} onSort={categorySort.sortBy} /><th></th></tr></thead>
         <tbody>{paging.pageRows.map(({ category, linked }, index) => <tr key={category.slug}>
           <td className="sp-row-number">{paging.from + index}</td>
           <td><span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>{category.image ? <img src={category.image} alt="" style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', flex: 'none' }} /> : null}<span><strong>{ar ? category.nameAr : category.name}</strong><br /><small style={{ color: 'var(--sp-muted)' }}>{(ar ? category.copyAr : category.copy).slice(0, 76)}...</small></span></span></td>
           <td>{linked}</td>
-          <td><StatusPill status={!category.active ? 'hidden' : isCustomSlug(category.slug) ? 'custom' : 'published'} /></td>
+          <td><StatusPill status={!category.active ? 'hidden' : 'published'} /></td>
           <td>{category.order}</td>
           <td><AdminTableActions>
             <AdminIconAction icon={Pencil} label={ar ? `تعديل ${category.name}` : `Edit ${category.name}`} href={`/admin/multi-day-categories/new?slug=${category.slug}`} />
             <AdminIconAction icon={ExternalLink} label={ar ? `عرض ${category.name}` : `View ${category.name}`} href={`/egypt-tours/multi-days-tours/${category.slug}`} />
-            {isCustomSlug(category.slug) && <button type="button" className="sp-delete-btn" onClick={() => removeCustomItem('multiDayCategories', category.slug)}><AdminText en="Delete" ar="حذف" /></button>}
+            {<button type="button" className="sp-delete-btn" onClick={() => removeCategory(category.slug)}><AdminText en="Delete" ar="حذف" /></button>}
           </AdminTableActions></td>
         </tr>)}</tbody>
       </table></AdminTableWrap> : <AdminEmpty title={<AdminText en="No categories found" ar="لا توجد فئات" />} copy={<AdminText en="Try changing the search or filters." ar="جرب تغيير البحث أو الفلاتر." />} />}

@@ -29,7 +29,7 @@ import {
   type TripRequestStatus,
   type TripTimeMode,
 } from '@/lib/trip-request';
-import { destinations } from '@/data/content';
+import { findDestinationBySlug } from './destinations';
 import { findTourBySlug } from './tours';
 import { notifyUser, notifyStaff } from './notifications';
 import { sendCustomerEmailSafe, sendStaffEmailSafe } from './email';
@@ -163,7 +163,8 @@ export async function validateTripDraft(input: unknown, opts?: { isShore?: boole
   };
 
   const destinationSlug = text(body.destinationSlug)?.trim() ?? '';
-  if (destinationSlug !== '' && !destinations.some((d) => d.slug === destinationSlug)) {
+  // DB-authoritative catalogue: unknown slugs are rejected.
+  if (destinationSlug !== '' && !(await findDestinationBySlug(destinationSlug))) {
     fail('Choose a valid destination.');
   }
   const tourSlug = text(body.tourSlug)?.trim() ?? '';

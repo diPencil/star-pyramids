@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
-import { ArrowLeft, MessageCircle, Pencil, Trash2, UserCheck, UserX, Users } from 'lucide-react'
+import { MessageCircle, Pencil, Trash2, UserCheck, UserX, Users } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableWrap, AdminText, Avatar, Card, StatusPill } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
@@ -34,7 +34,7 @@ export function CustomerDetailContent({ customerKey }: { customerKey: string }) 
 
   if (!custom && customerBookings.length === 0) {
     return <>
-      <PageHead eyebrow="CRM" title="Customer" titleAr="العميل" actions={<Link className="sp-btn" href="/admin/customers"><ArrowLeft size={16} /> <AdminText en="Back" ar="رجوع" /></Link>} />
+      <PageHead eyebrow="CRM" title="Customer" titleAr="العميل" backHref="/admin/customers" />
       <AdminEmpty title={<AdminText en="Customer not found" ar="العميل غير موجود" />} />
     </>
   }
@@ -47,8 +47,8 @@ export function CustomerDetailContent({ customerKey }: { customerKey: string }) 
       eyebrow="CRM"
       title={name}
       sub={custom ? `${custom.username} · ${custom.phone}` : customerBookings[0]?.id ?? ''}
+      backHref="/admin/customers"
       actions={<>
-        <Link className="sp-btn" href="/admin/customers"><ArrowLeft size={16} /> <AdminText en="Back" ar="رجوع" /></Link>
         <Link className="sp-btn" href={`/admin/customers/${encodeURIComponent(key)}/edit`}><Pencil size={16} /> <AdminText en="Edit" ar="تعديل" /></Link>
         <button type="button" className="sp-btn primary" onClick={() => startImpersonation({ name, email: email || undefined, avatar })}><Users size={16} /> <AdminText en="Preview as user (demo)" ar="معاينة كعميل (تجريبي)" /></button>
       </>}

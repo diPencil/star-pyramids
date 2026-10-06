@@ -821,3 +821,50 @@ model EmailDelivery {
   @@index([relatedReference])
   @@map("email_deliveries")
 }
+
+/// Phase 3B: editorial + discovery destination catalogue.
+/// Server-authoritative: public pages and admin read/write these rows.
+/// `showInOneDayTours=true` drives One Day Tours discovery sections;
+/// `showInDestinations=false` hides the editorial landing page while
+/// keeping catalogue/admin use; `isPublished=false` hides the record
+/// from all public surfaces. `detail` carries the full editorial payload
+/// (hero, facts, bestFor, experiences, rhythm, practical, tourSlugs).
+model Destination {
+  id               String   @id @default(cuid())
+  slug             String   @unique @db.VarChar(80)
+  title            String   @db.VarChar(120)
+  nameAr           String?  @db.VarChar(120)
+  image            String   @db.VarChar(2000)
+  copy             String   @db.VarChar(2000)
+  copyAr           String?  @db.VarChar(2000)
+  showInOneDayTours Boolean @default(false)
+  showInDestinations Boolean @default(true)
+  isPublished      Boolean  @default(true)
+  displayOrder     Int      @default(999)
+  detail           Json
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("destinations")
+}
+
+/// Phase 3B: multi-day travel category (theme) catalogue.
+/// Server-authoritative: public pages and admin read/write these rows.
+/// Membership lives on Tour.categorySlugs (many-to-many); one canonical
+/// tour object is never duplicated. `active=false` hides the category
+/// from all public surfaces.
+model MultiDayCategory {
+  id        String   @id @default(cuid())
+  slug      String   @unique @db.VarChar(80)
+  name      String   @db.VarChar(120)
+  nameAr    String   @db.VarChar(120)
+  copy      String   @db.VarChar(2000)
+  copyAr    String   @db.VarChar(2000)
+  image     String   @db.VarChar(2000)
+  order     Int      @default(999)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("multi_day_categories")
+}

@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { ArrowLeft } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Card, StatusPill } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
@@ -39,7 +38,7 @@ export function PaymentDetailContent({ reference }: { reference: string }) {
   if (loading) {
     return (
       <>
-        <PageHead eyebrow="Orders" title="Payment" titleAr="الدفع" sub="Payment detail" subAr="تفاصيل الدفع" />
+        <PageHead eyebrow="Orders" title="Payment" titleAr="الدفع" sub="Payment detail" subAr="تفاصيل الدفع" backHref="/admin/payments" />
         <Card title={<AdminText en="Loading…" ar="جارٍ التحميل…" />}><p><AdminText en="Loading the stored payment…" ar="جارٍ تحميل الدفع المحفوظ…" /></p></Card>
       </>
     )
@@ -48,10 +47,9 @@ export function PaymentDetailContent({ reference }: { reference: string }) {
   if (!item) {
     return (
       <>
-        <PageHead eyebrow="Orders" title="Payment" titleAr="الدفع" sub="Payment detail" subAr="تفاصيل الدفع" />
+        <PageHead eyebrow="Orders" title="Payment" titleAr="الدفع" sub="Payment detail" subAr="تفاصيل الدفع" backHref="/admin/payments" />
         <Card title={<AdminText en="Payment not found" ar="الدفع غير موجود" />}>
           <p><AdminText en={loadError || 'This payment does not exist.'} ar={loadError || 'هذا الدفع غير موجود.'} /></p>
-          <p><Link className="sp-btn" href="/admin/payments"><AdminText en="Back to payments" ar="عودة للمدفوعات" /></Link></p>
         </Card>
       </>
     )
@@ -67,7 +65,7 @@ export function PaymentDetailContent({ reference }: { reference: string }) {
         titleAr={item.reference}
         sub={`${paymentStatusLabel(item.status, ar)} · $${item.amount.toLocaleString('en-US')} USD`}
         subAr={`${paymentStatusLabel(item.status, ar)} · $${item.amount.toLocaleString('en-US')} USD`}
-        actions={<Link className="sp-btn" href="/admin/payments"><ArrowLeft size={16} /> <AdminText en="Back to all payments" ar="عودة لكل المدفوعات" /></Link>}
+        backHref="/admin/payments"
       />
       <div className="evr-detail-grid">
         <div className="evr-main-col">

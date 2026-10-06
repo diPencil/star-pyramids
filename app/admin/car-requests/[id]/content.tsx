@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { ArrowLeft, CalendarDays, CarFront, FlaskConical, Mail, MapPin, MessageCircle, Phone, Users } from 'lucide-react'
+import { CalendarDays, CarFront, FlaskConical, Mail, MapPin, MessageCircle, Phone, Users } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { AdminEmpty, AdminText, Card } from '@/components/admin/admin-ui'
@@ -179,7 +179,7 @@ export function CarRequestDetailContent({ requestId }: { requestId: string }) {
   if (loading) {
     return (
       <>
-        <PageHead eyebrow="Rentals" title="Car request" titleAr="طلب سيارة" sub="Request detail" subAr="تفاصيل الطلب" />
+        <PageHead eyebrow="Rentals" title="Car request" titleAr="طلب سيارة" sub="Request detail" subAr="تفاصيل الطلب" backHref="/admin/car-requests" />
         <Card title={<AdminText en="Loading…" ar="جارٍ التحميل…" />}>
           <p role="status"><AdminText en="Loading car request…" ar="جارٍ تحميل طلب السيارة…" /></p>
         </Card>
@@ -190,10 +190,9 @@ export function CarRequestDetailContent({ requestId }: { requestId: string }) {
   if (!item) {
     return (
       <>
-        <PageHead eyebrow="Rentals" title="Car request" titleAr="طلب سيارة" sub="Request detail" subAr="تفاصيل الطلب" />
+        <PageHead eyebrow="Rentals" title="Car request" titleAr="طلب سيارة" sub="Request detail" subAr="تفاصيل الطلب" backHref="/admin/car-requests" />
         <Card title={<AdminText en="Request not found" ar="الطلب غير موجود" />}>
           <p>{loadError || <AdminText en="This request does not exist." ar="هذا الطلب غير موجود." />}</p>
-          <p><Link className="sp-btn" href="/admin/car-requests"><AdminText en="Back to car requests" ar="عودة لطلبات السيارات" /></Link></p>
         </Card>
       </>
     )
@@ -219,8 +218,8 @@ export function CarRequestDetailContent({ requestId }: { requestId: string }) {
         titleAr={item.reference}
         sub={`${item.contact.name} · ${item.tripType} · ${item.passengers} ${ar ? 'ركاب' : 'passengers'}`}
         subAr={`${item.contact.name} · ${item.tripType} · ${item.passengers} ركاب`}
+        backHref="/admin/car-requests"
         actions={<>
-          <Link className="sp-btn" href="/admin/car-requests"><ArrowLeft size={16} /> <AdminText en="Back to all requests" ar="عودة لكل الطلبات" /></Link>
           <Link className="sp-btn" href="/admin/cars"><CarFront size={16} /> <AdminText en="Fleet" ar="الأسطول" /></Link>
         </>}
       />

@@ -1,9 +1,7 @@
 'use client'
 
-import Link from 'next/link'
 import { Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowLeft } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminText } from '@/components/admin/admin-ui'
 import { VehicleForm } from '@/components/admin/vehicle-form'
@@ -28,7 +26,7 @@ function NewCarInner() {
 
   if (slug && !editing) {
     return <>
-      <PageHead eyebrow="Fleet" title="Edit vehicle" titleAr="تعديل سيارة" actions={<Link className="sp-btn" href="/admin/cars"><ArrowLeft size={16} /> <AdminText en="Back" ar="رجوع" /></Link>} />
+      <PageHead eyebrow="Fleet" title="Edit vehicle" titleAr="تعديل سيارة" backHref="/admin/cars" />
       <AdminEmpty title={<AdminText en="Vehicle not found" ar="السيارة غير موجودة" />} />
     </>
   }
@@ -44,14 +42,12 @@ function NewCarInner() {
       titleAr={editing ? 'تعديل سيارة' : 'سيارة جديدة'}
       sub={editing ? (isCanonicalEdit ? 'Local override — canonical data stays untouched' : undefined) : 'Published to the fleet and request forms'}
       subAr={editing ? (isCanonicalEdit ? 'تجاوز محلي — البيانات الأصلية لا تتغير' : undefined) : 'تنشر في الأسطول ونماذج الطلب'}
-      actions={<>
-        <Link className="sp-btn" href="/admin/cars"><ArrowLeft size={16} /> <AdminText en="Back" ar="رجوع" /></Link>
-        {hasOverride && (
+      backHref="/admin/cars"
+      actions={hasOverride ? (
           <button type="button" className="sp-delete-btn" onClick={() => { if (editing) { removeCarOverride(editing.slug); router.push('/admin/cars') } }}>
             <AdminText en="Reset to default" ar="إعادة للافتراضي" />
           </button>
-        )}
-      </>}
+        ) : undefined}
     />
     {editing
       ? <VehicleForm key={editing.slug} initial={editing} submitLabel={<AdminText en="Save changes" ar="حفظ التغييرات" />} onSubmit={save} />

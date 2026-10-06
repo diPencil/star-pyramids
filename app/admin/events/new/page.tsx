@@ -2,8 +2,7 @@
 
 import { Suspense, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowLeft, Plus, RotateCcw, Trash2 } from 'lucide-react'
-import Link from 'next/link'
+import { Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
@@ -207,10 +206,9 @@ function EventForm() {
 
   if (missing) {
     return <>
-      <PageHead eyebrow="Events" title="Event not found" titleAr="الفعالية غير موجودة" sub="Unknown slug" subAr="معرف غير معروف" />
+      <PageHead eyebrow="Events" title="Event not found" titleAr="الفعالية غير موجودة" sub="Unknown slug" subAr="معرف غير معروف" backHref="/admin/events" />
       <Card title={<AdminText en="Unknown event" ar="فعالية غير معروفة" />}>
         <p><AdminText en={`No event matches slug "${editSlug}".`} ar={`لا توجد فعالية بالمعرف "${editSlug}".`} /></p>
-        <p><Link className="sp-btn" href="/admin/events"><AdminText en="Back to events" ar="عودة للفعاليات" /></Link></p>
       </Card>
     </>
   }
@@ -225,7 +223,8 @@ function EventForm() {
       titleAr={editing ? 'تعديل فعالية' : 'فعالية جديدة'}
       sub={editing ? `Local override for ${editSlug}` : 'Published to the events calendar and detail pages on this browser'}
       subAr={editing ? `تجاوز محلي للمعرف ${editSlug}` : 'تنشر في أجندة الفعاليات وصفحات التفاصيل على هذا المتصفح'}
-      actions={<span style={{ display: 'flex', gap: 8 }}><Link className="sp-btn" href="/admin/events"><ArrowLeft size={16} /> <AdminText en="All events" ar="كل الفعاليات" /></Link><button type="button" className="sp-btn dark" onClick={save}><AdminText en={editing ? 'Save changes' : 'Publish event'} ar={editing ? 'حفظ التعديلات' : 'نشر الفعالية'} /></button></span>}
+      backHref="/admin/events"
+      actions={<span style={{ display: 'flex', gap: 8 }}><button type="button" className="sp-btn dark" onClick={save}><AdminText en={editing ? 'Save changes' : 'Publish event'} ar={editing ? 'حفظ التعديلات' : 'نشر الفعالية'} /></button></span>}
     />
     {showCustomNote && <Card title={<AdminText en="Browser preview note" ar="ملاحظة المعاينة" />}><p><AdminText en="This locally created event is available in this browser preview. A direct hard refresh/shareable production URL requires backend/build-time publishing." ar="هذه الفعالية المنشأة محليًا متاحة في معاينة هذا المتصفح. الرابط المباشر القابل للمشاركة بعد التحديث يتطلب نشرًا عبر الخلفية أو وقت البناء." /></p></Card>}
     <Card title={<AdminText en="Basic" ar="أساسي" />}>

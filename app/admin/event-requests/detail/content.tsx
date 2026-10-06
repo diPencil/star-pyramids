@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { ArrowLeft, CalendarDays, MapPin, StickyNote, Users } from 'lucide-react'
+import { CalendarDays, MapPin, StickyNote, Users } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Card } from '@/components/admin/admin-ui'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
@@ -98,7 +98,7 @@ export function EventRequestDetailContent({ requestId }: { requestId: string }) 
   if (loading) {
     return (
       <>
-        <PageHead eyebrow="Events" title="Event request" titleAr="طلب فعالية" sub="Request detail" subAr="تفاصيل الطلب" />
+        <PageHead eyebrow="Events" title="Event request" titleAr="طلب فعالية" sub="Request detail" subAr="تفاصيل الطلب" backHref="/admin/event-requests" />
         <Card title={<AdminText en="Loading…" ar="جارٍ التحميل…" />}><p><AdminText en="Loading the stored request…" ar="جارٍ تحميل الطلب المحفوظ…" /></p></Card>
       </>
     )
@@ -107,10 +107,9 @@ export function EventRequestDetailContent({ requestId }: { requestId: string }) 
   if (!item) {
     return (
       <>
-        <PageHead eyebrow="Events" title="Event request" titleAr="طلب فعالية" sub="Request detail" subAr="تفاصيل الطلب" />
+        <PageHead eyebrow="Events" title="Event request" titleAr="طلب فعالية" sub="Request detail" subAr="تفاصيل الطلب" backHref="/admin/event-requests" />
         <Card title={<AdminText en="Request not found" ar="الطلب غير موجود" />}>
           <p><AdminText en={loadError || 'This request does not exist.'} ar={loadError || 'هذا الطلب غير موجود.'} /></p>
-          <p><Link className="sp-btn" href="/admin/event-requests"><AdminText en="Back to event requests" ar="عودة لطلبات الفعاليات" /></Link></p>
         </Card>
       </>
     )
@@ -152,7 +151,7 @@ export function EventRequestDetailContent({ requestId }: { requestId: string }) 
         titleAr={item.reference}
         sub={`${title} · ${item.attendees} ${ar ? 'حضور' : 'attendees'}`}
         subAr={`${title} · ${item.attendees} حضور`}
-        actions={<Link className="sp-btn" href="/admin/event-requests"><ArrowLeft size={16} /> <AdminText en="Back to all requests" ar="عودة لكل الطلبات" /></Link>}
+        backHref="/admin/event-requests"
       />
       <div className="evr-detail-grid">
         <div className="evr-main-col">

@@ -60,7 +60,7 @@ export default function NewCustomerPage() {
   }
 
   return <>
-    <PageHead eyebrow="CRM" title="New customer" titleAr="عميل جديد" sub="Same fields as the website registration form" subAr="نفس حقول نموذج التسجيل في الموقع" actions={<button type="button" className="sp-btn dark" onClick={save}><AdminText en="Create customer" ar="إنشاء العميل" /></button>} />
+    <PageHead eyebrow="CRM" title="New customer" titleAr="عميل جديد" sub="Same fields as the website registration form" subAr="نفس حقول نموذج التسجيل في الموقع" backHref="/admin/customers" actions={<button type="button" className="sp-btn dark" onClick={save}><AdminText en="Create customer" ar="إنشاء العميل" /></button>} />
     <Card title={<AdminText en="Customer details" ar="بيانات العميل" />}>
       <div className="sp-form">
         <div className="sp-form-2">

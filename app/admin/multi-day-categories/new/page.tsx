@@ -9,7 +9,7 @@ import { AdminText, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { ImageField } from '@/components/admin/image-field'
 import { getMultiDayToursForCategory, getToursByCategory, multiDayCategories } from '@/data/tours'
-import { saveCustomItem, slugify, useLiveMultiDayCategories } from '@/lib/admin-store'
+import { useDbCategories, invalidateCatalogueCache, dbSlugify } from '@/lib/catalogue-client'
 import { useDbTours } from '@/lib/tours-client'
 
 const multiBase = getToursByCategory('multi-days-tours')
@@ -18,9 +18,14 @@ export default function CategoryEditorPage() {
   const ar = useAdminLocale() === 'ar'
   const router = useRouter()
   const [editSlug, setEditSlug] = useState('')
-  const liveCategories = useLiveMultiDayCategories(multiDayCategories)
+  const liveCategories = useDbCategories(multiDayCategories)
   const liveTours = useDbTours(multiBase)
-  const editing = liveCategories.find((c) => c.slug === editSlug)
+  // Stable record identity: the init effect below re-runs only when the
+  // edited record itself (not list identities) changes.
+  const editing = useMemo(
+    () => (editSlug ? liveCategories.find((c) => c.slug === editSlug) : undefined),
+    [liveCategories, editSlug],
+  )
 
   const [name, setName] = useState('')
   const [nameAr, setNameAr] = useState('')
@@ -59,7 +64,7 @@ export default function CategoryEditorPage() {
       setOrder(String(Math.max(0, ...liveCategories.map((c) => c.order)) + 1))
     }
     setReady(true)
-  }, [editSlug, editing, liveCategories, liveTours])
+  }, [editSlug, editing, liveTours])
 
   const availableTours = useMemo(() => {
     const q = tourQuery.trim().toLowerCase()
@@ -74,10 +79,10 @@ export default function CategoryEditorPage() {
   const save = async () => {
     setError('')
     if (!name.trim() || !nameAr.trim()) { setError(ar ? 'اكتب اسم الفئة بالإنجليزية والعربية.' : 'Enter the category name in English and Arabic.'); return }
-    const finalSlug = editSlug || slugify(slug.trim() ? `${slug}` : name)
+    const finalSlug = editSlug || dbSlugify(slug.trim() ? `${slug}` : name)
     if (!/^[a-z0-9-]{1,80}$/.test(finalSlug)) { setError(ar ? 'الرابط غير صالح. استخدم حروفا إنجليزية صغيرة وأرقاما وشرطات.' : 'Invalid slug. Use lowercase letters, numbers, and hyphens.'); return }
     const parsedOrder = Number(order)
-    saveCustomItem('multiDayCategories', {
+    const body = {
       slug: finalSlug,
       name: name.trim(),
       nameAr: nameAr.trim(),
@@ -86,12 +91,30 @@ export default function CategoryEditorPage() {
       image: image.trim(),
       order: Number.isFinite(parsedOrder) ? parsedOrder : 999,
       active: published,
-    })
-    // Tour assignments are DB-authoritative: write categorySlugs straight
-    // to the tours table (the category record itself stays browser-local
-    // until its backend phase lands).
+    }
+    // Category record is DB-authoritative (POST for new, PUT for edit).
     if (saving) return
     setSaving(true)
+    try {
+      const url = editSlug
+        ? `/api/multi-day-categories/${encodeURIComponent(editSlug)}`
+        : '/api/multi-day-categories'
+      const res = await fetch(url, {
+        method: editSlug ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        credentials: 'same-origin',
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({} as { error?: string }))
+        throw new Error(data.error || 'Failed to save category.')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save category.')
+      setSaving(false)
+      return
+    }
+    // Tour assignments stay DB-authoritative alongside the record.
     try {
       const failures: string[] = []
       const putSlugs = async (tourSlug: string, categorySlugs: string[]) => {
@@ -121,6 +144,7 @@ export default function CategoryEditorPage() {
         setError(ar ? `تعذر حفظ ارتباط الرحلات في قاعدة البيانات: ${failures.join(', ')}` : `Could not save tour links to the database: ${failures.join(', ')}`)
         return
       }
+      invalidateCatalogueCache()
       router.push('/admin/multi-day-categories')
     } finally {
       setSaving(false)
@@ -128,7 +152,7 @@ export default function CategoryEditorPage() {
   }
 
   return <>
-    <PageHead eyebrow="Catalogue" title={editSlug ? 'Edit category' : 'New category'} titleAr={editSlug ? 'تعديل الفئة' : 'فئة جديدة'} sub={ar ? 'تظهر في صفحة رحلات متعددة الأيام وصفحتها عند النشر' : 'Visible on the Multi Days landing and its category page when published'} actions={<button type="button" className="sp-btn dark" onClick={save} disabled={saving}><AdminText en="Save category" ar="حفظ الفئة" /></button>} />
+    <PageHead eyebrow="Catalogue" title={editSlug ? 'Edit category' : 'New category'} titleAr={editSlug ? 'تعديل الفئة' : 'فئة جديدة'} sub={ar ? 'تظهر في صفحة رحلات متعددة الأيام وصفحتها عند النشر' : 'Visible on the Multi Days landing and its category page when published'} backHref="/admin/multi-day-categories" actions={<button type="button" className="sp-btn dark" onClick={save} disabled={saving}><AdminText en="Save category" ar="حفظ الفئة" /></button>} />
     {!ready ? <Card title={<AdminText en="Loading" ar="جار التحميل" />}><p style={{ color: 'var(--sp-muted)' }}><AdminText en="Loading category..." ar="جار تحميل الفئة..." /></p></Card> : editSlug && !editing ? (
       <Card title={<AdminText en="Category not found" ar="الفئة غير موجودة" />}><p style={{ color: 'var(--sp-muted)' }}><AdminText en="The requested category does not exist." ar="الفئة المطلوبة غير موجودة." /></p></Card>
     ) : <>

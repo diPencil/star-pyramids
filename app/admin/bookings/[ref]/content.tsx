@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { ArrowLeft, CalendarDays, MapPin, StickyNote, Users } from 'lucide-react'
+import { CalendarDays, MapPin, StickyNote, Users } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Card } from '@/components/admin/admin-ui'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
@@ -69,7 +69,7 @@ export function BookingDetailContent({ reference }: { reference: string }) {
   if (loading) {
     return (
       <>
-        <PageHead eyebrow="Orders" title="Booking" titleAr="الحجز" sub="Booking detail" subAr="تفاصيل الحجز" />
+        <PageHead eyebrow="Orders" title="Booking" titleAr="الحجز" sub="Booking detail" subAr="تفاصيل الحجز" backHref="/admin/bookings" />
         <Card title={<AdminText en="Loading…" ar="جارٍ التحميل…" />}><p><AdminText en="Loading the stored booking…" ar="جارٍ تحميل الحجز المحفوظ…" /></p></Card>
       </>
     )
@@ -78,10 +78,9 @@ export function BookingDetailContent({ reference }: { reference: string }) {
   if (!item) {
     return (
       <>
-        <PageHead eyebrow="Orders" title="Booking" titleAr="الحجز" sub="Booking detail" subAr="تفاصيل الحجز" />
+        <PageHead eyebrow="Orders" title="Booking" titleAr="الحجز" sub="Booking detail" subAr="تفاصيل الحجز" backHref="/admin/bookings" />
         <Card title={<AdminText en="Booking not found" ar="الحجز غير موجود" />}>
           <p><AdminText en={loadError || 'This booking does not exist.'} ar={loadError || 'هذا الحجز غير موجود.'} /></p>
-          <p><Link className="sp-btn" href="/admin/bookings"><AdminText en="Back to bookings" ar="عودة للحجوزات" /></Link></p>
         </Card>
       </>
     )
@@ -121,7 +120,7 @@ export function BookingDetailContent({ reference }: { reference: string }) {
         titleAr={item.reference}
         sub={`${item.lines[0]?.title ?? 'Booking'} · ${guests} ${ar ? 'ضيوف' : 'guests'}`}
         subAr={`${item.lines[0]?.title ?? 'الحجز'} · ${guests} ضيوف`}
-        actions={<Link className="sp-btn" href="/admin/bookings"><ArrowLeft size={16} /> <AdminText en="Back to all bookings" ar="عودة لكل الحجوزات" /></Link>}
+        backHref="/admin/bookings"
       />
       <div className="evr-detail-grid">
         <div className="evr-main-col">
