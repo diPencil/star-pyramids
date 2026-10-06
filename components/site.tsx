@@ -53,26 +53,37 @@ es: { ...baseExtra.en, promo2: 'Ahorra por tiempo limitado en los mejores circui
 
 export function Logo(){const brand=useBrandSettings(); return <Link href="/" className="brand-logo" aria-label="STAR PYRAMIDS Tours Egypt"><img className="brand-img" src={brand.logo || '/logo.png'} alt="STAR PYRAMIDS Tours Egypt"/></Link>}
 
-function NotificationDropdown({ locale, onClose }: { locale: Locale; onClose: () => void }) {
+const MARKETING_NOTIF_KEY = 'sp-marketing-notifications-v1';
 
-  const [items, setItems] = useState([
+type MarketingNotifItem = {
+  id: string;
+  type: 'offer' | 'tour' | 'promo' | 'car';
+  title: string;
+  desc: string;
+  time: string;
+  href: string;
+  unread: boolean;
+};
+
+function getMarketingItems(locale: Locale): MarketingNotifItem[] {
+  return [
     {
       id: '1',
       type: 'offer',
       title: tx(locale, { en: 'Special Offer: 20% OFF Luxury Nile Cruises Luxor & Aswan', es: 'Oferta exclusiva: 20% de descuento en cruceros por el Nilo Luxor y Asuán', it: 'Offerta esclusiva: 20% di sconto sulle crociere sul Nilo Luxor e Assuan', ar: 'عرض حصري: خصم 20% على كروز النيل الأقصر وأسوان' }),
       desc: tx(locale, { en: 'Book your 5-star cruise now and enjoy all-inclusive stay & private guide', es: 'Reserva tu crucero 5 estrellas y disfruta de estancia todo incluido y guía privado', it: 'Prenota ora la tua crociera 5 stelle con soggiorno all-inclusive e guida privata', ar: 'احجز رحلتك البحرية الآن واستمتع بإقامة 5 نجوم شاملة كلياً' }),
       time: tx(locale, { en: '15m ago', es: 'hace 15 min', it: '15 min fa', ar: 'منذ 15 دقيقة' }),
+      href: '/special-offers',
       unread: true,
-      href: '/special-offers'
     },
     {
       id: '2',
       type: 'tour',
-      title: tx(locale, { en: 'New Tour: White Desert & Bahariya Oasis 3-Day Safari', es: 'Nuevo circuito: safari de 3 días por el Desierto Blanco y el oasis de Bahariya', it: 'Nuovo tour: safari di 3 giorni nel Deserto Bianco e nell’oasi di Bahariya', ar: 'رحلة جديدة: مغامرة سفاري الصحراء البيضاء والواحات 3 أيام' }),
+      title: tx(locale, { en: 'New Tour: White Desert & Bahariya Oasis 3-Day Safari', es: 'Nuevo circuito: safari de 3 días por el Desierto Blanco y el oasis de Bahariya', it: 'Nuovo tour: safari di 3 giorni nel Deserto Bianco e nell\'oasi di Bahariya', ar: 'رحلة جديدة: مغامرة سفاري الصحراء البيضاء والواحات 3 أيام' }),
       desc: tx(locale, { en: 'Discover magical landscapes and luxury stargazing camping in Egypt', es: 'Descubre paisajes mágicos y acampada de lujo bajo las estrellas en Egipto', it: 'Scopri paesaggi magici e campeggio di lusso sotto le stelle in Egitto', ar: 'اكتشف رمال مصر الساحرة والتخييم تحت النجوم مع مرشد خبير' }),
       time: tx(locale, { en: '2h ago', es: 'hace 2 h', it: '2 ore fa', ar: 'منذ ساعتين' }),
+      href: '/egypt-tours/multi-days-tours',
       unread: true,
-      href: '/egypt-tours/multi-days-tours'
     },
     {
       id: '3',
@@ -80,23 +91,71 @@ function NotificationDropdown({ locale, onClose }: { locale: Locale; onClose: ()
       title: tx(locale, { en: 'Exclusive Promo Code: STAR2026', es: 'Código de descuento exclusivo: STAR2026', it: 'Codice sconto esclusivo: STAR2026', ar: 'كود خصم حصري: STAR2026' }),
       desc: tx(locale, { en: 'Save extra 5% on all tour packages when booking this week', es: 'Ahorra un 5% extra en todos los paquetes al reservar esta semana', it: 'Risparmia un ulteriore 5% su tutti i pacchetti prenotando questa settimana', ar: 'وفّر 5% إضافية عند حجز أي باقة سياحية هذا الأسبوع' }),
       time: tx(locale, { en: '1d ago', es: 'hace 1 día', it: '1 giorno fa', ar: 'منذ يوم' }),
+      href: '/special-offers',
       unread: false,
-      href: '/special-offers'
     },
     {
       id: '4',
       type: 'car',
-      title: tx(locale, { en: 'Updated Car Rental & VIP Airport Transfers', es: 'Nueva flota de alquiler y traslados VIP al aeropuerto', it: 'Nuova flotta a noleggio e trasferimenti VIP per l’aeroporto', ar: 'تحديث أسطول سيارات الليموزين وتوصيل المطار' }),
+      title: tx(locale, { en: 'Updated Car Rental & VIP Airport Transfers', es: 'Nueva flota de alquiler y traslados VIP al aeropuerto', it: 'Nuova flotta a noleggio e trasferimenti VIP per l\'aeroporto', ar: 'تحديث أسطول سيارات الليموزين وتوصيل المطار' }),
       desc: tx(locale, { en: 'New premium fleet available with private chauffeur at best rates', es: 'Nueva flota premium con chófer privado al mejor precio', it: 'Nuova flotta premium con autista privato alle migliori tariffe', ar: 'أحدث موديلات السيارات مع سائق خاص بأفضل الأسعار' }),
       time: tx(locale, { en: '2d ago', es: 'hace 2 días', it: '2 giorni fa', ar: 'منذ يومين' }),
+      href: '/rent-car',
       unread: false,
-      href: '/rent-car'
-    }
-  ]);
+    },
+  ];
+}
+
+function loadReadIds(): Set<string> {
+  if (typeof window === 'undefined') return new Set();
+  try {
+    const raw = window.localStorage.getItem(MARKETING_NOTIF_KEY);
+    if (!raw) return new Set();
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter((id): id is string => typeof id === 'string'));
+  } catch {
+    return new Set();
+  }
+}
+
+function saveReadIds(ids: Set<string>): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(MARKETING_NOTIF_KEY, JSON.stringify([...ids]));
+  } catch {
+    // storage full or unavailable — non-critical
+  }
+}
+
+function NotificationDropdown({ locale, onClose, onUnreadCountChange }: { locale: Locale; onClose: () => void; onUnreadCountChange: (count: number) => void }) {
+
+  const [items, setItems] = useState<MarketingNotifItem[]>(() => {
+    const readIds = loadReadIds();
+    return getMarketingItems(locale).map(item => ({
+      ...item,
+      unread: item.unread && !readIds.has(item.id),
+    }));
+  });
 
   const unreadCount = items.filter(i => i.unread).length;
+
+  useEffect(() => {
+    onUnreadCountChange(unreadCount);
+  }, [unreadCount, onUnreadCountChange]);
+
   const markAllRead = () => {
-    setItems(items.map(i => ({ ...i, unread: false })));
+    setItems(prev => prev.map(i => ({ ...i, unread: false })));
+    const readIds = loadReadIds();
+    items.forEach(i => readIds.add(i.id));
+    saveReadIds(readIds);
+  };
+
+  const markItemRead = (id: string) => {
+    setItems(prev => prev.map(i => i.id === id ? { ...i, unread: false } : i));
+    const readIds = loadReadIds();
+    readIds.add(id);
+    saveReadIds(readIds);
   };
 
   return (
@@ -118,7 +177,7 @@ function NotificationDropdown({ locale, onClose }: { locale: Locale; onClose: ()
             key={item.id}
             href={item.href}
             onClick={() => {
-              setItems(items.map(i => i.id === item.id ? { ...i, unread: false } : i));
+              markItemRead(item.id);
               onClose();
             }}
             className={`notif-item ${item.unread ? 'unread' : ''}`}
@@ -198,6 +257,7 @@ export function Header() {
   const [companyOpen, setCompanyOpen] = useState(false)
   const [languageOpen, setLanguageOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
+  const [marketingUnreadCount, setMarketingUnreadCount] = useState(0)
   const [query, setQuery] = useState('')
   const [promoIdx, setPromoIdx] = useState(0)
   const [scrolled, setScrolled] = useState(false)
@@ -280,8 +340,8 @@ export function Header() {
         <div className="header-actions">
           <LanguageToggle label={LOCALE_SHORT_LABELS[locale] + ' - ' + currency} onOpen={() => setLanguageOpen(true)}/>
           <div className="notif-wrapper">
-            <button type="button" className={`icon-btn notif-btn ${notifOpen ? 'active' : ''}`} onClick={() => setNotifOpen((value) => !value)} aria-label={tx(locale, { en: 'Notifications', es: 'Notificaciones', it: 'Notifiche', ar: 'الإشعارات' })} aria-expanded={notifOpen}><Bell size={18}/><span className="notif-badge-pulse"/></button>
-            {notifOpen && <NotificationDropdown locale={locale} onClose={() => setNotifOpen(false)}/>}
+            <button type="button" className={`icon-btn notif-btn ${notifOpen ? 'active' : ''}`} onClick={() => setNotifOpen((value) => !value)} aria-label={tx(locale, { en: 'Notifications', es: 'Notificaciones', it: 'Notifiche', ar: 'الإشعارات' })} aria-expanded={notifOpen}><Bell size={18}/>{marketingUnreadCount > 0 && <span className="notif-badge-pulse"/>}</button>
+            {notifOpen && <NotificationDropdown locale={locale} onClose={() => setNotifOpen(false)} onUnreadCountChange={setMarketingUnreadCount}/>}
           </div>
           <Link className={`icon-btn header-cart${cartLines > 0 ? ' has-items' : ''}`} href="/cart" aria-label={cartLabel}>
             <ShoppingCart size={18}/>
@@ -333,7 +393,7 @@ export function Header() {
   </>
 }
 
-function LegacyHeader(){const [menu,setMenu]=useState(false); const [open,setOpen]=useState(false); const [stickyOpen,setStickyOpen]=useState(false); const [languageOpen,setLanguageOpen]=useState(false); const [notifOpen,setNotifOpen]=useState(false); const {locale,setLocale,currency,setCurrency}=useLocale(); const [query,setQuery]=useState(''); const router=useRouter(); const pathname=usePathname(); const [promoIdx,setPromoIdx]=useState(0); const promoHold=useRef(false); const [scrolled,setScrolled]=useState(false); useEffect(()=>{setOpen(false); setStickyOpen(false); setMenu(false); setNotifOpen(false);},[pathname]); useEffect(()=>{const onDocClick=(e:MouseEvent)=>{const target=e.target as HTMLElement; if(!target.closest('.nav-dropdown')){setOpen(false); setStickyOpen(false);} if(!target.closest('.notif-wrapper')){setNotifOpen(false);}}; document.addEventListener('click',onDocClick); return ()=>document.removeEventListener('click',onDocClick);},[]); useEffect(()=>{const id=setInterval(()=>{if(!promoHold.current) setPromoIdx((i)=>(i+1)%2);},5000); return ()=>clearInterval(id);},[]); useEffect(()=>{const onScroll=()=>setScrolled(window.scrollY>130); onScroll(); window.addEventListener('scroll',onScroll,{passive:true}); return ()=>window.removeEventListener('scroll',onScroll);},[]); const t=copy[locale]; const ex=extra[locale]; const promos=[{text:t.promo,href:'/special-offers',label:ex.viewPackages,icons:<><Ticket size={26}/><BadgePercent size={26}/></>},{text:ex.promo2,href:'/special-offers',label:ex.viewOffers,icons:<><Star size={26}/><BadgePercent size={26}/></>}]; return <><header suppressHydrationWarning className="site-header"><div className="header-top container"><button className="mobile-menu" onClick={()=>setMenu(!menu)} aria-label="Open menu">{menu?<X/>:<Menu/>}</button><Logo/><form className="site-search" role="search" onSubmit={(e)=>{e.preventDefault();router.push('/search?q='+encodeURIComponent(query))}}><Search size={19}/><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder={t.search} aria-label="Search places and things to do"/></form><div className="header-actions"><LanguageToggle label={tx(locale, { en: 'EN', es: 'ES', it: 'IT', ar: 'AR' })+' - '+currency} onOpen={()=>setLanguageOpen(true)}/><div className="notif-wrapper"><button type="button" className={`icon-btn notif-btn ${notifOpen?'active':''}`} onClick={()=>setNotifOpen(!notifOpen)} aria-label="Notifications" aria-expanded={notifOpen}><Bell size={18}/><span className="notif-badge-pulse"/></button>{notifOpen&&<NotificationDropdown locale={locale} onClose={()=>setNotifOpen(false)}/>}</div><Link className="icon-btn" href="/account/bookings" aria-label="My bookings"><ShoppingCart size={18}/></Link><div className="header-socials"><HeaderSocials /></div></div></div><div className="header-nav"><div className="container header-nav-inner"><nav><Link href="/">{t.home}</Link><div className="nav-dropdown"><button onClick={()=>setOpen(!open)}>{t.tours} <ChevronDown size={14}/></button>{open&&<div className="tour-menu"><Link href="/trips">{tx(locale, { en: 'All Trips', es: 'Todos los viajes', it: 'Tutti i viaggi', ar: 'كل الرحلات' })}</Link><Link href="/egypt-tours/one-day-tours">{ex.cat1}</Link><Link href="/egypt-tours/multi-days-tours">{ex.cat2}</Link><Link href="/egypt-tours/nile-cruises">{ex.cat3}</Link><Link href="/egypt-tours/shore-excursions">{ex.cat4}</Link></div>}</div><Link href="/rent-car">{t.rent}</Link><Link href="/about">{t.about}</Link><Link href="/contact">{t.contact}</Link><Link href="/blogs">{t.blogs}</Link><Link href="/events">{t.events}</Link><Link className="special-link" href="/special-offers">{t.offer}</Link></nav><div className="nav-right-actions"><Link className="make-trip-link" href="/make-your-trip">{t.make}</Link><Link className="outline-btn" href="/login">{t.signIn}</Link></div></div></div>{languageOpen&&<LanguageModal locale={locale} currency={currency} onClose={()=>setLanguageOpen(false)} onSelect={setLocale} onCurrency={setCurrency}/>} {menu&&<div className="mobile-nav">{[[t.home,'/'],[t.tours,'/trips'],[t.rent,'/rent-car'],[t.about,'/about'],[t.contact,'/contact'],[t.blogs,'/blogs'],[t.events,'/events']].map(([label,href])=><Link key={label} href={href} onClick={()=>setMenu(false)}>{label}</Link>)}</div>}</header><div className={'sticky-nav-bar'+(scrolled?' is-visible':'')} aria-hidden={!scrolled}><div className="container sticky-nav-inner"><Logo/><nav><Link href="/">{t.home}</Link><div className="nav-dropdown"><button onClick={()=>setStickyOpen(!stickyOpen)}>{t.tours} <ChevronDown size={14}/></button>{stickyOpen&&<div className="tour-menu"><Link href="/trips">{tx(locale, { en: 'All Trips', es: 'Todos los viajes', it: 'Tutti i viaggi', ar: 'كل الرحلات' })}</Link><Link href="/egypt-tours/one-day-tours">{ex.cat1}</Link><Link href="/egypt-tours/multi-days-tours">{ex.cat2}</Link><Link href="/egypt-tours/nile-cruises">{ex.cat3}</Link><Link href="/egypt-tours/shore-excursions">{ex.cat4}</Link></div>}</div><Link href="/rent-car">{t.rent}</Link><Link href="/about">{t.about}</Link><Link href="/contact">{t.contact}</Link><Link href="/blogs">{t.blogs}</Link><Link href="/events">{t.events}</Link><Link className="special-link" href="/special-offers">{t.offer}</Link></nav><div className="sticky-nav-actions"><Link className="make-trip-link" href="/make-your-trip">{t.make}</Link><Link className="outline-btn" href="/login">{t.signIn}</Link></div></div></div><div className="promo" aria-live="polite" onMouseEnter={()=>{promoHold.current=true;}} onMouseLeave={()=>{promoHold.current=false;}}><span className="promo-icons" key={'pi'+promoIdx}>{promos[promoIdx].icons}</span><strong key={'pt'+promoIdx} className="promo-swap">{promos[promoIdx].text}</strong><Link key={'pl'+promoIdx} href={promos[promoIdx].href} className="promo-swap">{promos[promoIdx].label}</Link><span className="promo-dots">{promos.map((_,i)=><button key={i} type="button" className={i===promoIdx?'active':''} aria-label={'Show announcement '+(i+1)} aria-current={i===promoIdx} onClick={()=>setPromoIdx(i)}/>)}</span></div></>}
+function LegacyHeader(){const [menu,setMenu]=useState(false); const [open,setOpen]=useState(false); const [stickyOpen,setStickyOpen]=useState(false); const [languageOpen,setLanguageOpen]=useState(false); const [notifOpen,setNotifOpen]=useState(false); const [marketingUnreadCount,setMarketingUnreadCount]=useState(0); const {locale,setLocale,currency,setCurrency}=useLocale(); const [query,setQuery]=useState(''); const router=useRouter(); const pathname=usePathname(); const [promoIdx,setPromoIdx]=useState(0); const promoHold=useRef(false); const [scrolled,setScrolled]=useState(false); useEffect(()=>{setOpen(false); setStickyOpen(false); setMenu(false); setNotifOpen(false);},[pathname]); useEffect(()=>{const onDocClick=(e:MouseEvent)=>{const target=e.target as HTMLElement; if(!target.closest('.nav-dropdown')){setOpen(false); setStickyOpen(false);} if(!target.closest('.notif-wrapper')){setNotifOpen(false);}}; document.addEventListener('click',onDocClick); return ()=>document.removeEventListener('click',onDocClick);},[]); useEffect(()=>{const id=setInterval(()=>{if(!promoHold.current) setPromoIdx((i)=>(i+1)%2);},5000); return ()=>clearInterval(id);},[]); useEffect(()=>{const onScroll=()=>setScrolled(window.scrollY>130); onScroll(); window.addEventListener('scroll',onScroll,{passive:true}); return ()=>window.removeEventListener('scroll',onScroll);},[]); const t=copy[locale]; const ex=extra[locale]; const promos=[{text:t.promo,href:'/special-offers',label:ex.viewPackages,icons:<><Ticket size={26}/><BadgePercent size={26}/></>},{text:ex.promo2,href:'/special-offers',label:ex.viewOffers,icons:<><Star size={26}/><BadgePercent size={26}/></>}]; return <><header suppressHydrationWarning className="site-header"><div className="header-top container"><button className="mobile-menu" onClick={()=>setMenu(!menu)} aria-label="Open menu">{menu?<X/>:<Menu/>}</button><Logo/><form className="site-search" role="search" onSubmit={(e)=>{e.preventDefault();router.push('/search?q='+encodeURIComponent(query))}}><Search size={19}/><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder={t.search} aria-label="Search places and things to do"/></form><div className="header-actions"><LanguageToggle label={tx(locale, { en: 'EN', es: 'ES', it: 'IT', ar: 'AR' })+' - '+currency} onOpen={()=>setLanguageOpen(true)}/><div className="notif-wrapper"><button type="button" className={`icon-btn notif-btn ${notifOpen?'active':''}`} onClick={()=>setNotifOpen(!notifOpen)} aria-label="Notifications" aria-expanded={notifOpen}><Bell size={18}/><span className="notif-badge-pulse"/></button>{notifOpen&&<NotificationDropdown locale={locale} onClose={()=>setNotifOpen(false)} onUnreadCountChange={setMarketingUnreadCount}/>}</div><Link className="icon-btn" href="/account/bookings" aria-label="My bookings"><ShoppingCart size={18}/></Link><div className="header-socials"><HeaderSocials /></div></div></div><div className="header-nav"><div className="container header-nav-inner"><nav><Link href="/">{t.home}</Link><div className="nav-dropdown"><button onClick={()=>setOpen(!open)}>{t.tours} <ChevronDown size={14}/></button>{open&&<div className="tour-menu"><Link href="/trips">{tx(locale, { en: 'All Trips', es: 'Todos los viajes', it: 'Tutti i viaggi', ar: 'كل الرحلات' })}</Link><Link href="/egypt-tours/one-day-tours">{ex.cat1}</Link><Link href="/egypt-tours/multi-days-tours">{ex.cat2}</Link><Link href="/egypt-tours/nile-cruises">{ex.cat3}</Link><Link href="/egypt-tours/shore-excursions">{ex.cat4}</Link></div>}</div><Link href="/rent-car">{t.rent}</Link><Link href="/about">{t.about}</Link><Link href="/contact">{t.contact}</Link><Link href="/blogs">{t.blogs}</Link><Link href="/events">{t.events}</Link><Link className="special-link" href="/special-offers">{t.offer}</Link></nav><div className="nav-right-actions"><Link className="make-trip-link" href="/make-your-trip">{t.make}</Link><Link className="outline-btn" href="/login">{t.signIn}</Link></div></div></div>{languageOpen&&<LanguageModal locale={locale} currency={currency} onClose={()=>setLanguageOpen(false)} onSelect={setLocale} onCurrency={setCurrency}/>} {menu&&<div className="mobile-nav">{[[t.home,'/'],[t.tours,'/trips'],[t.rent,'/rent-car'],[t.about,'/about'],[t.contact,'/contact'],[t.blogs,'/blogs'],[t.events,'/events']].map(([label,href])=><Link key={label} href={href} onClick={()=>setMenu(false)}>{label}</Link>)}</div>}</header><div className={'sticky-nav-bar'+(scrolled?' is-visible':'')} aria-hidden={!scrolled}><div className="container sticky-nav-inner"><Logo/><nav><Link href="/">{t.home}</Link><div className="nav-dropdown"><button onClick={()=>setStickyOpen(!stickyOpen)}>{t.tours} <ChevronDown size={14}/></button>{stickyOpen&&<div className="tour-menu"><Link href="/trips">{tx(locale, { en: 'All Trips', es: 'Todos los viajes', it: 'Tutti i viaggi', ar: 'كل الرحلات' })}</Link><Link href="/egypt-tours/one-day-tours">{ex.cat1}</Link><Link href="/egypt-tours/multi-days-tours">{ex.cat2}</Link><Link href="/egypt-tours/nile-cruises">{ex.cat3}</Link><Link href="/egypt-tours/shore-excursions">{ex.cat4}</Link></div>}</div><Link href="/rent-car">{t.rent}</Link><Link href="/about">{t.about}</Link><Link href="/contact">{t.contact}</Link><Link href="/blogs">{t.blogs}</Link><Link href="/events">{t.events}</Link><Link className="special-link" href="/special-offers">{t.offer}</Link></nav><div className="sticky-nav-actions"><Link className="make-trip-link" href="/make-your-trip">{t.make}</Link><Link className="outline-btn" href="/login">{t.signIn}</Link></div></div></div><div className="promo" aria-live="polite" onMouseEnter={()=>{promoHold.current=true;}} onMouseLeave={()=>{promoHold.current=false;}}><span className="promo-icons" key={'pi'+promoIdx}>{promos[promoIdx].icons}</span><strong key={'pt'+promoIdx} className="promo-swap">{promos[promoIdx].text}</strong><Link key={'pl'+promoIdx} href={promos[promoIdx].href} className="promo-swap">{promos[promoIdx].label}</Link><span className="promo-dots">{promos.map((_,i)=><button key={i} type="button" className={i===promoIdx?'active':''} aria-label={'Show announcement '+(i+1)} aria-current={i===promoIdx} onClick={()=>setPromoIdx(i)}/>)}</span></div></>}
 
 export function Footer(){const {locale}=useLocale(); const ex=extra[locale]; const brand=useBrandSettings(); const footerTag=locale === 'ar' ? (brand.aboutAr || ex.footerTag) : (brand.aboutEn || ex.footerTag); const t=copy[locale]; return <footer><div className="container footer-grid"><div className="foot-brand"><Logo/><p>{footerTag}</p><span className="cert-badge"><Gift size={14}/><span>{ex.certBadge}</span></span><div className="socials foot-socials"><FooterSocials /></div><div className="socials" style={{display:'none'}}><a href="https://www.facebook.com/" target="_blank" rel="noreferrer" aria-label="Facebook" style={{display:'inline-block',marginRight:14}}>f</a><a href="https://www.instagram.com/" target="_blank" rel="noreferrer" aria-label="Instagram" style={{display:'inline-block',marginRight:14}}>◎</a><a href="https://www.youtube.com/" target="_blank" rel="noreferrer" aria-label="YouTube" style={{display:'inline-block',marginRight:14}}>◉</a><a href="https://www.tiktok.com/" target="_blank" rel="noreferrer" aria-label="TikTok" style={{display:'inline-block'}}>♪</a></div></div><div><h3>{ex.footExplore}</h3><Link href="/">{t.home}</Link><Link href="/trips">{tx(locale, { en: 'All Trips', es: 'Todos los viajes', it: 'Tutti i viaggi', ar: 'كل الرحلات' })}</Link><Link href="/egypt-tours/one-day-tours">{ex.cat1}</Link><Link href="/egypt-tours/multi-days-tours">{ex.cat2}</Link><Link href="/egypt-tours/nile-cruises">{ex.cat3}</Link><Link href="/egypt-tours/shore-excursions">{ex.cat4}</Link><Link href="/special-offers">{t.offer}</Link></div><div><h3>{ex.footCompany}</h3><Link href="/rent-car">{t.rent}</Link><Link href="/about">{t.about}</Link><Link href="/contact">{t.contact}</Link><Link href="/egypt-travel-guide">{ex.guideLink}</Link><Link href="/faq">{ex.faqsLink}</Link><Link href="/events">{t.events}</Link><Link href="/accessible-travel">{ex.accessLink}</Link></div><div><h3>{ex.contactInfo}</h3><div className="foot-contact"><a href={phoneHref(brand.phone)} aria-label={tx(locale, { en: 'Call STAR PYRAMIDS', es: 'Llama a STAR PYRAMIDS', it: 'Chiama STAR PYRAMIDS', ar: 'اتصل بستار بيراميدز' })}><Phone size={15}/><span>{brand.phone}</span></a><a href={whatsappHref(brand.whatsapp)} target="_blank" rel="noreferrer" aria-label={tx(locale, { en: 'Chat with STAR PYRAMIDS on WhatsApp', es: 'Habla con STAR PYRAMIDS por WhatsApp', it: 'Chatta con STAR PYRAMIDS su WhatsApp', ar: 'راسل ستار بيراميدز على واتساب' })}><svg className="wa-ic" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg><span>{brand.whatsapp}</span></a><a href={`mailto:${brand.email}`}><Mail size={15}/><span>{brand.email}</span></a><span className="foot-addr"><MapPin size={15}/><span>{brand.address}</span></span></div></div></div><div className="container copyright">{ex.rights} <span className="powered-by">| {ex.poweredBy} <a href="https://panel.dipencil.com" target="_blank" rel="noreferrer" aria-label="Dipencil"><img src="https://panel.dipencil.com/pencil-logo.png" alt="Dipencil" loading="lazy"/></a></span> <span><Link href="/privacy">{ex.privacy}</Link>　<Link href="/terms">{ex.terms}</Link></span></div></footer>}
 
