@@ -451,8 +451,8 @@ function TripRequestsSection({ startNew = false, editRef = null }: { startNew?: 
           </div>
           {errors.travelers && <em className="form-error" role="alert">{errText('travelers', errors.travelers, locale)}</em>}
           <div className="customer-form-grid">
-            <label>{tx(locale, { en: `Min (${currency})`, es: `Mín. (${currency})`, it: `Min. (${currency})`, ar: `الحد الأدنى (${currency})` })}<input type="number" dir="ltr" min={0} max={TRIP_BUDGET_CAP} value={priceMin} onChange={(e) => setPriceMin(Math.max(0, Math.min(Number(e.target.value) || 0, priceMax - 100)))} /></label>
-            <label>{tx(locale, { en: `Max (${currency})`, es: `Máx. (${currency})`, it: `Max. (${currency})`, ar: `الحد الأقصى (${currency})` })}<input type="number" dir="ltr" min={0} max={TRIP_BUDGET_CAP} value={priceMax} onChange={(e) => setPriceMax(Math.min(TRIP_BUDGET_CAP, Math.max(Number(e.target.value) || 0, priceMin + 100)))} /></label>
+            <label>{tx(locale, { en: `Min (${currency})`, es: `Mín. (${currency})`, it: `Min. (${currency})`, ar: `الحد الأدنى (${currency})` })}<input type="number" dir="ltr" min={0} max={TRIP_BUDGET_CAP} value={priceMin} onChange={(e) => setPriceMin(Number(e.target.value) || 0)} /></label>
+            <label>{tx(locale, { en: `Max (${currency})`, es: `Máx. (${currency})`, it: `Max. (${currency})`, ar: `الحد الأقصى (${currency})` })}<input type="number" dir="ltr" min={0} max={TRIP_BUDGET_CAP} value={priceMax} onChange={(e) => setPriceMax(Number(e.target.value) || 0)} /></label>
           </div>
           {fieldError('budget')}
           <label className="customer-check-row"><input type="checkbox" checked={flightOffer} onChange={(e) => setFlightOffer(e.target.checked)} />{tx(locale, { en: 'Include flight options in my request', es: 'Incluir opciones de vuelo en mi solicitud', it: 'Includi opzioni di volo nella mia richiesta', ar: 'تضمين خيارات الطيران في طلبي' })}</label>
