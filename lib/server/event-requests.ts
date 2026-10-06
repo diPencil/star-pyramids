@@ -30,6 +30,7 @@ import {
   type EventRequestStatus,
   type StaffEventRequest,
 } from '@/lib/event-request';
+import { notifyUser } from './notifications';
 
 const REF_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const REF_ATTEMPTS = 5;
@@ -266,7 +267,16 @@ export async function createEventRequestRecord(
         },
         include: rowInclude,
       });
-      return toCustomerView(row);
+      const created = toCustomerView(row);
+      // Submission receipt for signed-in customers. Guests (userId
+      // NULL) are skipped — no account to notify.
+      await notifyUser(userId, {
+        type: 'event_request_submitted',
+        title: 'Event request received',
+        message: `We received your event request ${reference}. Our team will review it shortly.`,
+        href: `/account/event-requests/detail?ref=${encodeURIComponent(reference)}`,
+      });
+      return created;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         lastError = error;
@@ -357,7 +367,7 @@ export async function transitionStaffEventRequest(
 ): Promise<StaffEventRequest | null> {
   const existing = await db.eventRequest.findUnique({
     where: { reference },
-    select: { id: true, status: true },
+    select: { id: true, status: true, userId: true },
   });
   if (!existing) return null;
   const current = FROM_DB_STATUS[existing.status];
@@ -385,6 +395,22 @@ export async function transitionStaffEventRequest(
     return tx.eventRequest.findUnique({ where: { id: existing.id }, include: rowInclude });
   });
   if (!row) return null;
+  // Customer-visible outcomes only. The transition guard rejects
+  // repeats, so each status notifies at most once. Internal notes
+  // never notify.
+  if (to === 'approved' || to === 'rejected' || to === 'cancelled') {
+    const copy =
+      to === 'approved'
+        ? { title: 'Event request approved', message: `Your event request ${reference} was approved. View the details here.` }
+        : to === 'rejected'
+          ? { title: 'Event request update', message: `Your event request ${reference} was not approved. Contact us for alternatives.` }
+          : { title: 'Event request cancelled', message: `Your event request ${reference} was cancelled. Contact us if you need anything else.` };
+    await notifyUser(existing.userId, {
+      type: 'event_request_update',
+      ...copy,
+      href: `/account/event-requests/detail?ref=${encodeURIComponent(reference)}`,
+    });
+  }
   return toStaffView(row);
 }
 

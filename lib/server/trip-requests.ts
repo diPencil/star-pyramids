@@ -31,6 +31,7 @@ import {
 } from '@/lib/trip-request';
 import { destinations } from '@/data/content';
 import { findTour } from '@/data/tours';
+import { notifyUser } from './notifications';
 
 const REF_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const REF_ATTEMPTS = 5;
@@ -427,7 +428,16 @@ export async function createTripRequestRecord(
         },
         include: rowInclude,
       });
-      return toCustomerView(row);
+      const created = toCustomerView(row);
+      // Submission receipt for signed-in customers. Guests (userId
+      // NULL) are skipped — no account to notify.
+      await notifyUser(userId, {
+        type: 'trip_request_submitted',
+        title: 'Trip request received',
+        message: `We received your trip request ${reference}. Our team will review it shortly.`,
+        href: `/account/trip-requests/detail?ref=${encodeURIComponent(reference)}`,
+      });
+      return created;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         lastError = error;
@@ -567,7 +577,7 @@ export async function transitionStaffTripRequest(
 ): Promise<StaffTripRequest | null> {
   const existing = await db.tripRequest.findUnique({
     where: { reference },
-    select: { id: true, status: true },
+    select: { id: true, status: true, userId: true },
   });
   if (!existing) return null;
   const current = FROM_DB_STATUS[existing.status];
@@ -595,6 +605,24 @@ export async function transitionStaffTripRequest(
     return tx.tripRequest.findUnique({ where: { id: existing.id }, include: rowInclude });
   });
   if (!row) return null;
+  // Customer-visible outcomes only (proposal/approval/rejection/
+  // cancellation). The transition guard rejects repeats, so each
+  // status notifies at most once. Internal notes never notify.
+  if (to === 'proposal_ready' || to === 'approved' || to === 'rejected' || to === 'cancelled') {
+    const copy =
+      to === 'proposal_ready'
+        ? { title: 'Proposal ready', message: `Your trip request ${reference} has a proposal ready. Review it here.` }
+        : to === 'approved'
+          ? { title: 'Trip request approved', message: `Your trip request ${reference} was approved. View the details here.` }
+          : to === 'rejected'
+            ? { title: 'Trip request update', message: `Your trip request ${reference} was not approved. Contact us for alternatives.` }
+            : { title: 'Trip request cancelled', message: `Your trip request ${reference} was cancelled. Contact us if you need anything else.` };
+    await notifyUser(existing.userId, {
+      type: 'trip_request_update',
+      ...copy,
+      href: `/account/trip-requests/detail?ref=${encodeURIComponent(reference)}`,
+    });
+  }
   return toStaffView(row);
 }
 

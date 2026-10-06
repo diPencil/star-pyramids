@@ -24,6 +24,7 @@ import {
   type PaymentStatus,
   type StaffPayment,
 } from '@/lib/payment';
+import { notifyUser } from './notifications';
 
 const REF_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const REF_ATTEMPTS = 5;
@@ -297,6 +298,16 @@ export async function initiateCustomerPayment(
           },
         },
         include: paymentInclude,
+      });
+      // Initiation receipt only, on first creation. Idempotent replays
+      // and active-attempt dedup return early with created:false, so a
+      // retried initiation never notifies twice. Copy stays truthful:
+      // nothing has been charged — no provider is connected yet.
+      await notifyUser(userId, {
+        type: 'payment_initiated',
+        title: 'Payment initiated',
+        message: `Payment ${reference} for booking ${input.bookingReference} was initiated. No charge is made online.`,
+        href: `/account/payments/detail?ref=${encodeURIComponent(reference)}`,
       });
       return { payment: toCustomerPaymentView(row), created: true };
     } catch (error) {

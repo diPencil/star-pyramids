@@ -9,7 +9,8 @@
 // submission rate-limit attempts) + Phase 2E customer booking workflow
 // (bookings + items + activity + submission rate-limit attempts) + Phase 2F-A
 // payment core (payments + immutable payment events + initiation
-// rate-limit attempts) + Phase 2G customer favorites (favorite_items).
+// rate-limit attempts) + Phase 2G customer favorites (favorite_items)
+// + Phase 2H customer in-app notifications (notifications).
 // Provider gateway adapters, quotations and all
 // other domains belong to later phases and MUST NOT be added here.
 //
@@ -76,6 +77,7 @@ model User {
   eventRequests EventRequest[]
   bookings     Booking[]
   favorites    FavoriteItem[]
+  notifications Notification[]
 
   @@index([status])
   @@map("users")
@@ -660,4 +662,28 @@ model FavoriteItem {
   @@unique([userId, itemType, itemSlug])
   @@index([userId, createdAt])
   @@map("favorite_items")
+}
+
+/// Phase 2H: customer in-app notifications. One row per customer-facing
+/// domain event, owned by exactly one user — never shared, never
+/// client-created. Only display data is stored (type + title + message
+/// + optional relative target path); no sensitive payloads, no payment
+/// secrets, no internal staff notes. `readAt` (nullable) is the read
+/// marker: NULL means unread. New events from this phase onward only —
+/// historical records are never backfilled.
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   @db.VarChar(48)
+  title     String   @db.VarChar(160)
+  message   String   @db.VarChar(500)
+  href      String?  @db.VarChar(255)
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+  @@map("notifications")
 }

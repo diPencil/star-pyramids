@@ -32,6 +32,7 @@ import {
   deriveBookingPaymentSummary,
   FROM_DB_PAYMENT_STATUS,
 } from './payments';
+import { notifyUser } from './notifications';
 
 const REF_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const REF_ATTEMPTS = 5;
@@ -455,6 +456,15 @@ export async function createBookingRecord(
         },
         include: rowInclude,
       });
+      // Receipt for the new booking. Idempotent replays return early
+      // above with created:false, so a retried key never notifies twice.
+      // Guests (userId NULL) are skipped — no account to notify.
+      await notifyUser(userId, {
+        type: 'booking_created',
+        title: 'Booking received',
+        message: `We received your booking ${reference}. Track its status here.`,
+        href: `/account/bookings/detail?ref=${encodeURIComponent(reference)}`,
+      });
       return { booking: toCustomerView(row), created: true };
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -556,7 +566,7 @@ export async function transitionStaffBooking(
 ): Promise<StaffBooking | null> {
   const existing = await db.booking.findUnique({
     where: { reference },
-    select: { id: true, status: true },
+    select: { id: true, status: true, userId: true },
   });
   if (!existing) return null;
   const current = FROM_DB_STATUS[existing.status];
@@ -584,6 +594,22 @@ export async function transitionStaffBooking(
     return tx.booking.findUnique({ where: { id: existing.id }, include: rowInclude });
   });
   if (!row) return null;
+  // Customer-visible status changes only. The transition guard above
+  // rejects repeats, so each status notifies at most once. Internal
+  // notes travel through addStaffBookingNote and never notify.
+  if (to === 'confirmed' || to === 'completed' || to === 'cancelled') {
+    const copy =
+      to === 'confirmed'
+        ? { title: 'Booking confirmed', message: `Your booking ${reference} is confirmed. View the details here.` }
+        : to === 'completed'
+          ? { title: 'Booking completed', message: `Your booking ${reference} is marked completed. Thank you for travelling with us.` }
+          : { title: 'Booking cancelled', message: `Your booking ${reference} was cancelled. Contact us if you need anything else.` };
+    await notifyUser(existing.userId, {
+      type: to === 'confirmed' ? 'booking_confirmed' : to === 'completed' ? 'booking_completed' : 'booking_cancelled',
+      ...copy,
+      href: `/account/bookings/detail?ref=${encodeURIComponent(reference)}`,
+    });
+  }
   return toStaffView(row);
 }
 

@@ -33,6 +33,7 @@ import {
   type CarTripType,
   type StaffCarRequest,
 } from '@/lib/car-request';
+import { notifyUser } from './notifications';
 
 const REF_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const REF_ATTEMPTS = 5;
@@ -317,7 +318,16 @@ export async function createCarRequestRecord(
         },
         include: rowInclude,
       });
-      return toCustomerView(row);
+      const created = toCustomerView(row);
+      // Submission receipt for signed-in customers. Guests (userId
+      // NULL) are skipped — no account to notify.
+      await notifyUser(userId, {
+        type: 'car_request_submitted',
+        title: 'Car request received',
+        message: `We received your car request ${reference}. Our team will review it shortly.`,
+        href: `/account/car-requests/detail?ref=${encodeURIComponent(reference)}`,
+      });
+      return created;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         lastError = error;
@@ -464,7 +474,7 @@ export async function transitionStaffCarRequest(
 ): Promise<StaffCarRequest | null> {
   const existing = await db.carRequest.findUnique({
     where: { reference },
-    select: { id: true, status: true },
+    select: { id: true, status: true, userId: true },
   });
   if (!existing) return null;
   const current = FROM_DB_STATUS[existing.status];
@@ -492,6 +502,18 @@ export async function transitionStaffCarRequest(
     return tx.carRequest.findUnique({ where: { id: existing.id }, include: rowInclude });
   });
   if (!row) return null;
+  // Customer-visible outcomes only. The transition guard rejects
+  // repeats, so each status notifies at most once. Internal notes
+  // and vehicle assignment never notify.
+  if (to === 'confirmed' || to === 'cancelled') {
+    await notifyUser(existing.userId, {
+      type: 'car_request_update',
+      ...(to === 'confirmed'
+        ? { title: 'Car request confirmed', message: `Your car request ${reference} is confirmed. View the details here.` }
+        : { title: 'Car request cancelled', message: `Your car request ${reference} was cancelled. Contact us if you need anything else.` }),
+      href: `/account/car-requests/detail?ref=${encodeURIComponent(reference)}`,
+    });
+  }
   return toStaffView(row);
 }
 

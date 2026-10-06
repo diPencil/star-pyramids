@@ -29,6 +29,9 @@ import {
 } from '@/lib/customer-account'
 import { clearMessageDraft, readMessageDraft, saveMessageDraft } from '@/lib/customer-account'
 import {
+  useCustomerNotifications, type CustomerNotification,
+} from '@/lib/customer-notifications'
+import {
   markCustomerChatRead, sendCustomerChatMessage, useCustomerChatMessages,
   type CustomerChatAttachment,
 } from '@/lib/customer-chat'
@@ -261,6 +264,7 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
   const chatMessages = useCustomerChatMessages()
   const unreadMessages = chatMessages.filter((message) => message.sender === 'agent' && !message.readByCustomer).length
   const favorites = useCustomerFavorites()
+  const notifications = useCustomerNotifications()
   const cart = useCart()
   const [carRequestCount, setCarRequestCount] = useState(0)
   // Real car-request badge: count of the customer's database-backed
@@ -339,8 +343,8 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
           <Link href="/" className="customer-top-icon" aria-label={tx(locale, { en: 'Back to website', es: 'Volver al sitio web', it: 'Torna al sito', ar: 'العودة للموقع' })} title={tx(locale, { en: 'Back to website', es: 'Volver al sitio web', it: 'Torna al sito', ar: 'العودة للموقع' })}><ExternalLink size={18} /></Link>
           <Link href="/cart" className="customer-top-icon customer-cart-icon" aria-label={tx(locale, { en: 'Trip cart', es: 'Cesta de viajes', it: 'Carrello viaggi', ar: 'سلة الرحلات' })}><ShoppingCart size={18} />{cart.lines > 0 && <b>{cart.lines}</b>}</Link>
           <div className="customer-top-popover">
-            <button type="button" className="customer-top-icon" onClick={() => { setNotificationsOpen((open) => !open); setUserOpen(false) }} aria-label={tx(locale, { en: 'Notifications', es: 'Notificaciones', it: 'Notifiche', ar: 'الإشعارات' })} aria-expanded={notificationsOpen}><Bell size={18} />{(bookings.length + unreadMessages) > 0 && <i />}</button>
-            {notificationsOpen && <div className="customer-notifications"><header><strong>{tx(locale, { en: 'Notifications', es: 'Notificaciones', it: 'Notifiche', ar: 'الإشعارات' })}</strong><small>{bookings.length + unreadMessages}</small></header>{bookings[0] ? <Link href="/account/bookings" onClick={() => setNotificationsOpen(false)}><ShoppingBag size={17} /><span><b>{tx(locale, { en: 'Latest booking update', es: 'Última actualización de tu reserva', it: 'Ultimo aggiornamento della prenotazione', ar: 'آخر تحديث للحجز' })}</b><small>{bookings[0].reference}</small></span></Link> : <p>{tx(locale, { en: 'No new booking updates.', es: 'Sin novedades en tus reservas.', it: 'Nessun nuovo aggiornamento delle prenotazioni.', ar: 'لا توجد تحديثات حجوزات جديدة.' })}</p>}{unreadMessages > 0 && <Link href="/account/messages" onClick={() => setNotificationsOpen(false)}><MessageCircle size={17} /><span><b>{tx(locale, { en: 'New reply from the travel team', es: 'Nueva respuesta del equipo de viajes', it: 'Nuova risposta dal team viaggi', ar: 'رد جديد من فريق الرحلات' })}</b><small>{unreadMessages} {tx(locale, { en: 'unread', es: 'sin leer', it: 'da leggere', ar: 'غير مقروءة' })}</small></span></Link>}</div>}
+            <button type="button" className="customer-top-icon" onClick={() => { setNotificationsOpen((open) => !open); setUserOpen(false) }} aria-label={tx(locale, { en: 'Notifications', es: 'Notificaciones', it: 'Notifiche', ar: 'الإشعارات' })} aria-expanded={notificationsOpen}><Bell size={18} />{notifications.unreadCount > 0 && <i />}</button>
+            {notificationsOpen && <NotificationPanel onClose={() => setNotificationsOpen(false)} />}
           </div>
           <div className="customer-top-popover customer-user-popover">
             <button type="button" className="customer-top-user" onClick={() => { setUserOpen((open) => !open); setNotificationsOpen(false) }} aria-expanded={userOpen}><CustomerAvatar avatar={profile.avatar} initials={initials} className="customer-top-avatar" name={profile.fullName} /><div><strong>{profile.fullName}</strong><small>{tx(locale, { en: 'Traveler', es: 'Viajero', it: 'Viaggiatore', ar: 'مسافر' })}</small></div><ChevronDown size={15} /></button>
@@ -358,7 +362,7 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
           <button type="button" onClick={() => stopImpersonation()}><LogOut size={15} />{tx(locale, { en: 'Exit preview', es: 'Salir de la vista previa', it: 'Esci dall’anteprima', ar: 'إنهاء المعاينة' })}</button>
         </div>}
         <section className="customer-account-main">
-        <p className="customer-demo-notice" role="note"><FlaskConical size={16} /><span><strong>{tx(locale, { en: 'Account connected', es: 'Cuenta conectada', it: 'Account collegato', ar: 'الحساب متصل' })}</strong>{tx(locale, { en: 'Your identity, profile, sign-in, bookings, payments, trip requests, car requests, and event requests are database-backed. Online card payment opens here once a provider is connected — messages remain preview data until their backend phase.', ar: 'هويتك وملفك الشخصي وتسجيل الدخول والحجوزات والمدفوعات وطلبات الرحلات وطلبات السيارات وطلبات الفعاليات مدعومة بقاعدة البيانات. ستظهر بوابة الدفع الإلكتروني هنا عند ربط مزود — تظل الرسائل بيانات معاينة حتى مرحلة الباك إند الخاصة بها.' })}</span></p>
+        <p className="customer-demo-notice" role="note"><FlaskConical size={16} /><span><strong>{tx(locale, { en: 'Account connected', es: 'Cuenta conectada', it: 'Account collegato', ar: 'الحساب متصل' })}</strong>{tx(locale, { en: 'Your identity, profile, sign-in, bookings, payments, trip requests, car requests, event requests, and notifications are database-backed. Online card payment opens here once a provider is connected — messages remain preview data until their backend phase.', ar: 'هويتك وملفك الشخصي وتسجيل الدخول والحجوزات والمدفوعات وطلبات الرحلات وطلبات السيارات وطلبات الفعاليات والإشعارات مدعومة بقاعدة البيانات. ستظهر بوابة الدفع الإلكتروني هنا عند ربط مزود — تظل الرسائل بيانات معاينة حتى مرحلة الباك إند الخاصة بها.' })}</span></p>
         <header className="customer-account-head">
           <div><span>{tx(locale, { en: 'STAR PYRAMIDS account', es: 'Cuenta de STAR PYRAMIDS', it: 'Account STAR PYRAMIDS', ar: 'حساب STAR PYRAMIDS' })}</span><h1>{tx(locale, heading)}</h1><p>{tx(locale, { en: heading.subEn, es: heading.subEs, it: heading.subIt, ar: heading.subAr })}</p></div>
           <div className="customer-account-head-actions">{headLeading}<Link href="/trips" className="account-icon-action"><Search size={17} />{tx(locale, { en: 'Explore trips', es: 'Explorar viajes', it: 'Esplora i viaggi', ar: 'استكشف الرحلات' })}</Link><Link href="/contact" className="account-icon-action primary"><HelpCircle size={17} />{tx(locale, { en: 'Get help', es: 'Obtener ayuda', it: 'Richiedi assistenza', ar: 'اطلب مساعدة' })}</Link></div>
@@ -367,6 +371,54 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
         </section>
       </main>
     </div>
+  </div>
+}
+
+function notificationIcon(type: string) {
+  if (type.startsWith('booking_')) return ShoppingBag
+  if (type.startsWith('payment_')) return ReceiptText
+  if (type.includes('request')) return FileText
+  return Bell
+}
+
+function NotificationPanel({ onClose }: { onClose: () => void }) {
+  const { locale } = useLocale()
+  const router = useRouter()
+  const { recent, unreadCount, loading, loadError, markRead, markAllRead, refresh } = useCustomerNotifications()
+  const [markingAll, setMarkingAll] = useState(false)
+  const dateLocale = locale === 'ar' ? 'ar-EG' : locale === 'es' ? 'es-ES' : locale === 'it' ? 'it-IT' : 'en-GB'
+  const openItem = (item: CustomerNotification) => {
+    if (!item.readAt) void markRead(item.id)
+    onClose()
+    if (item.href) router.push(item.href)
+  }
+  const readAll = () => {
+    if (markingAll) return
+    setMarkingAll(true)
+    markAllRead().then(() => setMarkingAll(false))
+  }
+  return <div className="customer-notifications" role="dialog" aria-label={tx(locale, { en: 'Notifications', es: 'Notificaciones', it: 'Notifiche', ar: 'الإشعارات' })}>
+    <header>
+      <strong>{tx(locale, { en: 'Notifications', es: 'Notificaciones', it: 'Notifiche', ar: 'الإشعارات' })}</strong>
+      <span className="customer-notifications-head-actions">
+        {unreadCount > 0 && <small className="customer-notifications-count">{tx(locale, { en: `${unreadCount} unread`, es: `${unreadCount} sin leer`, it: `${unreadCount} da leggere`, ar: `${unreadCount} غير مقروء` })}</small>}
+        {unreadCount > 0 && <button type="button" onClick={readAll} disabled={markingAll}>{markingAll ? (tx(locale, { en: 'Clearing…', es: 'Borrando…', it: 'Cancellazione…', ar: 'جارٍ المسح…' })) : (tx(locale, { en: 'Mark all read', es: 'Marcar todo como leído', it: 'Segna tutto come letto', ar: 'تعيين الكل كمقروء' }))}</button>}
+      </span>
+    </header>
+    {loading
+      ? <div className="customer-notifications-skeleton" role="status" aria-label={tx(locale, { en: 'Loading notifications', es: 'Cargando notificaciones', it: 'Caricamento notifiche', ar: 'جارٍ تحميل الإشعارات' })}><i /><i /><i /></div>
+      : loadError && recent.length === 0
+        ? <div className="customer-notifications-error"><span>{loadError}</span><button type="button" className="account-text-button" onClick={refresh}>{tx(locale, { en: 'Try again', es: 'Reintentar', it: 'Riprova', ar: 'حاول مجددًا' })}</button></div>
+        : recent.length === 0
+          ? <div className="customer-notifications-empty"><span><Bell size={20} /></span><strong>{tx(locale, { en: "You're all caught up", es: 'Estás al día', it: 'Sei aggiornato', ar: 'لا جديد لديك' })}</strong><small>{tx(locale, { en: 'Booking, payment, and request updates will appear here.', es: 'Las novedades de reservas, pagos y solicitudes aparecerán aquí.', it: 'Gli aggiornamenti di prenotazioni, pagamenti e richieste appariranno qui.', ar: 'ستظهر تحديثات الحجوزات والمدفوعات والطلبات هنا.' })}</small></div>
+          : <div className="customer-notifications-list">{recent.map((item) => {
+            const Icon = notificationIcon(item.type)
+            const body = <><span className="customer-notification-icon"><Icon size={16} /></span><span><b>{item.title}</b><small>{item.message}</small><time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString(dateLocale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</time></span>{!item.readAt && <i className="customer-notification-dot" />}</>
+            const className = item.readAt ? '' : 'unread'
+            return item.href
+              ? <Link key={item.id} href={item.href} className={className} onClick={() => openItem(item)}>{body}</Link>
+              : <button key={item.id} type="button" className={className} onClick={() => openItem(item)}>{body}</button>
+          })}</div>}
   </div>
 }
 
