@@ -10,12 +10,13 @@ import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
 import { SharedSelect } from '@/components/shared-select'
 import { offers } from '@/data/content'
-import { isCustomSlug, removeCustomItem, removeTourDeal, useLiveCollection } from '@/lib/admin-store'
+import { isCustomSlug, removeCustomItem, useLiveCollection } from '@/lib/admin-store'
 
 export default function OffersPage() {
   const ar = useAdminLocale() === 'ar'
   const [query, setQuery] = useState('')
   const [badge, setBadge] = useState('all')
+  const [removeError, setRemoveError] = useState('')
   const liveOffers = useLiveCollection('offers', offers)
   const badges = [...new Set(liveOffers.map((offer) => offer.badge))]
   const rows = useMemo(() => liveOffers
@@ -30,9 +31,24 @@ export default function OffersPage() {
   }, 'offer', 'asc')
   const paging = usePagination(offerSort.sortedRows)
 
-  const remove = (slug: string) => {
+  const remove = async (slug: string) => {
+    setRemoveError('')
     removeCustomItem('offers', slug)
-    if (slug.startsWith('custom-offer-')) removeTourDeal(slug.replace('custom-offer-', ''))
+    if (slug.startsWith('custom-offer-')) {
+      // Linked discounts live on the tour row: clear the DB deal as well.
+      const tourSlug = slug.replace('custom-offer-', '')
+      try {
+        const res = await fetch(`/api/tours/${encodeURIComponent(tourSlug)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deal: null }),
+          credentials: 'same-origin',
+        })
+        if (!res.ok) throw new Error()
+      } catch {
+        setRemoveError(ar ? `حذف العرض محليا، لكن تعذر إزالة الخصم عن الرحلة ${tourSlug} في قاعدة البيانات.` : `Offer removed locally, but the discount on tour ${tourSlug} could not be cleared in the database.`)
+      }
+    }
   }
 
   return <>
@@ -47,6 +63,7 @@ export default function OffersPage() {
       <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث بعنوان العرض أو الحملة...' : 'Search offer title or campaign...'}>
         <SharedSelect value={badge} onChange={setBadge} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حسب الشارة' : 'Filter by campaign label'} popupWidth="trigger" options={[{ value: 'all', label: ar ? 'كل الشارات' : 'All labels' }, ...badges.map((item) => ({ value: item, label: item }))]} />
       </AdminTableTools>
+      {removeError ? <p role="alert" style={{ color: '#b91c1c', margin: '8px 0 0' }}>{removeError}</p> : null}
       {rows.length ? <AdminTableWrap><table className="sp-table">
         <thead><tr><th className="sp-row-number">#</th><SortableTh label={<AdminText en="Offer" ar="العرض" />} column="offer" {...offerSort} onSort={offerSort.sortBy} /><SortableTh label={<AdminText en="Badge" ar="الشارة" />} column="badge" {...offerSort} onSort={offerSort.sortBy} /><SortableTh label={<AdminText en="Price" ar="السعر" />} column="price" {...offerSort} onSort={offerSort.sortBy} /><SortableTh label={<AdminText en="Highlights" ar="البارزة" />} column="highlights" {...offerSort} onSort={offerSort.sortBy} /><SortableTh label={<AdminText en="Status" ar="الحالة" />} column="status" {...offerSort} onSort={offerSort.sortBy} /><th></th></tr></thead>
         <tbody>{paging.pageRows.map((offer, index) => <tr key={offer.slug}>

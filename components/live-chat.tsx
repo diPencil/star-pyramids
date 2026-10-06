@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Headset, Send, X } from 'lucide-react'
 import { getToursByCategory } from '@/data/tours'
+import { useDbTours } from '@/lib/tours-client'
 import { whatsappHref } from '@/data/company'
 import { useBrandSettings } from '@/lib/admin-store'
 import { formatPrice, useLocale } from './locale'
@@ -17,6 +18,7 @@ const chipsPlan: ChipId[] = ['plan', 'browse']
 const chipsContact: ChipId[] = ['wa', 'contact']
 
 const minNilePrice = Math.min(...getToursByCategory('nile-cruises').map((tour) => tour.price))
+const nileBase = getToursByCategory('nile-cruises')
 const baseChipHrefs: Record<ChipId, string | undefined> = {
   prices: undefined, agent: undefined, booking: undefined,
   browse: '/egypt-tours/nile-cruises', trips: '/trips', plan: '/make-your-trip', contact: '/contact', wa: undefined,
@@ -107,7 +109,10 @@ export function LiveChatWidget({ open, onOpen, onClose }: { open: boolean; onOpe
   const inputRef = useRef<HTMLInputElement>(null)
   const timerRef = useRef<number | null>(null)
   const greetingPendingRef = useRef(false)
-  const priceStr = formatPrice(minNilePrice, currency, locale)
+  const nileTours = useDbTours(nileBase)
+  const nilePrices = nileTours.map((tour) => tour.price)
+  const liveMinNilePrice = nilePrices.length ? Math.min(...nilePrices) : minNilePrice
+  const priceStr = formatPrice(liveMinNilePrice, currency, locale)
   const timeNow = () => new Date().toLocaleTimeString(locale === 'ar' ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })
 
   useEffect(() => { openRef.current = open }, [open])

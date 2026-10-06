@@ -9,7 +9,7 @@ import 'server-only';
 import { Prisma } from '@prisma/client';
 
 import { db } from './db';
-import { findTour } from '@/data/tours';
+import { findTourBySlug } from './tours';
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const MAX_SLUG_LENGTH = 120;
@@ -24,9 +24,10 @@ export interface ValidatedFavorite {
 
 /**
  * Strict server validation of favorite input. Unknown catalogue keys
- * and unsupported types are rejected — never persisted.
+ * and unsupported types are rejected — never persisted. Existence is
+ * checked against the DB-authoritative catalogue (aliases included).
  */
-export function validateFavorite(input: unknown): ValidatedFavorite {
+export async function validateFavorite(input: unknown): Promise<ValidatedFavorite> {
   if (typeof input !== 'object' || input === null) throw new Error('Invalid request.');
   const body = input as Record<string, unknown>;
   const itemType = typeof body.itemType === 'string' && body.itemType !== '' ? body.itemType : 'tour';
@@ -36,7 +37,7 @@ export function validateFavorite(input: unknown): ValidatedFavorite {
   if (!SLUG_PATTERN.test(itemSlug) || itemSlug.length > MAX_SLUG_LENGTH) {
     throw new Error('Select a valid trip.');
   }
-  if (!findTour(itemSlug)) {
+  if (!(await findTourBySlug(itemSlug))) {
     throw new Error('This trip is no longer available.');
   }
   return { itemType, itemSlug };

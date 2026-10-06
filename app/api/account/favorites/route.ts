@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
   }
   try {
-    const favorites = await addFavorite(current.id, validateFavorite(body));
+    const favorites = await addFavorite(current.id, await validateFavorite(body));
     return NextResponse.json({ favorites }, { status: 201 });
   } catch (error) {
     if (error instanceof Error) {
@@ -71,7 +71,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
   }
   try {
-    const favorites = await removeFavorite(current.id, validateFavorite(body));
+    const favorites = await removeFavorite(current.id, await validateFavorite(body));
     return NextResponse.json({ favorites });
   } catch (error) {
     if (error instanceof Error) {

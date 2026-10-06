@@ -71,7 +71,7 @@ export async function PATCH(
     if (body.action === 'update') {
       const raw = body.draft as { tourSlug?: unknown };
       const tourSlug = typeof raw?.tourSlug === 'string' ? raw.tourSlug : '';
-      const draft = validateTripDraft(body.draft, { isShore: isShoreTour(tourSlug) });
+      const draft = await validateTripDraft(body.draft, { isShore: await isShoreTour(tourSlug) });
       const item = await updateCustomerTripRequest(current.id, reference, draft);
       if (!item) return NextResponse.json({ error: 'Trip request not found.' }, { status: 404 });
       return NextResponse.json(item);

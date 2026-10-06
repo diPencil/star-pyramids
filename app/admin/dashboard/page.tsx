@@ -55,12 +55,26 @@ function Donut() {
 
 export default function DashboardPage() {
   const ar = useAdminLocale() === 'ar'
-  const liveTours = tours.length
   const seenTotal = bookingHabits.reduce((s, b) => s + b.seen, 0)
   const bookedTotal = bookingHabits.reduce((s, b) => s + b.booked, 0)
   // Real booking counters: stored bookings from the admin API. Other
   // dashboard figures remain static samples until their backend phases.
   const [liveBookings, setLiveBookings] = useState<StaffBooking[] | null>(null)
+  // Real tour count from the DB-authoritative catalogue (bootstrap length
+  // until the response arrives).
+  const [tourCount, setTourCount] = useState<number | null>(null)
+  const liveTours = tourCount ?? tours.length
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/tours', { credentials: 'same-origin' })
+      .then(async (res) => {
+        if (!res.ok || cancelled) return
+        const data = (await res.json()) as { tours?: unknown[] }
+        if (!cancelled && Array.isArray(data.tours)) setTourCount(data.tours.length)
+      })
+      .catch(() => { /* bootstrap count stays */ })
+    return () => { cancelled = true }
+  }, [])
   useEffect(() => {
     let cancelled = false
     fetch('/api/admin/bookings', { credentials: 'same-origin' })

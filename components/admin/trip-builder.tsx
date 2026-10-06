@@ -1,14 +1,14 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, ImagePlus, MapPin, Plus, Save, Trash2, Upload } from 'lucide-react'
+import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, ExternalLink, ImagePlus, MapPin, Plus, Save, Trash2, Upload } from 'lucide-react'
 import { PageHead } from './admin-shell'
 import { AdminText, Card } from './admin-ui'
 import { useAdminLocale } from './admin-locale'
-import { findTour, getTravelerUnitPrices, multiDayCategories, normalizeTourPricePeriods, tours } from '@/data/tours'
+import { getTravelerUnitPrices, multiDayCategories, normalizeTourPricePeriods, tours } from '@/data/tours'
 import { destinations } from '@/data/content'
 import type { CruiseTypeSlug, Tour, TourCategory, TourLocation, TourVideoPlatform } from '@/data/types'
-import { readImageFile, readOverrides, saveTourOverride } from '@/lib/admin-store'
+import { readImageFile } from '@/lib/admin-store'
 import { ImageField } from './image-field'
 import { SharedSelect } from '@/components/shared-select'
 import { DateInput } from '@/components/date-input'
@@ -130,7 +130,15 @@ export function TripBuilder() {
   const initialTour = tours[0]
   const initial = editorData(initialTour)
   const [sourceTour, setSourceTour] = useState(initialTour)
+  // Canonical slug being edited (null = creating a new tour). Set from
+  // ?slug= on load and after a successful POST so later saves update it.
+  const [editingSlug, setEditingSlug] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [savedSlug, setSavedSlug] = useState<string | null>(null)
   const [activeStep, setActiveStep] = useState(0)
+  // Step 11 (index steps.length - 1) is the maximum valid builder step.
+  // All navigation paths clamp here; nothing may advance beyond it.
+  const isLastStep = activeStep >= steps.length - 1
   const step = activeStep === 4 ? -1 : activeStep > 4 ? activeStep - 1 : activeStep
   const [done, setDone] = useState<number[]>([])
   const [form, setForm] = useState<BasicForm>(initial.form)
@@ -151,8 +159,22 @@ export function TripBuilder() {
   const [previewAdults, setPreviewAdults] = useState(2)
   const [previewChildren, setPreviewChildren] = useState(0)
   const [previewInfants, setPreviewInfants] = useState(0)
+  // Route slug for a new tour (the slug field is read-only when editing).
+  const [newSlug, setNewSlug] = useState('')
   const [feedback, setFeedback] = useState('')
   const [error, setError] = useState('')
+  // Serialized snapshot of the last persisted editor state. Compared
+  // against the live editor state to decide whether Save & Publish shows.
+  // Step navigation and preview controls never touch these fields.
+  const [baseline, setBaseline] = useState<string | null>(() =>
+    JSON.stringify({
+      form: initial.form, catSlugs: initial.categorySlugs, addOns: initial.addOns,
+      highlightImage: initial.highlightImage, highlights: initial.highlights,
+      itinerary: initial.itinerary, travelerPrices: initial.travelerPrices,
+      priceRows: initial.priceRows, locations: initial.locations,
+      gallery: initial.gallery, videos: initial.videos,
+    }),
+  )
 
   const load = (tour: Tour) => {
     const data = editorData(tour)
@@ -168,13 +190,41 @@ export function TripBuilder() {
     setLocations(data.locations)
     setGallery(data.gallery)
     setVideos(data.videos)
+    // Loaded DB state is clean by definition.
+    setBaseline(JSON.stringify({
+      form: data.form, catSlugs: data.categorySlugs, addOns: data.addOns,
+      highlightImage: data.highlightImage, highlights: data.highlights,
+      itinerary: data.itinerary, travelerPrices: data.travelerPrices,
+      priceRows: data.priceRows, locations: data.locations,
+      gallery: data.gallery, videos: data.videos,
+    }))
   }
 
   useEffect(() => {
     const slug = new URLSearchParams(window.location.search).get('slug')
     if (!slug) return
-    const found = readOverrides().tourOverrides[slug] ?? findTour(slug)
-    if (found) load(found)
+    // DB-authoritative load (no static/localStorage fallback).
+    let cancelled = false
+    const loadFromDb = async () => {
+      try {
+        const res = await fetch(`/api/tours/${encodeURIComponent(slug)}`, { credentials: 'same-origin' })
+        const data = await res.json()
+        if (!res.ok || !data.tour) {
+          setError(data.error || 'Tour not found in the database.')
+          return
+        }
+        if (!cancelled) {
+          load(data.tour as Tour)
+          // Resolve to the canonical slug (supports opening via an alias).
+          setEditingSlug((data.tour as Tour).slug)
+          setSavedSlug(null)
+        }
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load tour.')
+      }
+    }
+    void loadFromDb()
+    return () => { cancelled = true }
   }, [])
 
   const set = (key: keyof BasicForm) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
@@ -240,7 +290,20 @@ export function TripBuilder() {
   const previewTotal = previewAdults * previewPrices.adult + previewChildren * previewPrices.child + previewInfants * previewPrices.infant
   const cover = gallery[0]?.src || sourceTour.image
 
-  const publish = () => {
+  // Unsaved-changes detection: every persisted editor field serialized.
+  // New (never-saved) tours always show Save & Publish until the first
+  // successful save; step navigation never alters these fields.
+  const currentSnapshot = useMemo(
+    () =>
+      JSON.stringify({
+        form, catSlugs, addOns, highlightImage, highlights, itinerary,
+        travelerPrices, priceRows, locations, gallery, videos,
+      }),
+    [form, catSlugs, addOns, highlightImage, highlights, itinerary, travelerPrices, priceRows, locations, gallery, videos],
+  )
+  const showSave = editingSlug === null || baseline === null || baseline !== currentSnapshot
+
+  const publish = async () => {
     setFeedback('')
     setError('')
     const basePrice = Number(form.price)
@@ -387,10 +450,61 @@ export function TripBuilder() {
         travelerPrices: cleanTravelerPrices,
       },
     }
-    saveTourOverride(saved)
-    setSourceTour(saved)
-    setDone(steps.map((_, index) => index))
-    setFeedback(ar ? 'تم حفظ نسخة الواجهة. صفحة الرحلة ستقرأ هذه البيانات الآن على هذا المتصفح.' : 'Frontend version saved. The tour page now reads this data in this browser.')
+    // Save & Publish: the ONLY persistence path, straight to the database.
+    // - Editing (?slug= loaded): PUT updates exactly that DB row.
+    // - Creating (no ?slug=): POST inserts exactly one row; a taken slug is
+    //   reported as an error and never silently overwritten (no duplicates).
+    if (saving) return
+    setSaving(true)
+    try {
+      let method: 'POST' | 'PUT' = 'PUT'
+      let url = ''
+      let finalSlug = ''
+      if (editingSlug) {
+        method = 'PUT'
+        finalSlug = editingSlug
+        url = `/api/tours/${encodeURIComponent(editingSlug)}`
+      } else {
+        const slug = newSlug.trim().toLowerCase()
+        if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 80) {
+          setError(ar ? 'أدخل رابطا جديدا صحيحا: حروف إنجليزية صغيرة وأرقام وشرطات.' : 'Enter a valid new route slug: lowercase letters, numbers, and hyphens.')
+          setSaving(false)
+          return
+        }
+        method = 'POST'
+        finalSlug = slug
+        url = '/api/tours'
+      }
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(method === 'POST' ? { ...saved, slug: finalSlug } : saved),
+        credentials: 'same-origin',
+      })
+      const data = await res.json().catch(() => ({} as { error?: string; tour?: Tour }))
+      if (res.status === 409) throw new Error(ar ? 'توجد رحلة بهذا الرابط مسبقا. افتحها للتعديل عليها بدلا من إنشاء نسخة مكررة.' : 'A tour with this slug already exists. Open it to edit instead of creating a duplicate.')
+      if (!res.ok) throw new Error(data.error || 'Failed to save tour')
+      const persisted = (data.tour as Tour | undefined) ?? saved
+      setSourceTour(persisted)
+      setEditingSlug(persisted.slug)
+      setSavedSlug(persisted.slug)
+      try {
+        const nextUrl = new URL(window.location.href)
+        nextUrl.searchParams.set('slug', persisted.slug)
+        window.history.replaceState(null, '', nextUrl.toString())
+      } catch { /* non-fatal */ }
+      setDone(steps.map((_, index) => index))
+      setFeedback(ar ? 'تم حفظ الرحلة في قاعدة البيانات.' : 'Tour saved to the database.')
+      // Successful save marks the editor clean, hiding Save & Publish until
+      // the next edit. Failures leave the baseline untouched (button stays).
+      setBaseline(currentSnapshot)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save tour to database.')
+      setFeedback('')
+      setSavedSlug(null)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const repeatHeader = (title: React.ReactNode, index: number, remove: () => void) => <header><span>{index + 1}</span><strong>{title}</strong><button type="button" onClick={remove} aria-label={ar ? 'حذف العنصر' : 'Remove item'} title={ar ? 'حذف' : 'Remove'}><Trash2 size={16} /></button></header>
@@ -415,7 +529,12 @@ export function TripBuilder() {
   }))
 
   return <>
-    <PageHead eyebrow="Trip Builder" title="Trip Builder" titleAr="منشئ الرحلات" sub="Edit the complete tour experience from one structured workflow" subAr="عدّل تجربة الرحلة كاملة من مسار عمل منظم" actions={<button type="button" className="sp-btn dark" onClick={next}><Save size={16} /> <AdminText en="Save & continue" ar="حفظ ومتابعة" /></button>} />
+    <PageHead eyebrow="Trip Builder" title="Trip Builder" titleAr="منشئ الرحلات" sub="Edit the complete tour experience from one structured workflow" subAr="عدّل تجربة الرحلة كاملة من مسار عمل منظم" actions={isLastStep ? (
+      // Final step: navigation only — never advances the builder, never saves.
+      editingSlug ? <a className="sp-btn dark" href={`/egypt-tours/${encodeURIComponent(editingSlug)}`} target="_blank" rel="noopener noreferrer"><ExternalLink size={16} /> <AdminText en="View Tour" ar="عرض الرحلة" /></a> : null
+    ) : (
+      <button type="button" className="sp-btn dark" onClick={next} disabled={saving}><ArrowRight size={16} /> <AdminText en="Continue" ar="متابعة" /></button>
+    )} />
     <div className="sp-steps" aria-label={ar ? 'خطوات بناء الرحلة' : 'Trip builder steps'}>{steps.map((item, index) => <button key={item.en} type="button" className={index === activeStep ? 'active' : done.includes(index) ? 'done' : ''} onClick={() => setActiveStep(index)}>{index + 1}. {ar ? item.ar : item.en}</button>)}</div>
 
     <div className="sp-builder">
@@ -440,7 +559,7 @@ export function TripBuilder() {
             <div className="sp-form-2"><label><AdminText en="Pending photo credit" ar="مصدر الصورة الجديدة" /><input value={mediaCreditLabel} onChange={(event) => setMediaCreditLabel(event.target.value)} placeholder={ar ? 'اسم المصور أو المصدر' : 'Photographer or source name'} /></label><label><AdminText en="Pending credit URL" ar="رابط مصدر الصورة الجديدة" /><input value={mediaCreditUrl} onChange={(event) => setMediaCreditUrl(event.target.value)} dir="ltr" placeholder="https://..." /></label></div>
             {gallery.length>0&&<div className="sp-media-credit-list">{gallery.map((image, index) => <div key={image.id}><strong>{index + 1}. {image.alt}</strong><div className="sp-form-2"><label><AdminText en="Credit label" ar="اسم المصدر" /><input value={image.creditLabel} onChange={(event) => setGallery((current) => current.map((item) => item.id === image.id ? { ...item, creditLabel: event.target.value } : item))} /></label><label><AdminText en="Credit URL" ar="رابط المصدر" /><input value={image.creditUrl} dir="ltr" placeholder="https://..." onChange={(event) => setGallery((current) => current.map((item) => item.id === image.id ? { ...item, creditUrl: event.target.value } : item))} /></label></div></div>)}</div>}
           </>}
-          {step === 0 && <><label><AdminText en="Route slug (read only)" ar="رابط الرحلة (للقراءة فقط)" /><input value={sourceTour.slug} readOnly dir="ltr" /></label><div className="sp-form-2"><label><AdminText en="Title (EN)" ar="العنوان (EN)" /><input value={form.title} onChange={set('title')} /></label><label><AdminText en="Title (AR)" ar="العنوان (AR)" /><input value={form.titleAr} onChange={set('titleAr')} /></label></div><div className="sp-form-2"><label><AdminText en="Category" ar="التصنيف" /><SharedSelect value={form.category} onChange={setField('category')} locale={ar ? 'ar' : 'en'} options={[{ value: 'one-day-tours', label: 'one-day-tours' }, { value: 'multi-days-tours', label: 'multi-days-tours' }, { value: 'nile-cruises', label: 'nile-cruises' }, { value: 'shore-excursions', label: 'shore-excursions' }]} /></label><label><AdminText en="Primary location" ar="الموقع الأساسي" /><input value={form.location} onChange={set('location')} /></label></div>{form.category === 'one-day-tours' && <label><AdminText en="Destination" ar="الوجهة" /><SharedSelect value={form.destinationSlug} onChange={setField('destinationSlug')} locale={ar ? 'ar' : 'en'} popupWidth="trigger" options={[{ value: '', label: ar ? 'اختر الوجهة' : 'Select destination' }, ...destinations.filter((d) => d.showInOneDayTours).map((d) => ({ value: d.slug, label: d.title }))]} /></label>}{form.category === 'multi-days-tours' && <div><strong style={{ display: 'block', marginBottom: 8 }}><AdminText en="Multi Day Categories" ar="فئات الرحلات متعددة الأيام" /></strong><div className="sp-check-grid">{multiDayCategories.map((c) => <label key={c.slug} className="sp-check-row"><input type="checkbox" checked={catSlugs.includes(c.slug)} onChange={() => toggleCatSlug(c.slug)} /><span>{c.name}<small dir="ltr">{c.slug}</small></span></label>)}</div></div>}{form.category === 'nile-cruises'&&<label><AdminText en="Cruise type" ar="نوع الرحلة النيلية" /><SharedSelect value={form.cruiseType} onChange={setField('cruiseType')} locale={ar ? 'ar' : 'en'} popupWidth="trigger" options={[{ value: '', label: ar ? 'اختر نوع الرحلة' : 'Select cruise type' }, { value: 'standard-nile-cruises', label: 'standard-nile-cruises' }, { value: 'deluxe-nile-cruise', label: 'deluxe-nile-cruise' }, { value: 'superior-nile-cruise', label: 'superior-nile-cruise' }, { value: 'luxury-nile-cruise', label: 'luxury-nile-cruise' }]} /></label>}{form.category === 'shore-excursions'&&<label><AdminText en="Departure port" ar="ميناء الانطلاق" /><input value={form.departurePort} onChange={set('departurePort')} placeholder={ar ? 'ميناء الإسكندرية' : 'Alexandria'} /></label>}<div className="sp-form-2"><label><AdminText en="Duration" ar="المدة" /><input value={form.duration} onChange={set('duration')} /></label><label><AdminText en="Group size" ar="حجم المجموعة" /><input value={form.groupSize} onChange={set('groupSize')} /></label></div><label><AdminText en="Travel style" ar="نمط الرحلة" /><input value={form.travelStyle} onChange={set('travelStyle')} /></label><label><AdminText en="Short summary" ar="الملخص القصير" /><textarea value={form.summary} onChange={set('summary')} rows={3} /></label></>}
+          {step === 0 && <><label><AdminText en={editingSlug ? 'Route slug (read only)' : 'New route slug'} ar={editingSlug ? 'رابط الرحلة (للقراءة فقط)' : 'رابط الرحلة الجديدة'} />{editingSlug ? <input value={sourceTour.slug} readOnly dir="ltr" /> : <input value={newSlug} onChange={(event) => setNewSlug(event.target.value)} dir="ltr" placeholder="my-new-tour" />}</label><div className="sp-form-2"><label><AdminText en="Title (EN)" ar="العنوان (EN)" /><input value={form.title} onChange={set('title')} /></label><label><AdminText en="Title (AR)" ar="العنوان (AR)" /><input value={form.titleAr} onChange={set('titleAr')} /></label></div><div className="sp-form-2"><label><AdminText en="Category" ar="التصنيف" /><SharedSelect value={form.category} onChange={setField('category')} locale={ar ? 'ar' : 'en'} options={[{ value: 'one-day-tours', label: 'one-day-tours' }, { value: 'multi-days-tours', label: 'multi-days-tours' }, { value: 'nile-cruises', label: 'nile-cruises' }, { value: 'shore-excursions', label: 'shore-excursions' }]} /></label><label><AdminText en="Primary location" ar="الموقع الأساسي" /><input value={form.location} onChange={set('location')} /></label></div>{form.category === 'one-day-tours' && <label><AdminText en="Destination" ar="الوجهة" /><SharedSelect value={form.destinationSlug} onChange={setField('destinationSlug')} locale={ar ? 'ar' : 'en'} popupWidth="trigger" options={[{ value: '', label: ar ? 'اختر الوجهة' : 'Select destination' }, ...destinations.filter((d) => d.showInOneDayTours).map((d) => ({ value: d.slug, label: d.title }))]} /></label>}{form.category === 'multi-days-tours' && <div><strong style={{ display: 'block', marginBottom: 8 }}><AdminText en="Multi Day Categories" ar="فئات الرحلات متعددة الأيام" /></strong><div className="sp-check-grid">{multiDayCategories.map((c) => <label key={c.slug} className="sp-check-row"><input type="checkbox" checked={catSlugs.includes(c.slug)} onChange={() => toggleCatSlug(c.slug)} /><span>{c.name}<small dir="ltr">{c.slug}</small></span></label>)}</div></div>}{form.category === 'nile-cruises'&&<label><AdminText en="Cruise type" ar="نوع الرحلة النيلية" /><SharedSelect value={form.cruiseType} onChange={setField('cruiseType')} locale={ar ? 'ar' : 'en'} popupWidth="trigger" options={[{ value: '', label: ar ? 'اختر نوع الرحلة' : 'Select cruise type' }, { value: 'standard-nile-cruises', label: 'standard-nile-cruises' }, { value: 'deluxe-nile-cruise', label: 'deluxe-nile-cruise' }, { value: 'superior-nile-cruise', label: 'superior-nile-cruise' }, { value: 'luxury-nile-cruise', label: 'luxury-nile-cruise' }]} /></label>}{form.category === 'shore-excursions'&&<label><AdminText en="Departure port" ar="ميناء الانطلاق" /><input value={form.departurePort} onChange={set('departurePort')} placeholder={ar ? 'ميناء الإسكندرية' : 'Alexandria'} /></label>}<div className="sp-form-2"><label><AdminText en="Duration" ar="المدة" /><input value={form.duration} onChange={set('duration')} /></label><label><AdminText en="Group size" ar="حجم المجموعة" /><input value={form.groupSize} onChange={set('groupSize')} /></label></div><label><AdminText en="Travel style" ar="نمط الرحلة" /><input value={form.travelStyle} onChange={set('travelStyle')} /></label><label><AdminText en="Short summary" ar="الملخص القصير" /><textarea value={form.summary} onChange={set('summary')} rows={3} /></label></>}
 
           {step === 1 && <><div className="sp-form-2"><label><AdminText en="Base price (USD)" ar="السعر الأساسي (USD)" /><input type="number" min="0" value={form.price} onChange={set('price')} /></label><label><AdminText en="Deal discount %" ar="نسبة الخصم %" /><input type="number" min="0" max="99" value={form.deal} onChange={set('deal')} /></label></div><label><AdminText en="Deal ends at" ar="ينتهي الخصم في" /><DateInput value={form.dealEndsAt} onChange={set('dealEndsAt')} /></label><p className="sp-builder-note"><AdminText en="The base price is the fallback when no traveler-count tier matches." ar="السعر الأساسي هو السعر الاحتياطي عندما لا توجد شريحة مطابقة لعدد المسافرين." /></p></>}
 
@@ -466,11 +585,12 @@ export function TripBuilder() {
 
           {step === 8 && <><p className="sp-builder-note"><MapPin size={16}/><AdminText en="Add every stop. Coordinates produce the interactive map; a name alone uses the standard map search." ar="أضف كل محطة. الإحداثيات تُظهر الخريطة التفاعلية، والاسم وحده يستخدم بحث الخريطة الطبيعي." /></p><div className="sp-repeat-list">{locations.map((row, index) => <article className="sp-repeat-card" key={row.id}>{repeatHeader(<AdminText en="Map location" ar="موقع على الخريطة" />, index, () => setLocations((current) => current.filter((item) => item.id !== row.id)))}<div className="sp-form-2"><label><AdminText en="Location name (EN)" ar="اسم الموقع (EN)" /><input value={row.name} onChange={(event) => setLocations((current) => current.map((item) => item.id===row.id?{...item,name:event.target.value}:item))} /></label><label><AdminText en="Location name (AR)" ar="اسم الموقع (AR)" /><input value={row.nameAr} onChange={(event) => setLocations((current) => current.map((item) => item.id===row.id?{...item,nameAr:event.target.value}:item))} /></label></div><div className="sp-form-2"><label><AdminText en="Latitude" ar="خط العرض" /><input inputMode="decimal" dir="ltr" value={row.latitude} placeholder="25.6872" onChange={(event) => setLocations((current) => current.map((item) => item.id===row.id?{...item,latitude:event.target.value}:item))} /></label><label><AdminText en="Longitude" ar="خط الطول" /><input inputMode="decimal" dir="ltr" value={row.longitude} placeholder="32.6396" onChange={(event) => setLocations((current) => current.map((item) => item.id===row.id?{...item,longitude:event.target.value}:item))} /></label></div></article>)}</div><button type="button" className="sp-btn" onClick={() => setLocations((current) => [...current, { id:id('location'), name:'', nameAr:'', latitude:'', longitude:'' }])}><Plus size={16}/><AdminText en="Add location" ar="إضافة موقع" /></button></>}
 
-          {step === 9 && <div className="sp-review-grid"><div><small><AdminText en="Tour" ar="الرحلة" /></small><strong>{form.title}</strong><span>{form.category} · {form.duration}</span></div><div><small><AdminText en="Content" ar="المحتوى" /></small><strong>{itinerary.length} <AdminText en="itinerary items" ar="عناصر برنامج" /></strong><span>{highlights.length} <AdminText en="highlight groups" ar="مجموعات أبرز المعالم" /> · {addOns.length} <AdminText en="add-ons" ar="إضافات" /> · {locations.length} <AdminText en="locations" ar="مواقع" /></span></div><div><small><AdminText en="Pricing" ar="التسعير" /></small><strong>{cleanTravelerPrices.length} <AdminText en="combined traveler tiers" ar="شرائح مسافرين مجمعة" /></strong><span><AdminText en={`${travelerPrices.adult.length} adult · ${travelerPrices.child.length} child · ${travelerPrices.infant.length} infant rates`} ar={`${travelerPrices.adult.length} بالغ · ${travelerPrices.child.length} طفل · ${travelerPrices.infant.length} رضيع`} /></span></div><div><small><AdminText en="Media" ar="الوسائط" /></small><strong>{gallery.length} <AdminText en="images" ar="صور" /></strong><span><AdminText en="First image is the cover" ar="الصورة الأولى هي الغلاف" /></span></div><p className="sp-builder-note full"><AdminText en="Publish saves a browser-local frontend version for the current project preview. Backend storage and real file upload will replace this boundary later." ar="النشر يحفظ نسخة واجهة محلية في هذا المتصفح لمعاينة المشروع. تخزين الباك إند ورفع الملفات الحقيقي سيحلان محل هذه الطبقة لاحقا." /></p></div>}
+          {step === 9 && <div className="sp-review-grid"><div><small><AdminText en="Tour" ar="الرحلة" /></small><strong>{form.title}</strong><span>{form.category} · {form.duration}</span></div><div><small><AdminText en="Content" ar="المحتوى" /></small><strong>{itinerary.length} <AdminText en="itinerary items" ar="عناصر برنامج" /></strong><span>{highlights.length} <AdminText en="highlight groups" ar="مجموعات أبرز المعالم" /> · {addOns.length} <AdminText en="add-ons" ar="إضافات" /> · {locations.length} <AdminText en="locations" ar="مواقع" /></span></div><div><small><AdminText en="Pricing" ar="التسعير" /></small><strong>{cleanTravelerPrices.length} <AdminText en="combined traveler tiers" ar="شرائح مسافرين مجمعة" /></strong><span><AdminText en={`${travelerPrices.adult.length} adult · ${travelerPrices.child.length} child · ${travelerPrices.infant.length} infant rates`} ar={`${travelerPrices.adult.length} بالغ · ${travelerPrices.child.length} طفل · ${travelerPrices.infant.length} رضيع`} /></span></div><div><small><AdminText en="Media" ar="الوسائط" /></small><strong>{gallery.length} <AdminText en="images" ar="صور" /></strong><span><AdminText en="First image is the cover" ar="الصورة الأولى هي الغلاف" /></span></div><p className="sp-builder-note full"><AdminText en="Save & Publish writes this tour to the database. The public tour page reads the same saved record." ar="الحفظ والنشر يكتبان هذه الرحلة في قاعدة البيانات. صفحة الرحلة العامة تقرأ نفس السجل المحفوظ." /></p></div>}
 
           {error&&<p className="sp-builder-feedback error" role="alert">{error}</p>}
           {feedback&&<p className="sp-builder-feedback success" role="status"><CheckCircle2 size={17}/>{feedback}</p>}
-          <div className="sp-builder-actions">{activeStep>0&&<button type="button" className="sp-btn" onClick={() => setActiveStep((current) => current-1)}><AdminText en="Back" ar="رجوع" /></button>}{activeStep<steps.length-1?<button type="button" className="sp-btn primary" onClick={next}><AdminText en="Continue" ar="متابعة" /></button>:<button type="button" className="sp-btn primary" onClick={publish}><Save size={16}/><AdminText en="Publish frontend version" ar="نشر نسخة الواجهة" /></button>}</div>
+          {feedback&&savedSlug&&<p className="sp-builder-feedback success" role="status"><a href={`/egypt-tours/${savedSlug}`}><AdminText en="View tour" ar="عرض الرحلة" /></a>{' · '}<a href="/admin/trips"><AdminText en="Back to Trips" ar="رجوع إلى الرحلات" /></a></p>}
+          <div className="sp-builder-actions">{activeStep>0&&<button type="button" className="sp-btn" onClick={() => setActiveStep((current) => current-1)} disabled={saving}><AdminText en="Back" ar="رجوع" /></button>}{!isLastStep?<button type="button" className="sp-btn primary" onClick={next} disabled={saving}><AdminText en="Continue" ar="متابعة" /></button>:showSave?<button type="button" className="sp-btn primary" onClick={publish} disabled={saving}><Save size={16}/><AdminText en="Save & Publish" ar="حفظ ونشر" /></button>:null}</div>
         </div>
       </Card>
 

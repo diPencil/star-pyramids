@@ -30,7 +30,7 @@ import {
   type TripTimeMode,
 } from '@/lib/trip-request';
 import { destinations } from '@/data/content';
-import { findTour } from '@/data/tours';
+import { findTourBySlug } from './tours';
 import { notifyUser, notifyStaff } from './notifications';
 import { sendCustomerEmailSafe, sendStaffEmailSafe } from './email';
 
@@ -78,9 +78,9 @@ function hasControlChars(value: string): boolean {
 }
 
 /** Shore-excursion requests anchor to a single ship-call date. */
-export function isShoreTour(tourSlug: string): boolean {
+export async function isShoreTour(tourSlug: string): Promise<boolean> {
   if (!tourSlug) return false;
-  return findTour(tourSlug)?.category === 'shore-excursions';
+  return (await findTourBySlug(tourSlug))?.category === 'shore-excursions';
 }
 
 function utcToday(): string {
@@ -152,7 +152,7 @@ function count(value: unknown): number | null {
  * rejected (no mass assignment); ownership/status/reference fields are never
  * read from the body — the signature takes no such input.
  */
-export function validateTripDraft(input: unknown, opts?: { isShore?: boolean }): ValidatedTripDraft {
+export async function validateTripDraft(input: unknown, opts?: { isShore?: boolean }): Promise<ValidatedTripDraft> {
   if (typeof input !== 'object' || input === null) throw new Error('Invalid request.');
   const body = input as Record<string, unknown>;
   for (const key of Object.keys(body)) {
@@ -167,7 +167,8 @@ export function validateTripDraft(input: unknown, opts?: { isShore?: boolean }):
     fail('Choose a valid destination.');
   }
   const tourSlug = text(body.tourSlug)?.trim() ?? '';
-  const tour = tourSlug === '' ? null : findTour(tourSlug);
+  // DB-authoritative catalogue: unknown slugs are rejected.
+  const tour = tourSlug === '' ? null : await findTourBySlug(tourSlug);
   if (tourSlug !== '' && !tour) fail('Choose a valid tour.');
   const customTitle = text(body.customTitle)?.trim() ?? '';
   if (customTitle !== '' && (customTitle.length > 120 || hasControlChars(customTitle))) {

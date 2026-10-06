@@ -10,7 +10,6 @@ import { ArrowRight, CalendarDays, Check, ChevronDown, Clock3, Heart, MapPin, Mi
 import { getRelatedTours, getTravelerUnitPrices, normalizeTourPricePeriods } from "@/data/tours"
 import { addToCart } from "@/lib/cart"
 import { useCustomerFavorites } from "@/lib/customer-account"
-import { useTourOverride } from "@/lib/admin-store"
 import { cruiseArabicCopy } from "@/data/cruise-ar"
 import { shoreArabicCopy } from "@/data/shore-ar"
 import type { Tour, TourLocation } from "@/data/types"
@@ -225,8 +224,7 @@ export function TourLocationMap({ locations, locale, nileCruise = false }: { loc
   </>
 }
 
-export function TourDetailPage({ tour: initialTour }: { tour: Tour }) {
-  const tour = useTourOverride(initialTour.slug, initialTour)
+export function TourDetailPage({ tour, related }: { tour: Tour; related?: Tour[] }) {
   const { currency, locale } = useLocale()
   const isShore = tour.category === 'shore-excursions'
   const rawDetail = tour.detail
@@ -238,7 +236,11 @@ export function TourDetailPage({ tour: initialTour }: { tour: Tour }) {
     reviews: localizedCruise ? undefined : rawDetail.reviews,
   } : undefined
   const gallery = tour.gallery ?? [tour.image]
-  const relatedTours = getRelatedTours(tour)
+  // Short summary is its own CMS field: always render the saved DB value as
+  // the Overview lead so builder edits are visible even when long-form
+  // detail paragraphs exist.
+  const summaryLead = tour.summary?.trim() ? tour.summary : ''
+  const relatedTours = related ?? getRelatedTours(tour)
   const hasInclusions = Boolean(detail?.included?.length || detail?.excluded?.length || detail?.itineraryNote)
   const pricePeriods = normalizeTourPricePeriods(detail?.priceRows, tx(locale, { en: 'Available travel dates', es: 'Fechas de viaje disponibles', it: 'Date di viaggio disponibili', ar: 'مواعيد السفر المتاحة' }))
   const detailTabs = detail ? [...(detail.highlights.length ? ["Highlights"] : []), ...(detail.itinerary.length ? ["Itinerary"] : []), ...(hasInclusions ? ["Inclusions"] : []), ...(isShore || detail.addOns?.length ? ["Add-ons"] : []), ...(detail.locations.length ? ["Location"] : []), ...(pricePeriods.length ? ["Prices"] : [])] : []
@@ -297,7 +299,7 @@ export function TourDetailPage({ tour: initialTour }: { tour: Tour }) {
           <div className="tour-facts"><span><Clock3 size={18}/><b>{ui('Duration')}</b> {duration}</span><span><MapPin size={18}/><b>{ui('Destinations')}</b> {location}</span><span><Users size={18}/><b>{ui('Group size')}</b> {ui(tour.groupSize??'On request')}</span><span><ShieldCheck size={18}/><b>{ui('Travel style')}</b> {ui(tour.travelStyle??'Tailored')}</span></div>
           {isShore && tour.departurePort && <div className="shore-port-note"><MapPin size={18}/><span><b>{ui('Departure port')}:</b> {locale === 'ar' ? localizeTourLocation(tour.departurePort) : tour.departurePort}</span><span className="shore-port-separator" aria-hidden="true"/><span><b>{ui('Ship schedule')}:</b> {ui('Meeting and return are confirmed with your ship schedule.')}</span></div>}
           {tabs.length>1&&<nav className="tour-tabs" aria-label={tx(locale, { en: 'Tour sections', es: 'Secciones del viaje', it: 'Sezioni del viaggio', ar: 'أقسام الرحلة' })}>{tabs.map(tab=><button key={tab} className={activeTab===tab ? "active" : ""} onClick={()=>{setActiveTab(tab); document.getElementById(tab.toLowerCase())?.scrollIntoView({behavior:"smooth"})}}>{ui(tab)}</button>)}</nav>}
-          <section id="overview" className="tour-content-section"><h2>{ui('Overview')}</h2><div className="overview-grid"><div><small>{ui('Duration')}</small><b>{duration}</b></div><div><small>{ui('Tour type')}</small><b>{ui(tour.travelStyle??'Tailored experience')}</b></div></div>{detail?detail.overview.map(paragraph=><p key={paragraph}>{paragraph}</p>):<><p>{tour.summary}</p><p><strong>The full day-by-day itinerary and exact inclusions are available on request.</strong></p></>}</section>
+          <section id="overview" className="tour-content-section"><h2>{ui('Overview')}</h2><div className="overview-grid"><div><small>{ui('Duration')}</small><b>{duration}</b></div><div><small>{ui('Tour type')}</small><b>{ui(tour.travelStyle??'Tailored experience')}</b></div></div>{summaryLead&&<p className="tour-summary-lead">{summaryLead}</p>}{detail?detail.overview.map(paragraph=><p key={paragraph}>{paragraph}</p>):<p><strong>The full day-by-day itinerary and exact inclusions are available on request.</strong></p>}</section>
           {detail&&<>
           {detail.highlights.length>0&&<section id="highlights" className="tour-content-section"><div className="section-title-row"><h2>{ui('Highlights')}</h2><span className="section-actions"><Link href="/destinations" className="text-link">{ui('View Destinations')}</Link><button type="button" className="link-btn" onClick={() => setExpandAll((v) => (v === true ? false : true))}>{expandAll === true ? ui('Collapse all') : ui('Expand all')}</button></span></div><div className="highlight-card"><Image src={detail.highlightImage ?? gallery[0]} alt={title} fill sizes="(max-width: 700px) 100vw, 260px"/><div><h3>{detail.highlights[0].title}</h3><p>{detail.highlights[0].items.join(', ')}</p></div></div><div key={'hl' + String(expandAll)}>{detail.highlights.map((group,gi) => <Accordion key={group.title} title={group.title} open={expandAll === null ? gi === 0 : expandAll}><ul>{group.items.map(item => <li key={item}><Check size={15}/>{item}</li>)}</ul></Accordion>)}</div></section>}
           {detail.itinerary.length>0&&<section id="itinerary" className="tour-content-section"><div className="section-title-row"><h2>{ui('Itinerary')}</h2><button type="button" className="outline-btn" onClick={downloadItinerary}>{ui('Download itinerary')}</button></div>{detail.itineraryNote&&<p className="tour-itinerary-note"><ShieldCheck size={17}/>{detail.itineraryNote}</p>}<div className="itinerary-list">{detail.itinerary.map((item,index)=>{const open=openDay===item.day || (locale === 'ar' && openDay === rawDetail?.itinerary[index]?.day); return <article key={`${item.day}-${index}`} className={open?'open':'closed'}><span className="day-dot"/><div className="day-board"><button type="button" className="day-toggle" onClick={()=>setOpenDay(open?null:item.day)} aria-expanded={open}><span className="day-pill">{item.day}</span><span className="day-title">{item.title}</span><ChevronDown size={17}/></button><div className="day-body"><Image src={item.image ?? detail.itineraryImages?.[index] ?? gallery[index%gallery.length]} alt={item.title} width={300} height={240} className="day-thumb"/><div><p>{item.description}</p>{item.meals&&<p className="tour-day-meals"><b>{tx(locale, { en: 'Meals:', es: 'Comidas:', it: 'Pasti:', ar: 'الوجبات:' })}</b> {item.meals}</p>}</div></div></div></article>;})}</div></section>}

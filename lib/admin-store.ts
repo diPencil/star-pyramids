@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import type { Blog, Car, DealFeedItem, Destination, Event, MultiDayCategory, Offer, Tour, TourDeal } from '@/data/types'
+import type { Blog, Car, Destination, Event, MultiDayCategory, Offer } from '@/data/types'
 import { COMPANY_ADDRESS, COMPANY_EMAIL, COMPANY_MAP_URL, COMPANY_PHONE_DISPLAY } from '@/data/company'
 
 export type OverrideCollection = 'offers' | 'events' | 'blogs' | 'cars' | 'destinations' | 'multiDayCategories' | 'customers'
@@ -41,8 +41,6 @@ export type AdminOverrides = {
   customerProfiles: Record<string, CustomerProfilePatch>
   carOverrides: Record<string, Car>
   hiddenCars: string[]
-  tourOverrides: Record<string, Tour>
-  tourDeals: Record<string, TourDeal>
   /** Canonical event edits by slug (replace-by-slug, never mutates data/content.ts). */
   eventOverrides: Record<string, Event>
   /** Hidden event slugs (canonical or custom). Excluded from public discovery on this browser. */
@@ -52,7 +50,7 @@ export type AdminOverrides = {
 const KEY = 'sp-admin-overrides-v1'
 export const CUSTOM_PREFIX = 'custom-'
 
-const empty: AdminOverrides = { version: 1, offers: [], events: [], blogs: [], cars: [], destinations: [], multiDayCategories: [], customers: [], customerProfiles: {}, carOverrides: {}, hiddenCars: [], tourOverrides: {}, tourDeals: {}, eventOverrides: {}, hiddenEvents: [] }
+const empty: AdminOverrides = { version: 1, offers: [], events: [], blogs: [], cars: [], destinations: [], multiDayCategories: [], customers: [], customerProfiles: {}, carOverrides: {}, hiddenCars: [], eventOverrides: {}, hiddenEvents: [] }
 
 export function isCustomSlug(slug: string) {
   return slug.startsWith(CUSTOM_PREFIX)
@@ -85,8 +83,6 @@ export function readOverrides(): AdminOverrides {
       customerProfiles: parsed.customerProfiles && typeof parsed.customerProfiles === 'object' ? parsed.customerProfiles : {},
       carOverrides: sanitizeCarOverrides(parsed.carOverrides),
       hiddenCars: Array.isArray(parsed.hiddenCars) ? parsed.hiddenCars.filter((slug): slug is string => typeof slug === 'string') : [],
-      tourOverrides: parsed.tourOverrides && typeof parsed.tourOverrides === 'object' ? parsed.tourOverrides : {},
-      tourDeals: parsed.tourDeals && typeof parsed.tourDeals === 'object' ? parsed.tourDeals : {},
       eventOverrides: sanitizeEventOverrides(parsed.eventOverrides),
       hiddenEvents: Array.isArray(parsed.hiddenEvents) ? parsed.hiddenEvents.filter((slug): slug is string => typeof slug === 'string') : [],
     }
@@ -425,34 +421,6 @@ export function useInquiries(): Inquiry[] {
   return inquiries
 }
 
-export function saveTourDeal(slug: string, deal: TourDeal) {
-  const data = readOverrides()
-  writeOverrides({ ...data, tourDeals: { ...data.tourDeals, [slug]: deal } })
-}
-
-export function removeTourDeal(slug: string) {
-  const data = readOverrides()
-  const tourDeals = { ...data.tourDeals }
-  delete tourDeals[slug]
-  writeOverrides({ ...data, tourDeals })
-}
-
-export function saveTourOverride(tour: Tour) {
-  const data = readOverrides()
-  writeOverrides({ ...data, tourOverrides: { ...data.tourOverrides, [tour.slug]: tour } })
-}
-
-export function useTourOverride(slug: string, fallback: Tour): Tour {
-  const [tour, setTour] = useState(fallback)
-  useEffect(() => {
-    const sync = () => setTour(readOverrides().tourOverrides[slug] ?? fallback)
-    sync()
-    window.addEventListener('sp-overrides', sync)
-    return () => window.removeEventListener('sp-overrides', sync)
-  }, [fallback, slug])
-  return tour
-}
-
 /**
  * Pure fleet merge: canonical base + admin customs, canonical overrides
  * applied by slug, hidden slugs excluded unless requested. Exported for
@@ -511,45 +479,6 @@ export function useLiveFind<T extends { slug: string }>(
 ): T | undefined {
   const list = useLiveCollection(collection, base)
   return list.find((entry) => entry.slug === slug)
-}
-
-export function useTourDeal(slug: string, fallback?: TourDeal): TourDeal | undefined {
-  const [override, setOverride] = useState<TourDeal | undefined>(undefined)
-  const [ready, setReady] = useState(false)
-  useEffect(() => {
-    setOverride(readOverrides().tourDeals[slug])
-    setReady(true)
-  }, [slug])
-  return ready ? override ?? fallback : fallback
-}
-
-export function useDealFeed(): DealFeedItem[] {
-  const [feed, setFeed] = useState<DealFeedItem[]>([])
-  useEffect(() => {
-    const deals = readOverrides().tourDeals
-    setFeed(Object.entries(deals).map(([slug, item]) => ({ slug, percent: item.percent, endsAt: item.endsAt })))
-  }, [])
-  return feed
-}
-
-export function useLiveTours(base: readonly Tour[]): Tour[] {
-  const feed = useDealFeed()
-  const [overrides, setOverrides] = useState<Record<string, Tour>>({})
-  useEffect(() => {
-    const sync = () => setOverrides(readOverrides().tourOverrides)
-    sync()
-    window.addEventListener('sp-overrides', sync)
-    return () => window.removeEventListener('sp-overrides', sync)
-  }, [])
-  return useMemo(() => {
-    const merged = base.map((tour) => overrides[tour.slug] ?? tour)
-    if (!feed.length) return merged
-    return merged.map((tour) => {
-      const item = feed.find((entry) => entry.slug === tour.slug)
-      if (!item || !(item.percent > 0 && item.percent < 100) || Number.isNaN(new Date(item.endsAt).getTime())) return tour
-      return { ...tour, deal: { percent: item.percent, endsAt: item.endsAt } }
-    })
-  }, [base, feed, overrides])
 }
 
 /**

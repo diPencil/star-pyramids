@@ -18,7 +18,6 @@ import { TourVideoGallery } from "./tour-video-gallery"
 import { AskQuestionButton } from "./ask-question"
 import { HorizontalSlider } from "./horizontal-slider"
 import { TourLocationMap } from "./tour-detail"
-import { useTourOverride } from "@/lib/admin-store"
 import { DateInput } from "./date-input"
 
 type GalleryImage = { src: string; alt: string }
@@ -53,8 +52,7 @@ const regionGalleries: Record<string, readonly GalleryImage[]> = {
   ],
 }
 
-export function DayTourDetailPage({ tour: initialTour }: { tour: Tour }) {
-  const sourceTour = useTourOverride(initialTour.slug, initialTour)
+export function DayTourDetailPage({ tour: sourceTour, related: relatedProp }: { tour: Tour; related?: Tour[] }) {
   const { currency, locale } = useLocale()
   const tour = { ...sourceTour, title: pickLocaleText(locale, { en: sourceTour.title, ar: sourceTour.titleAr }) }
   const detail = tour.dayDetail
@@ -67,7 +65,7 @@ export function DayTourDetailPage({ tour: initialTour }: { tour: Tour }) {
   const locationName = locale === 'ar' ? localizeTourLocation(tour.location) : tour.location
   const durationName = locale === 'ar' ? localizeTourDuration(tour.duration) : tour.duration
   const regionHref = region ? `/egypt-tours/one-day-tours/${region.slug}` : "/egypt-tours/one-day-tours"
-  const related = getToursByCategory("one-day-tours").filter((item) => item.slug !== tour.slug && item.location === tour.location).slice(0, 4)
+  const related = relatedProp ?? getToursByCategory("one-day-tours").filter((item) => item.slug !== tour.slug && item.location === tour.location).slice(0, 4)
   const [selectedImage, setSelectedImage] = useState(0)
   const [activeTab, setActiveTab] = useState("overview")
   const [openStop, setOpenStop] = useState(0)
@@ -114,7 +112,7 @@ export function DayTourDetailPage({ tour: initialTour }: { tour: Tour }) {
           <div className="tour-facts"><span><Clock3 size={18} /><b>{tx(locale, { en: 'Duration', es: 'Duración', it: 'Durata', ar: 'المدة' })}</b>{durationName}</span><span><MapPin size={18} /><b>{tx(locale, { en: 'Area', es: 'Zona', it: 'Zona', ar: 'المنطقة' })}</b>{locationName}</span><span><Users size={18} /><b>{tx(locale, { en: 'Group size', es: 'Tamaño del grupo', it: 'Dimensioni del gruppo', ar: 'حجم المجموعة' })}</b>{tour.groupSize ?? tx(locale, { en: 'On request', es: 'A petición', it: 'Su richiesta', ar: 'حسب الطلب' })}</span><span><ShieldCheck size={18} /><b>{tx(locale, { en: 'Travel style', es: 'Estilo de viaje', it: 'Stile di viaggio', ar: 'نمط الرحلة' })}</b>{tour.travelStyle ?? tx(locale, { en: 'Tailored', es: 'A medida', it: 'Su misura', ar: 'مخصص' })}</span></div>
           <nav className="tour-tabs" aria-label={tx(locale, { en: "Tour sections", es: "Secciones del viaje", it: "Sezioni del viaggio", ar: "أقسام الرحلة" })}>{tabs.map((tab) => <button type="button" key={tab.id} className={activeTab === tab.id ? "active" : ""} onClick={() => { setActiveTab(tab.id); document.getElementById(tab.id)?.scrollIntoView({ behavior: "smooth" }) }}>{tab.label}</button>)}</nav>
 
-          <section id="overview" className="tour-content-section"><h2>{tx(locale, { en: 'Overview', es: 'Resumen', it: 'Panoramica', ar: 'نظرة عامة' })}</h2><div className="overview-grid"><div><small>{tx(locale, { en: 'Duration', es: 'Duración', it: 'Durata', ar: 'المدة' })}</small><b>{durationName}</b></div><div><small>{tx(locale, { en: 'Tour type', es: 'Tipo de viaje', it: 'Tipo di viaggio', ar: 'نوع الرحلة' })}</small><b>{tx(locale, { en: 'Private day tour', es: 'Circuito privado de un día', it: 'Tour privato di un giorno', ar: 'رحلة يومية خاصة' })}</b></div></div>{(detail?.overview ?? [tour.summary, tx(locale, { en: 'The visit route, meeting point, timings, and inclusions are confirmed with our team before booking.', es: 'La ruta, el punto de encuentro, los horarios y las inclusiones se confirman con nuestro equipo antes de reservar.', it: 'Itinerario, punto di incontro, orari e inclusioni si confermano con il nostro team prima della prenotazione.', ar: 'خط سير الزيارة ونقطة المقابلة والمواعيد والمشمول تُؤكد مع فريقنا قبل الحجز.' })]).map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</section>
+          <section id="overview" className="tour-content-section"><h2>{tx(locale, { en: 'Overview', es: 'Resumen', it: 'Panoramica', ar: 'نظرة عامة' })}</h2><div className="overview-grid"><div><small>{tx(locale, { en: 'Duration', es: 'Duración', it: 'Durata', ar: 'المدة' })}</small><b>{durationName}</b></div><div><small>{tx(locale, { en: 'Tour type', es: 'Tipo de viaje', it: 'Tipo di viaggio', ar: 'نوع الرحلة' })}</small><b>{tx(locale, { en: 'Private day tour', es: 'Circuito privado de un día', it: 'Tour privato di un giorno', ar: 'رحلة يومية خاصة' })}</b></div></div>{sourceTour.summary?.trim() ? <p className="tour-summary-lead">{sourceTour.summary}</p> : null}{(detail?.overview ?? [tx(locale, { en: 'The visit route, meeting point, timings, and inclusions are confirmed with our team before booking.', es: 'La ruta, el punto de encuentro, los horarios y las inclusiones se confirman con nuestro equipo antes de reservar.', it: 'Itinerario, punto di incontro, orari e inclusioni si confermano con il nostro team prima della prenotazione.', ar: 'خط سير الزيارة ونقطة المقابلة والمواعيد والمشمول تُؤكد مع فريقنا قبل الحجز.' })]).map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</section>
 
           <section id="highlights" className="tour-content-section"><h2>{tx(locale, { en: 'Highlights', es: 'Lo destacado', it: 'Punti salienti', ar: 'أبرز المعالم' })}</h2><div className="highlight-card"><Image src={detail?.highlightImage ?? gallery[0].src} alt={gallery[0].alt} fill sizes="(max-width: 700px) 100vw, 260px" /><div><h3>{tx(locale, { en: `${tour.location}, at your pace`, es: `${tour.location}, a tu ritmo`, it: `${tour.location}, al tuo ritmo`, ar: `${locationName} بوتيرتك الخاصة` })}</h3><p>{tour.summary}</p></div></div>{detail?.highlights?.length ? <ul className="day-tour-highlight-list">{detail.highlights.map((item) => <li key={item}><Check size={16} />{item}</li>)}</ul> : <p>{tx(locale, { en: 'Ask our team which stops and experiences can fit the duration of this tour. We will confirm them with your proposed itinerary.', es: 'Pregunta a nuestro equipo qué paradas y experiencias encajan en la duración de este viaje. Las confirmaremos con tu itinerario propuesto.', it: 'Chiedi al nostro team quali tappe ed esperienze rientrano nella durata di questo tour. Le confermeremo con il tuo itinerario proposto.', ar: 'استفسر من فريقنا عن المحطات والتجارب الممكنة في مدة هذه الرحلة. سنؤكدها مع برنامجك المقترح.' })}</p>}</section>
 

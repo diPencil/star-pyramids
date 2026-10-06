@@ -18,7 +18,8 @@ import { localizeTourDuration, localizeTourLocation } from '@/lib/tour-format'
 import { estimateCart, isValidPreferredDate, bookingActivityLabel, bookingPaymentStatusLabel, bookingStatusLabel, type Booking, type BookingStatus } from '@/lib/booking'
 import { paymentActivityLabel, paymentStatusLabel, type Payment } from '@/lib/payment'
 import { useCart } from '@/lib/cart'
-import { useInquiries, useBrandSettings, useLiveCollection, useLiveTours, readImpersonation, stopImpersonation, type ImpersonatedCustomer } from '@/lib/admin-store'
+import { useInquiries, useBrandSettings, useLiveCollection, readImpersonation, stopImpersonation, type ImpersonatedCustomer } from '@/lib/admin-store'
+import { useDbTours } from '@/lib/tours-client'
 import { cars } from '@/data/content'
 import { carActivityLabel, carRequestStatusLabel, fleetVehicleTitle, type CarRequest, type CarRequestStatus } from '@/lib/car-request'
 import { usePagination } from '@/components/admin/admin-pagination'
@@ -278,7 +279,7 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
       .catch(() => undefined)
     return () => { cancelled = true }
   }, [])
-  const liveTours = useLiveTours(catalogTours)
+  const liveTours = useDbTours(catalogTours)
   const heading = sectionHeadings[section]
   const initials = profile.fullName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'SP'
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -476,7 +477,7 @@ function OverviewSection() {
   const cart = useCart()
   const cartEstimate = useMemo(() => estimateCart(cart.items), [cart.items])
   const latestBooking = bookings[0]
-  const liveTours = useLiveTours(catalogTours)
+  const liveTours = useDbTours(catalogTours)
   const savedTours = favorites.slugs.map((slug) => liveTours.find((tour) => tour.slug === slug)).filter((tour) => Boolean(tour)).slice(0, 3)
 
   return <>
@@ -1199,7 +1200,7 @@ function FavoritesSection() {
   const { locale } = useLocale()
 
   const favorites = useCustomerFavorites()
-  const liveTours = useLiveTours(catalogTours)
+  const liveTours = useDbTours(catalogTours)
   const saved = favorites.slugs.map((slug) => liveTours.find((tour) => tour.slug === slug)).filter((tour) => Boolean(tour))
   const recommendations = liveTours.filter((tour) => !favorites.has(tour.slug)).slice(0, 6)
   const savedPaging = usePagination(saved)

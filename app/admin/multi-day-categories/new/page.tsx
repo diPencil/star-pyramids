@@ -9,7 +9,8 @@ import { AdminText, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { ImageField } from '@/components/admin/image-field'
 import { getMultiDayToursForCategory, getToursByCategory, multiDayCategories } from '@/data/tours'
-import { readOverrides, saveCustomItem, saveTourOverride, slugify, useLiveMultiDayCategories, useLiveTours } from '@/lib/admin-store'
+import { saveCustomItem, slugify, useLiveMultiDayCategories } from '@/lib/admin-store'
+import { useDbTours } from '@/lib/tours-client'
 
 const multiBase = getToursByCategory('multi-days-tours')
 
@@ -18,7 +19,7 @@ export default function CategoryEditorPage() {
   const router = useRouter()
   const [editSlug, setEditSlug] = useState('')
   const liveCategories = useLiveMultiDayCategories(multiDayCategories)
-  const liveTours = useLiveTours(multiBase)
+  const liveTours = useDbTours(multiBase)
   const editing = liveCategories.find((c) => c.slug === editSlug)
 
   const [name, setName] = useState('')
@@ -34,6 +35,7 @@ export default function CategoryEditorPage() {
   const [tourQuery, setTourQuery] = useState('')
   const [ready, setReady] = useState(false)
   const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     setEditSlug(new URLSearchParams(window.location.search).get('slug') ?? '')
@@ -69,7 +71,7 @@ export default function CategoryEditorPage() {
     [linkedSlugs, liveTours],
   )
 
-  const save = () => {
+  const save = async () => {
     setError('')
     if (!name.trim() || !nameAr.trim()) { setError(ar ? 'اكتب اسم الفئة بالإنجليزية والعربية.' : 'Enter the category name in English and Arabic.'); return }
     const finalSlug = editSlug || slugify(slug.trim() ? `${slug}` : name)
@@ -85,24 +87,49 @@ export default function CategoryEditorPage() {
       order: Number.isFinite(parsedOrder) ? parsedOrder : 999,
       active: published,
     })
-    const overrides = readOverrides().tourOverrides
-    for (const tourSlug of linkedSlugs) {
-      const base = overrides[tourSlug] ?? liveTours.find((t) => t.slug === tourSlug)
-      if (!base || base.category !== 'multi-days-tours') continue
-      const next = Array.from(new Set([...(base.categorySlugs ?? []), finalSlug]))
-      saveTourOverride({ ...base, categorySlugs: next })
+    // Tour assignments are DB-authoritative: write categorySlugs straight
+    // to the tours table (the category record itself stays browser-local
+    // until its backend phase lands).
+    if (saving) return
+    setSaving(true)
+    try {
+      const failures: string[] = []
+      const putSlugs = async (tourSlug: string, categorySlugs: string[]) => {
+        try {
+          const res = await fetch(`/api/tours/${encodeURIComponent(tourSlug)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ categorySlugs }),
+            credentials: 'same-origin',
+          })
+          if (!res.ok) failures.push(tourSlug)
+        } catch {
+          failures.push(tourSlug)
+        }
+      }
+      for (const tourSlug of linkedSlugs) {
+        const base = liveTours.find((t) => t.slug === tourSlug)
+        if (!base || base.category !== 'multi-days-tours') continue
+        await putSlugs(tourSlug, Array.from(new Set([...(base.categorySlugs ?? []), finalSlug])))
+      }
+      for (const tourSlug of initialSlugs.filter((s) => !linkedSlugs.includes(s))) {
+        const base = liveTours.find((t) => t.slug === tourSlug)
+        if (!base) continue
+        await putSlugs(tourSlug, (base.categorySlugs ?? []).filter((s) => s !== finalSlug))
+      }
+      if (failures.length) {
+        setError(ar ? `تعذر حفظ ارتباط الرحلات في قاعدة البيانات: ${failures.join(', ')}` : `Could not save tour links to the database: ${failures.join(', ')}`)
+        return
+      }
+      router.push('/admin/multi-day-categories')
+    } finally {
+      setSaving(false)
     }
-    for (const tourSlug of initialSlugs.filter((s) => !linkedSlugs.includes(s))) {
-      const base = overrides[tourSlug] ?? liveTours.find((t) => t.slug === tourSlug)
-      if (!base) continue
-      saveTourOverride({ ...base, categorySlugs: (base.categorySlugs ?? []).filter((s) => s !== finalSlug) })
-    }
-    router.push('/admin/multi-day-categories')
   }
 
   return <>
-    <PageHead eyebrow="Catalogue" title={editSlug ? 'Edit category' : 'New category'} titleAr={editSlug ? 'تعديل الفئة' : 'فئة جديدة'} sub={ar ? 'تظهر في صفحة رحلات متعددة الأيام وصفحتها عند النشر' : 'Visible on the Multi Days landing and its category page when published'} actions={<button type="button" className="sp-btn dark" onClick={save}><AdminText en="Save category" ar="حفظ الفئة" /></button>} />
-    {!ready ? <Card title={<AdminText en="Loading" ar="جار التحميل" />}><p style={{ color: 'var(--sp-muted)' }}><AdminText en="Reading catalogue overrides..." ar="قراءة تجاوزات الكتالوج..." /></p></Card> : editSlug && !editing ? (
+    <PageHead eyebrow="Catalogue" title={editSlug ? 'Edit category' : 'New category'} titleAr={editSlug ? 'تعديل الفئة' : 'فئة جديدة'} sub={ar ? 'تظهر في صفحة رحلات متعددة الأيام وصفحتها عند النشر' : 'Visible on the Multi Days landing and its category page when published'} actions={<button type="button" className="sp-btn dark" onClick={save} disabled={saving}><AdminText en="Save category" ar="حفظ الفئة" /></button>} />
+    {!ready ? <Card title={<AdminText en="Loading" ar="جار التحميل" />}><p style={{ color: 'var(--sp-muted)' }}><AdminText en="Loading category..." ar="جار تحميل الفئة..." /></p></Card> : editSlug && !editing ? (
       <Card title={<AdminText en="Category not found" ar="الفئة غير موجودة" />}><p style={{ color: 'var(--sp-muted)' }}><AdminText en="The requested category does not exist." ar="الفئة المطلوبة غير موجودة." /></p></Card>
     ) : <>
       <Card title={<AdminText en="Basic information" ar="البيانات الأساسية" />}>
@@ -148,7 +175,7 @@ export default function CategoryEditorPage() {
       </Card>
       {error && <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>}
       <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
-        <button type="button" className="sp-btn primary" onClick={save}><AdminText en="Save category" ar="حفظ الفئة" /></button>
+        <button type="button" className="sp-btn primary" onClick={save} disabled={saving}><AdminText en="Save category" ar="حفظ الفئة" /></button>
         {editSlug && <Link className="sp-btn" href={`/egypt-tours/multi-days-tours/${editSlug}`}><ExternalLink size={16} /> <AdminText en="View public category" ar="عرض الفئة العامة" /></Link>}
       </div>
     </>}

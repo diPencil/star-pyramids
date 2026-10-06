@@ -7,7 +7,8 @@ import { ExternalLink, Plus, Trash2 } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
-import { saveCustomItem, slugify, readOverrides, saveTourOverride, useLiveDestinations, useLiveTours } from '@/lib/admin-store'
+import { saveCustomItem, slugify, useLiveDestinations } from '@/lib/admin-store'
+import { useDbTours } from '@/lib/tours-client'
 import { ImageField } from '@/components/admin/image-field'
 import { destinations } from '@/data/content'
 import { assignableOneDayTours, getOneDayToursForDestination } from '@/data/tours'
@@ -21,7 +22,7 @@ export default function DestinationEditorPage() {
   const router = useRouter()
   const [editSlug, setEditSlug] = useState('')
   const liveDestinations = useLiveDestinations(destinations)
-  const liveTours = useLiveTours(oneDayBase)
+  const liveTours = useDbTours(oneDayBase)
   const editing = liveDestinations.find((d) => d.slug === editSlug)
 
   const [title, setTitle] = useState('')
@@ -42,6 +43,7 @@ export default function DestinationEditorPage() {
   const [tourQuery, setTourQuery] = useState('')
   const [ready, setReady] = useState(false)
   const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     setEditSlug(new URLSearchParams(window.location.search).get('slug') ?? '')
@@ -80,7 +82,7 @@ export default function DestinationEditorPage() {
     [linkedSlugs, liveTours],
   )
 
-  const save = () => {
+  const save = async () => {
     setError('')
     if (!title.trim()) { setError(ar ? 'اكتب اسم الوجهة.' : 'Enter the destination name.'); return }
     const finalSlug = editSlug || slugify(slug.trim() ? slug : title)
@@ -111,23 +113,47 @@ export default function DestinationEditorPage() {
       },
     }
     saveCustomItem('destinations', item)
-    const overrides = readOverrides().tourOverrides
-    for (const tourSlug of linkedSlugs) {
-      const base = overrides[tourSlug] ?? liveTours.find((t) => t.slug === tourSlug)
-      if (!base || base.category !== 'one-day-tours') continue
-      saveTourOverride({ ...base, destinationSlug: finalSlug })
+    // Tour assignments are DB-authoritative: write destinationSlug straight
+    // to the tours table (the destination record itself stays browser-local
+    // until its backend phase lands).
+    if (saving) return
+    setSaving(true)
+    try {
+      const failures: string[] = []
+      const putTour = async (tourSlug: string, destinationSlug: string | null) => {
+        try {
+          const res = await fetch(`/api/tours/${encodeURIComponent(tourSlug)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ destinationSlug }),
+            credentials: 'same-origin',
+          })
+          if (!res.ok) failures.push(tourSlug)
+        } catch {
+          failures.push(tourSlug)
+        }
+      }
+      for (const tourSlug of linkedSlugs) {
+        const base = liveTours.find((t) => t.slug === tourSlug)
+        if (!base || base.category !== 'one-day-tours') continue
+        await putTour(tourSlug, finalSlug)
+      }
+      for (const tourSlug of initialSlugs.filter((s) => !linkedSlugs.includes(s))) {
+        await putTour(tourSlug, null)
+      }
+      if (failures.length) {
+        setError(ar ? `تعذر حفظ ارتباط الرحلات في قاعدة البيانات: ${failures.join(', ')}` : `Could not save tour links to the database: ${failures.join(', ')}`)
+        return
+      }
+      router.push('/admin/destinations')
+    } finally {
+      setSaving(false)
     }
-    for (const tourSlug of initialSlugs.filter((s) => !linkedSlugs.includes(s))) {
-      const base = overrides[tourSlug] ?? liveTours.find((t) => t.slug === tourSlug)
-      if (!base) continue
-      saveTourOverride({ ...base, destinationSlug: null })
-    }
-    router.push('/admin/destinations')
   }
 
   return <>
-    <PageHead eyebrow="Catalogue" title={editSlug ? 'Edit destination' : 'New destination'} titleAr={editSlug ? 'تعديل الوجهة' : 'وجهة جديدة'} sub={ar ? 'تنشر في الوجهات والرئيسية' : 'Published to destinations and the homepage'} actions={<button type="button" className="sp-btn dark" onClick={save}><AdminText en="Save destination" ar="حفظ الوجهة" /></button>} />
-    {!ready ? <Card title={<AdminText en="Loading" ar="جار التحميل" />}><p style={{ color: 'var(--sp-muted)' }}><AdminText en="Reading catalogue overrides..." ar="قراءة تجاوزات الكتالوج..." /></p></Card> : editSlug && !editing ? (
+    <PageHead eyebrow="Catalogue" title={editSlug ? 'Edit destination' : 'New destination'} titleAr={editSlug ? 'تعديل الوجهة' : 'وجهة جديدة'} sub={ar ? 'تنشر في الوجهات والرئيسية' : 'Published to destinations and the homepage'} actions={<button type="button" className="sp-btn dark" onClick={save} disabled={saving}><AdminText en="Save destination" ar="حفظ الوجهة" /></button>} />
+    {!ready ? <Card title={<AdminText en="Loading" ar="جار التحميل" />}><p style={{ color: 'var(--sp-muted)' }}><AdminText en="Loading destination..." ar="جار تحميل الوجهة..." /></p></Card> : editSlug && !editing ? (
       <Card title={<AdminText en="Destination not found" ar="الوجهة غير موجودة" />}><p style={{ color: 'var(--sp-muted)' }}><AdminText en="The requested destination does not exist." ar="الوجهة المطلوبة غير موجودة." /></p></Card>
     ) : <>
       <Card title={<AdminText en="Basic information" ar="البيانات الأساسية" />}>
@@ -182,7 +208,7 @@ export default function DestinationEditorPage() {
       </Card>
       {error && <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>}
       <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
-        <button type="button" className="sp-btn primary" onClick={save}><AdminText en="Save destination" ar="حفظ الوجهة" /></button>
+        <button type="button" className="sp-btn primary" onClick={save} disabled={saving}><AdminText en="Save destination" ar="حفظ الوجهة" /></button>
         {editSlug && <Link className="sp-btn" href={showInDestinations ? `/destinations/${editSlug}` : `/egypt-tours/one-day-tours/${editSlug}`}><ExternalLink size={16} /> <AdminText en="View destination" ar="عرض الوجهة" /></Link>}
       </div>
     </>}

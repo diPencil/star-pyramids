@@ -1,37 +1,62 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Anchor, ExternalLink, Layers3, MapPinned, Pencil, Plus, ShipWheel } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableTools, AdminTableWrap, AdminText, Card, StatusPill } from '@/components/admin/admin-ui'
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
-import { tours } from '@/data/tours'
 
-const cats = ['all', 'one-day-tours', 'multi-days-tours', 'nile-cruises', 'shore-excursions'] as const
-
-const catNames: Record<(typeof cats)[number], { en: string; ar: string }> = {
-  all: { en: 'All', ar: 'الكل' },
-  'one-day-tours': { en: 'One day tours', ar: 'رحلات اليوم الواحد' },
-  'multi-days-tours': { en: 'Multi days tours', ar: 'رحلات متعددة الأيام' },
-  'nile-cruises': { en: 'Nile cruises', ar: 'رحلات النيل' },
-  'shore-excursions': { en: 'Shore excursions', ar: 'رحلات الشواطئ' },
+type TripRow = {
+  slug: string
+  title: string
+  category: string
+  location: string
+  price: number | string
+  duration: string
+  deal?: unknown
+  aliases?: string[]
 }
 
 export default function TripsPage() {
   const ar = useAdminLocale() === 'ar'
-  const [cat, setCat] = useState<(typeof cats)[number]>('all')
+  const [cat, setCat] = useState<'all' | 'one-day-tours' | 'multi-days-tours' | 'nile-cruises' | 'shore-excursions'>('all')
   const [q, setQ] = useState('')
+  const [tours, setTours] = useState<TripRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  // DB-authoritative catalogue (no static fallback).
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setLoading(true)
+      setError('')
+      try {
+        const res = await fetch('/api/tours', { credentials: 'same-origin' })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Failed to load trips.')
+        if (!cancelled) setTours(Array.isArray(data.tours) ? data.tours : [])
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load trips.')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    void load()
+    return () => { cancelled = true }
+  }, [])
+
   const rows = useMemo(() => {
     return tours
       .filter((t) => (cat === 'all' ? true : t.category === cat))
       .filter((t) => (q ? (t.title + t.location).toLowerCase().includes(q.toLowerCase()) : true))
-  }, [cat, q])
+  }, [tours, cat, q])
   const tripSort = useAdminTableSort(rows, {
     tour: (row) => row.title, category: (row) => row.category, location: (row) => row.location,
-    price: (row) => row.price, status: (row) => row.deal ? 'active' : 'published',
+    price: (row) => Number(row.price), status: (row) => row.deal ? 'active' : 'published',
   }, 'tour', 'asc')
   const paging = usePagination(tripSort.sortedRows)
 
@@ -54,14 +79,16 @@ export default function TripsPage() {
       <Card title={<AdminText en="All trips" ar="كل الرحلات" />} sub={<AdminText en={`${rows.length} records match the current view`} ar={`${rows.length} سجل يطابق العرض الحالي`} />}>
         <AdminTableTools query={q} onQueryChange={setQ} placeholder={ar ? 'ابحث بعنوان الرحلة أو الموقع...' : 'Search trip title or location...'}>
           <div className="sp-tabs">
-          {cats.map((c) => (
-            <button key={c} type="button" className={cat === c ? 'active' : ''} onClick={() => setCat(c)}>
-              {ar ? catNames[c].ar : catNames[c].en}
+          {['all', 'one-day-tours', 'multi-days-tours', 'nile-cruises', 'shore-excursions'].map((c) => (
+            <button key={c} type="button" className={cat === c ? 'active' : ''} onClick={() => setCat(c as typeof cat)}>
+              {ar ? ({'all': 'الكل', 'one-day-tours': 'رحلات اليوم الواحد', 'multi-days-tours': 'رحلات متعددة الأيام', 'nile-cruises': 'رحلات النيل', 'shore-excursions': 'رحلات الشواطئ'}[c] ?? c) : ({'all': 'All', 'one-day-tours': 'One day tours', 'multi-days-tours': 'Multi days tours', 'nile-cruises': 'Nile cruises', 'shore-excursions': 'Shore excursions'}[c] ?? c)}
             </button>
           ))}
           </div>
         </AdminTableTools>
-        {rows.length ? <AdminTableWrap><table className="sp-table">
+        {loading ? <AdminEmpty title={<AdminText en="Loading trips…" ar="جارٍ تحميل الرحلات…" />} copy={<AdminText en="Reading the authoritative catalogue." ar="تتم قراءة السجل المعتمد." />} />
+        : error ? <AdminEmpty title={<AdminText en="Could not load trips" ar="تعذر تحميل الرحلات" />} copy={<AdminText en={error} ar={error} />} />
+        : rows.length ? <AdminTableWrap><table className="sp-table">
           <thead>
             <tr><th className="sp-row-number">#</th><SortableTh label={<AdminText en="Tour" ar="الرحلة" />} column="tour" {...tripSort} onSort={tripSort.sortBy} /><SortableTh label={<AdminText en="Category" ar="التصنيف" />} column="category" {...tripSort} onSort={tripSort.sortBy} /><SortableTh label={<AdminText en="Location" ar="الموقع" />} column="location" {...tripSort} onSort={tripSort.sortBy} /><SortableTh label={<AdminText en="Price" ar="السعر" />} column="price" {...tripSort} onSort={tripSort.sortBy} /><SortableTh label={<AdminText en="Status" ar="الحالة" />} column="status" {...tripSort} onSort={tripSort.sortBy} /><th></th></tr>
           </thead>
@@ -70,9 +97,9 @@ export default function TripsPage() {
               <tr key={t.slug}>
                 <td className="sp-row-number">{paging.from + index}</td>
                 <td><strong>{t.title}</strong><br /><small style={{ color: 'var(--sp-muted)' }}>{t.duration}</small></td>
-                <td>{ar ? catNames[t.category as (typeof cats)[number]]?.ar ?? t.category : t.category}</td>
+                <td>{ar ? ({'all': 'الكل', 'one-day-tours': 'رحلات اليوم الواحد', 'multi-days-tours': 'رحلات متعددة الأيام', 'nile-cruises': 'رحلات النيل', 'shore-excursions': 'رحلات الشواطئ'}[t.category] ?? t.category) : ({'all': 'All', 'one-day-tours': 'One day tours', 'multi-days-tours': 'Multi days tours', 'nile-cruises': 'Nile cruises', 'shore-excursions': 'Shore excursions'}[t.category] ?? t.category)}</td>
                 <td>{t.location}</td>
-                <td>${t.price}</td>
+                <td>${String(t.price)}</td>
                 <td><StatusPill status={t.deal ? 'active' : 'published'} /></td>
                 <td><AdminTableActions>
                   <AdminIconAction icon={Pencil} label={ar ? `تعديل ${t.title}` : `Edit ${t.title}`} href={`/admin/trips/builder?slug=${t.slug}`} />

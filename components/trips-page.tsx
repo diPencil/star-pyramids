@@ -10,10 +10,9 @@ import { matchPriceBand, tourListingSorts, tourPriceBands, type TourListingSort 
 import { Breadcrumb, HelpCTA, SiteShell, TourCard } from '@/components/site'
 import { SharedSelect } from '@/components/shared-select'
 import { formatPrice, tx, useLocale } from '@/components/locale'
-import { useLiveTours } from '@/lib/admin-store'
+import { useDbTours } from '@/lib/tours-client'
 
 const categories = Object.keys(tourCategories) as TourCategory[]
-const destinations = [...new Set(catalogTours.flatMap((tour) => tour.location.split(',').map((place) => place.trim())))].sort()
 const durations = ['day', 'short', 'long'] as const
 type Duration = (typeof durations)[number]
 
@@ -71,14 +70,17 @@ function durationMatches(value: string, filter: Duration) {
 
 function TripsContent() {
   const { currency, locale } = useLocale()
-  const liveCatalog = useLiveTours(catalogTours)
+  const liveCatalog = useDbTours(catalogTours)
+  const destinationOptions = [...new Set(liveCatalog.flatMap((tour) => tour.location.split(',').map((place) => place.trim())))].sort()
+  const nilePrices = liveCatalog.filter((tour) => tour.category === 'nile-cruises').map((tour) => tour.price)
+  const liveMinNilePrice = nilePrices.length ? Math.min(...nilePrices) : minNilePrice
   const t = copy[locale]
   const router = useRouter()
   const searchParams = useSearchParams()
   const rawCategory = searchParams.get('category')
   const category = categories.find((item) => item === rawCategory) ?? ''
   const rawDestination = searchParams.get('destination')
-  const destination = destinations.find((item) => item === rawDestination) ?? ''
+  const destination = destinationOptions.find((item) => item === rawDestination) ?? ''
   const rawDuration = searchParams.get('duration')
   const duration = durations.find((item) => item === rawDuration) ?? ''
   const rawPrice = searchParams.get('price')
@@ -127,7 +129,7 @@ function TripsContent() {
           <h1>{t.title}</h1>
           <p>{t.subtitle}</p>
         </div>
-        <div className="trips-intro-count"><strong>{catalogTours.length}</strong><span>{t.all}</span></div>
+        <div className="trips-intro-count"><strong>{liveCatalog.length}</strong><span>{t.all}</span></div>
       </div>
     </div>
     <main className="container trips-page">
@@ -142,17 +144,17 @@ function TripsContent() {
         <aside className="trips-filters" aria-label={t.filters}>
           <div className="trips-filter-head"><h2><SlidersHorizontal size={19}/>{t.filters}{activeCount > 0 && <span>{activeCount}</span>}</h2><button type="button" onClick={() => { setSearch(''); router.replace('/trips', { scroll: false }) }}>{t.clear}</button></div>
           <fieldset className="trips-filter-group"><legend>{t.type}</legend>
-            <label><input type="radio" name="trip-category" checked={!category} onChange={() => update({ category: '' })}/><span>{t.all}</span><small>{catalogTours.length}</small></label>
-            {categories.map((item) => <label key={item}><input type="radio" name="trip-category" checked={category === item} onChange={() => update({ category: item })}/><span>{tx(locale, { en: tourCategories[item].title, es: ({ 'one-day-tours': 'Circuitos de un día', 'multi-days-tours': 'Viajes de varios días', 'nile-cruises': 'Cruceros por el Nilo', 'shore-excursions': 'Excursiones en tierra' } as Record<TourCategory, string>)[item], it: ({ 'one-day-tours': 'Tour di un giorno', 'multi-days-tours': 'Viaggi di più giorni', 'nile-cruises': 'Crociere sul Nilo', 'shore-excursions': 'Escursioni a terra' } as Record<TourCategory, string>)[item], ar: ({ 'one-day-tours': 'رحلات اليوم الواحد', 'multi-days-tours': 'رحلات متعددة الأيام', 'nile-cruises': 'كروز النيل', 'shore-excursions': 'الرحلات الشاطئية' } as Record<TourCategory, string>)[item] })}</span><small>{catalogTours.filter((tour) => tour.category === item).length}</small></label>)}
+            <label><input type="radio" name="trip-category" checked={!category} onChange={() => update({ category: '' })}/><span>{t.all}</span><small>{liveCatalog.length}</small></label>
+            {categories.map((item) => <label key={item}><input type="radio" name="trip-category" checked={category === item} onChange={() => update({ category: item })}/><span>{tx(locale, { en: tourCategories[item].title, es: ({ 'one-day-tours': 'Circuitos de un día', 'multi-days-tours': 'Viajes de varios días', 'nile-cruises': 'Cruceros por el Nilo', 'shore-excursions': 'Excursiones en tierra' } as Record<TourCategory, string>)[item], it: ({ 'one-day-tours': 'Tour di un giorno', 'multi-days-tours': 'Viaggi di più giorni', 'nile-cruises': 'Crociere sul Nilo', 'shore-excursions': 'Escursioni a terra' } as Record<TourCategory, string>)[item], ar: ({ 'one-day-tours': 'رحلات اليوم الواحد', 'multi-days-tours': 'رحلات متعددة الأيام', 'nile-cruises': 'كروز النيل', 'shore-excursions': 'الرحلات الشاطئية' } as Record<TourCategory, string>)[item] })}</span><small>{liveCatalog.filter((tour) => tour.category === item).length}</small></label>)}
           </fieldset>
-          <div className="trips-filter-group"><label className="trips-select-label" htmlFor="trips-destination">{t.destination}</label><div className="trips-select"><MapPin size={17}/><SharedSelect id="trips-destination" value={destination} onChange={(next) => update({ destination: next })} locale={locale} options={[{ value: '', label: t.anyDestination }, ...destinations.map((place) => ({ value: place, label: place }))]} /></div></div>
+          <div className="trips-filter-group"><label className="trips-select-label" htmlFor="trips-destination">{t.destination}</label><div className="trips-select"><MapPin size={17}/><SharedSelect id="trips-destination" value={destination} onChange={(next) => update({ destination: next })} locale={locale} options={[{ value: '', label: t.anyDestination }, ...destinationOptions.map((place) => ({ value: place, label: place }))]} /></div></div>
           <div className="trips-filter-group"><label className="trips-select-label" htmlFor="trips-duration">{t.duration}</label><div className="trips-select"><SharedSelect id="trips-duration" value={duration} onChange={(next) => update({ duration: next })} locale={locale} options={[{ value: '', label: t.anyDuration }, ...durations.map((item, index) => ({ value: item, label: t.durationLabels[index] }))]} /></div></div>
           <div className="trips-filter-group"><label className="trips-select-label" htmlFor="trips-price">{t.price}</label><div className="trips-select"><SharedSelect id="trips-price" value={price} onChange={(next) => update({ price: next })} locale={locale} options={[{ value: '', label: t.anyPrice }, ...tourPriceBands.slice(1).map((band) => {const lo = formatPrice(200, currency, locale); const hi = formatPrice(400, currency, locale); const label = band.id === 'under-200' ? tx(locale, { en: `Under ${lo}`, es: `Menos de ${lo}`, it: `Meno di ${lo}`, ar: `أقل من ${lo}` }) : band.id === '200-400' ? `${lo} - ${hi}` : tx(locale, { en: `Over ${hi}`, es: `Más de ${hi}`, it: `Più di ${hi}`, ar: `أكثر من ${hi}` }); return { value: band.id, label }})]} /></div></div>
           <div className="trips-promo">
             <span className="trips-promo-badge"><Sparkles size={14}/>{tx(locale, { en: 'Explore the Nile', es: 'Explora el Nilo', it: 'Esplora il Nilo', ar: 'استكشف النيل' })}</span>
             <h3>{tx(locale, { en: 'Nile journeys between Luxor and Aswan', es: 'Viajes por el Nilo entre Luxor y Asuán', it: 'Viaggi sul Nilo tra Luxor e Assuan', ar: 'رحلات نيلية بين الأقصر وأسوان' })}</h3>
             <p>{tx(locale, { en: 'Compare routes and trip lengths to find your preferred journey.', es: 'Compara rutas y duraciones para encontrar tu viaje ideal.', it: 'Confronta itinerari e durate per trovare il tuo viaggio ideale.', ar: 'قارن المسارات والمدد المختلفة واختر الرحلة المناسبة لك.' })}</p>
-            <div className="trips-promo-price">{tx(locale, { en: 'Starting from', es: 'Desde', it: 'A partire da', ar: 'يبدأ من' })} <strong>{formatPrice(minNilePrice, currency, locale)}</strong></div>
+            <div className="trips-promo-price">{tx(locale, { en: 'Starting from', es: 'Desde', it: 'A partire da', ar: 'يبدأ من' })} <strong>{formatPrice(liveMinNilePrice, currency, locale)}</strong></div>
             <Link className="trips-promo-btn" href="/egypt-tours/nile-cruises">{tx(locale, { en: 'Browse Nile Cruises', es: 'Ver cruceros por el Nilo', it: 'Sfoglia le crociere sul Nilo', ar: 'تصفّح رحلات النيل' })} <ArrowRight size={15}/></Link>
           </div>
         </aside>

@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { readInquiries, saveInquiry } from '@/lib/admin-store'
 import type { EnabledLocale } from '@/lib/locale-config'
 
 /**
@@ -63,39 +62,6 @@ export const defaultCustomerProfile: CustomerProfile = {
   securityAlerts: true,
 }
 
-const DEMO_CUSTOMER = 'James Carter'
-const DEMO_FAVORITES = ['cairo-and-giza-pyramids', 'luxor-east-west-bank', 'giftun-island-snorkeling-trip']
-
-function ensureDemoSeed() {
-  if (typeof window === 'undefined') return
-  try {
-    if (window.localStorage.getItem(FAVORITES_KEY) === null) {
-      window.localStorage.setItem(FAVORITES_KEY, JSON.stringify(DEMO_FAVORITES))
-      favoritesCache = null
-    }
-    if (readInquiries().length === 0) {
-      saveInquiry({
-        channel: 'whatsapp',
-        name: DEMO_CUSTOMER,
-        contact: '',
-        message: 'Hi! Is the Giza day tour suitable for kids?',
-        tourSlug: 'cairo-and-giza-pyramids',
-        tourTitle: 'Cairo & Giza Pyramids Day Tour',
-      })
-      saveInquiry({
-        channel: 'email',
-        name: DEMO_CUSTOMER,
-        contact: 'james.carter@example.com',
-        message: 'Could you confirm hotel pickup in Giza for October 2nd?',
-        tourSlug: 'cairo-and-giza-pyramids',
-        tourTitle: 'Cairo & Giza Pyramids Day Tour',
-      })
-    }
-  } catch {
-    // Demo seed is best-effort only.
-  }
-}
-
 function emitAccountChange() {
   accountListeners.forEach((listener) => listener())
   window.dispatchEvent(new Event('sp-customer-account'))
@@ -127,7 +93,6 @@ export function clearMessageDraft() {
 
 function readFavorites(): string[] {
   if (typeof window === 'undefined') return EMPTY_FAVORITES
-  ensureDemoSeed()
   try {
     const parsed: unknown = JSON.parse(window.localStorage.getItem(FAVORITES_KEY) || '[]')
     return Array.isArray(parsed) ? parsed.filter((slug): slug is string => typeof slug === 'string').slice(0, 100) : EMPTY_FAVORITES

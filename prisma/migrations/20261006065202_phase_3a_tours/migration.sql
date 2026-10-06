@@ -1,0 +1,32 @@
+-- CreateTable
+CREATE TABLE `tours` (
+    `id` VARCHAR(191) NOT NULL,
+    `slug` VARCHAR(80) NOT NULL,
+    `aliases` JSON NOT NULL,
+    `title` VARCHAR(200) NOT NULL,
+    `titleAr` VARCHAR(200) NULL,
+    `category` VARCHAR(32) NOT NULL,
+    `destinationSlug` VARCHAR(80) NULL,
+    `cruiseType` VARCHAR(32) NULL,
+    `departurePort` VARCHAR(80) NULL,
+    `location` VARCHAR(120) NOT NULL,
+    `price` DECIMAL(10, 2) NOT NULL,
+    `duration` VARCHAR(80) NOT NULL,
+    `image` VARCHAR(255) NOT NULL,
+    `gallery` JSON NOT NULL,
+    `summary` TEXT NOT NULL,
+    `groupSize` VARCHAR(40) NULL,
+    `travelStyle` VARCHAR(40) NULL,
+    `deal` JSON NULL,
+    `detail` JSON NULL,
+    `dayDetail` JSON NULL,
+    `categorySlugs` JSON NOT NULL,
+    `journeyVideos` JSON NOT NULL,
+    `photoCredits` JSON NOT NULL,
+    `status` VARCHAR(20) NOT NULL DEFAULT 'published',
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    UNIQUE INDEX `tours_slug_key`(`slug`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

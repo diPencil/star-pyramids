@@ -6,7 +6,8 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { tours } from '@/data/tours'
-import { saveCustomItem, saveTourDeal, slugify } from '@/lib/admin-store'
+import { saveCustomItem, slugify } from '@/lib/admin-store'
+import { useDbTours } from '@/lib/tours-client'
 import { ImageField } from '@/components/admin/image-field'
 import { SharedSelect } from '@/components/shared-select'
 import type { Offer } from '@/data/types'
@@ -28,15 +29,38 @@ export default function NewOfferPage() {
   const [image, setImage] = useState('')
   const [highlights, setHighlights] = useState('')
   const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+  const liveTours = useDbTours(tours)
 
-  const tour = tours.find((t) => t.slug === tourSlug)
+  const tour = liveTours.find((t) => t.slug === tourSlug)
   const dealPrice = tour ? Math.round(tour.price * (1 - Math.min(90, Math.max(0, Number(percent) || 0)) / 100)) : 0
 
-  const save = () => {
+  const save = async () => {
     setError('')
+    if (saving) return
     if (mode === 'existing') {
       if (!tour) { setError(ar ? 'اختر الرحلة.' : 'Select a tour.'); return }
       const pct = Math.min(90, Math.max(1, Number(percent) || 0))
+      setSaving(true)
+      try {
+        // The discount lives on the tour row itself (DB-authoritative) so
+        // the website badge reflects it immediately.
+        const res = await fetch(`/api/tours/${encodeURIComponent(tour.slug)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deal: { percent: pct, endsAt } }),
+          credentials: 'same-origin',
+        })
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({} as { error?: string }))
+          throw new Error(data.error || 'Failed to save the discount.')
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to save the discount.')
+        setSaving(false)
+        return
+      }
+      setSaving(false)
       const offer: Offer = {
         title: tour.title,
         slug: `custom-offer-${tour.slug}`,
@@ -50,7 +74,6 @@ export default function NewOfferPage() {
         originalPrice: tour.price,
         deadline: endsAt,
       }
-      saveTourDeal(tour.slug, { percent: pct, endsAt })
       saveCustomItem('offers', offer)
     } else {
       if (!title.trim()) { setError(ar ? 'اكتب عنوان العرض.' : 'Enter the offer title.'); return }
@@ -72,7 +95,7 @@ export default function NewOfferPage() {
   }
 
   return <>
-    <PageHead eyebrow="Special Offers" title="New offer" titleAr="عرض جديد" sub="Link an existing tour or publish a standalone offer" subAr="اربط رحلة موجودة أو انشر عرضا مستقلا" actions={<button type="button" className="sp-btn dark" onClick={save}><AdminText en="Publish offer" ar="نشر العرض" /></button>} />
+    <PageHead eyebrow="Special Offers" title="New offer" titleAr="عرض جديد" sub="Link an existing tour or publish a standalone offer" subAr="اربط رحلة موجودة أو انشر عرضا مستقلا" actions={<button type="button" className="sp-btn dark" onClick={save} disabled={saving}><AdminText en="Publish offer" ar="نشر العرض" /></button>} />
     <Card title={<AdminText en="Creation method" ar="طريقة الإنشاء" />} sub={<AdminText en="Linking a tour adds the discount badge on the website automatically" ar="ربط رحلة يضيف شارة الخصم عليها في الموقع تلقائيا" />}>
       <div className="sp-tabs" style={{ marginBottom: 16 }}>
         <button type="button" className={mode === 'existing' ? 'active' : ''} onClick={() => setMode('existing')}><AdminText en="Link existing tour" ar="سحب رحلة موجودة" /></button>
@@ -80,7 +103,7 @@ export default function NewOfferPage() {
       </div>
       {mode === 'existing' ? (
         <div className="sp-form">
-          <label><AdminText en="Tour" ar="الرحلة" /><SharedSelect value={tourSlug} onChange={setTourSlug} locale={ar ? 'ar' : 'en'} popupWidth="trigger" options={tours.map((t) => ({ value: t.slug, label: `${t.title} — $${t.price}` }))} /></label>
+          <label><AdminText en="Tour" ar="الرحلة" /><SharedSelect value={tourSlug} onChange={setTourSlug} locale={ar ? 'ar' : 'en'} popupWidth="trigger" options={liveTours.map((t) => ({ value: t.slug, label: `${t.title} — $${t.price}` }))} /></label>
           <div className="sp-form-2">
             <label><AdminText en="Discount %" ar="نسبة الخصم %" /><input type="number" min={1} max={90} value={percent} onChange={(e) => { setPercent(e.target.value); setBadge(`SAVE ${e.target.value}%`) }} /></label>
             <label><AdminText en="Ends at" ar="ينتهي في" /><DateInput value={endsAt} onChange={(e) => setEndsAt(e.target.value)} /></label>
@@ -112,7 +135,7 @@ export default function NewOfferPage() {
       )}
       {error && <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>}
       <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-        <button type="button" className="sp-btn primary" onClick={save}><AdminText en="Publish offer" ar="نشر العرض" /></button>
+        <button type="button" className="sp-btn primary" onClick={save} disabled={saving}><AdminText en="Publish offer" ar="نشر العرض" /></button>
       </div>
     </Card>
   </>

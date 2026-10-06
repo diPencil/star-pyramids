@@ -60,7 +60,7 @@ export async function POST(request: Request) {
 
   let draft;
   try {
-    draft = validateTripDraft(body, { isShore: isShoreTour(bodyTourSlug(body)) });
+    draft = await validateTripDraft(body, { isShore: await isShoreTour(bodyTourSlug(body)) });
   } catch (error) {
     await recordTripRequestAttempt(bodyEmail(body), ip);
     if (error instanceof Error) {

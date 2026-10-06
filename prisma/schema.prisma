@@ -620,6 +620,38 @@ model Payment {
 /// Immutable payment history. Every server-side payment transition
 /// appends one row; rows are never updated or deleted except by
 /// booking cascade. Customer-facing views exclude internal rows.
+model Tour {
+  id              String    @id @default(cuid())
+  slug            String    @unique @db.VarChar(80)
+  aliases         Json
+  title           String    @db.VarChar(200)
+  titleAr         String?   @db.VarChar(200)
+  category        String    @db.VarChar(32)
+  destinationSlug String?    @db.VarChar(80)
+  cruiseType      String?   @db.VarChar(32)
+  departurePort   String?   @db.VarChar(80)
+  location        String    @db.VarChar(120)
+  price           Decimal   @db.Decimal(10, 2)
+  duration        String    @db.VarChar(80)
+  image           String    @db.VarChar(255)
+  gallery         Json
+  galleryCaptions Json      @default("[]")
+  summary         String    @db.Text
+  groupSize       String?   @db.VarChar(40)
+  travelStyle     String?   @db.VarChar(40)
+  deal            Json?     @db.Json
+  detail          Json?     @db.Json
+  dayDetail       Json?     @db.Json
+  categorySlugs   Json
+  journeyVideos   Json
+  photoCredits    Json
+  status          String    @default("published") @db.VarChar(20)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("tours")
+}
+
 model PaymentEvent {
   id        String   @id @default(cuid())
   paymentId String

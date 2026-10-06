@@ -16,7 +16,8 @@ import {
   normalizeEmail,
   normalizePhone,
 } from '../core/validation';
-import { dayTourTerms, findTour, getBookingTotal } from '@/data/tours';
+import { dayTourTerms, getBookingTotal } from '@/data/tours';
+import { findTourBySlug } from './tours';
 import {
   canTransitionBooking,
   isValidPreferredDate,
@@ -132,15 +133,15 @@ function count(value: unknown): number | null {
   return value;
 }
 
-function addonCatalog(slug: string): readonly { title: string; price?: number }[] {
-  const tour = findTour(slug);
+async function addonCatalog(slug: string): Promise<readonly { title: string; price?: number }[]> {
+  const tour = await findTourBySlug(slug);
   if (!tour) return [];
   const catalog = tour.detail?.addOns ?? tour.dayDetail?.addOns;
   if (catalog) return catalog;
   return tour.category === 'one-day-tours' ? dayTourTerms.addOns : [];
 }
 
-function resolveLine(raw: unknown): ValidatedBookingLine {
+async function resolveLine(raw: unknown): Promise<ValidatedBookingLine> {
   if (typeof raw !== 'object' || raw === null) throw new Error('Invalid booking items.');
   const body = raw as Record<string, unknown>;
   for (const key of Object.keys(body)) {
@@ -150,7 +151,8 @@ function resolveLine(raw: unknown): ValidatedBookingLine {
   if (!SLUG_PATTERN.test(tourSlug) || tourSlug.length > 120) {
     throw new Error('Select a valid tour.');
   }
-  const tour = findTour(tourSlug);
+  // DB-authoritative catalogue: pricing always resolves from the tours table.
+  const tour = await findTourBySlug(tourSlug);
   if (!tour) throw new Error('One of the selected tours is no longer available. Remove it and try again.');
 
   const date = text(body.date) ?? '';
@@ -173,7 +175,7 @@ function resolveLine(raw: unknown): ValidatedBookingLine {
     const title = entry.trim().slice(0, 120);
     if (title) titles.push(title);
   }
-  const catalog = addonCatalog(tourSlug);
+  const catalog = await addonCatalog(tourSlug);
   let addonTotalCents = 0;
   for (const title of titles) {
     const match = catalog.find((addon) => addon.title === title);
@@ -210,7 +212,7 @@ function resolveLine(raw: unknown): ValidatedBookingLine {
  * rejected (no mass assignment); prices, totals, status, payment,
  * references, and ownership fields are never read from the body.
  */
-export function validateBookingDraft(input: unknown): ValidatedBookingDraft {
+export async function validateBookingDraft(input: unknown): Promise<ValidatedBookingDraft> {
   if (typeof input !== 'object' || input === null) throw new Error('Invalid request.');
   const body = input as Record<string, unknown>;
   for (const key of Object.keys(body)) {
@@ -221,7 +223,8 @@ export function validateBookingDraft(input: unknown): ValidatedBookingDraft {
   if (!Array.isArray(rawLines) || rawLines.length < 1 || rawLines.length > MAX_LINES) {
     throw new Error('Your cart is empty or too large.');
   }
-  const lines = rawLines.map(resolveLine);
+  const lines: ValidatedBookingLine[] = [];
+  for (const raw of rawLines) lines.push(await resolveLine(raw));
 
   const rawContact = body.contact;
   if (typeof rawContact !== 'object' || rawContact === null) throw new Error('Enter your contact details.');

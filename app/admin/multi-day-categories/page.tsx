@@ -9,13 +9,14 @@ import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-so
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
 import { getMultiDayToursForCategory, getToursByCategory, multiDayCategories } from '@/data/tours'
-import { isCustomSlug, removeCustomItem, useLiveMultiDayCategories, useLiveTours } from '@/lib/admin-store'
+import { isCustomSlug, removeCustomItem, useLiveMultiDayCategories } from '@/lib/admin-store'
+import { useDbTours } from '@/lib/tours-client'
 
 export default function MultiDayCategoriesPage() {
   const ar = useAdminLocale() === 'ar'
   const [query, setQuery] = useState('')
   const liveCategories = useLiveMultiDayCategories(multiDayCategories)
-  const liveTours = useLiveTours(getToursByCategory('multi-days-tours'))
+  const liveTours = useDbTours(getToursByCategory('multi-days-tours'))
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
     return liveCategories

@@ -57,7 +57,7 @@ export async function POST(request: Request) {
 
   let draft;
   try {
-    draft = validateBookingDraft(body);
+    draft = await validateBookingDraft(body);
   } catch (error) {
     await recordBookingAttempt(bodyEmail(body), ip);
     if (error instanceof Error) {

@@ -5,7 +5,8 @@ import { Ship, ArrowRight, Star, Users, Waves, Anchor } from 'lucide-react'
 import { Breadcrumb, SiteShell, HelpCTA, TourCategoryHero } from '@/components/site'
 import { tx, useLocale } from '@/components/locale'
 import { pickLocaleText } from '@/lib/locale-config'
-import { cruiseTypes, getCruisesByType } from '@/data/tours'
+import { cruiseTypes, getToursByCategory } from '@/data/tours'
+import { useDbTours } from '@/lib/tours-client'
 import { localizeTourDuration, localizeTourLocation } from '@/lib/tour-format'
 
 const iconMap: Record<string, typeof Ship> = { anchor: Anchor, star: Star, waves: Waves, ship: Ship }
@@ -27,7 +28,7 @@ export function NileCruisesPage() {
 function NileCruisesContent() {
   const { locale } = useLocale()
   const t = copy[locale]
-  const allCruises = cruiseTypes.flatMap((type) => getCruisesByType(type.slug))
+  const allCruises = useDbTours(cruiseTypes.flatMap((type) => getToursByCategory('nile-cruises').filter((tour) => tour.cruiseType === type.slug)))
   const featured = allCruises[0]
 
   return <>
@@ -54,7 +55,7 @@ function NileCruisesContent() {
       <div className="cruise-categories-grid">
         {cruiseTypes.map((ct) => {
           const Icon = iconMap[ct.icon] ?? Ship
-          const count = getCruisesByType(ct.slug).length
+          const count = allCruises.filter((tour) => tour.cruiseType === ct.slug).length
           return <Link key={ct.slug} href={`/egypt-tours/nile-cruises/${ct.slug}`} className="cruise-cat-card">
             <div className="cruise-cat-img">
               <img src={ct.image} alt={locale === 'ar' ? ct.titleAr : ct.titleEn} loading="lazy"/>

@@ -5,7 +5,8 @@ import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { ArrowRight, CalendarCheck, CalendarDays, Camera, Check, CircleAlert, Clock3, Compass, CarFront, Gift, Headphones, Mail, MapPin, MessageCircle, Minus, Phone, Plus, Search, Send, Share2, ShieldCheck, Sparkles, Star, Sun, Ticket, Users, type LucideIcon } from 'lucide-react'
 import { blogs, cars, destinations, events, faqs, offers, policies, siteImages, allSearchItems, findBlog, findCar, findDestination, findEvent, findOffer } from '@/data/content'
-import { isCustomSlug, useBrandSettings, useLiveCollection, useLiveDestinations, useLiveEvents, useLiveFind, useLiveTours } from '@/lib/admin-store'
+import { isCustomSlug, useBrandSettings, useLiveCollection, useLiveDestinations, useLiveEvents, useLiveFind } from '@/lib/admin-store'
+import { useDbTours } from '@/lib/tours-client'
 import { eventCity, eventMapQuery, eventPriceLabel, eventStatusLabel, getEventStatus, getPublishedEvents, getRelatedEvents, isEventPublished, parseLegacyEventRange, resolveEventRange } from '@/lib/events'
 import { EventRequestForm } from './event-request-form'
 import { phoneHref, whatsappHref } from '@/data/company'
@@ -1142,7 +1143,7 @@ export function OffersPage() {
 function OffersPageContent() {
   const { locale } = useLocale()
   const ar = locale === 'ar'
-  const liveSeasonal = useLiveTours(seasonalTours)
+  const liveSeasonal = useDbTours(seasonalTours)
   const customOffers = useLiveCollection('offers', offers).filter((offer) => isCustomSlug(offer.slug))
   const featured = liveSeasonal[0]
   const destinationsCount = new Set(liveSeasonal.flatMap((tour) => tour.location.split(',').map((place) => place.trim()).filter(Boolean))).size
