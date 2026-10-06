@@ -24,7 +24,7 @@ import {
   type PaymentStatus,
   type StaffPayment,
 } from '@/lib/payment';
-import { notifyUser } from './notifications';
+import { notifyUser, notifyStaff } from './notifications';
 
 const REF_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const REF_ATTEMPTS = 5;
@@ -308,6 +308,15 @@ export async function initiateCustomerPayment(
         title: 'Payment initiated',
         message: `Payment ${reference} for booking ${input.bookingReference} was initiated. No charge is made online.`,
         href: `/account/payments/detail?ref=${encodeURIComponent(reference)}`,
+      });
+      // Staff copy on first creation only (truthful: initiated/pending,
+      // never paid). Runs only on the created path so retries never
+      // double-notify.
+      await notifyStaff({
+        type: 'admin_payment_initiated',
+        title: 'Payment initiated',
+        message: `Payment ${reference} for booking ${input.bookingReference} is pending. No charge completed.`,
+        href: `/admin/payments/${encodeURIComponent(reference)}`,
       });
       return { payment: toCustomerPaymentView(row), created: true };
     } catch (error) {

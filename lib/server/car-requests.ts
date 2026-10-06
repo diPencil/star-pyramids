@@ -33,7 +33,7 @@ import {
   type CarTripType,
   type StaffCarRequest,
 } from '@/lib/car-request';
-import { notifyUser } from './notifications';
+import { notifyUser, notifyStaff } from './notifications';
 
 const REF_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const REF_ATTEMPTS = 5;
@@ -320,12 +320,19 @@ export async function createCarRequestRecord(
       });
       const created = toCustomerView(row);
       // Submission receipt for signed-in customers. Guests (userId
-      // NULL) are skipped — no account to notify.
+      // NULL) are skipped — no account to notify. Staff are always
+      // notified (guests included): a new request needs review.
       await notifyUser(userId, {
         type: 'car_request_submitted',
         title: 'Car request received',
         message: `We received your car request ${reference}. Our team will review it shortly.`,
         href: `/account/car-requests/detail?ref=${encodeURIComponent(reference)}`,
+      });
+      await notifyStaff({
+        type: 'admin_car_request_submitted',
+        title: 'New car request',
+        message: `Car request ${reference} needs review.`,
+        href: `/admin/car-requests/${encodeURIComponent(reference)}`,
       });
       return created;
     } catch (error) {

@@ -31,7 +31,7 @@ import {
 } from '@/lib/trip-request';
 import { destinations } from '@/data/content';
 import { findTour } from '@/data/tours';
-import { notifyUser } from './notifications';
+import { notifyUser, notifyStaff } from './notifications';
 
 const REF_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const REF_ATTEMPTS = 5;
@@ -430,12 +430,19 @@ export async function createTripRequestRecord(
       });
       const created = toCustomerView(row);
       // Submission receipt for signed-in customers. Guests (userId
-      // NULL) are skipped — no account to notify.
+      // NULL) are skipped — no account to notify. Staff are always
+      // notified (guests included): a new request needs review.
       await notifyUser(userId, {
         type: 'trip_request_submitted',
         title: 'Trip request received',
         message: `We received your trip request ${reference}. Our team will review it shortly.`,
         href: `/account/trip-requests/detail?ref=${encodeURIComponent(reference)}`,
+      });
+      await notifyStaff({
+        type: 'admin_trip_request_submitted',
+        title: 'New trip request',
+        message: `Trip request ${reference} needs review.`,
+        href: `/admin/trip-requests/detail?ref=${encodeURIComponent(reference)}`,
       });
       return created;
     } catch (error) {

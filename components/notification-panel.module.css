@@ -1,0 +1,268 @@
+/* Shared STAR PYRAMIDS notification presentation. Rendered by the
+   customer account panel and the admin bell panel alike — values below
+   reproduce the ORIGINAL ADMIN dropdown geometry recovered from git
+   history (HEAD:app/admin/admin.css): the panel anchors to the header
+   ACTION GROUP (its offset parent), not to the bell itself — top below
+   the toolbar, edge flush with the toolbar edge. Admin tokens are
+   literals so the customer context renders identically. The horizontal
+   anchor is deliberately physical (right:0): the dropdown must stay in
+   the same physical header location in both LTR and RTL instead of
+   flipping with logical properties. */
+
+.panel {
+  position: absolute;
+  top: calc(100% + 11px);
+  right: 0;
+  left: auto;
+  z-index: 50;
+  width: min(360px, calc(100vw - 24px));
+  max-height: min(440px, calc(100vh - 150px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #e5e9f2;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 20px 50px rgba(13, 34, 80, 0.16);
+}
+
+.header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #e5e9f2;
+}
+
+.header strong {
+  font-size: 14px;
+  color: #0d2250;
+}
+
+.headActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.count {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #fff3e0;
+  color: #b25e00;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.headActions button {
+  border: 0;
+  background: transparent;
+  color: #163a96;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 4px 2px;
+  white-space: nowrap;
+}
+
+.headActions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.headActions button:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.headActions button:focus-visible,
+.retry:focus-visible,
+.row:focus-visible {
+  outline: 3px solid rgba(247, 149, 29, 0.35);
+  outline-offset: 2px;
+}
+
+.list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  width: 100%;
+  padding: 12px 16px;
+  border: 0;
+  border-bottom: 1px solid #eef1f7;
+  background: #fff;
+  color: #1d1f1f;
+  font: inherit;
+  text-align: start;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.row:last-child {
+  border-bottom: 0;
+}
+
+.row:hover {
+  background: #f8faff;
+}
+
+.row.unread {
+  background: #f2f6ff;
+}
+
+.row.unread:hover {
+  background: #e9f0fd;
+}
+
+.icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 10px;
+  background: #eaf0ff;
+  color: #163a96;
+}
+
+.row b {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1d1f1f;
+  overflow-wrap: anywhere;
+}
+
+.row:not(.unread) b {
+  font-weight: 600;
+  color: #737983;
+}
+
+.row small {
+  display: block;
+  margin-top: 3px;
+  color: #737983;
+  font-size: 11.5px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.row time {
+  display: block;
+  margin-top: 4px;
+  color: #9aa3b2;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: #e11d48;
+  flex: none;
+}
+
+.empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 28px 20px;
+  text-align: center;
+}
+
+.empty > span {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #eaf0ff;
+  color: #163a96;
+}
+
+.empty strong {
+  font-size: 13px;
+  color: #0d2250;
+}
+
+.empty small {
+  color: #737983;
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+.skeleton {
+  display: grid;
+  gap: 0;
+  padding: 6px 0;
+}
+
+.skeleton > i {
+  display: block;
+  height: 54px;
+  margin: 6px 16px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #edf0f5 25%, #f7f9fc 50%, #edf0f5 75%);
+  background-size: 200% 100%;
+  animation: notification-panel-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes notification-panel-pulse {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.error {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 24px 20px;
+  text-align: center;
+  color: #737983;
+  font-size: 11px;
+}
+
+.retry {
+  min-height: 38px;
+  padding: 0 18px;
+  border: 1px solid #e5e9f2;
+  border-radius: 999px;
+  background: #fff;
+  color: #0d2250;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.retry:hover {
+  border-color: #163a96;
+  background: #eef3ff;
+}
+
+@media (max-width: 560px) {
+  .panel {
+    position: fixed;
+    top: 64px;
+    inset-inline: 12px;
+    width: auto;
+    max-height: calc(100dvh - 90px);
+  }
+}

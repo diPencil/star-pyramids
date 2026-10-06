@@ -43,16 +43,6 @@
 .sp-top-actions > .sp-icon-btn { width: 42px; height: 42px; min-height: 42px; padding: 0; }
 .sp-top-actions > .sp-icon-btn svg { width: 18px; height: 18px; }
 .sp-top-actions { position: relative; }
-.sp-notifications { position: absolute; top: calc(100% + 11px); inset-inline-end: 0; z-index: 50; width: min(360px, calc(100vw - 32px)); overflow: hidden; border: 1px solid var(--sp-border); border-radius: 14px; background: #fff; box-shadow: 0 20px 50px rgba(13,34,80,.16); }
-.sp-notifications header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--sp-border); }
-.sp-notifications header small { color: var(--sp-orange); font-weight: 800; }
-.sp-notifications > a { display: flex; gap: 10px; padding: 13px 16px; color: var(--sp-text); text-decoration: none; border-bottom: 1px solid #eef1f7; }
-.sp-notifications > a:last-child { border-bottom: 0; }
-.sp-notifications > a:hover { background: #f8faff; }
-.sp-notifications > a svg { flex: none; margin-top: 2px; color: var(--sp-blue); }
-.sp-notifications > a span { display: grid; gap: 3px; }
-.sp-notifications > a b { font-size: 12.5px; }
-.sp-notifications > a small { color: var(--sp-muted); font-size: 11px; }
 .sp-user-wrap { position: relative; }
 .sp-user-chip { display: flex; align-items: center; gap: 10px; padding: 5px 12px 5px 5px; background: #fff; border: 1px solid var(--sp-border); border-radius: 999px; font: inherit; color: inherit; cursor: pointer; }
 .sp-user-chip > svg { color: var(--sp-muted); }

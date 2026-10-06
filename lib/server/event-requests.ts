@@ -30,7 +30,7 @@ import {
   type EventRequestStatus,
   type StaffEventRequest,
 } from '@/lib/event-request';
-import { notifyUser } from './notifications';
+import { notifyUser, notifyStaff } from './notifications';
 
 const REF_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const REF_ATTEMPTS = 5;
@@ -269,12 +269,19 @@ export async function createEventRequestRecord(
       });
       const created = toCustomerView(row);
       // Submission receipt for signed-in customers. Guests (userId
-      // NULL) are skipped — no account to notify.
+      // NULL) are skipped — no account to notify. Staff are always
+      // notified (guests included): a new request needs review.
       await notifyUser(userId, {
         type: 'event_request_submitted',
         title: 'Event request received',
         message: `We received your event request ${reference}. Our team will review it shortly.`,
         href: `/account/event-requests/detail?ref=${encodeURIComponent(reference)}`,
+      });
+      await notifyStaff({
+        type: 'admin_event_request_submitted',
+        title: 'New event request',
+        message: `Event request ${reference} needs review.`,
+        href: `/admin/event-requests/detail?ref=${encodeURIComponent(reference)}`,
       });
       return created;
     } catch (error) {

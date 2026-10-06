@@ -32,7 +32,7 @@ import {
   deriveBookingPaymentSummary,
   FROM_DB_PAYMENT_STATUS,
 } from './payments';
-import { notifyUser } from './notifications';
+import { notifyUser, notifyStaff } from './notifications';
 
 const REF_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const REF_ATTEMPTS = 5;
@@ -464,6 +464,14 @@ export async function createBookingRecord(
         title: 'Booking received',
         message: `We received your booking ${reference}. Track its status here.`,
         href: `/account/bookings/detail?ref=${encodeURIComponent(reference)}`,
+      });
+      // Operational copy for staff (guests included). Runs only on the
+      // created path above, so idempotent replays never double-notify.
+      await notifyStaff({
+        type: 'admin_booking_created',
+        title: 'New booking received',
+        message: `Booking ${reference} needs review.`,
+        href: `/admin/bookings/${encodeURIComponent(reference)}`,
       });
       return { booking: toCustomerView(row), created: true };
     } catch (error) {

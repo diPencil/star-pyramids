@@ -34,7 +34,40 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useCurrentUser } from '@/lib/use-current-user'
+import { useAdminNotifications, type AdminNotification } from '@/lib/admin-notifications'
+import { NotificationPanel as SharedNotificationPanel } from '@/components/notification-panel'
 import { Avatar } from './admin-ui'
+
+function timeAgo(iso: string, ar: boolean): string {
+  const then = new Date(iso).getTime()
+  if (!Number.isFinite(then)) return ''
+  const seconds = Math.max(0, Math.floor((Date.now() - then) / 1000))
+  if (seconds < 60) return ar ? 'الآن' : 'Just now'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return ar ? `منذ ${minutes} د` : `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return ar ? `منذ ${hours} س` : `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days < 30) return ar ? `منذ ${days} يوم` : `${days}d ago`
+  return new Date(iso).toLocaleDateString(ar ? 'ar-EG' : 'en-US', { day: 'numeric', month: 'short' })
+}
+
+function iconForAdminNotification(type: string) {
+  switch (type) {
+    case 'admin_booking_created':
+      return ShoppingCart
+    case 'admin_trip_request_submitted':
+      return Compass
+    case 'admin_car_request_submitted':
+      return CarFront
+    case 'admin_event_request_submitted':
+      return ClipboardList
+    case 'admin_payment_initiated':
+      return CreditCard
+    default:
+      return Bell
+  }
+}
 
 const groups = [
   {
@@ -84,6 +117,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [userMenu, setUserMenu] = useState(false)
   const { user } = useCurrentUser()
+  const adminNotifications = useAdminNotifications()
+  const unreadCount = adminNotifications.unreadCount
   useEffect(() => {
     document.documentElement.classList.add('sp-admin-root')
     const c = window.localStorage.getItem('sp-admin-collapsed')
@@ -244,16 +279,20 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             >
               <ExternalLink size={18} />
             </Link>
-            <button type="button" className="sp-icon-btn" aria-label="Notifications" aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen((open) => !open); setUserMenu(false) }}>
+            <button type="button" className="sp-icon-btn" aria-label={ar ? 'الإشعارات' : 'Notifications'} aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen((open) => !open); setUserMenu(false) }}>
               <Bell size={18} />
-              <i className="dot" />
+              {unreadCount > 0 && <i className="dot" aria-hidden="true" />}
             </button>
-            {notificationsOpen && <div className="sp-notifications" role="dialog" aria-label={ar ? 'الإشعارات' : 'Notifications'}>
-              <header><strong>{ar ? 'الإشعارات' : 'Notifications'}</strong><small>3 {ar ? 'جديدة' : 'new'}</small></header>
-              <Link href="/admin/bookings" onClick={() => setNotificationsOpen(false)}><ShoppingCart size={17} /><span><b>{ar ? 'حجز جديد يحتاج مراجعة' : 'New booking needs review'}</b><small>BK-9040, 4 guests</small></span></Link>
-              <Link href="/admin/inbox" onClick={() => setNotificationsOpen(false)}><MessageCircle size={17} /><span><b>{ar ? 'رسالتان غير مقروءتين' : 'Two unread messages'}</b><small>WhatsApp inbox</small></span></Link>
-              <Link href="/admin/emails" onClick={() => setNotificationsOpen(false)}><Mail size={17} /><span><b>{ar ? 'طلب عرض سعر جديد' : 'New quote request'}</b><small>Nile cruise for 4</small></span></Link>
-            </div>}
+            {notificationsOpen && (
+              <AdminNotificationPanel
+                ar={ar}
+                state={adminNotifications}
+                onOpen={(href) => {
+                  setNotificationsOpen(false)
+                  if (href) router.push(href)
+                }}
+              />
+            )}
             <div className="sp-user-wrap">
               <button
                 type="button"
@@ -344,6 +383,55 @@ function AdminLanguageModal({
         </div>
       </div>
     </div>
+  )
+}
+
+function AdminNotificationPanel({
+  ar,
+  state,
+  onOpen,
+}: {
+  ar: boolean
+  state: {
+    recent: AdminNotification[]
+    unreadCount: number
+    loading: boolean
+    loadError: string
+    refresh: () => void
+    markRead: (id: string) => Promise<boolean>
+    markAllRead: () => Promise<boolean>
+  }
+  onOpen: (href: string | null) => void
+}) {
+  const { recent, unreadCount, loading, loadError, refresh, markRead, markAllRead } = state
+
+  const openNotification = async (item: AdminNotification) => {
+    await markRead(item.id)
+    onOpen(item.href)
+  }
+
+  return (
+    <SharedNotificationPanel
+      items={recent}
+      unreadCount={unreadCount}
+      loading={loading}
+      loadError={loadError}
+      title={ar ? 'الإشعارات' : 'Notifications'}
+      dialogLabel={ar ? 'الإشعارات' : 'Notifications'}
+      unreadLabel={unreadCount > 0 ? (ar ? `${unreadCount} غير مقروء` : `${unreadCount} unread`) : null}
+      markAllLabel={ar ? 'تعليم الكل كمقروء' : 'Mark all read'}
+      markingAllLabel={ar ? 'جارٍ التعليم…' : 'Marking…'}
+      loadingLabel={ar ? 'جارٍ تحميل الإشعارات' : 'Loading notifications'}
+      retryLabel={ar ? 'إعادة المحاولة' : 'Retry'}
+      emptyTitle={ar ? 'لا توجد إشعارات' : "You're all caught up"}
+      emptyHint={ar ? 'ستظهر هنا طلبات العملاء والمدفوعات الجديدة.' : 'New customer requests and payments will appear here.'}
+      iconForType={iconForAdminNotification}
+      formatTime={(iso) => timeAgo(iso, ar)}
+      linkItems={false}
+      onOpenItem={openNotification}
+      onMarkAll={() => markAllRead()}
+      onRetry={refresh}
+    />
   )
 }
 

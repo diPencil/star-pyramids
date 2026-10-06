@@ -12,7 +12,12 @@ import { db } from './db';
 /** Closed set of customer-facing notification types. Payment
  *  success/failure/refund types exist for forward compatibility with
  *  the future provider phase — no emitter marks them today, so payment
- *  success is never fabricated. */
+ *  success is never fabricated.
+ *
+ *  The `admin_*` types reuse the SAME notifications table for staff
+ *  recipients: each staff user owns their own rows (userId = staff
+ *  user), created server-side when a real customer event commits. No
+ *  schema change is needed — the model is already recipient-generic. */
 const NOTIFICATION_TYPES = new Set([
   'booking_created',
   'booking_confirmed',
@@ -28,6 +33,11 @@ const NOTIFICATION_TYPES = new Set([
   'car_request_update',
   'event_request_submitted',
   'event_request_update',
+  'admin_booking_created',
+  'admin_trip_request_submitted',
+  'admin_car_request_submitted',
+  'admin_event_request_submitted',
+  'admin_payment_initiated',
 ]);
 
 export type NotificationType =
@@ -44,7 +54,12 @@ export type NotificationType =
   | 'car_request_submitted'
   | 'car_request_update'
   | 'event_request_submitted'
-  | 'event_request_update';
+  | 'event_request_update'
+  | 'admin_booking_created'
+  | 'admin_trip_request_submitted'
+  | 'admin_car_request_submitted'
+  | 'admin_event_request_submitted'
+  | 'admin_payment_initiated';
 
 const TITLE_MAX = 160;
 const MESSAGE_MAX = 500;
@@ -153,6 +168,60 @@ export async function notifyUser(
     await createNotification(userId, input);
   } catch {
     /* notifications never fail the domain operation */
+  }
+}
+
+/**
+ * Staff roles eligible for admin operational notifications. Every
+ * ACTIVE user holding one of these roles receives one recipient-owned
+ * row per real customer event — no shared rows, no cross-recipient
+ * reads (the list/mark APIs stay userId-scoped).
+ */
+const STAFF_ROLE_KEYS = ['SUPER_ADMIN', 'ADMIN', 'STAFF'] as const;
+
+/** ACTIVE staff user ids eligible for admin notifications. */
+export async function listActiveStaffUserIds(): Promise<string[]> {
+  const rows = await db.user.findMany({
+    where: {
+      status: 'ACTIVE',
+      roles: { some: { role: { key: { in: [...STAFF_ROLE_KEYS] } } } },
+    },
+    select: { id: true },
+  });
+  return rows.map((row) => row.id);
+}
+
+/**
+ * Best-effort fan-out to all eligible staff users: one recipient-owned
+ * notification per staff user for a real customer event. Called ONLY
+ * from trusted domain services after the event commits — never from
+ * client input, never for reads/edits/notes/retries. Guest activity is
+ * included (staff must see it); idempotent replays must call this only
+ * on the `created:true` path so a retried key never notifies twice.
+ * Failures never roll back the domain transaction.
+ */
+export async function notifyStaff(input: NotificationInput): Promise<void> {
+  try {
+    const staffIds = await listActiveStaffUserIds();
+    if (staffIds.length === 0) return;
+    if (!NOTIFICATION_TYPES.has(input.type)) return;
+    const title = input.title.trim();
+    const message = input.message.trim();
+    if (title === '' || title.length > TITLE_MAX) return;
+    if (message === '' || message.length > MESSAGE_MAX) return;
+    const href = input.href ?? null;
+    if (href !== null && (href.length > HREF_MAX || !isValidHref(href))) return;
+    await db.notification.createMany({
+      data: staffIds.map((userId) => ({
+        userId,
+        type: input.type,
+        title,
+        message,
+        href,
+      })),
+    });
+  } catch {
+    /* staff notifications never fail the domain operation */
   }
 }
 

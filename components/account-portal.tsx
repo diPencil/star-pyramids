@@ -31,6 +31,7 @@ import { clearMessageDraft, readMessageDraft, saveMessageDraft } from '@/lib/cus
 import {
   useCustomerNotifications, type CustomerNotification,
 } from '@/lib/customer-notifications'
+import { NotificationPanel as SharedNotificationPanel } from '@/components/notification-panel'
 import {
   markCustomerChatRead, sendCustomerChatMessage, useCustomerChatMessages,
   type CustomerChatAttachment,
@@ -344,12 +345,12 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
           <Link href="/cart" className="customer-top-icon customer-cart-icon" aria-label={tx(locale, { en: 'Trip cart', es: 'Cesta de viajes', it: 'Carrello viaggi', ar: 'سلة الرحلات' })}><ShoppingCart size={18} />{cart.lines > 0 && <b>{cart.lines}</b>}</Link>
           <div className="customer-top-popover">
             <button type="button" className="customer-top-icon" onClick={() => { setNotificationsOpen((open) => !open); setUserOpen(false) }} aria-label={tx(locale, { en: 'Notifications', es: 'Notificaciones', it: 'Notifiche', ar: 'الإشعارات' })} aria-expanded={notificationsOpen}><Bell size={18} />{notifications.unreadCount > 0 && <i />}</button>
-            {notificationsOpen && <NotificationPanel onClose={() => setNotificationsOpen(false)} />}
           </div>
           <div className="customer-top-popover customer-user-popover">
             <button type="button" className="customer-top-user" onClick={() => { setUserOpen((open) => !open); setNotificationsOpen(false) }} aria-expanded={userOpen}><CustomerAvatar avatar={profile.avatar} initials={initials} className="customer-top-avatar" name={profile.fullName} /><div><strong>{profile.fullName}</strong><small>{tx(locale, { en: 'Traveler', es: 'Viajero', it: 'Viaggiatore', ar: 'مسافر' })}</small></div><ChevronDown size={15} /></button>
             {userOpen && <div className="customer-user-menu"><Link href="/account/profile" onClick={() => setUserOpen(false)}><UserRound size={16} />{tx(locale, { en: 'Profile', es: 'Perfil', it: 'Profilo', ar: 'الملف الشخصي' })}</Link><Link href="/account/settings" onClick={() => setUserOpen(false)}><Settings2 size={16} />{tx(locale, { en: 'Settings', es: 'Ajustes', it: 'Impostazioni', ar: 'الإعدادات' })}</Link><button type="button" onClick={logout} disabled={loggingOut}><LogOut size={16} />{tx(locale, { en: 'Sign out', es: 'Cerrar sesión', it: 'Esci', ar: 'تسجيل الخروج' })}</button></div>}
           </div>
+          {notificationsOpen && <NotificationPanel onClose={() => setNotificationsOpen(false)} />}
         </div>
       </header>
 
@@ -385,41 +386,35 @@ function NotificationPanel({ onClose }: { onClose: () => void }) {
   const { locale } = useLocale()
   const router = useRouter()
   const { recent, unreadCount, loading, loadError, markRead, markAllRead, refresh } = useCustomerNotifications()
-  const [markingAll, setMarkingAll] = useState(false)
   const dateLocale = locale === 'ar' ? 'ar-EG' : locale === 'es' ? 'es-ES' : locale === 'it' ? 'it-IT' : 'en-GB'
   const openItem = (item: CustomerNotification) => {
     if (!item.readAt) void markRead(item.id)
     onClose()
     if (item.href) router.push(item.href)
   }
-  const readAll = () => {
-    if (markingAll) return
-    setMarkingAll(true)
-    markAllRead().then(() => setMarkingAll(false))
-  }
-  return <div className="customer-notifications" role="dialog" aria-label={tx(locale, { en: 'Notifications', es: 'Notificaciones', it: 'Notifiche', ar: 'الإشعارات' })}>
-    <header>
-      <strong>{tx(locale, { en: 'Notifications', es: 'Notificaciones', it: 'Notifiche', ar: 'الإشعارات' })}</strong>
-      <span className="customer-notifications-head-actions">
-        {unreadCount > 0 && <small className="customer-notifications-count">{tx(locale, { en: `${unreadCount} unread`, es: `${unreadCount} sin leer`, it: `${unreadCount} da leggere`, ar: `${unreadCount} غير مقروء` })}</small>}
-        {unreadCount > 0 && <button type="button" onClick={readAll} disabled={markingAll}>{markingAll ? (tx(locale, { en: 'Clearing…', es: 'Borrando…', it: 'Cancellazione…', ar: 'جارٍ المسح…' })) : (tx(locale, { en: 'Mark all read', es: 'Marcar todo como leído', it: 'Segna tutto come letto', ar: 'تعيين الكل كمقروء' }))}</button>}
-      </span>
-    </header>
-    {loading
-      ? <div className="customer-notifications-skeleton" role="status" aria-label={tx(locale, { en: 'Loading notifications', es: 'Cargando notificaciones', it: 'Caricamento notifiche', ar: 'جارٍ تحميل الإشعارات' })}><i /><i /><i /></div>
-      : loadError && recent.length === 0
-        ? <div className="customer-notifications-error"><span>{loadError}</span><button type="button" className="account-text-button" onClick={refresh}>{tx(locale, { en: 'Try again', es: 'Reintentar', it: 'Riprova', ar: 'حاول مجددًا' })}</button></div>
-        : recent.length === 0
-          ? <div className="customer-notifications-empty"><span><Bell size={20} /></span><strong>{tx(locale, { en: "You're all caught up", es: 'Estás al día', it: 'Sei aggiornato', ar: 'لا جديد لديك' })}</strong><small>{tx(locale, { en: 'Booking, payment, and request updates will appear here.', es: 'Las novedades de reservas, pagos y solicitudes aparecerán aquí.', it: 'Gli aggiornamenti di prenotazioni, pagamenti e richieste appariranno qui.', ar: 'ستظهر تحديثات الحجوزات والمدفوعات والطلبات هنا.' })}</small></div>
-          : <div className="customer-notifications-list">{recent.map((item) => {
-            const Icon = notificationIcon(item.type)
-            const body = <><span className="customer-notification-icon"><Icon size={16} /></span><span><b>{item.title}</b><small>{item.message}</small><time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString(dateLocale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</time></span>{!item.readAt && <i className="customer-notification-dot" />}</>
-            const className = item.readAt ? '' : 'unread'
-            return item.href
-              ? <Link key={item.id} href={item.href} className={className} onClick={() => openItem(item)}>{body}</Link>
-              : <button key={item.id} type="button" className={className} onClick={() => openItem(item)}>{body}</button>
-          })}</div>}
-  </div>
+  return (
+    <SharedNotificationPanel
+      items={recent}
+      unreadCount={unreadCount}
+      loading={loading}
+      loadError={loadError}
+      title={tx(locale, { en: 'Notifications', es: 'Notificaciones', it: 'Notifiche', ar: 'الإشعارات' })}
+      dialogLabel={tx(locale, { en: 'Notifications', es: 'Notificaciones', it: 'Notifiche', ar: 'الإشعارات' })}
+      unreadLabel={unreadCount > 0 ? tx(locale, { en: `${unreadCount} unread`, es: `${unreadCount} sin leer`, it: `${unreadCount} da leggere`, ar: `${unreadCount} غير مقروء` }) : null}
+      markAllLabel={tx(locale, { en: 'Mark all read', es: 'Marcar todo como leído', it: 'Segna tutto come letto', ar: 'تعيين الكل كمقروء' })}
+      markingAllLabel={tx(locale, { en: 'Clearing…', es: 'Borrando…', it: 'Cancellazione…', ar: 'جارٍ المسح…' })}
+      loadingLabel={tx(locale, { en: 'Loading notifications', es: 'Cargando notificaciones', it: 'Caricamento notifiche', ar: 'جارٍ تحميل الإشعارات' })}
+      retryLabel={tx(locale, { en: 'Try again', es: 'Reintentar', it: 'Riprova', ar: 'حاول مجددًا' })}
+      emptyTitle={tx(locale, { en: "You're all caught up", es: 'Estás al día', it: 'Sei aggiornato', ar: 'لا جديد لديك' })}
+      emptyHint={tx(locale, { en: 'Booking, payment, and request updates will appear here.', es: 'Las novedades de reservas, pagos y solicitudes aparecerán aquí.', it: 'Gli aggiornamenti di prenotazioni, pagamenti e richieste appariranno qui.', ar: 'ستظهر تحديثات الحجوزات والمدفوعات والطلبات هنا.' })}
+      iconForType={notificationIcon}
+      formatTime={(iso) => new Date(iso).toLocaleString(dateLocale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+      linkItems
+      onOpenItem={openItem}
+      onMarkAll={() => markAllRead()}
+      onRetry={refresh}
+    />
+  )
 }
 
 function Metric({ Icon, value, label, note, tone }: { Icon: typeof Star; value: string | number; label: string; note: string; tone: string }) {
