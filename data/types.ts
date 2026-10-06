@@ -207,6 +207,8 @@ export type Car = {
     label: string
     url: string
   }
+  /** False hides this vehicle from all public surfaces. Defaults to true. */
+  isPublished?: boolean
 }
 
 export type BlogGuideTip = {

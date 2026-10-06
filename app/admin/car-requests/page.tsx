@@ -7,7 +7,7 @@ import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableT
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
-import { useLiveCollection } from '@/lib/admin-store'
+import { useDbCars } from '@/lib/events-cars-client'
 import { cars } from '@/data/content'
 import { SharedSelect } from '@/components/shared-select'
 import { carRequestStatusLabel, type CarRequestStatus, type StaffCarRequest } from '@/lib/car-request'
@@ -37,7 +37,7 @@ function dateLabel(row: StaffCarRequest): string {
 
 export default function CarRequestsPage() {
   const ar = useAdminLocale() === 'ar'
-  const liveCars = useLiveCollection('cars', cars, { includeHidden: true })
+  const liveCars = useDbCars(cars)
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<StatusFilter>('all')
   const [tripType, setTripType] = useState<TripFilter>('all')

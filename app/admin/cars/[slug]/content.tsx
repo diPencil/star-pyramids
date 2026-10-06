@@ -6,26 +6,25 @@ import { CarFront, Eye, EyeOff, Pencil } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminTableWrap, AdminText, Card, StatusPill } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
-import { isCustomSlug, setCarHidden, useCarOverride, useHiddenCars, useLiveCollection } from '@/lib/admin-store'
+import { invalidateEventsCarsCache, useDbCars } from '@/lib/events-cars-client'
 import { cars } from '@/data/content'
 import type { StaffCarRequest } from '@/lib/car-request'
 
 /**
- * Fleet vehicle detail. Only honest/computable data: overview, source
- * (base fleet / locally overridden / admin-created), website visibility
- * (never called availability), and related database-backed requests matched
- * by requested or assigned vehicle slug. No availability, rentals, revenue,
- * maintenance, or ratings — those belong to a later backend phase.
+ * Fleet vehicle detail. Only honest/computable data: overview, website
+ * visibility (never called availability), and related database-backed
+ * requests matched by requested or assigned vehicle slug. No availability,
+ * rentals, revenue, maintenance, or ratings — those belong to a later
+ * backend phase.
  */
 export function VehicleDetailContent({ vehicleSlug }: { vehicleSlug: string }) {
   const ar = useAdminLocale() === 'ar'
   const slug = decodeURIComponent(vehicleSlug)
-  // includeHidden: admin inspects hidden vehicles here too.
-  const liveCars = useLiveCollection('cars', cars, { includeHidden: true })
+  // DB-authoritative fleet; admin inspects hidden vehicles here too.
+  const liveCars = useDbCars(cars)
   const car = liveCars.find((entry) => entry.slug === slug)
-  const override = useCarOverride(slug)
-  const hiddenCars = useHiddenCars()
   const [staffRequests, setStaffRequests] = useState<StaffCarRequest[]>([])
+  const [visibilityError, setVisibilityError] = useState('')
   useEffect(() => {
     let cancelled = false
     fetch('/api/admin/car-requests', { credentials: 'same-origin' })
@@ -45,13 +44,29 @@ export function VehicleDetailContent({ vehicleSlug }: { vehicleSlug: string }) {
     </>
   }
 
-  const hidden = hiddenCars.includes(car.slug)
-  const custom = isCustomSlug(car.slug)
-  const source = custom
-    ? { en: 'Admin-created', ar: 'أُنشئت من الإدارة' }
-    : override
-      ? { en: 'Locally overridden', ar: 'معدّلة محليًا' }
-      : { en: 'Base fleet', ar: 'الأسطول الأساسي' }
+  const hidden = car?.isPublished === false
+
+  const setPublished = async (published: boolean) => {
+    if (!car) return
+    setVisibilityError('')
+    try {
+      const res = await fetch(`/api/cars/${encodeURIComponent(car.slug)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isPublished: published }),
+        credentials: 'same-origin',
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({} as { error?: string }))
+        throw new Error(data.error || 'Failed to update visibility.')
+      }
+      invalidateEventsCarsCache()
+      // Refresh from the DB source of truth.
+      window.location.reload()
+    } catch (err) {
+      setVisibilityError(err instanceof Error ? err.message : 'Failed to update visibility.')
+    }
+  }
 
   const related = staffRequests.filter(
     (row) => row.vehicleSlug === car.slug || (row.assignedVehicleSlug !== '' && row.assignedVehicleSlug === car.slug),
@@ -84,7 +99,6 @@ export function VehicleDetailContent({ vehicleSlug }: { vehicleSlug: string }) {
           <div><small><AdminText en="Capacity" ar="السعة" /></small><strong>{car.seats || '—'}</strong></div>
           <div><small><AdminText en="Transmission" ar="ناقل الحركة" /></small><strong>{car.transmission || '—'}</strong></div>
           <div><small><AdminText en="Daily rate" ar="السعر اليومي" /></small><strong>${car.dailyPrice}</strong></div>
-          <div><small><AdminText en="Source" ar="المصدر" /></small><strong>{ar ? source.ar : source.en}</strong></div>
         </div>
         <div>
           <span className={hidden ? 'sp-pill is-hidden' : 'sp-pill is-active'}>
@@ -95,23 +109,24 @@ export function VehicleDetailContent({ vehicleSlug }: { vehicleSlug: string }) {
         </div>
       </Card>
 
-      <Card title={<AdminText en="Website visibility" ar="الظهور على الموقع" />} sub={<AdminText en="Local prototype control — not availability" ar="تحكم تجريبي محلي — ليس التوافر" />}>
+      <Card title={<AdminText en="Website visibility" ar="الظهور على الموقع" />} sub={<AdminText en="Database control — not availability" ar="تحكم من قاعدة البيانات — ليس التوافر" />}>
         <p style={{ margin: '0 0 12px', fontSize: 13.5, lineHeight: 1.7 }}>
           <AdminText
-            en="Controls whether this vehicle appears on the public fleet and request forms on this browser only. Hidden vehicles stay fully visible inside admin."
-            ar="يتحكم في ظهور هذه السيارة في الأسطول العام ونماذج الطلب على هذا المتصفح فقط. تبقى السيارات المخفية ظاهرة بالكامل داخل الإدارة."
+            en="Controls whether this vehicle appears on the public fleet and request forms everywhere. Hidden vehicles stay fully visible inside admin."
+            ar="يتحكم في ظهور هذه السيارة في الأسطول العام ونماذج الطلب في كل مكان. تبقى السيارات المخفية ظاهرة بالكامل داخل الإدارة."
           />
         </p>
         <button
           type="button"
           className={hidden ? 'sp-btn primary' : 'sp-btn'}
-          onClick={() => setCarHidden(car.slug, !hidden)}
+          onClick={() => void setPublished(!hidden)}
         >
           {hidden ? <Eye size={16} /> : <EyeOff size={16} />}
           {hidden
             ? <AdminText en="Show on website" ar="إظهار على الموقع" />
             : <AdminText en="Hide from website" ar="إخفاء عن الموقع" />}
         </button>
+        {visibilityError && <p role="alert" style={{ color: '#b91c1c', marginTop: 8 }}>{visibilityError}</p>}
       </Card>
     </div>
 

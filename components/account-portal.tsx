@@ -18,7 +18,8 @@ import { localizeTourDuration, localizeTourLocation } from '@/lib/tour-format'
 import { estimateCart, isValidPreferredDate, bookingActivityLabel, bookingPaymentStatusLabel, bookingStatusLabel, type Booking, type BookingStatus } from '@/lib/booking'
 import { paymentActivityLabel, paymentStatusLabel, type Payment } from '@/lib/payment'
 import { useCart } from '@/lib/cart'
-import { useInquiries, useBrandSettings, useLiveCollection, readImpersonation, stopImpersonation, type ImpersonatedCustomer } from '@/lib/admin-store'
+import { useInquiries, useBrandSettings, readImpersonation, stopImpersonation, type ImpersonatedCustomer } from '@/lib/admin-store'
+import { useDbCars } from '@/lib/events-cars-client'
 import { useDbTours } from '@/lib/tours-client'
 import { cars } from '@/data/content'
 import { carActivityLabel, carRequestStatusLabel, fleetVehicleTitle, type CarRequest, type CarRequestStatus } from '@/lib/car-request'
@@ -936,7 +937,7 @@ async function apiCarCancel(reference: string): Promise<CarRequest> {
 function CarRequestsSection() {
   const { locale } = useLocale()
 
-  const liveCars = useLiveCollection('cars', cars)
+  const liveCars = useDbCars(cars)
   const [requests, setRequests] = useState<CarRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -1061,7 +1062,7 @@ function CarRequestsSection() {
 function CarRequestDetailSection({ reference }: { reference: string }) {
   const { locale } = useLocale()
 
-  const liveCars = useLiveCollection('cars', cars)
+  const liveCars = useDbCars(cars)
   const [item, setItem] = useState<CarRequest | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')

@@ -7,7 +7,7 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { AdminEmpty, AdminText, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
-import { useHiddenCars, useLiveCollection } from '@/lib/admin-store'
+import { useDbCars } from '@/lib/events-cars-client'
 import { cars } from '@/data/content'
 import { phoneHref, whatsappHref } from '@/data/company'
 import { SharedSelect } from '@/components/shared-select'
@@ -95,8 +95,7 @@ const manageHint: Record<CarRequestStatus, { en: string; ar: string }> = {
 export function CarRequestDetailContent({ requestId }: { requestId: string }) {
   const ar = useAdminLocale() === 'ar'
   const reference = decodeURIComponent(requestId).toUpperCase()
-  const liveCars = useLiveCollection('cars', cars, { includeHidden: true })
-  const hiddenCars = useHiddenCars()
+  const liveCars = useDbCars(cars)
   const [item, setItem] = useState<StaffCarRequest | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -280,7 +279,7 @@ export function CarRequestDetailContent({ requestId }: { requestId: string }) {
                   locale={ar ? 'ar' : 'en'}
                   label={ar ? 'المركبة المخصصة' : 'Assigned vehicle'}
                   popupWidth="trigger"
-                  options={[{ value: '', label: ar ? 'بدون تخصيص' : 'Not assigned' }, ...liveCars.map((car) => ({ value: car.slug, label: `${car.title} · ${car.slug}${hiddenCars.includes(car.slug) ? (ar ? ' · مخفي من الموقع' : ' · Hidden from website') : ''}` }))]} />
+                  options={[{ value: '', label: ar ? 'بدون تخصيص' : 'Not assigned' }, ...liveCars.map((car) => ({ value: car.slug, label: `${car.title} · ${car.slug}${car.isPublished === false ? (ar ? ' · مخفي من الموقع' : ' · Hidden from website') : ''}` }))]} />
               </label>
             </div>
             <p style={{ margin: 0, color: 'var(--sp-muted)', fontSize: 12.5, lineHeight: 1.6 }}>

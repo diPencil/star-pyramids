@@ -868,3 +868,77 @@ model MultiDayCategory {
 
   @@map("multi_day_categories")
 }
+
+/// Phase 3C: event catalogue (festivals, seasonal journeys, city breaks).
+/// Server-authoritative: public pages and admin read/write these rows.
+/// `isPublished=false` hides the record from all public surfaces.
+/// Scalar display/schedule/venue/pricing fields live in columns;
+/// nested editorial content (gallery, highlights, program,
+/// included/excluded lists, add-ons) travels in `content` JSON.
+model Event {
+  id              String   @id @default(cuid())
+  slug            String   @unique @db.VarChar(80)
+  title           String   @db.VarChar(200)
+  titleAr         String?  @db.VarChar(200)
+  image           String   @db.VarChar(2000)
+  date            String   @db.VarChar(120)
+  startDate       String?  @db.VarChar(10)
+  endDate         String?  @db.VarChar(10)
+  startTime       String?  @db.VarChar(5)
+  endTime         String?  @db.VarChar(5)
+  timezone        String?  @db.VarChar(60)
+  location        String   @db.VarChar(120)
+  locationAr      String?  @db.VarChar(120)
+  venueName       String?  @db.VarChar(200)
+  venueNameAr     String?  @db.VarChar(200)
+  address         String?  @db.VarChar(500)
+  addressAr       String?  @db.VarChar(500)
+  city            String?  @db.VarChar(120)
+  cityAr          String?  @db.VarChar(120)
+  mapQuery        String?  @db.VarChar(200)
+  copy            String   @db.VarChar(2000)
+  copyAr          String?  @db.VarChar(2000)
+  category        String?  @db.VarChar(120)
+  categoryAr      String?  @db.VarChar(120)
+  featured        Boolean  @default(false)
+  intro           String?  @db.VarChar(2000)
+  introAr         String?  @db.VarChar(2000)
+  pricingType     String?  @db.VarChar(20)
+  price           Float?
+  currency        String?  @db.VarChar(8)
+  capacity        Int?
+  bookingDeadline String?  @db.VarChar(10)
+  organizerName   String?  @db.VarChar(200)
+  organizerNameAr String?  @db.VarChar(200)
+  organizerPhone  String?  @db.VarChar(60)
+  organizerWhatsapp String? @db.VarChar(60)
+  organizerEmail  String?  @db.VarChar(200)
+  isPublished     Boolean  @default(true)
+  displayOrder    Int      @default(999)
+  content         Json
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("events")
+}
+
+/// Phase 3C: rental fleet catalogue.
+/// Server-authoritative: public fleet/request surfaces and admin
+/// read/write these rows. `isPublished=false` hides the vehicle from
+/// all public surfaces while it stays fully visible inside admin.
+model Car {
+  id           String   @id @default(cuid())
+  slug         String   @unique @db.VarChar(80)
+  title        String   @db.VarChar(200)
+  image        String   @db.VarChar(2000)
+  seats        String   @db.VarChar(60)
+  transmission String   @db.VarChar(60)
+  dailyPrice   Float
+  copy         String   @db.VarChar(2000)
+  credit       Json?
+  isPublished  Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("cars")
+}

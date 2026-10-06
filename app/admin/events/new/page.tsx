@@ -1,12 +1,13 @@
 'use client'
 
-import { Suspense, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Plus, RotateCcw, Trash2 } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
-import { isCustomSlug, readOverrides, removeCustomItem, removeEventOverride, saveCustomItem, saveEventOverride, slugify } from '@/lib/admin-store'
+import { slugify } from '@/lib/admin-store'
+import { invalidateEventsCarsCache, useDbEvents } from '@/lib/events-cars-client'
 import { sanitizeEvent } from '@/lib/events'
 import { ImageField } from '@/components/admin/image-field'
 import { SharedSelect } from '@/components/shared-select'
@@ -55,27 +56,13 @@ function StringRows({ rows, onChange, onAdd, placeholder }: { rows: string[]; on
   )
 }
 
-function EventForm() {
+function EventForm({ initial, editSlug }: { initial: Event | null; editSlug: string }) {
   const ar = useAdminLocale() === 'ar'
   const router = useRouter()
-  const params = useSearchParams()
-  const editSlug = params.get('slug') ?? ''
-
-  const source = useMemo(() => {
-    if (!editSlug) return null
-    const data = readOverrides()
-    const override = data.eventOverrides[editSlug]
-    if (override) return { item: override, origin: 'override' as const }
-    const custom = data.events.find((e) => e.slug === editSlug)
-    if (custom) return { item: custom, origin: 'custom' as const }
-    const canonical = events.find((e) => e.slug === editSlug)
-    if (canonical) return { item: canonical, origin: 'canonical' as const }
-    return { item: null, origin: 'missing' as const }
-  }, [editSlug])
+  const dbEvents = useDbEvents(events)
 
   const editing = Boolean(editSlug)
-  const missing = editing && (!source || source.item === null)
-  const initial: Event | null = source?.item ?? null
+  const missing = editing && initial === null
 
   const [title, setTitle] = useState(initial?.title ?? '')
   const [titleAr, setTitleAr] = useState(initial?.titleAr ?? '')
@@ -124,7 +111,7 @@ function EventForm() {
   const [published, setPublished] = useState(initial?.isPublished !== false)
   const [displayOrder, setDisplayOrder] = useState(initial?.displayOrder != null ? String(initial.displayOrder) : '')
   const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
+  const [saving, setSaving] = useState(false)
 
   const autoSlug = useMemo(() => {
     if (slugTouched || editing) return slug
@@ -132,15 +119,14 @@ function EventForm() {
   }, [title, slugTouched, editing, slug])
 
   const takenSlugs = useMemo(() => {
-    const data = readOverrides()
-    const set = new Set<string>([...events.map((e) => e.slug), ...data.events.map((e) => e.slug), ...Object.keys(data.eventOverrides)])
+    const set = new Set<string>(dbEvents.map((e) => e.slug))
     if (editing && editSlug) set.delete(editSlug)
     return set
   }, [editing, editSlug])
 
-  const save = () => {
+  const save = async () => {
     setError('')
-    setNotice('')
+    if (saving) return
     const finalSlug = editing ? editSlug : cleanSlugInput(autoSlug || slugify(title || 'event'))
     if (!title.trim() || !location.trim() || !legacyDate.trim()) {
       setError(ar ? 'العنوان والموقع والتاريخ حقول إلزامية.' : 'Title, location and date are required.')
@@ -191,16 +177,42 @@ function EventForm() {
       setError(ar ? 'الفعالية المدفوعة تحتاج سعرًا صحيحًا.' : 'Paid events need a valid price.')
       return
     }
-    const isCanonical = events.some((e) => e.slug === finalSlug)
-    if (isCanonical) saveEventOverride(clean)
-    else saveCustomItem('events', clean)
-    setNotice(ar ? 'تم الحفظ محليًا على هذا المتصفح.' : 'Saved locally on this browser.')
-    router.push('/admin/events')
-  }
-
-  const resetOverride = () => {
-    if (!editing) return
-    removeEventOverride(editSlug)
+    // Event record is DB-authoritative (POST for new, PUT for edit).
+    setSaving(true)
+    try {
+      const url = editing
+        ? `/api/events/${encodeURIComponent(editSlug)}`
+        : '/api/events'
+      const res = await fetch(url, {
+        method: editing ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...clean,
+          slug: finalSlug,
+          content: {
+            gallery: clean.gallery ?? [],
+            highlights: clean.highlights ?? [],
+            program: clean.program ?? [],
+            included: clean.included ?? [],
+            includedAr: clean.includedAr ?? [],
+            excluded: clean.excluded ?? [],
+            excludedAr: clean.excludedAr ?? [],
+            addOns: clean.addOns ?? [],
+          },
+        }),
+        credentials: 'same-origin',
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({} as { error?: string }))
+        throw new Error(data.error || 'Failed to save event.')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save event.')
+      setSaving(false)
+      return
+    }
+    setSaving(false)
+    invalidateEventsCarsCache()
     router.push('/admin/events')
   }
 
@@ -213,20 +225,16 @@ function EventForm() {
     </>
   }
 
-  const isCanonicalEdit = editing && events.some((e) => e.slug === editSlug)
-  const showCustomNote = !editing || (editing && isCustomSlug(editSlug) && !isCanonicalEdit)
-
   return <>
     <PageHead
       eyebrow="Events"
       title={editing ? 'Edit event' : 'New event'}
       titleAr={editing ? 'تعديل فعالية' : 'فعالية جديدة'}
-      sub={editing ? `Local override for ${editSlug}` : 'Published to the events calendar and detail pages on this browser'}
-      subAr={editing ? `تجاوز محلي للمعرف ${editSlug}` : 'تنشر في أجندة الفعاليات وصفحات التفاصيل على هذا المتصفح'}
+      sub={editing ? `Editing ${editSlug}` : 'Published to the events calendar and detail pages'}
+      subAr={editing ? `تعديل ${editSlug}` : 'تنشر في أجندة الفعاليات وصفحات التفاصيل'}
       backHref="/admin/events"
-      actions={<span style={{ display: 'flex', gap: 8 }}><button type="button" className="sp-btn dark" onClick={save}><AdminText en={editing ? 'Save changes' : 'Publish event'} ar={editing ? 'حفظ التعديلات' : 'نشر الفعالية'} /></button></span>}
+      actions={<span style={{ display: 'flex', gap: 8 }}><button type="button" className="sp-btn dark" onClick={save} disabled={saving}><AdminText en={editing ? 'Save changes' : 'Publish event'} ar={editing ? 'حفظ التعديلات' : 'نشر الفعالية'} /></button></span>}
     />
-    {showCustomNote && <Card title={<AdminText en="Browser preview note" ar="ملاحظة المعاينة" />}><p><AdminText en="This locally created event is available in this browser preview. A direct hard refresh/shareable production URL requires backend/build-time publishing." ar="هذه الفعالية المنشأة محليًا متاحة في معاينة هذا المتصفح. الرابط المباشر القابل للمشاركة بعد التحديث يتطلب نشرًا عبر الخلفية أو وقت البناء." /></p></Card>}
     <Card title={<AdminText en="Basic" ar="أساسي" />}>
       <div className="sp-form">
         <div className="sp-form-2">
@@ -352,15 +360,52 @@ function EventForm() {
         </div>
       </div>
       {error && <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>}
-      {notice && <p role="status" style={{ color: '#15803d' }}>{notice}</p>}
       <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
-        <button type="button" className="sp-btn primary" onClick={save}><AdminText en={editing ? 'Save changes' : 'Publish event'} ar={editing ? 'حفظ التعديلات' : 'نشر الفعالية'} /></button>
-        {editing && (source?.origin === 'override' || source?.origin === 'canonical') && events.some((e) => e.slug === editSlug) && <button type="button" className="sp-btn" onClick={resetOverride}><RotateCcw size={15} /> <AdminText en="Reset to canonical" ar="إعادة للنسخة الأصلية" /></button>}
+        <button type="button" className="sp-btn primary" onClick={save} disabled={saving}><AdminText en={editing ? 'Save changes' : 'Publish event'} ar={editing ? 'حفظ التعديلات' : 'نشر الفعالية'} /></button>
       </div>
     </Card>
   </>
 }
 
+function EventFormLoader() {
+  const params = useSearchParams()
+  const editSlug = params.get('slug') ?? ''
+  const [remote, setRemote] = useState<Event | null | undefined>(editSlug ? undefined : null)
+
+  useEffect(() => {
+    if (!editSlug) {
+      setRemote(null)
+      return
+    }
+    let cancelled = false
+    setRemote(undefined)
+    // Single source of truth: the DB record. Base-first snapshots would
+    // leave admin-created slugs unresolvable and risk stale form state.
+    fetch(`/api/events/${encodeURIComponent(editSlug)}`, { credentials: 'same-origin' })
+      .then(async (res) => {
+        if (cancelled) return
+        if (!res.ok) {
+          setRemote(null)
+          return
+        }
+        const data = (await res.json()) as { event?: Event }
+        if (!cancelled) setRemote(data.event ?? null)
+      })
+      .catch(() => {
+        if (!cancelled) setRemote(null)
+      })
+    return () => { cancelled = true }
+  }, [editSlug])
+
+  if (remote === undefined) {
+    return <>
+      <PageHead eyebrow="Events" title="Edit event" titleAr="تعديل فعالية" backHref="/admin/events" />
+      <Card title={<AdminText en="Loading…" ar="جارٍ التحميل…" />}><p><AdminText en="Loading event…" ar="جارٍ تحميل الفعالية…" /></p></Card>
+    </>
+  }
+  return <EventForm key={editSlug || 'new'} initial={remote} editSlug={editSlug} />
+}
+
 export default function NewEventPage() {
-  return <Suspense><EventForm /></Suspense>
+  return <Suspense><EventFormLoader /></Suspense>
 }

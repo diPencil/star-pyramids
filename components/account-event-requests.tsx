@@ -6,7 +6,7 @@ import { Eye, Plus, ShieldCheck, Ticket, X } from 'lucide-react'
 import { LocaleProvider, tx, useLocale } from '@/components/locale'
 import { AccountShell, CustomerConfirmDialog, CustomerPagination, EmptyState } from './account-portal'
 import { usePagination } from '@/components/admin/admin-pagination'
-import { useLiveEvents } from '@/lib/admin-store'
+import { useDbEvents } from '@/lib/events-cars-client'
 import { events } from '@/data/content'
 import { CUSTOMER_EVENT_CANCELLABLE_STATUSES, eventActivityLabel, eventDisplayTitle, eventRequestStatusLabel, type EventRequest, type EventRequestStatus } from '@/lib/event-request'
 import { displayInternationalPhone } from '@/lib/phone'
@@ -46,7 +46,7 @@ async function apiEventCancel(reference: string): Promise<EventRequest> {
 
 export function EventRequestsSection() {
   const { locale } = useLocale()
-  const liveEvents = useLiveEvents(events)
+  const liveEvents = useDbEvents(events)
   const [requests, setRequests] = useState<EventRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -141,7 +141,7 @@ export function EventRequestsSection() {
 
 export function EventRequestDetailSection({ reference }: { reference: string }) {
   const { locale } = useLocale()
-  const liveEvents = useLiveEvents(events)
+  const liveEvents = useDbEvents(events)
   const [item, setItem] = useState<EventRequest | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')

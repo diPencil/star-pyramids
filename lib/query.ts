@@ -1,6 +1,6 @@
-import { destinations, findCar } from '@/data/content'
+import { destinations } from '@/data/content'
 import { dayTourTerms, findTour } from '@/data/tours'
-import type { Car, Tour } from '@/data/types'
+import type { Tour } from '@/data/types'
 
 type QueryReader = {
   get(name: string): string | null
@@ -77,7 +77,7 @@ export const parseMakeTripQuery = (params: QueryReader): MakeTripQuery => {
 }
 
 export type CarRequestQuery = {
-  vehicle?: Car
+  vehicleSlug: string
   pickup: string
   dropoff: string
   tripType?: 'One Way' | 'Round Trip'
@@ -89,7 +89,8 @@ export const parseCarRequestQuery = (params: QueryReader): CarRequestQuery => {
   const rawTripType = readText(params, 'type', 20)
 
   return {
-    vehicle: vehicleSlug ? findCar(vehicleSlug) : undefined,
+    // Slug identity only — resolved against the DB fleet by the caller.
+    vehicleSlug: /^[a-z0-9-]{1,80}$/.test(vehicleSlug) ? vehicleSlug : '',
     pickup: readText(params, 'pickup', 160),
     dropoff: readText(params, 'dropoff', 160),
     tripType: rawTripType === 'One Way' || rawTripType === 'Round Trip' ? rawTripType : undefined,

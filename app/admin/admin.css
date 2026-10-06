@@ -546,9 +546,17 @@ html.sp-admin-root::-webkit-scrollbar-thumb:hover { background: var(--sp-orange)
 /* Catalogue assignment controls: checkbox rows and grids collapse cleanly on small screens. */
 .sp-check-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .sp-form .sp-check-row{display:flex;align-items:flex-start;gap:10px;padding:11px 13px;border:1px solid var(--sp-border);border-radius:12px;background:#fff;cursor:pointer}
-.sp-form .sp-check-row input{width:18px;height:18px;min-height:0;margin-top:2px;flex:none;accent-color:var(--sp-blue);cursor:pointer}
+.sp-form .sp-check-row input{width:19px;height:19px;min-height:0;margin-top:2px;flex:none;accent-color:var(--sp-orange);cursor:pointer}
 .sp-form .sp-check-row span{display:grid;gap:2px;font-weight:700}
 .sp-form .sp-check-row small{color:var(--sp-muted);font-weight:600;font-size:11px}
+/* Shared admin checkbox: compact native 19px control with brand-orange check.
+   Covers every admin form checkbox (including unstyled `.sp-check` labels),
+   overriding the full-width 46px text-input sizing above. Flex `gap` and the
+   native control are direction-aware, so RTL needs no override. */
+.sp-form input[type="checkbox"]{width:19px;height:19px;min-height:0;padding:0;margin:0;flex:none;accent-color:var(--sp-orange);cursor:pointer}
+.sp-form .sp-check{display:inline-flex;align-items:center;gap:10px;cursor:pointer;font-weight:600}
+.sp-form input[type="checkbox"]:focus-visible{outline:3px solid rgba(247,149,29,.35);outline-offset:2px}
+.sp-form .sp-check-row input:focus-visible{outline:3px solid rgba(247,149,29,.35);outline-offset:2px}
 @media (max-width: 860px){.sp-check-grid{grid-template-columns:1fr}.sp-form .sp-check-row{width:100%}}
 
 /* Event request detail: compact overview + customer + management + timeline. */
