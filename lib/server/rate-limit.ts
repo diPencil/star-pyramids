@@ -13,6 +13,8 @@ const MAX_CAR_REQUEST_ATTEMPTS = 10;
 const CAR_REQUEST_WINDOW_MS = 60 * 60 * 1000;
 const MAX_EVENT_REQUEST_ATTEMPTS = 10;
 const EVENT_REQUEST_WINDOW_MS = 60 * 60 * 1000;
+const MAX_BOOKING_ATTEMPTS = 10;
+const BOOKING_WINDOW_MS = 60 * 60 * 1000;
 
 export async function checkLoginRateLimit(
   email: string,
@@ -261,6 +263,53 @@ export async function recordEventRequestAttempt(
     },
   });
   void db.eventRequestAttempt.deleteMany({
+    where: { createdAt: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+  }).catch(() => undefined);
+}
+
+/**
+ * Abuse protection for the public checkout endpoint. Guests and
+ * customers share one generous budget (10 submissions/hour per email or
+ * IP) so legitimate retries are never harmed.
+ */
+export async function checkBookingRateLimit(
+  email: string,
+  ipAddress: string,
+): Promise<{ allowed: boolean; retryAfterSeconds: number }> {
+  const normalizedEmail = normalizeEmail(email).slice(0, 190);
+  const windowStart = new Date(Date.now() - BOOKING_WINDOW_MS);
+  const selector = {
+    createdAt: { gte: windowStart },
+    OR: [{ email: normalizedEmail }, { ipAddress }],
+  };
+  const recentAttempts = await db.bookingAttempt.count({ where: selector });
+  if (recentAttempts < MAX_BOOKING_ATTEMPTS) {
+    return { allowed: true, retryAfterSeconds: 0 };
+  }
+  const oldest = await db.bookingAttempt.findFirst({
+    where: selector,
+    orderBy: { createdAt: 'asc' },
+    select: { createdAt: true },
+  });
+  return {
+    allowed: false,
+    retryAfterSeconds: oldest
+      ? Math.max(1, Math.ceil((oldest.createdAt.getTime() + BOOKING_WINDOW_MS - Date.now()) / 1000))
+      : Math.floor(BOOKING_WINDOW_MS / 1000),
+  };
+}
+
+export async function recordBookingAttempt(
+  email: string,
+  ipAddress: string,
+): Promise<void> {
+  await db.bookingAttempt.create({
+    data: {
+      email: normalizeEmail(email).slice(0, 190),
+      ipAddress: ipAddress.slice(0, 64),
+    },
+  });
+  void db.bookingAttempt.deleteMany({
     where: { createdAt: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
   }).catch(() => undefined);
 }

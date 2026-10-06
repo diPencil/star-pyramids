@@ -6,8 +6,9 @@
 // submission rate-limit attempts) + Phase 2C customer car-request workflow
 // (car_requests + activity + submission rate-limit attempts) + Phase 2D
 // customer event-request workflow (event_requests + activity +
-// submission rate-limit attempts).
-// Catalogue content, bookings, payments, quotations and all other domains
+// submission rate-limit attempts) + Phase 2E customer booking workflow
+// (bookings + items + activity + submission rate-limit attempts).
+// Catalogue content, payments, quotations and all other domains
 // belong to later phases and MUST NOT be added here.
 //
 // Conventions:
@@ -71,6 +72,7 @@ model User {
   tripRequests TripRequest[]
   carRequests  CarRequest[]
   eventRequests EventRequest[]
+  bookings     Booking[]
 
   @@index([status])
   @@map("users")
@@ -432,4 +434,119 @@ model EventRequestAttempt {
   @@index([email, createdAt])
   @@index([ipAddress, createdAt])
   @@map("event_request_attempts")
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+/// Honest payment state only. Phase 2E never marks a booking paid:
+/// every booking is created PENDING (unpaid) and stays there until the
+/// Phase 2F payment gateway exists. PAID/REFUNDED are reserved values.
+enum BookingPaymentStatus {
+  PENDING
+  PAID
+  REFUNDED
+}
+
+/// Phase 2E: customer booking (cart checkout workflow).
+/// Mirrors the request architectures: the contact block is a historical
+/// snapshot taken at checkout and never rewritten by later profile
+/// changes. `userId` links the booking to a registered CUSTOMER only
+/// when checkout happened under that customer server session; guest
+/// checkouts keep `userId` NULL. Commercial totals are server-computed
+/// from the canonical catalogue in integer cents and stored as DECIMAL;
+/// the browser is never trusted for prices, totals, status, payment
+/// state, references, or ownership. Currency is always `USD` (base);
+/// EUR/EGP switching stays presentation-only. `idempotencyKey` is a
+/// client-generated submission key that makes double clicks, retries,
+/// and re-renders resolve to ONE booking.
+model Booking {
+  id             String              @id @default(cuid())
+  reference      String              @unique @db.VarChar(16)
+  userId         String?
+  contactName    String              @db.VarChar(80)
+  contactEmail   String              @db.VarChar(190)
+  contactPhone   String              @db.VarChar(32)
+  notes          String?             @db.Text
+  currency       String              @default("USD") @db.Char(3)
+  subtotal       Decimal             @db.Decimal(10, 2)
+  discount       Decimal             @default(0) @db.Decimal(10, 2)
+  total          Decimal             @db.Decimal(10, 2)
+  status         BookingStatus       @default(PENDING)
+  paymentStatus  BookingPaymentStatus @default(PENDING)
+  idempotencyKey String?             @unique @db.VarChar(64)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  user       User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  items      BookingItem[]
+  activities BookingActivity[]
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@index([contactEmail])
+  @@map("bookings")
+}
+
+/// Booking-time commercial snapshot per cart line. `tourSlug` is the
+/// canonical catalogue identifier; title/image/date/counts/prices are
+/// frozen at checkout so history stays readable if catalogue copy or
+/// prices change later. `addons` holds priced add-on titles only;
+/// on-request services are preserved on the customer note, never
+/// charged. Money columns are server-computed DECIMAL, never browser
+/// input.
+model BookingItem {
+  id         String  @id @default(cuid())
+  bookingId  String
+  tourSlug   String  @db.VarChar(120)
+  tourTitle  String  @db.VarChar(200)
+  tourImage  String? @db.VarChar(255)
+  travelDate String  @default("") @db.VarChar(10)
+  adults     Int     @default(1)
+  children   Int     @default(0)
+  infants    Int     @default(0)
+  addons     Json    @default("[]")
+  adultUnit  Decimal @db.Decimal(10, 2)
+  childUnit  Decimal @db.Decimal(10, 2)
+  infantUnit Decimal @db.Decimal(10, 2)
+  addonTotal Decimal @db.Decimal(10, 2)
+  lineTotal  Decimal @db.Decimal(10, 2)
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@map("booking_items")
+}
+
+model BookingActivity {
+  id        String   @id @default(cuid())
+  bookingId String
+  actorRole String   @db.VarChar(16)
+  action    String   @db.VarChar(160)
+  note      String?  @db.Text
+  isInternal Boolean @default(false)
+  createdAt DateTime @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId, createdAt])
+  @@map("booking_activities")
+}
+
+/// Abuse-protection attempts for the public checkout endpoint.
+/// Same architecture as request attempts: counted per email-OR-ip
+/// inside a time window, pruned opportunistically.
+model BookingAttempt {
+  id        String   @id @default(cuid())
+  email     String   @db.VarChar(190)
+  ipAddress String   @db.VarChar(64)
+  createdAt DateTime @default(now())
+
+  @@index([email, createdAt])
+  @@index([ipAddress, createdAt])
+  @@map("booking_attempts")
 }

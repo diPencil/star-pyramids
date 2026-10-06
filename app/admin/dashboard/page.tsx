@@ -1,12 +1,14 @@
 'use client'
 
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
 import { BarChart3, CalendarCheck, Eye, ShoppingCart, Users } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminTableWrap, AdminText, Avatar, Card, Delta, StatusPill } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { RevenueTrend } from '@/components/admin/revenue-trend'
-import { bookings, bookingHabits, dashboardStats, markets, revenueDaily, revenueMonthly, revenueWeekly, tourSplit } from '@/components/admin/admin-data'
+import { bookingHabits, dashboardStats, markets, revenueDaily, revenueMonthly, revenueWeekly, tourSplit } from '@/components/admin/admin-data'
+import type { StaffBooking } from '@/lib/booking'
 import { tours } from '@/data/tours'
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 
@@ -56,7 +58,30 @@ export default function DashboardPage() {
   const liveTours = tours.length
   const seenTotal = bookingHabits.reduce((s, b) => s + b.seen, 0)
   const bookedTotal = bookingHabits.reduce((s, b) => s + b.booked, 0)
-  const latestBookingSort = useAdminTableSort(bookings.slice(0, 5), {
+  // Real booking counters: stored bookings from the admin API. Other
+  // dashboard figures remain static samples until their backend phases.
+  const [liveBookings, setLiveBookings] = useState<StaffBooking[] | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/admin/bookings', { credentials: 'same-origin' })
+      .then(async (res) => {
+        if (!res.ok || cancelled) return
+        const data = (await res.json()) as { bookings?: StaffBooking[] }
+        if (!cancelled && Array.isArray(data.bookings)) setLiveBookings(data.bookings)
+      })
+      .catch(() => undefined)
+    return () => { cancelled = true }
+  }, [])
+  const latest = (liveBookings ?? []).slice(0, 5).map((b) => ({
+    id: b.reference,
+    customer: b.account?.name || b.contact.name,
+    avatar: '',
+    tour: b.lines[0]?.title ?? '—',
+    date: b.lines.map((line) => line.date).find((d) => d !== '') ?? b.createdAt.slice(0, 10),
+    total: b.total,
+    status: b.status,
+  }))
+  const latestBookingSort = useAdminTableSort(latest, {
     customer: (booking) => booking.customer,
     tour: (booking) => booking.tour,
     date: (booking) => Date.parse(booking.date),
@@ -95,8 +120,8 @@ export default function DashboardPage() {
             <Delta value={dashboardStats.bookingsDelta} />
           </div>
           <small><AdminText en="Total Bookings" ar="إجمالي الحجوزات" /></small>
-          <strong>{dashboardStats.bookings.toLocaleString('en-US')}</strong>
-          <div className="sp-kpi-foot"><AdminText en="Orders vs last month" ar="الطلبات مقارنة بالشهر الماضي" /></div>
+          <strong>{liveBookings === null ? '…' : liveBookings.length.toLocaleString('en-US')}</strong>
+          <div className="sp-kpi-foot"><AdminText en="Stored bookings" ar="الحجوزات المحفوظة" /></div>
         </section>
         <section className="sp-card sp-kpi">
           <div className="sp-kpi-top">

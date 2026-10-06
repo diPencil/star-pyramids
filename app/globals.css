@@ -965,10 +965,10 @@ html::-webkit-scrollbar-thumb:hover { background: #f7951d; }
 .form-error{margin:0;color:#b91c1c;font-size:13px;font-weight:700}
 html[dir='rtl'] .events-page-hero-shade{background:linear-gradient(270deg,rgba(7,20,47,.92) 0%,rgba(7,20,47,.68) 48%,rgba(7,20,47,.18) 82%),linear-gradient(0deg,rgba(7,20,47,.68),transparent 58%)}
 .sp-status{display:inline-flex;align-items:center;padding:6px 12px;border-radius:999px;font-size:12px;font-weight:800;background:#eef2f7;color:#334155}
-.sp-status.is-new{background:#fef3c7;color:#92400e}
+.sp-status.is-new,.sp-status.is-pending{background:#fef3c7;color:#92400e}
 .sp-status.is-reviewing{background:#e0e7ff;color:#3730a3}
 .sp-status.is-proposal_ready{background:#e0f2f1;color:#0f766e}
-.sp-status.is-approved,.sp-status.is-confirmed{background:#dcfce7;color:#166534}
+.sp-status.is-approved,.sp-status.is-confirmed,.sp-status.is-completed{background:#dcfce7;color:#166534}
 .sp-status.is-rejected,.sp-status.is-cancelled{background:#fee2e2;color:#991b1b}
 .customer-detail-grid{margin:16px 0 0;display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .customer-detail-grid>div{padding:12px 14px;border:1px solid #eef1f6;border-radius:12px;background:#fafbfd}
