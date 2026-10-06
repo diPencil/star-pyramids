@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Clock3, Eye, Minus, Pencil, Plus, X } from 'lucide-react'
+import { CheckCircle2, Clock3, Eye, Minus, Pencil, Plus, X } from 'lucide-react'
 import { LocaleProvider, tx, useLocale, type Locale } from '@/components/locale'
 import { AccountShell, CustomerConfirmDialog, CustomerPagination, EmptyState } from './account-portal'
 import { usePagination } from '@/components/admin/admin-pagination'
@@ -520,10 +520,12 @@ function TripRequestsSection({ startNew = false, editRef = null }: { startNew?: 
       {lastCreated && (
         <div style={{ padding: '18px 18px 0' }}>
           <div className="customer-inline-success" role="status">
-            <strong>{tx(locale, { en: 'Trip request saved', es: 'Solicitud de viaje guardada', it: 'Richiesta di viaggio salvata', ar: 'تم حفظ طلب الرحلة' })}</strong>
-            <span dir="ltr">{lastCreated.ref}</span>
-            <Link className="account-icon-action" href={`/account/trip-requests/detail?ref=${encodeURIComponent(lastCreated.ref)}`}>{tx(locale, { en: 'View details', es: 'Ver detalles', it: 'Vedi dettagli', ar: 'عرض التفاصيل' })}</Link>
-            <button type="button" className="account-icon-action" onClick={() => setLastCreated(null)}>{tx(locale, { en: 'Dismiss', es: 'Descartar', it: 'Ignora', ar: 'إخفاء' })}</button>
+            <CheckCircle2 size={20} />
+            <span><strong>{tx(locale, { en: 'Trip request saved', es: 'Solicitud de viaje guardada', it: 'Richiesta di viaggio salvata', ar: 'تم حفظ طلب الرحلة' })}</strong><small dir="ltr">{lastCreated.ref}</small></span>
+            <span className="customer-inline-success-actions">
+              <Link className="account-icon-action" href={`/account/trip-requests/detail?ref=${encodeURIComponent(lastCreated.ref)}`}>{tx(locale, { en: 'View details', es: 'Ver detalles', it: 'Vedi dettagli', ar: 'عرض التفاصيل' })}</Link>
+              <button type="button" className="account-icon-action" onClick={() => setLastCreated(null)}>{tx(locale, { en: 'Dismiss', es: 'Descartar', it: 'Ignora', ar: 'إخفاء' })}</button>
+            </span>
           </div>
         </div>
       )}
