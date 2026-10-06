@@ -236,16 +236,14 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               <span className="language-label-full">{(locale === 'ar' ? 'AR' : 'EN') + ' - ' + currency}</span>
               <span className="language-label-compact">{locale === 'ar' ? 'AR' : 'EN'}</span>
             </button>
-            <a
+            <Link
               className="sp-icon-btn"
               href="/"
-              target="_blank"
-              rel="noreferrer"
               aria-label={ar ? 'فتح الموقع' : 'View website'}
               title={ar ? 'فتح الموقع' : 'View website'}
             >
               <ExternalLink size={18} />
-            </a>
+            </Link>
             <button type="button" className="sp-icon-btn" aria-label="Notifications" aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen((open) => !open); setUserMenu(false) }}>
               <Bell size={18} />
               <i className="dot" />
