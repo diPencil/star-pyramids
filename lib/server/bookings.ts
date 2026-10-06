@@ -33,6 +33,7 @@ import {
   FROM_DB_PAYMENT_STATUS,
 } from './payments';
 import { notifyUser, notifyStaff } from './notifications';
+import { sendCustomerEmailSafe, sendStaffEmailSafe } from './email';
 
 const REF_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const REF_ATTEMPTS = 5;
@@ -473,6 +474,26 @@ export async function createBookingRecord(
         message: `Booking ${reference} needs review.`,
         href: `/admin/bookings/${encodeURIComponent(reference)}`,
       });
+      // Email receipts (best-effort — never break booking creation).
+      // Customer copy goes to the address given at checkout (guests
+      // included); staff copy goes to the configured operational
+      // recipient. Idempotency key matches the booking reference so a
+      // retried submission never sends twice.
+      await sendCustomerEmailSafe('booking_created', draft.contactEmail, {
+        name: draft.contactName,
+        reference,
+        tourTitle: draft.lines.map((line) => line.tourTitle).join(', '),
+        total: (draft.totalCents / 100).toFixed(2),
+        currency: 'USD',
+        detailUrl: `/account/bookings/detail?ref=${encodeURIComponent(reference)}`,
+      }, { relatedReference: reference, idempotencyKey: `booking_created:${reference}` });
+      await sendStaffEmailSafe('admin_booking_created', {
+        name: draft.contactName,
+        reference,
+        total: (draft.totalCents / 100).toFixed(2),
+        currency: 'USD',
+        detailUrl: `/admin/bookings/${encodeURIComponent(reference)}`,
+      }, { relatedReference: reference, idempotencyKey: `admin_booking_created:${reference}` });
       return { booking: toCustomerView(row), created: true };
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -617,6 +638,19 @@ export async function transitionStaffBooking(
       ...copy,
       href: `/account/bookings/detail?ref=${encodeURIComponent(reference)}`,
     });
+    // Status-change email to the booking contact snapshot (guests
+    // included). Transition guard rejects repeats, and the
+    // idempotency key adds a second layer against duplicate sends.
+    await sendCustomerEmailSafe(
+      to === 'confirmed' ? 'booking_confirmed' : to === 'completed' ? 'booking_completed' : 'booking_cancelled',
+      row.contactEmail,
+      {
+        name: row.contactName,
+        reference,
+        detailUrl: `/account/bookings/detail?ref=${encodeURIComponent(reference)}`,
+      },
+      { relatedReference: reference, idempotencyKey: `booking_${to}:${reference}` },
+    );
   }
   return toStaffView(row);
 }

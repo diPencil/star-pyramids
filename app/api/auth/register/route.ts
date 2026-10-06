@@ -18,6 +18,7 @@ import {
 } from '@/lib/server/rate-limit';
 import { createSession } from '@/lib/server/session';
 import { createCustomerUser, toClientUser } from '@/lib/server/users';
+import { sendCustomerEmailSafe } from '@/lib/server/email';
 
 type RegistrationBody = {
   email?: unknown;
@@ -107,6 +108,13 @@ export async function POST(request: Request) {
       ipAddress: ipAddress !== 'unknown' ? ipAddress : undefined,
       userAgent: request.headers.get('user-agent') ?? undefined,
     });
+    // Welcome email (best-effort — never breaks registration). The
+    // idempotency key guarantees one welcome per account even if the
+    // client retries the request.
+    await sendCustomerEmailSafe('welcome', email, {
+      name: `${firstName} ${lastName}`.trim(),
+      dashboardUrl: '/account',
+    }, { idempotencyKey: `welcome:${user.id}` });
     return NextResponse.json(
       {
         user: toClientUser(user),

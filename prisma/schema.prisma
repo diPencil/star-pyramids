@@ -12,7 +12,7 @@
 // rate-limit attempts) + Phase 2G customer favorites (favorite_items)
 // + Phase 2H customer in-app notifications (notifications)
 // + Phase 2I customer↔staff support chat (support_conversations +
-// support_messages).
+// support_messages) + Phase 2J email delivery/outbox (email_deliveries).
 // Provider gateway adapters, quotations and all
 // other domains belong to later phases and MUST NOT be added here.
 //
@@ -750,4 +750,42 @@ model SupportMessage {
 
   @@index([conversationId, createdAt])
   @@map("support_messages")
+}
+
+/// Phase 2J: email delivery outbox. One row per email attempt — the
+/// authoritative record of what was sent, to whom, and with what result.
+/// `status` is PENDING (queued), SENT (provider accepted), FAILED
+/// (permanent failure), or SKIPPED (suppressed by dedup/idempotency).
+/// `providerMessageId` is the provider's ID when available (nullable).
+/// `attempt` counts delivery attempts; `errorSummary` holds a safe,
+/// non-sensitive error description. No email bodies, no secrets, no
+/// raw provider responses are stored here.
+enum EmailStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+model EmailDelivery {
+  id                String     @id @default(cuid())
+  recipient         String     @db.VarChar(190)
+  recipientType     String     @db.VarChar(16)
+  eventType         String     @db.VarChar(48)
+  subject           String     @db.VarChar(200)
+  relatedReference  String?    @db.VarChar(64)
+  status            EmailStatus @default(PENDING)
+  providerMessageId String?    @db.VarChar(128)
+  attempt           Int        @default(0)
+  errorSummary      String?    @db.VarChar(500)
+  idempotencyKey    String?    @unique @db.VarChar(64)
+  createdAt         DateTime   @default(now())
+  sentAt            DateTime?
+  failedAt          DateTime?
+
+  @@index([recipient, createdAt])
+  @@index([eventType, createdAt])
+  @@index([status, createdAt])
+  @@index([relatedReference])
+  @@map("email_deliveries")
 }

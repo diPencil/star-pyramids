@@ -1,70 +1,135 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { CheckCircle2, Mail, MailOpen, Reply, Send, Settings2 } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { CheckCircle2, Mail, MailOpen, Send, XCircle } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
-import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableTools, AdminTableWrap, AdminText, Card, StatusPill } from '@/components/admin/admin-ui'
+import { AdminEmpty, AdminStats, AdminTableTools, AdminTableWrap, AdminText, Card, StatusPill } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
 import { SharedSelect } from '@/components/shared-select'
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
-import { useInquiries } from '@/lib/admin-store'
 import { getSiteTimezone } from '@/components/locale'
 
-const initialMails = [
-  { id: '1', from: 'Anna Schmidt <anna@mail.de>', email: 'anna@mail.de', subject: 'Nile cruise quote for 4', time: '10:24', status: 'pending' },
-  { id: '2', from: 'Website form <noreply@starpyramids.com>', email: 'noreply@starpyramids.com', subject: 'New Make-Your-Trip request', time: '09:12', status: 'pending' },
-  { id: '3', from: 'accounts@starpyramids.com', email: 'accounts@starpyramids.com', subject: 'Invoice BK-9041 paid', time: 'Yesterday', status: 'confirmed' },
-]
+type EmailDeliveryRow = {
+  id: string
+  recipient: string
+  recipientType: 'customer' | 'staff'
+  eventType: string
+  subject: string
+  relatedReference: string | null
+  status: 'PENDING' | 'SENT' | 'FAILED' | 'SKIPPED'
+  providerMessageId: string | null
+  attempt: number
+  errorSummary: string | null
+  createdAt: string
+  sentAt: string | null
+  failedAt: string | null
+}
 
+const statusTabs = [
+  { id: 'all', en: 'All', ar: 'الكل' },
+  { id: 'SENT', en: 'Sent', ar: 'تم الإرسال' },
+  { id: 'PENDING', en: 'Pending', ar: 'قيد الانتظار' },
+  { id: 'FAILED', en: 'Failed', ar: 'فشل' },
+  { id: 'SKIPPED', en: 'Skipped', ar: 'تم التخطي' },
+] as const
+
+function formatTime(iso: string, ar: boolean): string {
+  try {
+    return new Date(iso).toLocaleString(ar ? 'ar-EG' : 'en-US', {
+      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: getSiteTimezone(),
+    })
+  } catch {
+    return iso
+  }
+}
+
+/**
+ * Admin email delivery history (Phase 2J). Real DB-backed outbox
+ * records from `/api/admin/emails`: status, recipient, type,
+ * subject, related reference, timestamps, and safe error summaries.
+ * No compose/send UI — delivery rows are created server-side by
+ * domain events only. No provider is connected yet, so rows reflect
+ * the development/log adapter.
+ */
 export default function EmailsPage() {
   const ar = useAdminLocale() === 'ar'
-  const [mails, setMails] = useState(initialMails)
+  const [deliveries, setDeliveries] = useState<EmailDeliveryRow[]>([])
+  const [total, setTotal] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [query, setQuery] = useState('')
-  const [status, setStatus] = useState('all')
-  const [readInquiries, setReadInquiries] = useState<string[]>([])
-  const inquiries = useInquiries()
-  const inquiryMails = inquiries
-    .filter((inquiry) => inquiry.channel === 'email')
-    .map((inquiry) => ({
-      id: inquiry.id,
-      from: `${inquiry.name} <${inquiry.contact}>`,
-      email: inquiry.contact,
-      subject: `Question about ${inquiry.tourTitle}`,
-      time: new Date(inquiry.at).toLocaleString(ar ? 'ar-EG' : 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: getSiteTimezone() }),
-      status: readInquiries.includes(inquiry.id) ? 'confirmed' : 'pending',
-    }))
-  const base = [...inquiryMails, ...mails]
-  const rows = useMemo(() => base.filter((mail) => status === 'all' || mail.status === status).filter((mail) => `${mail.from} ${mail.subject}`.toLowerCase().includes(query.trim().toLowerCase())), [base, query, status])
+  const [status, setStatus] = useState<'all' | 'SENT' | 'PENDING' | 'FAILED' | 'SKIPPED'>('all')
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      setLoading(true)
+      setLoadError('')
+      try {
+        const params = new URLSearchParams({ limit: '100', offset: '0' })
+        if (status !== 'all') params.set('status', status)
+        const res = await fetch(`/api/admin/emails?${params.toString()}`, { credentials: 'same-origin' })
+        if (!res.ok) throw new Error('load')
+        const data = (await res.json()) as { deliveries?: unknown; total?: unknown }
+        if (cancelled) return
+        setDeliveries(Array.isArray(data.deliveries) ? (data.deliveries as EmailDeliveryRow[]) : [])
+        setTotal(typeof data.total === 'number' ? data.total : 0)
+      } catch {
+        if (!cancelled) setLoadError(ar ? 'تعذر تحميل سجل البريد.' : 'Could not load the email history.')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    void load()
+    return () => { cancelled = true }
+  }, [status, ar])
+
+  const rows = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return deliveries
+    return deliveries.filter((row) =>
+      `${row.recipient} ${row.subject} ${row.eventType} ${row.relatedReference ?? ''}`.toLowerCase().includes(q),
+    )
+  }, [deliveries, query])
+
   const emailSort = useAdminTableSort(rows, {
-    from: (mail) => mail.from,
-    subject: (mail) => mail.subject,
-    time: (mail) => mail.time,
-    status: (mail) => mail.status,
+    recipient: (row) => row.recipient,
+    subject: (row) => row.subject,
+    type: (row) => row.eventType,
+    time: (row) => row.createdAt,
+    status: (row) => row.status,
   }, 'time', 'desc')
   const paging = usePagination(emailSort.sortedRows)
-  const markRead = (id: string) => {
-    setMails((current) => current.map((mail) => mail.id === id ? { ...mail, status: 'confirmed' } : mail))
-    setReadInquiries((prev) => (prev.includes(id) ? prev : [...prev, id]))
-  }
+
+  const sent = deliveries.filter((row) => row.status === 'SENT').length
+  const failed = deliveries.filter((row) => row.status === 'FAILED').length
+  const pending = deliveries.filter((row) => row.status === 'PENDING').length
 
   return <>
-    <PageHead eyebrow="Mailbox" title="Email" titleAr="البريد" sub="Incoming enquiries and operational email connected to mailbox settings" subAr="الاستفسارات الواردة والبريد التشغيلي المرتبط بإعدادات الصندوق" />
+    <PageHead eyebrow="Mailbox" title="Email" titleAr="البريد" sub="Real delivery history from domain events (no provider connected yet)" subAr="سجل الإرسال الحقيقي من أحداث النظام (لا يوجد مزود مرتبط بعد)" />
     <AdminStats items={[
-      { label: <AdminText en="Messages" ar="الرسائل" />, value: base.length, note: <AdminText en="Current inbox records" ar="سجلات الصندوق الحالية" />, icon: Mail },
-      { label: <AdminText en="Needs review" ar="تحتاج مراجعة" />, value: base.filter((mail) => mail.status === 'pending').length, note: <AdminText en="Unread or pending reply" ar="غير مقروءة أو بانتظار الرد" />, icon: MailOpen, tone: 'orange' },
-      { label: <AdminText en="Reviewed" ar="تمت مراجعتها" />, value: base.filter((mail) => mail.status === 'confirmed').length, note: <AdminText en="Handled messages" ar="رسائل تم التعامل معها" />, icon: CheckCircle2, tone: 'green' },
-      { label: <AdminText en="Mailbox" ar="الصندوق" />, value: <AdminText en="Connected" ar="متصل" />, note: <AdminText en="Configured in Settings" ar="مضبوط في الإعدادات" />, icon: Settings2, tone: 'violet' },
+      { label: <AdminText en="Deliveries" ar="الرسائل" />, value: total, note: <AdminText en="Recorded email attempts" ar="محاولات الإرسال المسجلة" />, icon: Mail },
+      { label: <AdminText en="Sent" ar="تم الإرسال" />, value: sent, note: <AdminText en="Accepted by adapter" ar="قبلها المحول" />, icon: Send, tone: 'green' },
+      { label: <AdminText en="Failed" ar="فشل" />, value: failed, note: <AdminText en="Needs attention" ar="تحتاج انتباه" />, icon: XCircle, tone: 'orange' },
+      { label: <AdminText en="Pending" ar="قيد الانتظار" />, value: pending, note: <AdminText en="Queued attempts" ar="محاولات معلقة" />, icon: MailOpen, tone: 'violet' },
     ]} />
-    <Card title={<AdminText en="Incoming mail" ar="البريد الوارد" />} sub={<AdminText en={`${rows.length} of ${base.length} messages shown`} ar={`عرض ${rows.length} من ${base.length} رسائل`} />}>
-      <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث بمرسل أو موضوع...' : 'Search sender or subject...'}>
-          <SharedSelect value={status} onChange={(next) => setStatus(next as typeof status)} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حالة البريد' : 'Filter email status'} options={[{ value: 'all', label: ar ? 'كل البريد' : 'All mail' }, { value: 'pending', label: ar ? 'تحتاج مراجعة' : 'Needs review' }, { value: 'confirmed', label: ar ? 'تمت مراجعتها' : 'Reviewed' }]} />
+    <Card title={<AdminText en="Delivery history" ar="سجل الإرسال" />} sub={<AdminText en={`${rows.length} of ${total} deliveries shown`} ar={`عرض ${rows.length} من ${total} رسائل`} />}>
+      <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث بمستلم أو موضوع أو مرجع...' : 'Search recipient, subject, or reference...'}>
+        <SharedSelect value={status} onChange={(next) => setStatus(next as typeof status)} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حالة البريد' : 'Filter email status'} options={statusTabs.map((tab) => ({ value: tab.id, label: ar ? tab.ar : tab.en }))} />
       </AdminTableTools>
-      {rows.length ? <AdminTableWrap><table className="sp-table">
-        <thead><tr><th className="sp-row-number">#</th><SortableTh label={<AdminText en="From" ar="من" />} column="from" sortKey={emailSort.sortKey} direction={emailSort.direction} onSort={emailSort.sortBy} /><SortableTh label={<AdminText en="Subject" ar="الموضوع" />} column="subject" sortKey={emailSort.sortKey} direction={emailSort.direction} onSort={emailSort.sortBy} /><SortableTh label={<AdminText en="Time" ar="الوقت" />} column="time" sortKey={emailSort.sortKey} direction={emailSort.direction} onSort={emailSort.sortBy} /><SortableTh label={<AdminText en="Status" ar="الحالة" />} column="status" sortKey={emailSort.sortKey} direction={emailSort.direction} onSort={emailSort.sortBy} /><th></th></tr></thead>
-        <tbody>{paging.pageRows.map((mail, index) => <tr key={mail.id}><td className="sp-row-number">{paging.from + index}</td><td>{mail.from}</td><td><strong>{mail.subject}</strong></td><td>{mail.time}</td><td><StatusPill status={mail.status} /></td><td><AdminTableActions><AdminIconAction icon={MailOpen} label={ar ? `تعليم ${mail.subject} كمراجعة` : `Mark ${mail.subject} as reviewed`} tone="success" disabled={mail.status === 'confirmed'} onClick={() => markRead(mail.id)} /><AdminIconAction icon={Reply} label={ar ? `الرد على ${mail.email}` : `Reply to ${mail.email}`} href={`mailto:${mail.email}?subject=Re%3A%20${encodeURIComponent(mail.subject)}`} /></AdminTableActions></td></tr>)}</tbody>
-      </table></AdminTableWrap> : <AdminEmpty title={<AdminText en="No email found" ar="لا يوجد بريد" />} copy={<AdminText en="Try changing the search or filters." ar="جرب تغيير البحث أو الفلاتر." />} />}
-        {rows.length > 0 && <AdminPagination page={paging.page} pageCount={paging.pageCount} onPage={paging.setPage} pageSize={paging.pageSize} onPageSize={paging.setPageSize} from={paging.from} to={paging.to} total={paging.total} />}
+      {loading
+        ? <AdminEmpty title={<AdminText en="Loading email history…" ar="جارٍ تحميل سجل البريد…" />} copy={<AdminText en="Fetching delivery records." ar="جارٍ جلب سجلات الإرسال." />} />
+        : loadError
+          ? <AdminEmpty title={<AdminText en="Could not load email history" ar="تعذر تحميل سجل البريد" />} copy={<AdminText en="Check your connection and try again." ar="تحقق من الاتصال وحاول مجددًا." />} />
+          : rows.length
+            ? <AdminTableWrap><table className="sp-table">
+              <thead><tr><th className="sp-row-number">#</th><SortableTh label={<AdminText en="Recipient" ar="المستلم" />} column="recipient" sortKey={emailSort.sortKey} direction={emailSort.direction} onSort={emailSort.sortBy} /><SortableTh label={<AdminText en="Subject" ar="الموضوع" />} column="subject" sortKey={emailSort.sortKey} direction={emailSort.direction} onSort={emailSort.sortBy} /><SortableTh label={<AdminText en="Type" ar="النوع" />} column="type" sortKey={emailSort.sortKey} direction={emailSort.direction} onSort={emailSort.sortBy} /><SortableTh label={<AdminText en="Time" ar="الوقت" />} column="time" sortKey={emailSort.sortKey} direction={emailSort.direction} onSort={emailSort.sortBy} /><SortableTh label={<AdminText en="Status" ar="الحالة" />} column="status" sortKey={emailSort.sortKey} direction={emailSort.direction} onSort={emailSort.sortBy} /><th><AdminText en="Detail" ar="التفاصيل" /></th></tr></thead>
+              <tbody>{paging.pageRows.map((row, index) => <tr key={row.id}><td className="sp-row-number">{paging.from + index}</td><td style={{ overflowWrap: 'anywhere' }}>{row.recipient}<br /><small style={{ color: 'var(--sp-muted)' }}>{row.recipientType}{row.relatedReference ? ` · ${row.relatedReference}` : ''}</small></td><td><strong>{row.subject}</strong></td><td><small>{row.eventType}</small></td><td>{formatTime(row.createdAt, ar)}</td><td><StatusPill status={row.status.toLowerCase()} /></td><td><small style={{ color: 'var(--sp-muted)' }}>{row.status === 'FAILED' && row.errorSummary ? row.errorSummary : row.status === 'SENT' && row.sentAt ? (ar ? `أُرسلت ${formatTime(row.sentAt, ar)}` : `Sent ${formatTime(row.sentAt, ar)}`) : '—'}</small></td></tr>)}</tbody>
+            </table></AdminTableWrap>
+            : <AdminEmpty title={<AdminText en="No email found" ar="لا يوجد بريد" />} copy={<AdminText en="Delivery records from real domain events will appear here." ar="ستظهر هنا سجلات الإرسال من أحداث النظام الحقيقية." />} />}
+      {rows.length > 0 && <AdminPagination page={paging.page} pageCount={paging.pageCount} onPage={paging.setPage} pageSize={paging.pageSize} onPageSize={paging.setPageSize} from={paging.from} to={paging.to} total={paging.total} />}
     </Card>
+    <p style={{ color: 'var(--sp-muted)', fontSize: 12, display: 'flex', gap: 6, alignItems: 'center' }}><CheckCircle2 size={14} /><AdminText en="No email provider is connected — rows are recorded by the development/log adapter. Nothing leaves the server." ar="لا يوجد مزود بريد مرتبط — تُسجل الصفوف عبر محول التطوير. لا شيء يغادر الخادم." /></p>
   </>
 }

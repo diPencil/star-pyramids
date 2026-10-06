@@ -31,6 +31,7 @@ import {
   type StaffEventRequest,
 } from '@/lib/event-request';
 import { notifyUser, notifyStaff } from './notifications';
+import { sendCustomerEmailSafe, sendStaffEmailSafe } from './email';
 
 const REF_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const REF_ATTEMPTS = 5;
@@ -283,6 +284,20 @@ export async function createEventRequestRecord(
         message: `Event request ${reference} needs review.`,
         href: `/admin/event-requests/detail?ref=${encodeURIComponent(reference)}`,
       });
+      // Email receipts (best-effort). Customer copy to the address
+      // given at submit (guests included); staff copy to the
+      // configured operational recipient.
+      await sendCustomerEmailSafe('event_request_submitted', draft.contactEmail, {
+        name: draft.contactName,
+        reference,
+        eventTitle: draft.eventTitle,
+        detailUrl: `/account/event-requests/detail?ref=${encodeURIComponent(reference)}`,
+      }, { relatedReference: reference, idempotencyKey: `event_request_submitted:${reference}` });
+      await sendStaffEmailSafe('admin_event_request_submitted', {
+        name: draft.contactName,
+        reference,
+        detailUrl: `/admin/event-requests/detail?ref=${encodeURIComponent(reference)}`,
+      }, { relatedReference: reference, idempotencyKey: `admin_event_request_submitted:${reference}` });
       return created;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -417,6 +432,15 @@ export async function transitionStaffEventRequest(
       ...copy,
       href: `/account/event-requests/detail?ref=${encodeURIComponent(reference)}`,
     });
+    // Status-change email to the request contact snapshot (guests
+    // included). Transition guard rejects repeats; idempotency key
+    // adds a second layer against duplicate sends.
+    await sendCustomerEmailSafe('event_request_update', row.contactEmail, {
+      name: row.contactName,
+      reference,
+      status: to,
+      detailUrl: `/account/event-requests/detail?ref=${encodeURIComponent(reference)}`,
+    }, { relatedReference: reference, idempotencyKey: `event_request_update:${reference}:${to}` });
   }
   return toStaffView(row);
 }

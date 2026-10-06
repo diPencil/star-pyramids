@@ -25,6 +25,7 @@ import {
   type StaffPayment,
 } from '@/lib/payment';
 import { notifyUser, notifyStaff } from './notifications';
+import { sendCustomerEmailSafe, sendStaffEmailSafe } from './email';
 
 const REF_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const REF_ATTEMPTS = 5;
@@ -318,6 +319,31 @@ export async function initiateCustomerPayment(
         message: `Payment ${reference} for booking ${input.bookingReference} is pending. No charge completed.`,
         href: `/admin/payments/${encodeURIComponent(reference)}`,
       });
+      // Email receipts (best-effort — never break initiation).
+      // Customer copy to the payer's account email; staff copy to
+      // the configured operational recipient.
+      try {
+        const payer = await db.user.findUnique({
+          where: { id: userId },
+          select: { email: true, firstName: true, lastName: true },
+        });
+        const payerName = payer ? `${payer.firstName ?? ''} ${payer.lastName ?? ''}`.trim() || payer.email : null;
+        if (payer && payerName) {
+          await sendCustomerEmailSafe('payment_initiated', payer.email, {
+            name: payerName,
+            reference,
+            bookingReference: input.bookingReference,
+            detailUrl: `/account/payments/detail?ref=${encodeURIComponent(reference)}`,
+          }, { relatedReference: reference, idempotencyKey: `payment_initiated:${reference}` });
+        }
+      } catch {
+        /* email never breaks initiation */
+      }
+      await sendStaffEmailSafe('admin_payment_initiated', {
+        reference,
+        bookingReference: input.bookingReference,
+        detailUrl: `/admin/payments/${encodeURIComponent(reference)}`,
+      }, { relatedReference: reference, idempotencyKey: `admin_payment_initiated:${reference}` });
       return { payment: toCustomerPaymentView(row), created: true };
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -465,6 +491,29 @@ export async function transitionPayment(
     return tx.payment.findUnique({ where: { id: existing.id }, include: paymentInclude });
   });
   if (!row) return null;
+  // Customer email on meaningful money outcomes only (paid / failed /
+  // refunded / partially refunded). Processing/cancelled/pending are
+  // internal handoff states and never email. Best-effort — never
+  // breaks the transition.
+  if (to === 'paid' || to === 'failed' || to === 'refunded' || to === 'partially_refunded') {
+    try {
+      const booking = await db.booking.findUnique({
+        where: { id: existing.bookingId },
+        select: { reference: true, contactEmail: true, contactName: true },
+      });
+      if (booking) {
+        const eventType = to === 'paid' ? 'payment_paid' : to === 'failed' ? 'payment_failed' : 'payment_refunded';
+        await sendCustomerEmailSafe(eventType, booking.contactEmail, {
+          name: booking.contactName,
+          reference: existing.reference,
+          bookingReference: booking.reference,
+          detailUrl: `/account/payments/detail?ref=${encodeURIComponent(existing.reference)}`,
+        }, { relatedReference: existing.reference, idempotencyKey: `${eventType}:${existing.reference}` });
+      }
+    } catch {
+      /* email never breaks the transition */
+    }
+  }
   return toStaffPaymentView(row);
 }
 

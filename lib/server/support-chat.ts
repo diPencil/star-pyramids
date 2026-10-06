@@ -22,6 +22,7 @@ import {
   notifyStaff,
   notifyUser,
 } from './notifications';
+import { sendCustomerEmailSafe, sendStaffEmailSafe } from './email';
 
 const REF_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const REF_ATTEMPTS = 5;
@@ -257,6 +258,24 @@ export async function sendCustomerMessage(
     message: `New customer message in conversation ${reference}.`,
     href: adminSupportHref(reference),
   });
+  // Staff email alert (best-effort — never breaks message creation).
+  // Idempotency key uses the message id so each message alerts once.
+  try {
+    const sender = await db.user.findUnique({
+      where: { id: customerId },
+      select: { email: true, firstName: true, lastName: true },
+    });
+    const senderName = sender
+      ? `${sender.firstName ?? ''} ${sender.lastName ?? ''}`.trim() || sender.email
+      : 'Customer';
+    await sendStaffEmailSafe('admin_support_message_received', {
+      name: senderName,
+      reference,
+      detailUrl: adminSupportHref(reference),
+    }, { relatedReference: reference, idempotencyKey: `admin_support_message:${message.id}` });
+  } catch {
+    /* email never breaks message creation */
+  }
   const thread = await db.supportConversation.findUnique({
     where: { id: open.id },
     include: threadInclude,
@@ -417,6 +436,25 @@ export async function sendStaffMessage(
     message: 'Our travel team replied to your message. Read it here.',
     href: customerSupportHref(reference),
   });
+  // Customer email receipt (best-effort — never breaks the reply).
+  // Goes to the owning customer's account email only. Idempotency
+  // key uses the message id so each reply emails once.
+  try {
+    const owner = await db.user.findUnique({
+      where: { id: existing.customerId },
+      select: { email: true, firstName: true, lastName: true },
+    });
+    if (owner) {
+      const ownerName = `${owner.firstName ?? ''} ${owner.lastName ?? ''}`.trim() || owner.email;
+      await sendCustomerEmailSafe('support_message_received', owner.email, {
+        name: ownerName,
+        reference,
+        detailUrl: customerSupportHref(reference),
+      }, { relatedReference: reference, idempotencyKey: `support_message:${message.id}` });
+    }
+  } catch {
+    /* email never breaks the reply */
+  }
   const thread = await db.supportConversation.findUnique({
     where: { id: existing.id },
     include: threadInclude,

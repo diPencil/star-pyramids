@@ -34,6 +34,7 @@ import {
   type StaffCarRequest,
 } from '@/lib/car-request';
 import { notifyUser, notifyStaff } from './notifications';
+import { sendCustomerEmailSafe, sendStaffEmailSafe } from './email';
 
 const REF_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const REF_ATTEMPTS = 5;
@@ -334,6 +335,19 @@ export async function createCarRequestRecord(
         message: `Car request ${reference} needs review.`,
         href: `/admin/car-requests/${encodeURIComponent(reference)}`,
       });
+      // Email receipts (best-effort). Customer copy to the address
+      // given at submit (guests included); staff copy to the
+      // configured operational recipient.
+      await sendCustomerEmailSafe('car_request_submitted', draft.contactEmail, {
+        name: draft.contactName,
+        reference,
+        detailUrl: `/account/car-requests/detail?ref=${encodeURIComponent(reference)}`,
+      }, { relatedReference: reference, idempotencyKey: `car_request_submitted:${reference}` });
+      await sendStaffEmailSafe('admin_car_request_submitted', {
+        name: draft.contactName,
+        reference,
+        detailUrl: `/admin/car-requests/${encodeURIComponent(reference)}`,
+      }, { relatedReference: reference, idempotencyKey: `admin_car_request_submitted:${reference}` });
       return created;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -520,6 +534,15 @@ export async function transitionStaffCarRequest(
         : { title: 'Car request cancelled', message: `Your car request ${reference} was cancelled. Contact us if you need anything else.` }),
       href: `/account/car-requests/detail?ref=${encodeURIComponent(reference)}`,
     });
+    // Status-change email to the request contact snapshot (guests
+    // included). Transition guard rejects repeats; idempotency key
+    // adds a second layer against duplicate sends.
+    await sendCustomerEmailSafe('car_request_update', row.contactEmail, {
+      name: row.contactName,
+      reference,
+      status: to,
+      detailUrl: `/account/car-requests/detail?ref=${encodeURIComponent(reference)}`,
+    }, { relatedReference: reference, idempotencyKey: `car_request_update:${reference}:${to}` });
   }
   return toStaffView(row);
 }
