@@ -19,7 +19,8 @@ import { parseCarRequestQuery, parseSearchQuery } from '@/lib/query'
 import { CAR_LOCATION_MAX, CAR_NOTE_MAX, hasCarErrors, isCarReference, sanitizeCarDraft, validateCarRequest, type CarFieldErrors, type CarRequest, type CarRequestDraft } from '@/lib/car-request'
 import { ImpersonationBanner } from './impersonation-banner'
 import { useLocale, formatPrice, tx, type Locale } from './locale'
-import { Breadcrumb, Heading, HelpCTA, PageShowcaseHero, SiteShell, TourCard, extra, images } from '@/components/site'
+import { Breadcrumb, Heading, HelpCTA, Logo, PageShowcaseHero, SiteShell, TourCard, extra, images } from '@/components/site'
+import { LanguageSelector } from './language-selector'
 import { PromotionCard, promotionGalleryForTour } from '@/components/promotion-card'
 import { InternationalPhoneInput } from './international-phone-input'
 import { useCurrentUser } from '@/lib/use-current-user'
@@ -1245,72 +1246,81 @@ export function ForgotPasswordPage() {
       }
       setSent(true);
     } catch {
-      setError('Could not send reset email. Please try again.');
+      setError('Could not send reset link. Please try again.');
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <SiteShell>
-      <main className="auth-page-centered">
-        <div className="auth-card">
-          <div className="auth-mobile-logo">
-            <Link href="/">
-              <span className="brand-copy"><strong>STAR PYRAMIDS</strong><small>SINCE 1970</small></span>
-            </Link>
+    <main className="auth-v2">
+      <section className="auth-v2-visual">
+        <img
+          src={siteImages.pyramids}
+          alt={tx(locale, { en: 'The Pyramids of Giza in Egypt', es: 'Las pirámides de Guiza en Egipto', it: 'Le piramidi di Giza in Egitto', ar: 'أهرامات الجيزة في مصر' })}
+        />
+        <div className="auth-v2-shade" />
+        <div className="auth-v2-visual-content">
+          <Logo />
+          <div>
+            <span>{tx(locale, { en: 'Your STAR PYRAMIDS account', es: 'Tu cuenta de STAR PYRAMIDS', it: 'Il tuo account STAR PYRAMIDS', ar: 'حساب STAR PYRAMIDS' })}</span>
+            <h2>{tx(locale, { en: 'Your next Egypt story, kept in one place.', es: 'Tu próxima historia en Egipto, en un solo lugar.', it: 'La tua prossima storia in Egitto, in un unico posto.', ar: 'كل تفاصيل رحلتك لمصر في مكان واحد.' })}</h2>
+            <p>{tx(locale, { en: 'Return to saved trips, continue planning, and keep the details of your journey close.', es: 'Vuelve a tus viajes guardados, sigue planificando y ten los detalles de tu viaje a mano.', it: 'Torna ai viaggi salvati, continua a pianificare e tieni i dettagli del viaggio con te.', ar: 'ارجع لرحلاتك المحفوظة، كمّل التخطيط، وخلي تفاصيل رحلتك قريبة منك.' })}</p>
+            <ul>
+              <li><Check size={16} />{tx(locale, { en: 'Save tours for later', es: 'Guarda tours para después', it: 'Salva i tour per dopo', ar: 'احفظ الرحلات لوقت لاحق' })}</li>
+              <li><Check size={16} />{tx(locale, { en: 'Keep trip enquiries together', es: 'Mantén tus consultas juntas', it: 'Tieni insieme le richieste di viaggio', ar: 'اجمع طلبات الرحلة في مكان واحد' })}</li>
+              <li><Check size={16} />{tx(locale, { en: 'Continue planning across devices', es: 'Sigue planificando en todos tus dispositivos', it: 'Continua a pianificare su ogni dispositivo', ar: 'كمّل التخطيط من أي جهاز' })}</li>
+            </ul>
           </div>
-          {sent ? (
-            <div className="form-success">
-              <Check size={34} />
-              <h2>{tx(locale, { en: 'Check your email', es: 'Revisa tu correo', it: 'Controlla la tua email', ar: 'تحقق من بريدك' })}</h2>
-              <p>
-                {tx(locale, {
-                  en: 'If an account with that email exists, we have sent a password reset link.',
-                  es: 'Si existe una cuenta con ese correo, hemos enviado un enlace para restablecer la contraseña.',
-                  it: 'Se esiste un account con quella email, abbiamo inviato un link per reimpostare la password.',
-                  ar: 'إذا كان هناك حساب بهذا البريد الإلكتروني، فقد أرسلنا رابط إعادة تعيين كلمة المرور.',
-                })}
-              </p>
-              <p className="auth-switch">
-                <Link href="/login">{tx(locale, { en: 'Back to sign in', es: 'Volver a iniciar sesión', it: 'Torna all\'accesso', ar: 'العودة إلى تسجيل الدخول' })}</Link>
-              </p>
-            </div>
-          ) : (
-            <>
-              <span className="eyebrow">{tx(locale, { en: 'Account recovery', es: 'Recuperación de la cuenta', it: 'Recupero account', ar: 'استعادة الحساب' })}</span>
-              <h1>{tx(locale, { en: 'Reset your password', es: 'Restablece tu contraseña', it: 'Reimposta la tua password', ar: 'استعادة كلمة المرور' })}</h1>
-              <p>{tx(locale, { en: 'Enter your email and we will send you a link to reset your password.', es: 'Introduce tu correo y te enviaremos un enlace para restablecer tu contraseña.', it: 'Inserisci la tua email e ti invieremo un link per reimpostare la password.', ar: 'أدخل بريدك الإلكتروني وسنرسل لك رابطًا لإعادة تعيين كلمة المرور.' })}</p>
-              <form className="contact-form" onSubmit={handleSubmit}>
-                {error && <p className="co-error" role="alert"><CircleAlert size={15} />{error}</p>}
-                <label>
-                  {tx(locale, { en: 'Email address', es: 'Correo electrónico', it: 'Indirizzo email', ar: 'البريد الإلكتروني' })}
-                  <input
-                    required
-                    type="email"
-                    placeholder="you@example.com"
-                    autoComplete="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    disabled={submitting}
-                  />
-                </label>
-                <button className="primary-btn" type="submit" disabled={submitting}>
-                  {submitting
-                    ? tx(locale, { en: 'Sending…', es: 'Enviando…', it: 'Invio…', ar: 'جارٍ الإرسال…' })
-                    : tx(locale, { en: 'Send reset link', es: 'Enviar enlace de restablecimiento', it: 'Invia link di recupero', ar: 'إرسال رابط الاستعادة' })}
-                  <ArrowRight size={17} />
-                </button>
-              </form>
-              <p className="auth-switch">
-                {tx(locale, { en: 'Remember your password?', es: '¿Recuerdas tu contraseña?', it: 'Ti ricordi la password?', ar: 'تذكرت كلمة المرور؟' })}
-                <Link href="/login">{tx(locale, { en: 'Back to sign in', es: 'Volver a iniciar sesión', it: 'Torna all\'accesso', ar: 'العودة إلى تسجيل الدخول' })}</Link>
-              </p>
-            </>
-          )}
         </div>
-      </main>
-    </SiteShell>
+      </section>
+
+      <section className="auth-v2-panel">
+        <header className="auth-v2-top">
+          <Link
+            href="/"
+            aria-label={tx(locale, { en: 'Back to home', es: 'Volver al inicio', it: 'Torna alla home', ar: 'العودة للرئيسية' })}
+          >
+            <ArrowRight size={18} />{tx(locale, { en: 'Home', es: 'Inicio', it: 'Home', ar: 'الرئيسية' })}</Link>
+          <LanguageSelector />
+        </header>
+        <div className="auth-v2-card">
+          <div className="auth-v2-heading">
+            <span>{tx(locale, { en: 'Account recovery', es: 'Recuperación de la cuenta', it: 'Recupero account', ar: 'استعادة الحساب' })}</span>
+            <h1>{tx(locale, { en: 'Reset your password', es: 'Restablece tu contraseña', it: 'Reimposta la tua password', ar: 'استعادة كلمة المرور' })}</h1>
+            <p>{tx(locale, { en: 'Enter the email address linked to your account and we\'ll send you a secure reset link.', es: 'Introduce el correo electrónico vinculado a tu cuenta y te enviaremos un enlace seguro para restablecer la contraseña.', it: 'Inserisci l\'indirizzo email collegato al tuo account e ti invieremo un link sicuro per reimpostare la password.', ar: 'أدخل عنوان البريد الإلكتروني المرتبط بحسابك وسنرسل لك رابط إعادة تعيين آمن.' })}</p>
+          </div>
+          {error && <p className="auth-v2-notice" role="alert"><CircleAlert size={15} />{error}</p>}
+          <form className="auth-v2-form" onSubmit={handleSubmit}>
+            <label className="auth-v2-field">
+              <span>{tx(locale, { en: 'Email address', es: 'Correo electrónico', it: 'Indirizzo email', ar: 'البريد الإلكتروني' })}</span>
+              <div>
+                <Mail size={18} />
+                <input
+                  required
+                  type="email"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={submitting}
+                />
+              </div>
+            </label>
+            <button className="auth-v2-primary" type="submit" disabled={submitting}>
+              {submitting
+                ? tx(locale, { en: 'Sending...', es: 'Enviando...', it: 'Invio...', ar: 'جارٍ الإرسال...' })
+                : tx(locale, { en: 'Send reset link', es: 'Enviar enlace de restablecimiento', it: 'Invia link di recupero', ar: 'إرسال رابط الاستعادة' })}
+              <ArrowRight size={17} />
+            </button>
+          </form>
+          <p className="auth-v2-switch">
+            {tx(locale, { en: 'Remember your password?', es: '¿Recuerdas tu contraseña?', it: 'Ti ricordi la password?', ar: 'تذكرت كلمة المرور?' })}
+            <Link href="/login">{tx(locale, { en: 'Back to sign in', es: 'Volver a iniciar sesión', it: 'Torna all\'accesso', ar: 'العودة إلى تسجيل الدخول' })}</Link>
+          </p>
+        </div>
+      </section>
+    </main>
   );
 }
 
