@@ -181,7 +181,8 @@ export type EmailEventType =
   | 'admin_car_request_submitted'
   | 'admin_event_request_submitted'
   | 'admin_payment_initiated'
-  | 'admin_support_message_received';
+  | 'admin_support_message_received'
+  | 'password_reset';
 
 interface EmailTemplateDefinition {
   subject: string;
@@ -299,6 +300,11 @@ const TEMPLATES: Record<EmailEventType, EmailTemplateDefinition> = {
     subject: 'New support message — {{reference}}',
     bodyHtml: '<h2>New support message</h2><p>Customer {{name}} sent a new message in conversation <strong>{{reference}}</strong>.</p><p><a href="{{detailUrl}}" class="btn">View conversation</a></p>',
     bodyText: 'New support message\n\nCustomer {{name}} sent a new message in conversation {{reference}}.\n\nView conversation: {{detailUrl}}',
+  },
+  password_reset: {
+    subject: 'Reset your Star Pyramids Tours password',
+    bodyHtml: '<h2>Reset your password</h2><p>Hi {{name}},</p><p>You requested a password reset for your Star Pyramids Tours account. Click the button below to set a new password:</p><p><a href="{{resetUrl}}" class="btn">Reset password</a></p><p>This link expires in 1 hour. If you did not request this, you can safely ignore this email.</p>',
+    bodyText: 'Reset your password\n\nHi {{name}},\n\nYou requested a password reset for your Star Pyramids Tours account. Visit the link below to set a new password:\n\n{{resetUrl}}\n\nThis link expires in 1 hour. If you did not request this, you can safely ignore this email.',
   },
 };
 

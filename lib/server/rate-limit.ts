@@ -17,6 +17,8 @@ const MAX_BOOKING_ATTEMPTS = 10;
 const BOOKING_WINDOW_MS = 60 * 60 * 1000;
 const MAX_PAYMENT_ATTEMPTS = 10;
 const PAYMENT_WINDOW_MS = 60 * 60 * 1000;
+const MAX_PASSWORD_RESET_ATTEMPTS = 5;
+const PASSWORD_RESET_WINDOW_MS = 60 * 60 * 1000;
 
 export async function checkLoginRateLimit(
   email: string,
@@ -362,4 +364,82 @@ export async function recordPaymentAttempt(
   void db.paymentAttempt.deleteMany({
     where: { createdAt: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
   }).catch(() => undefined);
+}
+
+/**
+ * Abuse protection for the password reset endpoints (forgot/reset).
+ * Both endpoints share one budget (5 attempts/hour per email or IP)
+ * to prevent enumeration and spam.
+ */
+export async function checkPasswordResetRateLimit(
+  email: string,
+  ipAddress: string,
+): Promise<{ allowed: boolean; retryAfterSeconds: number }> {
+  const normalizedEmail = normalizeEmail(email).slice(0, 190);
+  const windowStart = new Date(Date.now() - PASSWORD_RESET_WINDOW_MS);
+  const selector = {
+    createdAt: { gte: windowStart },
+    OR: [{ email: normalizedEmail }, { ipAddress }],
+  };
+  const recentAttempts = await db.passwordResetAttempt.count({ where: selector });
+  if (recentAttempts < MAX_PASSWORD_RESET_ATTEMPTS) {
+    return { allowed: true, retryAfterSeconds: 0 };
+  }
+  const oldest = await db.passwordResetAttempt.findFirst({
+    where: selector,
+    orderBy: { createdAt: 'asc' },
+    select: { createdAt: true },
+  });
+  return {
+    allowed: false,
+    retryAfterSeconds: oldest
+      ? Math.max(1, Math.ceil((oldest.createdAt.getTime() + PASSWORD_RESET_WINDOW_MS - Date.now()) / 1000))
+      : Math.floor(PASSWORD_RESET_WINDOW_MS / 1000),
+  };
+}
+
+export async function recordPasswordResetAttempt(
+  email: string,
+  ipAddress: string,
+): Promise<void> {
+  await db.passwordResetAttempt.create({
+    data: {
+      email: normalizeEmail(email).slice(0, 190),
+      ipAddress: ipAddress.slice(0, 64),
+    },
+  });
+  void db.passwordResetAttempt.deleteMany({
+    where: { createdAt: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
+  }).catch(() => undefined);
+}
+
+/**
+ * IP-only abuse protection for the reset-password endpoint.
+ * The bearer reset token is the secret here, so per-IP limiting
+ * (no email bucket) is the appropriate granularity: it throttles
+ * token-guessing without coupling unrelated customers' budgets.
+ */
+export async function checkResetSubmitRateLimit(
+  ipAddress: string,
+): Promise<{ allowed: boolean; retryAfterSeconds: number }> {
+  const windowStart = new Date(Date.now() - PASSWORD_RESET_WINDOW_MS);
+  const selector = {
+    createdAt: { gte: windowStart },
+    ipAddress,
+  };
+  const recentAttempts = await db.passwordResetAttempt.count({ where: selector });
+  if (recentAttempts < MAX_PASSWORD_RESET_ATTEMPTS) {
+    return { allowed: true, retryAfterSeconds: 0 };
+  }
+  const oldest = await db.passwordResetAttempt.findFirst({
+    where: selector,
+    orderBy: { createdAt: 'asc' },
+    select: { createdAt: true },
+  });
+  return {
+    allowed: false,
+    retryAfterSeconds: oldest
+      ? Math.max(1, Math.ceil((oldest.createdAt.getTime() + PASSWORD_RESET_WINDOW_MS - Date.now()) / 1000))
+      : Math.floor(PASSWORD_RESET_WINDOW_MS / 1000),
+  };
 }

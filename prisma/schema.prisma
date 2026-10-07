@@ -40,6 +40,7 @@ enum UserStatus {
 
 enum SetupTokenType {
   PASSWORD_SETUP
+  PASSWORD_RESET
 }
 
 model Role {
@@ -612,6 +613,20 @@ model BookingAttempt {
   @@index([email, createdAt])
   @@index([ipAddress, createdAt])
   @@map("booking_attempts")
+}
+
+/// Phase 4D: password reset attempt tracking (forgot/reset rate limiting).
+/// Same architecture as login/registration attempts: counted per email-OR-ip
+/// inside a time window, pruned opportunistically.
+model PasswordResetAttempt {
+  id        String   @id @default(cuid())
+  email     String   @db.VarChar(190)
+  ipAddress String   @db.VarChar(64)
+  createdAt DateTime @default(now())
+
+  @@index([email, createdAt])
+  @@index([ipAddress, createdAt])
+  @@map("password_reset_attempts")
 }
 
 /// Phase 2F-A payment lifecycle. A Payment is the money record for one

@@ -3,6 +3,8 @@
 // and MUST NOT be treated as authenticated.
 import 'server-only';
 
+import { SetupTokenType } from '@prisma/client';
+
 import { db } from './db';
 import { getSession, touchSession } from './session';
 import { resolvePermissionKeys, toPublicUser, type PublicUser } from './users';
@@ -10,6 +12,7 @@ import { resolvePermissionKeys, toPublicUser, type PublicUser } from './users';
 export type { PublicUser };
 import { verifyPassword } from '../core/password';
 import { markLoggedIn } from './users';
+import { generateOpaqueToken, hashToken } from '../core/tokens';
 import {
   isValidEmail,
   isValidUsername,
@@ -126,4 +129,118 @@ export function isStaff(user: PublicUser): boolean {
     hasRole(user, 'ADMIN') ||
     hasRole(user, 'STAFF')
   );
+}
+
+// ─── Password Reset Flow ───────────────────────────────────────────────────
+// Reuses AccountSetupToken architecture with PASSWORD_RESET type.
+// Single-use, expiring, securely hashed tokens. Never exposed in responses.
+
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
+const RESET_TOKEN_BYTES = 32;
+
+export type ResetTokenFailureReason =
+  | 'invalid-token'
+  | 'expired'
+  | 'already-used';
+
+export async function createPasswordResetToken(
+  email: string,
+): Promise<{ token: string; userId: string } | { failure: 'not-found' }> {
+  const normalized = normalizeEmail(email);
+  const user = await db.user.findUnique({
+    where: { emailNormalized: normalized },
+    select: { id: true, status: true },
+  });
+  // Prevent account enumeration: always return success shape.
+  // Token is only created if user exists and is active.
+  if (!user || user.status !== 'ACTIVE') {
+    return { failure: 'not-found' };
+  }
+  const rawToken = generateOpaqueToken(RESET_TOKEN_BYTES);
+  const tokenHash = hashToken(rawToken);
+  const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS);
+  await db.accountSetupToken.create({
+    data: {
+      tokenHash,
+      userId: user.id,
+      type: SetupTokenType.PASSWORD_RESET,
+      expiresAt,
+    },
+  });
+  return { token: rawToken, userId: user.id };
+}
+
+export async function validatePasswordResetToken(
+  token: string,
+): Promise<{ userId: string } | { failure: ResetTokenFailureReason }> {
+  if (!token) return { failure: 'invalid-token' };
+  const tokenHash = hashToken(token);
+  const record = await db.accountSetupToken.findUnique({
+    where: { tokenHash },
+    select: { id: true, userId: true, expiresAt: true, usedAt: true },
+  });
+  if (!record) return { failure: 'invalid-token' };
+  if (record.usedAt) return { failure: 'already-used' };
+  if (record.expiresAt.getTime() <= Date.now()) return { failure: 'expired' };
+  return { userId: record.userId };
+}
+
+export async function consumePasswordResetToken(
+  token: string,
+  newPassword: string,
+): Promise<{ success: true } | { failure: ResetTokenFailureReason }> {
+  const validation = await validatePasswordResetToken(token);
+  if ('failure' in validation) return { failure: validation.failure };
+  const { userId } = validation;
+  const passwordHash = await import('../core/password').then((m) =>
+    m.hashPassword(newPassword),
+  );
+  await db.$transaction([
+    db.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    }),
+    db.accountSetupToken.update({
+      where: { tokenHash: hashToken(token) },
+      data: { usedAt: new Date() },
+    }),
+    // Password was reset out-of-band: revoke every session for this
+    // user so any active (possibly stolen) session is invalidated.
+    db.session.deleteMany({ where: { userId } }),
+  ]);
+  return { success: true };
+}
+
+export async function changePassword(
+  userId: string,
+  currentPassword: string,
+  newPassword: string,
+  currentSessionId?: string,
+): Promise<{ success: true } | { failure: 'invalid-current' | 'same-password' }> {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { passwordHash: true },
+  });
+  if (!user || !user.passwordHash) return { failure: 'invalid-current' };
+  const ok = await verifyPassword(currentPassword, user.passwordHash);
+  if (!ok) return { failure: 'invalid-current' };
+  const same = await verifyPassword(newPassword, user.passwordHash);
+  if (same) return { failure: 'same-password' };
+  const passwordHash = await import('../core/password').then((m) =>
+    m.hashPassword(newPassword),
+  );
+  await db.$transaction([
+    db.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    }),
+    // Revoke all other sessions; keep the current session valid when
+    // the caller passes its session id (authenticated change flow).
+    ...(currentSessionId
+      ? [db.session.deleteMany({
+          where: { userId, id: { not: currentSessionId } },
+        })]
+      : [db.session.deleteMany({ where: { userId } })]),
+  ]);
+  return { success: true };
 }

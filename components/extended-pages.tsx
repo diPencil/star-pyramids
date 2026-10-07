@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { ArrowRight, CalendarCheck, CalendarDays, Camera, Check, CircleAlert, Clock3, Compass, CarFront, EyeOff, Gift, Headphones, Mail, MapPin, MessageCircle, Minus, Phone, Plus, Search, Send, Share2, ShieldCheck, Sparkles, Star, Sun, Ticket, Users, type LucideIcon } from 'lucide-react'
+import { ArrowRight, CalendarCheck, CalendarDays, Camera, Check, CircleAlert, Clock3, Compass, CarFront, Eye, EyeOff, Gift, Headphones, Mail, MapPin, MessageCircle, Minus, Phone, Plus, Search, Send, Share2, ShieldCheck, Sparkles, Star, Sun, Ticket, Users, type LucideIcon } from 'lucide-react'
 import { blogs, cars, destinations, events, faqs, offers, policies, siteImages, allSearchItems } from '@/data/content'
 import { useBrandSettings } from '@/lib/admin-store'
 import { useDbCars, useDbEvents } from '@/lib/events-cars-client'
@@ -1219,6 +1219,268 @@ export function AccessiblePage() { const { locale } = useLocale(); const ar = lo
 export function SearchPage() { const params=useSearchParams(); const initial=parseSearchQuery(params).q; const [query,setQuery]=useState(initial); useEffect(()=>setQuery(initial),[initial]); const { locale } = useLocale(); const ar = locale === 'ar'; const liveEvents = useDbEvents(events); const liveOffersSearch = useDbOffers(offers).filter((o) => o.isPublished !== false); const liveBlogsSearch = useDbBlogs(blogs).filter((b) => b.isPublished !== false); const typeLabel = (t: string) => t === 'Blog' ? tx(locale, { en: t, es: 'Blog', it: 'Blog', ar: 'مدونة' }) : t === 'Event' ? tx(locale, { en: t, es: 'Evento', it: 'Evento', ar: 'فعالية' }) : t === 'Offer' ? tx(locale, { en: t, es: 'Oferta', it: 'Offerta', ar: 'عرض' }) : tx(locale, { en: t, es: 'Destino', it: 'Destinazione', ar: 'وجهة' }); const staticResults=allSearchItems.filter(item=>item.type !== 'Offer' && item.type !== 'Blog' && `${item.title} ${item.copy}`.toLowerCase().includes(query.toLowerCase())); const liveCustomEvents = liveEvents.filter((e) => !allSearchItems.some((s) => s.slug === e.slug && s.type === 'Event') && isEventPublished(e) && `${e.title} ${e.copy}`.toLowerCase().includes(query.toLowerCase())).map((e) => ({ title: e.title, slug: e.slug, image: e.image, copy: e.copy, type: 'Event' as const })); const liveDbOffers = liveOffersSearch.filter((o) => `${o.title} ${o.copy}`.toLowerCase().includes(query.toLowerCase())).map((o) => ({ title: o.title, slug: o.slug, image: o.image, copy: o.copy, type: 'Offer' as const })); const liveDbBlogs = liveBlogsSearch.filter((b) => `${b.title} ${b.excerpt}`.toLowerCase().includes(query.toLowerCase())).map((b) => ({ title: b.title, slug: b.slug, image: b.image, copy: b.excerpt, type: 'Blog' as const })); const results=[...staticResults, ...liveCustomEvents, ...liveDbOffers, ...liveDbBlogs]; return <SiteShell><main className="search-page container"><div className="search-page-header"><span className="eyebrow">{tx(locale, { en: 'Explore the site', es: 'Descubre el sitio', it: 'Esplora il sito', ar: 'استكشف الموقع' })}</span><h1>{tx(locale, { en: 'Find your next Egypt story', es: 'Encuentra tu próxima historia en Egipto', it: 'Trova la tua prossima storia in Egitto', ar: 'اعثر على حكايتك القادمة في مصر' })}</h1><label><Search size={20}/><input autoFocus value={query} onChange={(e)=>setQuery(e.target.value.slice(0,120))} placeholder={tx(locale, { en: 'Search tours, destinations, stories...', es: 'Busca excursiones, destinos, historias...', it: 'Cerca tour, destinazioni, storie...', ar: 'ابحث عن رحلات ووجهات وحكايات...' })} aria-label={tx(locale, { en: 'Search', es: 'Buscar', it: 'Cerca', ar: 'بحث' })}/></label></div><div className="search-results"><p>{tx(locale, { en: `${results.length} result${results.length===1?'':'s'}`, es: `${results.length} resultado${results.length===1?'':'s'}`, it: `${results.length} risultato${results.length===1?'':'i'}`, ar: `${results.length} نتيجة` })}{query ? (tx(locale, { en: ` for "${query}"`, es: ` para "${query}"`, it: ` per "${query}"`, ar: ` عن "${query}"` })) : ''}</p><div className="content-grid">{results.map(item=><article className="content-card" key={`${item.type}-${item.slug}`}><img className="content-image" src={item.image} alt={item.title}/><div className="content-card-body"><small>{typeLabel(item.type)}</small><h3>{item.title}</h3><p>{item.copy}</p><Link href={item.type==='Blog'?`/blogs/${item.slug}`:item.type==='Event'?`/events/${item.slug}`:item.type==='Offer'?`/special-offers/${item.slug}`:`/destinations/${item.slug}`} className="text-link">{tx(locale, { en: 'Explore', es: 'Descubrir', it: 'Scopri', ar: 'استكشف' })} <ArrowRight size={15}/></Link></div></article>)}</div></div></main></SiteShell> }
 
 export function PolicyPage({ type }: { type: 'privacy' | 'terms' }) { const { locale } = useLocale(); const ar = locale === 'ar'; const title=type==='privacy'?(tx(locale, { en: 'Privacy Policy', es: 'Política de privacidad', it: 'Informativa sulla privacy', ar: 'سياسة الخصوصية' })):(tx(locale, { en: 'Terms and Conditions', es: 'Términos y condiciones', it: 'Termini e condizioni', ar: 'الشروط والأحكام' })); return <SiteShell><Breadcrumb items={[title]}/><main className="policy-page container"><span className="eyebrow">STAR PYRAMIDS Tours</span><h1>{title}</h1><p className="policy-lede">{tx(locale, { en: 'Clear, respectful, and easy to understand. These notes explain how we work with you.', es: 'Claras, respetuosas y fáciles de entender. Estas notas explican cómo trabajamos contigo.', it: 'Chiare, rispettose e facili da capire. Queste note spiegano come lavoriamo con te.', ar: 'واضحة ومحترمة وسهلة الفهم. هذه الملاحظات تشرح طريقة تعاملنا معك.' })}</p>{policies[type].map(item=><section key={item.h}><h2>{item.h}</h2><p>{item.p}</p></section>)}</main></SiteShell> }
-export function ForgotPasswordPage() { const [sent,setSent]=useState(false); const { locale } = useLocale(); const ar = locale === 'ar'; return <SiteShell><main className="auth-page-centered"><div className="auth-card"><div className="auth-mobile-logo"><Link href="/"><span className="brand-copy"><strong>STAR PYRAMIDS</strong><small>SINCE 1970</small></span></Link></div>{sent?<div className="form-success"><Check size={34}/><h2>{tx(locale, { en: 'Recovery preview', es: 'Vista previa de recuperación', it: 'Anteprima di recupero', ar: 'معاينة الاستعادة' })}</h2><p>{tx(locale, { en: 'No email has been sent. Account recovery is not connected to the backend yet — this is a preview only.', es: 'No se ha enviado ningún correo. La recuperación de la cuenta aún no está conectada: esto es solo una vista previa.', it: 'Nessuna email è stata inviata. Il recupero account non è ancora collegato: è solo un\'anteprima.', ar: 'لم يتم إرسال أي بريد إلكتروني. استعادة الحساب غير مربوطة بالخلفية بعد — هذه معاينة فقط.' })}</p><p className="auth-switch"><Link href="/login">{tx(locale, { en: 'Back to sign in', es: 'Volver a iniciar sesión', it: 'Torna all\'accesso', ar: 'العودة إلى تسجيل الدخول' })}</Link></p></div>:<><span className="eyebrow">{tx(locale, { en: 'Account recovery', es: 'Recuperación de la cuenta', it: 'Recupero account', ar: 'استعادة الحساب' })}</span><h1>{tx(locale, { en: 'Reset your password', es: 'Restablece tu contraseña', it: 'Reimposta la tua password', ar: 'استعادة كلمة المرور' })}</h1><p>{tx(locale, { en: 'Enter your email to preview the recovery flow.', es: 'Introduce tu correo para ver una vista previa de la recuperación.', it: 'Inserisci la tua email per vedere un\'anteprima del recupero.', ar: 'أدخل بريدك لمعاينة خطوات الاستعادة.' })}</p><form className="contact-form" onSubmit={(e)=>{e.preventDefault();setSent(true)}}><label>{tx(locale, { en: 'Email address', es: 'Correo electrónico', it: 'Indirizzo email', ar: 'البريد الإلكتروني' })}<input required type="email" placeholder="you@example.com"/></label><button className="auth-submit" type="submit">{tx(locale, { en: 'Send reset link', es: 'Enviar enlace de restablecimiento', it: 'Invia link di reimpostazione', ar: 'أرسل رابط الاستعادة' })}</button></form><p className="auth-switch">{tx(locale, { en: 'Remembered your password?', es: '¿Recordaste tu contraseña?', it: 'Hai ricordato la password?', ar: 'هل تذكرت كلمة المرور؟' })} <Link href="/login">{tx(locale, { en: 'Sign in', es: 'Iniciar sesión', it: 'Accedi', ar: 'سجّل دخولك' })}</Link></p></>}</div></main></SiteShell> }
+export function ForgotPasswordPage() {
+  const [email, setEmail] = useState('');
+  const [sent, setSent] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const { locale } = useLocale();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    if (!email.trim()) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Could not send reset email. Please try again.');
+        return;
+      }
+      setSent(true);
+    } catch {
+      setError('Could not send reset email. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <SiteShell>
+      <main className="auth-page-centered">
+        <div className="auth-card">
+          <div className="auth-mobile-logo">
+            <Link href="/">
+              <span className="brand-copy"><strong>STAR PYRAMIDS</strong><small>SINCE 1970</small></span>
+            </Link>
+          </div>
+          {sent ? (
+            <div className="form-success">
+              <Check size={34} />
+              <h2>{tx(locale, { en: 'Check your email', es: 'Revisa tu correo', it: 'Controlla la tua email', ar: 'تحقق من بريدك' })}</h2>
+              <p>
+                {tx(locale, {
+                  en: 'If an account with that email exists, we have sent a password reset link.',
+                  es: 'Si existe una cuenta con ese correo, hemos enviado un enlace para restablecer la contraseña.',
+                  it: 'Se esiste un account con quella email, abbiamo inviato un link per reimpostare la password.',
+                  ar: 'إذا كان هناك حساب بهذا البريد الإلكتروني، فقد أرسلنا رابط إعادة تعيين كلمة المرور.',
+                })}
+              </p>
+              <p className="auth-switch">
+                <Link href="/login">{tx(locale, { en: 'Back to sign in', es: 'Volver a iniciar sesión', it: 'Torna all\'accesso', ar: 'العودة إلى تسجيل الدخول' })}</Link>
+              </p>
+            </div>
+          ) : (
+            <>
+              <span className="eyebrow">{tx(locale, { en: 'Account recovery', es: 'Recuperación de la cuenta', it: 'Recupero account', ar: 'استعادة الحساب' })}</span>
+              <h1>{tx(locale, { en: 'Reset your password', es: 'Restablece tu contraseña', it: 'Reimposta la tua password', ar: 'استعادة كلمة المرور' })}</h1>
+              <p>{tx(locale, { en: 'Enter your email and we will send you a link to reset your password.', es: 'Introduce tu correo y te enviaremos un enlace para restablecer tu contraseña.', it: 'Inserisci la tua email e ti invieremo un link per reimpostare la password.', ar: 'أدخل بريدك الإلكتروني وسنرسل لك رابطًا لإعادة تعيين كلمة المرور.' })}</p>
+              <form className="contact-form" onSubmit={handleSubmit}>
+                {error && <p className="co-error" role="alert"><CircleAlert size={15} />{error}</p>}
+                <label>
+                  {tx(locale, { en: 'Email address', es: 'Correo electrónico', it: 'Indirizzo email', ar: 'البريد الإلكتروني' })}
+                  <input
+                    required
+                    type="email"
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={submitting}
+                  />
+                </label>
+                <button className="primary-btn" type="submit" disabled={submitting}>
+                  {submitting
+                    ? tx(locale, { en: 'Sending…', es: 'Enviando…', it: 'Invio…', ar: 'جارٍ الإرسال…' })
+                    : tx(locale, { en: 'Send reset link', es: 'Enviar enlace de restablecimiento', it: 'Invia link di recupero', ar: 'إرسال رابط الاستعادة' })}
+                  <ArrowRight size={17} />
+                </button>
+              </form>
+              <p className="auth-switch">
+                {tx(locale, { en: 'Remember your password?', es: '¿Recuerdas tu contraseña?', it: 'Ti ricordi la password?', ar: 'تذكرت كلمة المرور؟' })}
+                <Link href="/login">{tx(locale, { en: 'Back to sign in', es: 'Volver a iniciar sesión', it: 'Torna all\'accesso', ar: 'العودة إلى تسجيل الدخول' })}</Link>
+              </p>
+            </>
+          )}
+        </div>
+      </main>
+    </SiteShell>
+  );
+}
+
+
+export function ResetPasswordPage() {
+  return (
+    <Suspense fallback={null}>
+      <ResetPasswordContent />
+    </Suspense>
+  );
+}
+
+function ResetPasswordContent() {
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState('');
+  const { locale } = useLocale();
+  const params = useSearchParams();
+  const token = params.get('token') || '';
+
+  const passwordError = password.length > 0
+    ? (password.length < 6 ? 'Password must be at least 6 characters.' : password.length > 8 ? 'Password must be at most 8 characters.' : null)
+    : null;
+  const matches = password.length > 0 && password === confirmPassword;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    if (passwordError || !matches) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ token, password, confirmPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Could not reset password. Please try again.');
+        return;
+      }
+      setSubmitted(true);
+    } catch {
+      setError('Could not reset password. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!token) {
+    return (
+      <SiteShell>
+        <main className="auth-page-centered">
+          <div className="auth-card">
+            <div className="auth-mobile-logo">
+              <Link href="/">
+                <span className="brand-copy"><strong>STAR PYRAMIDS</strong><small>SINCE 1970</small></span>
+              </Link>
+            </div>
+            <div className="form-success">
+              <CircleAlert size={34} style={{ color: 'var(--error)' }} />
+              <h2>{tx(locale, { en: 'Invalid link', es: 'Enlace no válido', it: 'Link non valido', ar: 'رابط غير صالح' })}</h2>
+              <p>{tx(locale, { en: 'This password reset link is missing or invalid. Please request a new one.', es: 'Este enlace de restablecimiento de contraseña falta o no es válido. Por favor solicita uno nuevo.', it: 'Questo link per il ripristino della password manca o non è valido. Richiedine uno nuovo.', ar: 'رابط إعادة تعيين كلمة المرور هذا مفقود أو غير صالح. يرجى طلب واحد جديد.' })}</p>
+              <p className="auth-switch"><Link href="/forgot-password">{tx(locale, { en: 'Request new link', es: 'Solicitar nuevo enlace', it: 'Richiedi nuovo link', ar: 'طلب رابط جديد' })}</Link></p>
+            </div>
+          </div>
+        </main>
+      </SiteShell>
+    );
+  }
+
+  if (submitted) {
+    return (
+      <SiteShell>
+        <main className="auth-page-centered">
+          <div className="auth-card">
+            <div className="auth-mobile-logo">
+              <Link href="/">
+                <span className="brand-copy"><strong>STAR PYRAMIDS</strong><small>SINCE 1970</small></span>
+              </Link>
+            </div>
+            <div className="form-success">
+              <Check size={34} />
+              <h2>{tx(locale, { en: 'Password updated', es: 'Contraseña actualizada', it: 'Password aggiornata', ar: 'تم تحديث كلمة المرور' })}</h2>
+              <p>{tx(locale, { en: 'Your password has been reset successfully.', es: 'Tu contraseña se ha restablecido correctamente.', it: 'La tua password è stata reimpostata con successo.', ar: 'تمت إعادة تعيين كلمة المرور بنجاح.' })}</p>
+              <p className="auth-switch"><Link href="/login">{tx(locale, { en: 'Sign in with new password', es: 'Iniciar sesión con nueva contraseña', it: 'Accedi con la nuova password', ar: 'تسجيل الدخول بكلمة المرور الجديدة' })}</Link></p>
+            </div>
+          </div>
+        </main>
+      </SiteShell>
+    );
+  }
+
+  return (
+    <SiteShell>
+      <main className="auth-page-centered">
+        <div className="auth-card">
+          <div className="auth-mobile-logo">
+            <Link href="/">
+              <span className="brand-copy"><strong>STAR PYRAMIDS</strong><small>SINCE 1970</small></span>
+            </Link>
+          </div>
+          <span className="eyebrow">{tx(locale, { en: 'Account recovery', es: 'Recuperación de la cuenta', it: 'Recupero account', ar: 'استعادة الحساب' })}</span>
+          <h1>{tx(locale, { en: 'Create new password', es: 'Crear nueva contraseña', it: 'Crea nuova password', ar: 'إنشاء كلمة مرور جديدة' })}</h1>
+          <p>{tx(locale, { en: 'Enter your new password below. It must be 6-8 characters.', es: 'Introduce tu nueva contraseña a continuación. Debe tener 6-8 caracteres.', it: 'Inserisci la tua nuova password qui sotto. Deve essere di 6-8 caratteri.', ar: 'أدخل كلمة المرور الجديدة أدناه. يجب أن تكون 6-8 أحرف.' })}</p>
+          <form className="contact-form" onSubmit={handleSubmit}>
+            {error && <p className="co-error" role="alert"><CircleAlert size={15} />{error}</p>}
+            <label>
+              {tx(locale, { en: 'New password', es: 'Contraseña nueva', it: 'Nuova password', ar: 'كلمة المرور الجديدة' })}
+              <span>
+                <input
+                  required
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  placeholder="Enter new password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={submitting}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword
+                    ? tx(locale, { en: 'Hide password', es: 'Ocultar contraseña', it: 'Nascondi password', ar: 'إخفاء كلمة المرور' })
+                    : tx(locale, { en: 'Show password', es: 'Mostrar contraseña', it: 'Mostra password', ar: 'إظهار كلمة المرور' })}
+                >
+                  {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                </button>
+              </span>
+              {passwordError && <span className="field-error" role="alert">{passwordError}</span>}
+            </label>
+            <label>
+              {tx(locale, { en: 'Confirm new password', es: 'Confirmar contraseña nueva', it: 'Conferma nuova password', ar: 'تأكيد كلمة المرور الجديدة' })}
+              <span>
+                <input
+                  required
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  placeholder="Confirm new password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  disabled={submitting}
+                />
+              </span>
+              {confirmPassword && !matches && <span className="field-error" role="alert">{tx(locale, { en: 'Passwords do not match.', es: 'Las contraseñas no coinciden.', it: 'Le password non coincidono.', ar: 'كلمتا المرور غير متطابقتين.' })}</span>}
+            </label>
+            <div className="customer-password-rules" aria-live="polite">
+              <span className={password.length >= 6 && password.length <= 8 ? 'valid' : ''}><Check size={14} />{tx(locale, { en: '6-8 characters', es: '6-8 caracteres', it: '6-8 caratteri', ar: '6-8 أحرف' })}</span>
+              <span className={matches ? 'valid' : ''}><Check size={14} />{tx(locale, { en: 'Passwords match', es: 'Las contraseñas coinciden', it: 'Le password coincidono', ar: 'كلمتا المرور متطابقتان' })}</span>
+            </div>
+            <button className="primary-btn" type="submit" disabled={submitting || Boolean(passwordError) || !matches}>
+              {submitting
+                ? tx(locale, { en: 'Updating…', es: 'Actualizando…', it: 'Aggiornando…', ar: 'جارٍ التحديث…' })
+                : tx(locale, { en: 'Update password', es: 'Actualizar contraseña', it: 'Aggiorna password', ar: 'تحديث كلمة المرور' })}
+              <ArrowRight size={17} />
+            </button>
+          </form>
+          <p className="auth-switch">
+            {tx(locale, { en: 'Remember your password?', es: '¿Recuerdas tu contraseña?', it: 'Ti ricordi la password?', ar: 'تذكرت كلمة المرور؟' })}
+            <Link href="/login">{tx(locale, { en: 'Back to sign in', es: 'Volver a iniciar sesión', it: 'Torna all\'accesso', ar: 'العودة إلى تسجيل الدخول' })}</Link>
+          </p>
+        </div>
+      </main>
+    </SiteShell>
+  );
+}
+
 
 export function AccountPage({ section = 'overview' }: { section?: string }) { const { locale } = useLocale(); const ar = locale === 'ar'; const nav=[[tx(locale, { en: 'Overview', es: 'Resumen', it: 'Panoramica', ar: 'نظرة عامة' }),'/account'],[tx(locale, { en: 'My bookings', es: 'Mis reservas', it: 'Le mie prenotazioni', ar: 'حجوزاتي' }),'/account/bookings'],[tx(locale, { en: 'Favorites', es: 'Favoritos', it: 'Preferiti', ar: 'المفضلة' }),'/account/favorites'],[tx(locale, { en: 'Profile settings', es: 'Ajustes del perfil', it: 'Impostazioni profilo', ar: 'إعدادات الحساب' }),'/account/profile']]; const activeKey=section==='overview'?(tx(locale, { en: 'Overview', es: 'Resumen', it: 'Panoramica', ar: 'نظرة عامة' })):section==='bookings'?(tx(locale, { en: 'My bookings', es: 'Mis reservas', it: 'Le mie prenotazioni', ar: 'حجوزاتي' })):section==='favorites'?(tx(locale, { en: 'Favorites', es: 'Favoritos', it: 'Preferiti', ar: 'المفضلة' })):(tx(locale, { en: 'Profile settings', es: 'Ajustes del perfil', it: 'Impostazioni profilo', ar: 'إعدادات الحساب' })); const heading=section === 'overview' ? (tx(locale, { en: 'Make space for your next adventure.', es: 'Haz hueco para tu próxima aventura.', it: 'Fai spazio alla tua prossima avventura.', ar: 'افسح مكانًا لمغامرتك القادمة.' })) : section === 'bookings' ? (tx(locale, { en: 'Your bookings', es: 'Tus reservas', it: 'Le tue prenotazioni', ar: 'حجوزاتك' })) : section === 'favorites' ? (tx(locale, { en: 'Saved journeys', es: 'Viajes guardados', it: 'Viaggi salvati', ar: 'الرحلات المحفوظة' })) : (tx(locale, { en: 'Profile settings', es: 'Ajustes del perfil', it: 'Impostazioni profilo', ar: 'إعدادات الحساب' })); return <SiteShell><main className="account-page container"><ImpersonationBanner /><aside className="account-nav"><span className="eyebrow">{tx(locale, { en: 'Your account', es: 'Tu cuenta', it: 'Il tuo account', ar: 'حسابك' })}</span><h1>{tx(locale, { en: 'Welcome back', es: 'Bienvenido de nuevo', it: 'Bentornato', ar: 'مرحبًا بعودتك' })}</h1>{nav.map(([label,href])=><Link className={activeKey===label?'active':''} key={href} href={href}>{label}<ArrowRight size={15}/></Link>)}<Link href="/">{tx(locale, { en: 'Sign out', es: 'Cerrar sesión', it: 'Esci', ar: 'تسجيل الخروج' })}</Link></aside><section className="account-content"><span className="eyebrow">{section === 'overview' ? (tx(locale, { en: 'Your travel desk', es: 'Tu mesa de viajes', it: 'Il tuo banco viaggi', ar: 'مكتب سفرك' })) : activeKey}</span><h2>{heading}</h2>{section==='overview'?<><div className="account-stats"><div><strong>0</strong><span>{tx(locale, { en: 'Upcoming trips', es: 'Próximos viajes', it: 'Prossimi viaggi', ar: 'رحلات قادمة' })}</span></div><div><strong>0</strong><span>{tx(locale, { en: 'Saved tours', es: 'Excursiones guardadas', it: 'Tour salvati', ar: 'رحلات محفوظة' })}</span></div><div><strong>1</strong><span>{tx(locale, { en: 'Open enquiry', es: 'Solicitud abierta', it: 'Richiesta aperta', ar: 'طلب مفتوح' })}</span></div></div><div className="account-empty"><h3>{tx(locale, { en: 'Your next chapter starts here.', es: 'Tu próximo capítulo empieza aquí.', it: 'Il tuo prossimo capitolo inizia qui.', ar: 'فصلك القادم يبدأ من هنا.' })}</h3><p>{tx(locale, { en: 'Explore our journeys and save the ones that make you curious.', es: 'Descubre nuestros viajes y guarda los que despierten tu curiosidad.', it: 'Esplora i nostri viaggi e salva quelli che accendono la tua curiosità.', ar: 'استكشف رحلاتنا واحفظ ما يثير فضولك.' })}</p><Link href="/egypt-tours/one-day-tours" className="primary-btn">{tx(locale, { en: 'Browse tours', es: 'Ver excursiones', it: 'Sfoglia i tour', ar: 'تصفح الرحلات' })}</Link></div></>:<div className="account-empty"><h3>{tx(locale, { en: 'Nothing here yet.', es: 'Nada por aquí todavía.', it: 'Niente qui per ora.', ar: 'لا يوجد شيء هنا بعد.' })}</h3><p>{tx(locale, { en: 'When you are ready, your STAR PYRAMIDS travel details will appear in this space.', es: 'Cuando estés listo, los detalles de tu viaje STAR PYRAMIDS aparecerán en este espacio.', it: 'Quando sarai pronto, i dettagli del tuo viaggio STAR PYRAMIDS appariranno in questo spazio.', ar: 'عندما تكون جاهزًا، ستظهر تفاصيل سفرك هنا.' })}</p><Link href="/make-your-trip" className="primary-btn">{tx(locale, { en: 'Start planning', es: 'Empieza a planificar', it: 'Inizia a pianificare', ar: 'ابدأ التخطيط' })}</Link></div>}</section></main></SiteShell> }
