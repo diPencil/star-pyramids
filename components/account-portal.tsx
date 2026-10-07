@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import {
   ArrowRight, ArrowLeft, Ban, Bell, CalendarDays, CarFront, Check, CheckCircle2, ChevronDown, ChevronRight, Compass,
-  CircleDollarSign, Clock3, CreditCard, ExternalLink, Globe2, Heart, HelpCircle,
+  CircleAlert, CircleDollarSign, Clock3, CreditCard, ExternalLink, Globe2, Heart, HelpCircle,
   CheckCheck, Download, Eye, EyeOff, FileText, FlaskConical, ImagePlus, KeyRound, Laptop, LayoutDashboard, LockKeyhole, LogOut, Mail, Menu,
   MessageCircle, PackageCheck, Pencil, Plus, ReceiptText, Search, Send,
   Settings2, ShieldCheck, ShoppingBag, ShoppingCart, Star, Ticket, Trash2, UserRound,
@@ -1646,31 +1646,56 @@ function ChangePasswordSection() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showCurrent, setShowCurrent] = useState(false)
   const [showNew, setShowNew] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [error, setError] = useState('')
+
+  const passwordError = newPassword.length > 0
+    ? (newPassword.length < 6 ? 'Password must be at least 6 characters.' : newPassword.length > 8 ? 'Password must be at most 8 characters.' : null)
+    : null;
   const matches = newPassword.length > 0 && newPassword === confirmPassword
-  const strongEnough = newPassword.length >= 8 && /[A-Z]/.test(newPassword) && /[0-9]/.test(newPassword)
-  const canSubmit = currentPassword.length > 0 && matches && strongEnough
-  const submit = (event: FormEvent) => {
+  const canSubmit = currentPassword.length > 0 && matches && !passwordError
+
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
-    if (canSubmit) setSubmitted(true)
+    if (!canSubmit) return
+    setError('')
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/auth/change-password', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error || 'Could not change password. Please try again.')
+        return
+      }
+      setSubmitted(true)
+    } catch {
+      setError('Could not change password. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return <div className="customer-password-layout">
-    <form className="customer-account-block customer-password-card" onSubmit={submit}>
-      <header><div><span>{tx(locale, { en: 'Access & security', es: 'Acceso y seguridad', it: 'Accesso e sicurezza', ar: 'الدخول والأمان' })}</span><h2>{tx(locale, { en: 'Create a new password', es: 'Crea una contraseña nueva', it: 'Crea una nuova password', ar: 'أنشئ كلمة مرور جديدة' })}</h2></div><LockKeyhole size={19} /></header>
+    <form className="customer-account-block customer-password-card" onSubmit={handleSubmit}>
+      <header><div><span>{tx(locale, { en: 'Access & security', es: 'Acceso y seguridad', it: 'Accesso e sicurezza', ar: 'الدخول والأمان' })}</span><h2>{tx(locale, { en: 'Change your password', es: 'Cambia tu contraseña', it: 'Cambia la tua password', ar: 'غيّر كلمة المرور' })}</h2></div><LockKeyhole size={19} /></header>
       <div className="customer-password-fields">
-        <label>{tx(locale, { en: 'Current password', es: 'Contraseña actual', it: 'Password attuale', ar: 'كلمة المرور الحالية' })}<span><input required type={showCurrent ? 'text' : 'password'} autoComplete="current-password" value={currentPassword} onChange={(event) => { setCurrentPassword(event.target.value); setSubmitted(false) }} /><button type="button" onClick={() => setShowCurrent((visible) => !visible)} aria-label={showCurrent ? (tx(locale, { en: 'Hide password', es: 'Ocultar la contraseña', it: 'Nascondi password', ar: 'إخفاء كلمة المرور' })) : (tx(locale, { en: 'Show password', es: 'Mostrar la contraseña', it: 'Mostra password', ar: 'إظهار كلمة المرور' }))}>{showCurrent ? <EyeOff size={17} /> : <Eye size={17} />}</button></span></label>
-        <label>{tx(locale, { en: 'New password', es: 'Contraseña nueva', it: 'Nuova password', ar: 'كلمة المرور الجديدة' })}<span><input required type={showNew ? 'text' : 'password'} autoComplete="new-password" value={newPassword} onChange={(event) => { setNewPassword(event.target.value); setSubmitted(false) }} /><button type="button" onClick={() => setShowNew((visible) => !visible)} aria-label={showNew ? (tx(locale, { en: 'Hide password', es: 'Ocultar la contraseña', it: 'Nascondi password', ar: 'إخفاء كلمة المرور' })) : (tx(locale, { en: 'Show password', es: 'Mostrar la contraseña', it: 'Mostra password', ar: 'إظهار كلمة المرور' }))}>{showNew ? <EyeOff size={17} /> : <Eye size={17} />}</button></span></label>
-        <label>{tx(locale, { en: 'Confirm new password', es: 'Confirma la contraseña nueva', it: 'Conferma la nuova password', ar: 'تأكيد كلمة المرور الجديدة' })}<span><input required type={showNew ? 'text' : 'password'} autoComplete="new-password" value={confirmPassword} onChange={(event) => { setConfirmPassword(event.target.value); setSubmitted(false) }} /></span></label>
+        <label>{tx(locale, { en: 'Current password', es: 'Contraseña actual', it: 'Password attuale', ar: 'كلمة المرور الحالية' })}<span><input required type={showCurrent ? 'text' : 'password'} autoComplete="current-password" value={currentPassword} onChange={(event) => { setCurrentPassword(event.target.value); setSubmitted(false); setError('') }} disabled={submitting} /><button type="button" onClick={() => setShowCurrent((visible) => !visible)} aria-label={showCurrent ? (tx(locale, { en: 'Hide password', es: 'Ocultar la contraseña', it: 'Nascondi password', ar: 'إخفاء كلمة المرور' })) : (tx(locale, { en: 'Show password', es: 'Mostrar la contraseña', it: 'Mostra password', ar: 'إظهار كلمة المرور' }))}>{showCurrent ? <EyeOff size={17} /> : <Eye size={17} />}</button></span></label>
+        <label>{tx(locale, { en: 'New password', es: 'Contraseña nueva', it: 'Nuova password', ar: 'كلمة المرور الجديدة' })}<span><input required type={showNew ? 'text' : 'password'} autoComplete="new-password" value={newPassword} onChange={(event) => { setNewPassword(event.target.value); setSubmitted(false); setError('') }} disabled={submitting} /><button type="button" onClick={() => setShowNew((visible) => !visible)} aria-label={showNew ? (tx(locale, { en: 'Hide password', es: 'Ocultar la contraseña', it: 'Nascondi password', ar: 'إخفاء كلمة المرور' })) : (tx(locale, { en: 'Show password', es: 'Mostrar la contraseña', it: 'Mostra password', ar: 'إظهار كلمة المرور' }))}>{showNew ? <EyeOff size={17} /> : <Eye size={17} />}</button></span>{passwordError && <span className="field-error" role="alert">{passwordError}</span>}</label>
+        <label>{tx(locale, { en: 'Confirm new password', es: 'Confirma la contraseña nueva', it: 'Conferma la nuova password', ar: 'تأكيد كلمة المرور الجديدة' })}<span><input required type={showNew ? 'text' : 'password'} autoComplete="new-password" value={confirmPassword} onChange={(event) => { setConfirmPassword(event.target.value); setSubmitted(false); setError('') }} disabled={submitting} /></span>{confirmPassword && !matches && <span className="field-error" role="alert">{tx(locale, { en: 'Passwords do not match.', es: 'Las contraseñas no coinciden.', it: 'Le password non coincidono.', ar: 'كلمتا المرور غير متطابقتين.' })}</span>}</label>
       </div>
       <div className="customer-password-rules" aria-live="polite">
-        <span className={newPassword.length >= 8 ? 'valid' : ''}><Check size={14} />{tx(locale, { en: 'At least 8 characters', es: 'Al menos 8 caracteres', it: 'Almeno 8 caratteri', ar: '8 أحرف على الأقل' })}</span>
-        <span className={/[A-Z]/.test(newPassword) ? 'valid' : ''}><Check size={14} />{tx(locale, { en: 'One uppercase letter', es: 'Una mayúscula', it: 'Una lettera maiuscola', ar: 'حرف إنجليزي كبير' })}</span>
-        <span className={/[0-9]/.test(newPassword) ? 'valid' : ''}><Check size={14} />{tx(locale, { en: 'One number', es: 'Al menos un número', it: 'Almeno un numero', ar: 'رقم واحد على الأقل' })}</span>
+        <span className={newPassword.length >= 6 && newPassword.length <= 8 ? 'valid' : ''}><Check size={14} />{tx(locale, { en: '6-8 characters', es: '6-8 caracteres', it: '6-8 caratteri', ar: '6-8 أحرف' })}</span>
         <span className={matches ? 'valid' : ''}><Check size={14} />{tx(locale, { en: 'Passwords match', es: 'Las contraseñas coinciden', it: 'Le password coincidono', ar: 'كلمتا المرور متطابقتان' })}</span>
       </div>
-      {submitted && <div className="customer-password-ready"><CheckCircle2 size={17} /><div><strong>{tx(locale, { en: 'Password change is ready', es: 'El cambio de contraseña está listo', it: 'Modifica password pronta', ar: 'النموذج جاهز' })}</strong><small>{tx(locale, { en: 'The actual update will work after backend verification is connected.', es: 'La actualización real funcionará cuando se conecte la verificación del backend.', it: 'L’aggiornamento effettivo sarà attivo dopo il collegamento della verifica di backend.', ar: 'سيتم تنفيذ التغيير الفعلي بعد ربط التحقق بالباك.' })}</small></div></div>}
-      <div className="customer-password-actions"><Link href="/account/settings">{tx(locale, { en: 'Back to settings', es: 'Volver a los ajustes', it: 'Torna alle impostazioni', ar: 'العودة للإعدادات' })}</Link><button type="submit" disabled={!canSubmit}>{tx(locale, { en: 'Update password', es: 'Actualizar la contraseña', it: 'Aggiorna password', ar: 'تحديث كلمة المرور' })}</button></div>
+      {error && <p className="co-error" role="alert"><CircleAlert size={15} />{error}</p>}
+      {submitted && <div className="customer-password-ready"><CheckCircle2 size={17} /><div><strong>{tx(locale, { en: 'Password changed successfully', es: 'Contraseña cambiada correctamente', it: 'Password modificata con successo', ar: 'تم تغيير كلمة المرور بنجاح' })}</strong><small>{tx(locale, { en: 'Your password has been updated. Other sessions have been signed out for security.', es: 'Tu contraseña se ha actualizado. Otras sesiones se han cerrado por seguridad.', it: 'La tua password è stata aggiornata. Altre sessioni sono state disconnesse per sicurezza.', ar: 'تم تحديث كلمة المرور. تم تسجيل الخروج من الجلسات الأخرى لأسباب أمنية.' })}</small></div></div>}
+      <div className="customer-password-actions"><Link href="/account/settings">{tx(locale, { en: 'Back to settings', es: 'Volver a los ajustes', it: 'Torna alle impostazioni', ar: 'العودة للإعدادات' })}</Link><button type="submit" disabled={submitting || !canSubmit}>{submitting ? tx(locale, { en: 'Updating…', es: 'Actualizando…', it: 'Aggiornando…', ar: 'جارٍ التحديث…' }) : tx(locale, { en: 'Update password', es: 'Actualizar la contraseña', it: 'Aggiorna password', ar: 'تحديث كلمة المرور' })}</button></div>
     </form>
     <aside className="customer-account-block customer-password-help"><span><ShieldCheck size={20} /></span><h2>{tx(locale, { en: 'Keep your account secure', es: 'Mantén segura tu cuenta', it: 'Mantieni sicuro il tuo account', ar: 'حافظ على أمان حسابك' })}</h2><p>{tx(locale, { en: 'Use a password you do not use elsewhere and never share it with anyone.', es: 'Usa una contraseña que no utilices en ningún otro sitio y no la compartas con nadie.', it: 'Usa una password che non usi altrove e non condividerla mai.', ar: 'استخدم كلمة مرور لا تستخدمها في أي حساب آخر، ولا تشاركها مع أي شخص.' })}</p><small>{tx(locale, { en: 'STAR PYRAMIDS staff will never ask for your password.', es: 'El equipo de STAR PYRAMIDS nunca te pedirá tu contraseña.', it: 'Lo staff di STAR PYRAMIDS non ti chiederà mai la password.', ar: 'لن يطلب فريق STAR PYRAMIDS كلمة مرورك.' })}</small></aside>
   </div>

@@ -137,6 +137,9 @@ function LoginForm() {
             <input required name="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" placeholder={tx(locale, { en: '6-8 characters', es: '6-8 caracteres', it: '6-8 caratteri', ar: '٦-٨ أحرف' })} value={password} onChange={(e) => setPassword(e.target.value)} />
             <button type="button" onClick={() => setShowPassword((v) => !v)} aria-label={showPassword ? tx(locale, { en: 'Hide password', es: 'Ocultar contraseña', it: 'Nascondi password', ar: 'إخفاء كلمة المرور' }) : tx(locale, { en: 'Show password', es: 'Mostrar contraseña', it: 'Mostra password', ar: 'إظهار كلمة المرور' })}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
           </AuthField>
+          <p className="auth-v2-switch">
+            <Link href="/forgot-password">{tx(locale, { en: 'Forgot password?', es: '¿Olvidó su contraseña?', it: 'Hai dimenticato la password?', ar: 'نسيت كلمة المرور؟' })}</Link>
+          </p>
           <button className="auth-v2-primary" type="submit" disabled={loading}>{loading ? tx(locale, { en: 'Signing in...', es: 'Iniciando sesión...', it: 'Accesso in corso...', ar: 'جارٍ تسجيل الدخول...' }) : tx(locale, { en: 'Sign in', es: 'Iniciar sesión', it: 'Accedi', ar: 'تسجيل الدخول' })} <ArrowRight size={18} /></button>
         </form>
         <p className="auth-v2-switch">{tx(locale, { en: 'New to Star Pyramids? ', es: '¿Nuevo en Star Pyramids? ', it: 'Nuovo su Star Pyramids? ', ar: 'جديد على STAR PYRAMIDS؟ ' })}<Link href="/register">{tx(locale, { en: 'Create an account', es: 'Crea una cuenta', it: 'Crea un account', ar: 'أنشئ حسابك' })}</Link></p>
