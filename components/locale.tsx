@@ -9,6 +9,7 @@ import {
   type EnabledLocale,
   type Locale,
 } from '@/lib/locale-config'
+import { ensureStorefrontSettings, getDbCurrency, getDbLocalization } from '@/lib/storefront-settings'
 
 export type { Locale }
 export type Currency = 'USD' | 'EUR' | 'EGP'
@@ -36,8 +37,6 @@ export type CurrencySettings = {
   updatedAt: string
 }
 
-const CURRENCY_KEY = 'sp-currency-settings-v1'
-
 export const defaultCurrencySettings: CurrencySettings = {
   eur: defaultRates.EUR,
   egp: defaultRates.EGP,
@@ -46,29 +45,14 @@ export const defaultCurrencySettings: CurrencySettings = {
 }
 
 export function readCurrencySettings(): CurrencySettings {
-  if (typeof window === 'undefined') return defaultCurrencySettings
-  try {
-    const raw = window.localStorage.getItem(CURRENCY_KEY)
-    if (!raw) return defaultCurrencySettings
-    const parsed = JSON.parse(raw) as Partial<CurrencySettings>
-    return {
-      eur: typeof parsed.eur === 'number' && parsed.eur > 0 ? parsed.eur : defaultRates.EUR,
-      egp: typeof parsed.egp === 'number' && parsed.egp > 0 ? parsed.egp : defaultRates.EGP,
-      defaultCurrency: parsed.defaultCurrency === 'EUR' || parsed.defaultCurrency === 'EGP' ? parsed.defaultCurrency : 'USD',
-      updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : '',
-    }
-  } catch {
-    return defaultCurrencySettings
-  }
-}
-
-export function saveCurrencySettings(patch: Partial<CurrencySettings>) {
-  try {
-    const next = { ...readCurrencySettings(), ...patch, updatedAt: new Date().toISOString() }
-    window.localStorage.setItem(CURRENCY_KEY, JSON.stringify(next))
-    window.dispatchEvent(new Event('sp-currency'))
-  } catch {
-    // Rates kept in memory only for this session.
+  // Database is the source of truth (fetched once per page load);
+  // built-in defaults render until it arrives. No localStorage mirror.
+  const db = getDbCurrency()
+  return {
+    eur: db?.eur && db.eur > 0 ? db.eur : defaultRates.EUR,
+    egp: db?.egp && db.egp > 0 ? db.egp : defaultRates.EGP,
+    defaultCurrency: db?.defaultCurrency ?? 'USD',
+    updatedAt: '',
   }
 }
 
@@ -81,8 +65,6 @@ export type LocalizationSettings = {
   defaultLanguage: EnabledLocale
   timezone: string
 }
-
-const L10N_KEY = 'sp-localization-settings-v1'
 
 export const defaultLocalizationSettings: LocalizationSettings = {
   defaultLanguage: DEFAULT_LOCALE,
@@ -102,26 +84,14 @@ function isValidTimezone(tz: string): boolean {
 }
 
 export function readLocalizationSettings(): LocalizationSettings {
-  if (typeof window === 'undefined') return defaultLocalizationSettings
-  try {
-    const raw = window.localStorage.getItem(L10N_KEY)
-    if (!raw) return defaultLocalizationSettings
-    const parsed = JSON.parse(raw) as Partial<LocalizationSettings>
-    return {
-      defaultLanguage: sanitizeLocale(parsed.defaultLanguage),
-      timezone: typeof parsed.timezone === 'string' && isValidTimezone(parsed.timezone) ? parsed.timezone : defaultLocalizationSettings.timezone,
-    }
-  } catch {
-    return defaultLocalizationSettings
-  }
-}
-
-export function saveLocalizationSettings(patch: Partial<LocalizationSettings>) {
-  try {
-    window.localStorage.setItem(L10N_KEY, JSON.stringify({ ...readLocalizationSettings(), ...patch }))
-    window.dispatchEvent(new Event('sp-l10n'))
-  } catch {
-    // Localization kept in memory only for this session.
+  // Database is the source of truth; built-in defaults render until it
+  // arrives. Visitor-chosen values stay in star-locale (untouched here).
+  const db = getDbLocalization()
+  return {
+    defaultLanguage: db?.defaultLanguage
+      ? sanitizeLocale(db.defaultLanguage)
+      : defaultLocalizationSettings.defaultLanguage,
+    timezone: db?.timezone ?? defaultLocalizationSettings.timezone,
   }
 }
 
@@ -152,6 +122,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   const [currency, setCurrencyState] = useState<Currency>('USD')
   const [, setRatesVersion] = useState(0)
   useEffect(() => {
+    ensureStorefrontSettings()
     const applyPersistedPreferences = () => {
       const savedLocale = window.localStorage.getItem('star-locale')
       const initialLocale = savedLocale
@@ -172,9 +143,11 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     const idleId = window.requestIdleCallback(applyPersistedPreferences)
     const onRates = () => setRatesVersion((v) => v + 1)
     window.addEventListener('sp-currency', onRates)
+    window.addEventListener('sp-l10n', onRates)
     return () => {
       window.cancelIdleCallback(idleId)
       window.removeEventListener('sp-currency', onRates)
+      window.removeEventListener('sp-l10n', onRates)
     }
   }, [])
   useEffect(() => {

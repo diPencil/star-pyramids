@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { COMPANY_ADDRESS, COMPANY_EMAIL, COMPANY_MAP_URL, COMPANY_PHONE_DISPLAY } from '@/data/company'
+import { ensureStorefrontSettings, getDbBrand, getDbSocial } from './storefront-settings'
 
 export type OverrideCollection = 'customers'
 
@@ -310,8 +311,6 @@ export type BrandSettings = {
   copyrightAr: string
 }
 
-const BRAND_KEY = 'sp-brand-settings-v1'
-
 export const defaultBrandSettings: BrandSettings = {
   companyName: 'Star Pyramids Tours',
   logo: '/logo.png',
@@ -328,29 +327,15 @@ export const defaultBrandSettings: BrandSettings = {
 }
 
 export function readBrandSettings(): BrandSettings {
-  if (typeof window === 'undefined') return defaultBrandSettings
-  try {
-    const raw = window.localStorage.getItem(BRAND_KEY)
-    if (!raw) return defaultBrandSettings
-    const parsed = JSON.parse(raw) as Partial<BrandSettings>
-    return { ...defaultBrandSettings, ...parsed }
-  } catch {
-    return defaultBrandSettings
-  }
-}
-
-export function saveBrandSettings(patch: Partial<BrandSettings>) {
-  try {
-    window.localStorage.setItem(BRAND_KEY, JSON.stringify({ ...readBrandSettings(), ...patch }))
-    window.dispatchEvent(new Event('sp-brand'))
-  } catch {
-    // Brand kept in memory only for this session.
-  }
+  // Database is the source of truth (fetched once per page load);
+  // built-in defaults render until it arrives. No localStorage mirror.
+  return { ...defaultBrandSettings, ...(getDbBrand() ?? {}) }
 }
 
 export function useBrandSettings(): BrandSettings {
   const [brand, setBrand] = useState<BrandSettings>(defaultBrandSettings)
   useEffect(() => {
+    ensureStorefrontSettings()
     const sync = () => setBrand(readBrandSettings())
     sync()
     window.addEventListener('sp-brand', sync)
@@ -385,8 +370,6 @@ export const SOCIAL_NETWORKS: { id: SocialNetwork; label: string }[] = [
   { id: 'pinterest', label: 'Pinterest' },
 ]
 
-const SOCIAL_KEY = 'sp-social-links-v1'
-
 export const defaultSocialLinks: SocialLink[] = [
   { id: 'soc-facebook', network: 'facebook', url: 'https://www.facebook.com/', header: true, footer: true },
   { id: 'soc-instagram', network: 'instagram', url: 'https://www.instagram.com/', header: true, footer: true },
@@ -395,36 +378,14 @@ export const defaultSocialLinks: SocialLink[] = [
 ]
 
 export function readSocialLinks(): SocialLink[] {
-  if (typeof window === 'undefined') return defaultSocialLinks
-  try {
-    const raw = window.localStorage.getItem(SOCIAL_KEY)
-    if (!raw) return defaultSocialLinks
-    const parsed: unknown = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return defaultSocialLinks
-    const valid = parsed.filter(
-      (entry): entry is SocialLink =>
-        typeof entry === 'object' && entry !== null &&
-        typeof (entry as SocialLink).id === 'string' &&
-        typeof (entry as SocialLink).url === 'string'
-    )
-    return valid.length ? valid : defaultSocialLinks
-  } catch {
-    return defaultSocialLinks
-  }
-}
-
-export function saveSocialLinks(links: SocialLink[]) {
-  try {
-    window.localStorage.setItem(SOCIAL_KEY, JSON.stringify(links))
-    window.dispatchEvent(new Event('sp-social'))
-  } catch {
-    // Social links kept in memory only for this session.
-  }
+  // Database is the source of truth; built-in defaults render until it arrives.
+  return getDbSocial() ?? defaultSocialLinks
 }
 
 export function useSocialLinks(): SocialLink[] {
   const [links, setLinks] = useState<SocialLink[]>(defaultSocialLinks)
   useEffect(() => {
+    ensureStorefrontSettings()
     const sync = () => setLinks(readSocialLinks())
     sync()
     window.addEventListener('sp-social', sync)

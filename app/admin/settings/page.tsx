@@ -7,8 +7,8 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { cn } from '@/lib/utils'
-import { defaultCurrencySettings, defaultLocalizationSettings, saveCurrencySettings, saveLocalizationSettings } from '@/components/locale'
-import { defaultBrandSettings, defaultSocialLinks, saveBrandSettings, saveSocialLinks, SOCIAL_NETWORKS, type SocialLink } from '@/lib/admin-store'
+import { defaultCurrencySettings, defaultLocalizationSettings } from '@/components/locale'
+import { defaultBrandSettings, defaultSocialLinks, SOCIAL_NETWORKS, type SocialLink } from '@/lib/admin-store'
 import { FacebookIcon, GoogleIcon } from '@/components/brand-icons'
 import { ImageField } from '@/components/admin/image-field'
 import { SharedSelect } from '@/components/shared-select'
@@ -176,7 +176,6 @@ function LocalizationTab({ snapshot, canWrite, onSaved }: TabShell) {
         'app.defaultLocale': t.form.defaultLanguage,
         'app.timezone': t.form.timezone,
       })
-      saveLocalizationSettings({ defaultLanguage: t.form.defaultLanguage, timezone: t.form.timezone })
       onSaved(next)
       t.setSaved(ar ? 'تم الحفظ بنجاح.' : 'Saved successfully.')
     } catch (e) {
@@ -240,7 +239,6 @@ function SocialTab({ snapshot, canWrite, onSaved }: TabShell) {
     try {
       const clean = links.filter((link) => link.url.trim())
       const next = await patchSettings({ 'social.links': JSON.stringify(clean) })
-      saveSocialLinks(clean)
       onSaved(next)
       t.setSaved(ar ? 'تم الحفظ بنجاح.' : 'Saved successfully.')
     } catch (e) {
@@ -304,13 +302,6 @@ function GeneralTab({ snapshot, canWrite, onSaved }: TabShell) {
         'site.aboutEn': t.form.aboutEn.trim(),
         'site.aboutAr': t.form.aboutAr.trim(),
       })
-      saveBrandSettings({
-        companyName: t.form.companyName.trim() || defaultBrandSettings.companyName,
-        logo: t.form.logo.trim() || defaultBrandSettings.logo,
-        favicon: t.form.favicon.trim() || defaultBrandSettings.favicon,
-        aboutEn: t.form.aboutEn.trim(),
-        aboutAr: t.form.aboutAr.trim(),
-      })
       onSaved(next)
       t.setSaved(ar ? 'تم الحفظ بنجاح.' : 'Saved successfully.')
     } catch (e) {
@@ -369,15 +360,6 @@ function ContactTab({ snapshot, canWrite, onSaved }: TabShell) {
         'contact.copyrightAr': t.form.copyrightAr.trim(),
       }
       const next = await patchSettings(values)
-      saveBrandSettings({
-        phone: values['contact.phone'],
-        whatsapp: values['contact.whatsapp'],
-        email: values['contact.email'],
-        address: values['contact.address'],
-        mapUrl: values['contact.mapUrl'],
-        copyrightEn: values['contact.copyrightEn'],
-        copyrightAr: values['contact.copyrightAr'],
-      })
       onSaved(next)
       t.setSaved(ar ? 'تم الحفظ بنجاح.' : 'Saved successfully.')
     } catch (e) {
@@ -430,7 +412,6 @@ function CurrencyTab({ snapshot, canWrite, onSaved }: TabShell) {
         { 'app.defaultCurrency': t.form.defaultCurrency },
         { eur: t.form.eur.trim(), egp: t.form.egp.trim() },
       )
-      saveCurrencySettings({ eur: eurNum, egp: egpNum, defaultCurrency: t.form.defaultCurrency })
       onSaved(next)
       t.setSaved(ar ? 'تم الحفظ بنجاح.' : 'Saved successfully.')
     } catch (e) {
@@ -449,7 +430,6 @@ function CurrencyTab({ snapshot, canWrite, onSaved }: TabShell) {
         { 'app.defaultCurrency': defaultCurrencySettings.defaultCurrency },
         { eur: String(defaultCurrencySettings.eur), egp: String(defaultCurrencySettings.egp) },
       )
-      saveCurrencySettings({ eur: defaultCurrencySettings.eur, egp: defaultCurrencySettings.egp, defaultCurrency: defaultCurrencySettings.defaultCurrency })
       onSaved(next)
       t.setSaved(ar ? 'تم الحفظ بنجاح.' : 'Saved successfully.')
     } catch (e) {
@@ -891,7 +871,7 @@ function OAuthTab({ provider, snapshot, canWrite, onSaved }: TabShell & { provid
 export default function SettingsPage() {
   const ar = useAdminLocale() === 'ar'
   const { user } = useCurrentUser()
-  const canWrite = user !== null && (user.roles.includes('SUPER_ADMIN') || user.roles.includes('ADMIN'))
+  const canWrite = (user?.permissions ?? []).includes('settings.edit')
   const [tab, setTab] = useState<(typeof tabs)[number]['id']>('whatsapp')
   const [snapshot, setSnapshot] = useState<SettingsSnapshot | null>(null)
   const [loading, setLoading] = useState(true)

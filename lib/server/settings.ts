@@ -667,3 +667,97 @@ export async function getPublicSettings(): Promise<Record<string, string>> {
   });
   return Object.fromEntries(rows.map((r) => [r.key, r.value]));
 }
+
+/** Safe storefront shape: brand/contact/social/defaults/rates only. Never secrets. */
+export interface StorefrontSettings {
+  brand: {
+    companyName: string;
+    logo: string;
+    favicon: string;
+    aboutEn: string;
+    aboutAr: string;
+  };
+  contact: {
+    phone: string;
+    whatsapp: string;
+    email: string;
+    address: string;
+    mapUrl: string;
+    copyrightEn: string;
+    copyrightAr: string;
+  };
+  social: Array<{
+    id: string;
+    network: string;
+    url: string;
+    header: boolean;
+    footer: boolean;
+  }>;
+  localization: { defaultLanguage: string; timezone: string };
+  currency: { defaultCurrency: string };
+  rates: { eur: string; egp: string };
+  seo: { title: string };
+  promo: { text: string };
+}
+
+const nonEmpty = (value: unknown): string =>
+  typeof value === 'string' && value.trim() ? value.trim() : '';
+
+/**
+ * Public storefront snapshot. Only non-secret configuration leaves the
+ * server — keys, tokens, hosts and credentials are never included.
+ * Missing rows yield empty strings; the frontend falls back to its
+ * built-in defaults, so an unconfigured shop still renders.
+ */
+export async function getStorefrontSettings(): Promise<StorefrontSettings> {
+  const snapshot = await getAdminSettings();
+  const v = snapshot.values;
+  let social: StorefrontSettings['social'] = [];
+  try {
+    const parsed: unknown = JSON.parse(v['social.links'] || '[]');
+    if (Array.isArray(parsed)) {
+      social = parsed
+        .filter(
+          (entry): entry is Record<string, unknown> =>
+            typeof entry === 'object' && entry !== null,
+        )
+        .map((entry) => ({
+          id: String(entry.id ?? ''),
+          network: String(entry.network ?? ''),
+          url: String(entry.url ?? ''),
+          header: entry.header === true,
+          footer: entry.footer === true,
+        }))
+        .filter((entry) => entry.id && entry.network && entry.url);
+    }
+  } catch {
+    social = [];
+  }
+  return {
+    brand: {
+      companyName: nonEmpty(v['site.name']),
+      logo: nonEmpty(v['site.logo']),
+      favicon: nonEmpty(v['site.favicon']),
+      aboutEn: nonEmpty(v['site.aboutEn']),
+      aboutAr: nonEmpty(v['site.aboutAr']),
+    },
+    contact: {
+      phone: nonEmpty(v['contact.phone']),
+      whatsapp: nonEmpty(v['contact.whatsapp']),
+      email: nonEmpty(v['contact.email']),
+      address: nonEmpty(v['contact.address']),
+      mapUrl: nonEmpty(v['contact.mapUrl']),
+      copyrightEn: nonEmpty(v['contact.copyrightEn']),
+      copyrightAr: nonEmpty(v['contact.copyrightAr']),
+    },
+    social,
+    localization: {
+      defaultLanguage: nonEmpty(v['app.defaultLocale']),
+      timezone: nonEmpty(v['app.timezone']),
+    },
+    currency: { defaultCurrency: nonEmpty(v['app.defaultCurrency']) },
+    rates: snapshot.rates,
+    seo: { title: nonEmpty(v['site.seoTitle']) },
+    promo: { text: nonEmpty(v['site.promoText']) },
+  };
+}
