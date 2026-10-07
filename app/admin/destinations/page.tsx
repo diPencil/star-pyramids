@@ -8,14 +8,17 @@ import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableT
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
-import { destinations } from '@/data/content'
-import { useDbDestinations } from '@/lib/catalogue-client'
+import { useDbDestinationsStatus } from '@/lib/catalogue-client'
 
 export default function DestinationsPage() {
   const ar = useAdminLocale() === 'ar'
   const [query, setQuery] = useState('')
   const [removeError, setRemoveError] = useState('')
-  const liveDestinations = useDbDestinations(destinations)
+  // DB-authoritative catalogue with no static fallback: while the API is
+  // loading or failing, the screen shows loading/error — never bootstrap
+  // rows masquerading as database records.
+  const { data, loading, error, retry } = useDbDestinationsStatus()
+  const liveDestinations = data ?? []
   const removeDestination = async (slug: string) => {
     setRemoveError('')
     try {
@@ -59,7 +62,9 @@ export default function DestinationsPage() {
     <Card title={<AdminText en="All destinations" ar="كل الوجهات" />} sub={<AdminText en={`${rows.length} of ${liveDestinations.length} shown`} ar={`عرض ${rows.length} من ${liveDestinations.length}`} />}>
       <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث في الوجهات...' : 'Search destinations...'} />
       {removeError ? <p role="alert" style={{ color: '#b91c1c', margin: '8px 0 0' }}>{removeError}</p> : null}
-      {rows.length ? <AdminTableWrap><table className="sp-table">
+      {loading ? <AdminEmpty title={<AdminText en="Loading destinations…" ar="جارٍ تحميل الوجهات…" />} copy={<AdminText en="Reading the authoritative catalogue." ar="تتم قراءة السجل المعتمد." />} />
+      : error ? <><AdminEmpty title={<AdminText en="Could not load destinations" ar="تعذر تحميل الوجهات" />} copy={<AdminText en={error} ar={error} />} /><div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}><button type="button" className="sp-btn" onClick={retry}><AdminText en="Retry" ar="إعادة المحاولة" /></button></div></>
+      : rows.length ? <AdminTableWrap><table className="sp-table">
         <thead><tr><th className="sp-row-number">#</th><SortableTh label={<AdminText en="Destination" ar="الوجهة" />} column="destination" {...destinationSort} onSort={destinationSort.sortBy} /><SortableTh label={<AdminText en="Experiences" ar="التجارب" />} column="experiences" {...destinationSort} onSort={destinationSort.sortBy} /><SortableTh label={<AdminText en="Linked tours" ar="الرحلات المرتبطة" />} column="tours" {...destinationSort} onSort={destinationSort.sortBy} /><SortableTh label={<AdminText en="One Day Tours" ar="رحلات اليوم الواحد" />} column="oneday" {...destinationSort} onSort={destinationSort.sortBy} /><SortableTh label={<AdminText en="Status" ar="الحالة" />} column="status" {...destinationSort} onSort={destinationSort.sortBy} /><th></th></tr></thead>
         <tbody>{paging.pageRows.map((d, index) => <tr key={d.slug}>
           <td className="sp-row-number">{paging.from + index}</td>

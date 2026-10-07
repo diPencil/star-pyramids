@@ -10,8 +10,7 @@ import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-so
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
 import { SharedSelect } from '@/components/shared-select'
-import { events } from '@/data/content'
-import { invalidateEventsCarsCache, useDbEvents } from '@/lib/events-cars-client'
+import { invalidateEventsCarsCache, useDbEventsStatus } from '@/lib/events-cars-client'
 import { getEventStatus, isEventPublished } from '@/lib/events'
 import { requestsForEventSlug, type StaffEventRequest } from '@/lib/event-request'
 
@@ -22,9 +21,11 @@ export default function EventsPage() {
   const [visibility, setVisibility] = useState<'all' | 'published' | 'hidden'>('all')
   const [deleteSlug, setDeleteSlug] = useState<string | null>(null)
   const [actionError, setActionError] = useState('')
-  // DB-authoritative catalogue: admin sees hidden events too; visibility
-  // travels in the record (`isPublished`), never in browser storage.
-  const liveEvents = useDbEvents(events)
+  // DB-authoritative catalogue with no static fallback: while the API is
+  // loading or failing, the screen shows loading/error — never bootstrap
+  // rows masquerading as database records.
+  const { data, loading, error, retry } = useDbEventsStatus()
+  const liveEvents = data ?? []
   const hidden = useMemo(() => liveEvents.filter((e) => e.isPublished === false).map((e) => e.slug), [liveEvents])
   const [requests, setRequests] = useState<StaffEventRequest[]>([])
 
@@ -114,7 +115,9 @@ export default function EventsPage() {
           <SharedSelect value={visibility} onChange={(next) => setVisibility(next as typeof visibility)} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حسب الظهور' : 'Filter by visibility'} options={[{ value: 'all', label: ar ? 'الكل' : 'All' }, { value: 'published', label: ar ? 'المنشورة' : 'Published' }, { value: 'hidden', label: ar ? 'المخفية' : 'Hidden' }]} />
       </AdminTableTools>
       {actionError ? <p role="alert" style={{ color: '#b91c1c', margin: '8px 0 0' }}>{actionError}</p> : null}
-      {rows.length ? <AdminTableWrap><table className="sp-table">
+      {loading ? <AdminEmpty title={<AdminText en="Loading events…" ar="جارٍ تحميل الفعاليات…" />} copy={<AdminText en="Reading the authoritative catalogue." ar="تتم قراءة السجل المعتمد." />} />
+      : error ? <><AdminEmpty title={<AdminText en="Could not load events" ar="تعذر تحميل الفعاليات" />} copy={<AdminText en={error} ar={error} />} /><div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}><button type="button" className="sp-btn" onClick={retry}><AdminText en="Retry" ar="إعادة المحاولة" /></button></div></>
+      : rows.length ? <AdminTableWrap><table className="sp-table">
         <thead><tr><th className="sp-row-number">#</th><SortableTh label={<AdminText en="Event" ar="الفعالية" />} column="event" {...eventSort} onSort={eventSort.sortBy} /><SortableTh label={<AdminText en="Location" ar="الموقع" />} column="location" {...eventSort} onSort={eventSort.sortBy} /><SortableTh label={<AdminText en="Date" ar="التاريخ" />} column="date" {...eventSort} onSort={eventSort.sortBy} /><SortableTh label={<AdminText en="Requests" ar="الطلبات" />} column="requests" {...eventSort} onSort={eventSort.sortBy} /><SortableTh label={<AdminText en="Status" ar="الحالة" />} column="status" {...eventSort} onSort={eventSort.sortBy} /><th></th></tr></thead>
         <tbody>{paging.pageRows.map((event, index) => {
           const isHidden = hidden.includes(event.slug) || event.isPublished === false

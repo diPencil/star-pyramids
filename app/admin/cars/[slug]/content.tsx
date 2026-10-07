@@ -6,8 +6,7 @@ import { CarFront, Eye, EyeOff, Pencil } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminTableWrap, AdminText, Card, StatusPill } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
-import { invalidateEventsCarsCache, useDbCars } from '@/lib/events-cars-client'
-import { cars } from '@/data/content'
+import { invalidateEventsCarsCache, useDbCarsStatus } from '@/lib/events-cars-client'
 import type { StaffCarRequest } from '@/lib/car-request'
 
 /**
@@ -20,8 +19,10 @@ import type { StaffCarRequest } from '@/lib/car-request'
 export function VehicleDetailContent({ vehicleSlug }: { vehicleSlug: string }) {
   const ar = useAdminLocale() === 'ar'
   const slug = decodeURIComponent(vehicleSlug)
-  // DB-authoritative fleet; admin inspects hidden vehicles here too.
-  const liveCars = useDbCars(cars)
+  // DB-authoritative fleet with no static fallback; a failed API read
+  // renders loading/error here, never bootstrap rows as fleet records.
+  const { data, loading, error, retry } = useDbCarsStatus()
+  const liveCars = data ?? []
   const car = liveCars.find((entry) => entry.slug === slug)
   const [staffRequests, setStaffRequests] = useState<StaffCarRequest[]>([])
   const [visibilityError, setVisibilityError] = useState('')
@@ -37,10 +38,12 @@ export function VehicleDetailContent({ vehicleSlug }: { vehicleSlug: string }) {
     return () => { cancelled = true }
   }, [])
 
-  if (!car) {
+  if (loading || error || !car) {
     return <>
       <PageHead eyebrow="Fleet" title="Vehicle" titleAr="السيارة" backHref="/admin/cars" />
-      <AdminEmpty title={<AdminText en="Vehicle not found" ar="السيارة غير موجودة" />} copy={<AdminText en="This vehicle slug does not exist in the fleet." ar="معرف السيارة هذا غير موجود في الأسطول." />} />
+      {loading ? <Card title={<AdminText en="Loading…" ar="جارٍ التحميل…" />}><p><AdminText en="Loading vehicle…" ar="جارٍ تحميل السيارة…" /></p></Card>
+      : error ? <Card title={<AdminText en="Could not load vehicle" ar="تعذر تحميل السيارة" />}><p>{error}</p><div style={{ display: 'flex', gap: 10, marginTop: 14 }}><button type="button" className="sp-btn primary" onClick={retry}><AdminText en="Retry" ar="إعادة المحاولة" /></button></div></Card>
+      : <AdminEmpty title={<AdminText en="Vehicle not found" ar="السيارة غير موجودة" />} copy={<AdminText en="This vehicle slug does not exist in the fleet." ar="معرف السيارة هذا غير موجود في الأسطول." />} />}
     </>
   }
 

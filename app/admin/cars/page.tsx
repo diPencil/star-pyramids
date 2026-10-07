@@ -9,17 +9,18 @@ import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-so
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
 import { SharedSelect } from '@/components/shared-select'
-import { cars } from '@/data/content'
-import { invalidateEventsCarsCache, useDbCars } from '@/lib/events-cars-client'
+import { invalidateEventsCarsCache, useDbCarsStatus } from '@/lib/events-cars-client'
 
 export default function CarsPage() {
   const ar = useAdminLocale() === 'ar'
   const [query, setQuery] = useState('')
   const [transmission, setTransmission] = useState('all')
   const [actionError, setActionError] = useState('')
-  // DB-authoritative fleet: admin sees hidden vehicles too; visibility
-  // travels in the record (`isPublished`), never in browser storage.
-  const liveCars = useDbCars(cars)
+  // DB-authoritative fleet with no static fallback: while the API is
+  // loading or failing, the screen shows loading/error — never bootstrap
+  // rows masquerading as database records.
+  const { data, loading, error, retry } = useDbCarsStatus()
+  const liveCars = data ?? []
   const isHidden = (slug: string) => liveCars.find((car) => car.slug === slug)?.isPublished === false
   const visibility = (slug: string) => (isHidden(slug) ? 'hidden' : 'active')
   const setPublished = async (slug: string, published: boolean) => {
@@ -63,7 +64,7 @@ export default function CarsPage() {
   const transmissions = [...new Set(liveCars.map((car) => car.transmission))]
   const rows = useMemo(() => liveCars.filter((car) => transmission === 'all' || car.transmission === transmission).filter((car) => `${car.title} ${car.seats}`.toLowerCase().includes(query.trim().toLowerCase())), [liveCars, query, transmission])
   const averageRate = liveCars.length ? Math.round(liveCars.reduce((sum, car) => sum + car.dailyPrice, 0) / liveCars.length) : 0
-  const maxSeats = Math.max(...liveCars.map((car) => Number.parseInt(car.seats, 10) || 0))
+  const maxSeats = liveCars.length ? Math.max(...liveCars.map((car) => Number.parseInt(car.seats, 10) || 0)) : 0
   const carSort = useAdminTableSort(rows, {
     vehicle: (row) => row.title,
     capacity: (row) => Number.parseInt(row.seats, 10) || 0,
@@ -86,7 +87,9 @@ export default function CarsPage() {
         <SharedSelect value={transmission} onChange={setTransmission} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حسب ناقل الحركة' : 'Filter by transmission'} options={[{ value: 'all', label: ar ? 'كل النواقل' : 'All transmissions' }, ...transmissions.map((item) => ({ value: item, label: item }))]} />
       </AdminTableTools>
       {actionError ? <p role="alert" style={{ color: '#b91c1c', margin: '8px 0 0' }}>{actionError}</p> : null}
-      {rows.length ? <AdminTableWrap><table className="sp-table">
+      {loading ? <AdminEmpty title={<AdminText en="Loading fleet…" ar="جارٍ تحميل الأسطول…" />} copy={<AdminText en="Reading the authoritative catalogue." ar="تتم قراءة السجل المعتمد." />} />
+      : error ? <><AdminEmpty title={<AdminText en="Could not load fleet" ar="تعذر تحميل الأسطول" />} copy={<AdminText en={error} ar={error} />} /><div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}><button type="button" className="sp-btn" onClick={retry}><AdminText en="Retry" ar="إعادة المحاولة" /></button></div></>
+      : rows.length ? <AdminTableWrap><table className="sp-table">
         <thead><tr><th className="sp-row-number">#</th><SortableTh label={<AdminText en="Vehicle" ar="المركبة" />} column="vehicle" {...carSort} onSort={carSort.sortBy} /><SortableTh label={<AdminText en="Capacity" ar="السعة" />} column="capacity" {...carSort} onSort={carSort.sortBy} /><SortableTh label={<AdminText en="Transmission" ar="ناقل الحركة" />} column="transmission" {...carSort} onSort={carSort.sortBy} /><SortableTh label={<AdminText en="Daily rate" ar="السعر اليومي" />} column="rate" {...carSort} onSort={carSort.sortBy} /><SortableTh label={<AdminText en="Status" ar="الحالة" />} column="status" {...carSort} onSort={carSort.sortBy} /><th></th></tr></thead>
         <tbody>{paging.pageRows.map((car, index) => <tr key={car.slug}><td className="sp-row-number">{paging.from + index}</td><td><span className="sp-cust"><img className="sp-record-thumb" src={car.image} alt="" /><span><strong>{car.title}</strong><small>{car.slug}</small></span></span></td><td>{car.seats}</td><td>{car.transmission}</td><td>${car.dailyPrice}</td><td><StatusPill status={visibility(car.slug)} /></td><td><AdminTableActions><AdminIconAction icon={Pencil} label={ar ? `تعديل ${car.title}` : `Edit ${car.title}`} href={`/admin/cars/new?slug=${car.slug}`} /><AdminIconAction icon={ExternalLink} label={ar ? 'عرض صفحة الأسطول' : 'View fleet page'} href="/rent-car" /><AdminIconAction icon={isHidden(car.slug) ? EyeOff : Eye} label={isHidden(car.slug) ? (ar ? `إظهار ${car.title} على الموقع` : `Show ${car.title} on website`) : (ar ? `إخفاء ${car.title} عن الموقع` : `Hide ${car.title} from website`)} tone={isHidden(car.slug) ? 'success' : undefined} onClick={() => void setPublished(car.slug, isHidden(car.slug) ? true : false)} /><button type="button" className="sp-delete-btn" onClick={() => void removeCar(car.slug)}><AdminText en="Delete" ar="حذف" /></button></AdminTableActions></td></tr>)}</tbody>
       </table></AdminTableWrap> : <AdminEmpty title={<AdminText en="No vehicles found" ar="لا توجد مركبات" />} copy={<AdminText en="Try changing the search or filters." ar="جرب تغيير البحث أو الفلاتر." />} />}

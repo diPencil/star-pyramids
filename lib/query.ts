@@ -1,6 +1,7 @@
 import { destinations } from '@/data/content'
 import { dayTourTerms, findTour } from '@/data/tours'
 import type { Tour } from '@/data/types'
+import { TRIP_SOURCE_BLOG_VIP, type TripSourceInput } from '@/lib/trip-request'
 
 type QueryReader = {
   get(name: string): string | null
@@ -46,6 +47,8 @@ export type MakeTripQuery = {
   infants: number
   tour?: Tour
   addOns: string[]
+  /** Lead-source context. Null unless the URL carries an allowlisted source. */
+  source: TripSourceInput | null
 }
 
 export const parseMakeTripQuery = (params: QueryReader): MakeTripQuery => {
@@ -53,14 +56,27 @@ export const parseMakeTripQuery = (params: QueryReader): MakeTripQuery => {
   const requestedTo = readIsoDate(params, 'to')
   const to = requestedTo && (!from || requestedTo >= from) ? requestedTo : ''
   const destinationSlug = readText(params, 'destination', 80)
-  const destination = destinations.some((item) => item.slug === destinationSlug) ? destinationSlug : ''
+  const explicitDestination = destinations.some((item) => item.slug === destinationSlug) ? destinationSlug : ''
   const tourSlug = readText(params, 'tour', 120)
   const tour = tourSlug ? findTour(tourSlug) : undefined
+  // Explicit `destination` wins. Otherwise the linked tour's own configured
+  // destination applies when it matches a real destination option exactly.
+  // Anything else stays empty for the customer — never guessed or inferred.
+  const tourDestination = tour?.destinationSlug ?? ''
+  const destination = explicitDestination !== '' ? explicitDestination : (tourDestination !== '' && destinations.some((item) => item.slug === tourDestination) ? tourDestination : '')
   const availableAddOns = tour?.category === 'one-day-tours' ? tour.dayDetail?.addOns ?? dayTourTerms.addOns : tour?.detail?.addOns ?? []
   const addOns = [...new Set(readText(params, 'addons', 80).split(',').filter((value) => /^(0|[1-9]\d*)$/.test(value)).map(Number))]
     .filter((index) => index < availableAddOns.length)
     .map((index) => availableAddOns[index].title)
   const step = params.get('step') === '2' && from !== '' && to !== '' ? 2 : 1
+  // Strict allowlist: only `blog_vip_trip` + a well-formed blog slug
+  // produces source context. Anything else stays a direct request.
+  const src = readText(params, 'src', 32)
+  const blogParam = readText(params, 'blog', 80)
+  const source: TripSourceInput | null =
+    src === TRIP_SOURCE_BLOG_VIP && /^[a-z0-9-]{1,80}$/.test(blogParam)
+      ? { type: TRIP_SOURCE_BLOG_VIP, blogSlug: blogParam }
+      : null
 
   return {
     step,
@@ -73,6 +89,7 @@ export const parseMakeTripQuery = (params: QueryReader): MakeTripQuery => {
     infants: readPositiveInt(params, 'infants', 0, 50),
     tour,
     addOns,
+    source,
   }
 }
 

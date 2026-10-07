@@ -17,6 +17,7 @@ function NewCarInner() {
   const [record, setRecord] = useState<Car | null | undefined>(slug ? undefined : null)
   const [loadError, setLoadError] = useState('')
   const [saveError, setSaveError] = useState('')
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     if (!slug) {
@@ -30,7 +31,10 @@ function NewCarInner() {
       .then(async (res) => {
         if (cancelled) return
         if (!res.ok) {
-          setRecord(null)
+          // Unknown slugs are "not found"; any other failure is a DB/API
+          // error and must never render as a missing record.
+          if (res.status === 404) setRecord(null)
+          else setLoadError(`Request failed (${res.status}).`)
           return
         }
         const data = (await res.json()) as { car?: Car }
@@ -38,12 +42,11 @@ function NewCarInner() {
       })
       .catch(() => {
         if (!cancelled) {
-          setRecord(null)
           setLoadError('Could not load vehicle.')
         }
       })
     return () => { cancelled = true }
-  }, [slug])
+  }, [slug, attempt])
 
   const save = async (car: Car) => {
     setSaveError('')
@@ -67,6 +70,18 @@ function NewCarInner() {
     router.push('/admin/cars')
   }
 
+  if (slug && loadError) {
+    return <>
+      <PageHead eyebrow="Fleet" title="Edit vehicle" titleAr="تعديل سيارة" backHref="/admin/cars" />
+      <Card title={<AdminText en="Could not load vehicle" ar="تعذر تحميل السيارة" />}>
+        <p>{loadError}</p>
+        <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+          <button type="button" className="sp-btn primary" onClick={() => { setLoadError(''); setRecord(undefined); setAttempt((n) => n + 1) }}><AdminText en="Retry" ar="إعادة المحاولة" /></button>
+        </div>
+      </Card>
+    </>
+  }
+
   if (record === undefined) {
     return <>
       <PageHead eyebrow="Fleet" title={slug ? 'Edit vehicle' : 'New vehicle'} titleAr={slug ? 'تعديل سيارة' : 'سيارة جديدة'} backHref="/admin/cars" />
@@ -74,10 +89,10 @@ function NewCarInner() {
     </>
   }
 
-  if (slug && !record) {
+  if (slug && record === null) {
     return <>
       <PageHead eyebrow="Fleet" title="Edit vehicle" titleAr="تعديل سيارة" backHref="/admin/cars" />
-      <AdminEmpty title={<AdminText en="Vehicle not found" ar="السيارة غير موجودة" />} copy={loadError ? <AdminText en={loadError} ar="تعذر تحميل السيارة." /> : undefined} />
+      <AdminEmpty title={<AdminText en="Vehicle not found" ar="السيارة غير موجودة" />} copy={<AdminText en="This vehicle slug does not exist in the fleet." ar="معرف السيارة هذا غير موجود في الأسطول." />} />
     </>
   }
 

@@ -1,10 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import type { Blog, Offer } from '@/data/types'
 import { COMPANY_ADDRESS, COMPANY_EMAIL, COMPANY_MAP_URL, COMPANY_PHONE_DISPLAY } from '@/data/company'
 
-export type OverrideCollection = 'offers' | 'blogs' | 'customers'
+export type OverrideCollection = 'customers'
 
 export type AdminCustomer = {
   slug: string
@@ -31,8 +30,6 @@ export type CustomerProfilePatch = {
 
 export type AdminOverrides = {
   version: 1
-  offers: Offer[]
-  blogs: Blog[]
   customers: AdminCustomer[]
   customerProfiles: Record<string, CustomerProfilePatch>
 }
@@ -40,7 +37,7 @@ export type AdminOverrides = {
 const KEY = 'sp-admin-overrides-v1'
 export const CUSTOM_PREFIX = 'custom-'
 
-const empty: AdminOverrides = { version: 1, offers: [], blogs: [], customers: [], customerProfiles: {} }
+const empty: AdminOverrides = { version: 1, customers: [], customerProfiles: {} }
 
 export function isCustomSlug(slug: string) {
   return slug.startsWith(CUSTOM_PREFIX)
@@ -63,8 +60,6 @@ export function readOverrides(): AdminOverrides {
     const parsed = JSON.parse(raw) as Partial<AdminOverrides>
     return {
       version: 1,
-      offers: Array.isArray(parsed.offers) ? parsed.offers : [],
-      blogs: Array.isArray(parsed.blogs) ? parsed.blogs : [],
       customers: Array.isArray(parsed.customers) ? parsed.customers : [],
       customerProfiles: parsed.customerProfiles && typeof parsed.customerProfiles === 'object' ? parsed.customerProfiles : {},
     }
@@ -82,17 +77,17 @@ function writeOverrides(data: AdminOverrides) {
   }
 }
 
-export function saveCustomItem<T extends { slug: string }>(collection: OverrideCollection, item: T) {
+export function saveCustomItem(collection: OverrideCollection, item: AdminCustomer) {
   const data = readOverrides()
-  const list = data[collection] as unknown as T[]
-  const next = [item, ...list.filter((entry) => entry.slug !== item.slug)]
-  writeOverrides({ ...data, [collection]: next })
+  void collection
+  const next = [item, ...data.customers.filter((entry) => entry.slug !== item.slug)]
+  writeOverrides({ ...data, customers: next })
 }
 
 export function removeCustomItem(collection: OverrideCollection, slug: string) {
   const data = readOverrides()
-  const list = (data[collection] as { slug: string }[]).filter((entry) => entry.slug !== slug)
-  writeOverrides({ ...data, [collection]: list })
+  void collection
+  writeOverrides({ ...data, customers: data.customers.filter((entry) => entry.slug !== slug) })
 }
 
 export function setCustomerActive(slug: string, active: boolean) {
@@ -224,7 +219,7 @@ export function useLiveCollection<T>(collection: OverrideCollection, base: reado
   useEffect(() => {
     const sync = () => {
       const data = readOverrides()
-      setCustoms(data[collection] as T[])
+      setCustoms(data[collection] as unknown as T[])
     }
     sync()
     window.addEventListener('sp-overrides', sync)

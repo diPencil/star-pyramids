@@ -8,8 +8,8 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { ImageField } from '@/components/admin/image-field'
-import { getMultiDayToursForCategory, getToursByCategory, multiDayCategories } from '@/data/tours'
-import { useDbCategories, invalidateCatalogueCache, dbSlugify } from '@/lib/catalogue-client'
+import { getMultiDayToursForCategory, getToursByCategory } from '@/data/tours'
+import { useDbCategoriesStatus, invalidateCatalogueCache, dbSlugify } from '@/lib/catalogue-client'
 import { useDbTours } from '@/lib/tours-client'
 
 const multiBase = getToursByCategory('multi-days-tours')
@@ -18,7 +18,10 @@ export default function CategoryEditorPage() {
   const ar = useAdminLocale() === 'ar'
   const router = useRouter()
   const [editSlug, setEditSlug] = useState('')
-  const liveCategories = useDbCategories(multiDayCategories)
+  // DB-authoritative catalogue with no static fallback: a failed API read
+  // renders loading/error here, never bootstrap rows as editor records.
+  const { data: categoryData, loading: catalogueLoading, error: catalogueError, retry: retryCatalogue } = useDbCategoriesStatus()
+  const liveCategories = categoryData ?? []
   const liveTours = useDbTours(multiBase)
   // Stable record identity: the init effect below re-runs only when the
   // edited record itself (not list identities) changes.
@@ -47,6 +50,7 @@ export default function CategoryEditorPage() {
   }, [])
 
   useEffect(() => {
+    if (catalogueLoading) return
     if (editSlug && liveCategories.length && !editing) { setReady(true); return }
     if (editing) {
       setName(editing.name)
@@ -64,7 +68,7 @@ export default function CategoryEditorPage() {
       setOrder(String(Math.max(0, ...liveCategories.map((c) => c.order)) + 1))
     }
     setReady(true)
-  }, [editSlug, editing, liveTours])
+  }, [editSlug, editing, liveTours, catalogueLoading])
 
   const availableTours = useMemo(() => {
     const q = tourQuery.trim().toLowerCase()
@@ -153,7 +157,9 @@ export default function CategoryEditorPage() {
 
   return <>
     <PageHead eyebrow="Catalogue" title={editSlug ? 'Edit category' : 'New category'} titleAr={editSlug ? 'تعديل الفئة' : 'فئة جديدة'} sub={ar ? 'تظهر في صفحة رحلات متعددة الأيام وصفحتها عند النشر' : 'Visible on the Multi Days landing and its category page when published'} backHref="/admin/multi-day-categories" actions={<button type="button" className="sp-btn dark" onClick={save} disabled={saving}><AdminText en="Save category" ar="حفظ الفئة" /></button>} />
-    {!ready ? <Card title={<AdminText en="Loading" ar="جار التحميل" />}><p style={{ color: 'var(--sp-muted)' }}><AdminText en="Loading category..." ar="جار تحميل الفئة..." /></p></Card> : editSlug && !editing ? (
+    {!ready || catalogueLoading ? <Card title={<AdminText en="Loading" ar="جار التحميل" />}><p style={{ color: 'var(--sp-muted)' }}><AdminText en="Loading category..." ar="جار تحميل الفئة..." /></p></Card> : editSlug && catalogueError ? (
+      <Card title={<AdminText en="Could not load category" ar="تعذر تحميل الفئة" />}><p style={{ color: 'var(--sp-muted)' }}>{catalogueError}</p><div style={{ display: 'flex', gap: 10, marginTop: 14 }}><button type="button" className="sp-btn primary" onClick={retryCatalogue}><AdminText en="Retry" ar="إعادة المحاولة" /></button></div></Card>
+    ) : editSlug && !editing ? (
       <Card title={<AdminText en="Category not found" ar="الفئة غير موجودة" />}><p style={{ color: 'var(--sp-muted)' }}><AdminText en="The requested category does not exist." ar="الفئة المطلوبة غير موجودة." /></p></Card>
     ) : <>
       <Card title={<AdminText en="Basic information" ar="البيانات الأساسية" />}>

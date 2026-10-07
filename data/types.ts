@@ -236,6 +236,10 @@ export type Blog = {
   category: string
   date: string
   excerpt: string
+  /** False hides this story from all public surfaces. Defaults to true. */
+  isPublished?: boolean
+  /** Admin-controlled ordering. Defaults to source order. */
+  displayOrder?: number
   editorial?: {
     heroImage?: string
     heroAlt?: string
@@ -335,6 +339,10 @@ export type Offer = {
   price?: number
   originalPrice?: number
   deadline?: string
+  /** False hides this offer from all public surfaces. Defaults to true. */
+  isPublished?: boolean
+  /** Admin-controlled ordering. Defaults to source order. */
+  displayOrder?: number
 }
 
 export type SearchItem = {

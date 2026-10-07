@@ -55,17 +55,33 @@ function toTour(row: Record<string, unknown>): Tour {
  */
 let cachedBySlug: Map<string, Tour> | null = null;
 let inflight: Promise<Map<string, Tour> | null> | null = null;
+let toursError: string | null = null;
 const listeners = new Set<() => void>();
+
+export type DbToursStatus = {
+  /** DB-resolved list or null until the API resolves. Never silent fallback. */
+  data: Tour[] | null;
+  loading: boolean;
+  error: string | null;
+  retry(): void;
+};
 
 async function fetchDbTours(): Promise<Map<string, Tour> | null> {
   if (cachedBySlug) return cachedBySlug;
   if (!inflight) {
+    toursError = null;
     inflight = (async () => {
       try {
         const res = await fetch('/api/tours?full=1', { credentials: 'same-origin' });
-        if (!res.ok) return null;
+        if (!res.ok) {
+          toursError = `Request failed (${res.status}).`;
+          return null;
+        }
         const data = (await res.json()) as { tours?: unknown };
-        if (!Array.isArray(data.tours) || !data.tours.length) return null;
+        if (!Array.isArray(data.tours)) {
+          toursError = 'Unexpected response (tours).';
+          return null;
+        }
         const map = new Map<string, Tour>();
         for (const row of data.tours as Record<string, unknown>[]) {
           try {
@@ -75,9 +91,11 @@ async function fetchDbTours(): Promise<Map<string, Tour> | null> {
             // Skip malformed rows; keep rendering the bootstrap entry.
           }
         }
-        return map.size ? map : null;
+        // An empty table is a truthful empty result, not a failure.
+        return map;
       } catch {
         // Offline/unreachable API: keep rendering the bootstrap catalogue.
+        toursError = 'Could not reach the database (tours).';
         return null;
       } finally {
         inflight = null;
@@ -87,9 +105,15 @@ async function fetchDbTours(): Promise<Map<string, Tour> | null> {
   const map = await inflight;
   if (map) {
     cachedBySlug = map;
-    listeners.forEach((notify) => notify());
   }
+  listeners.forEach((notify) => notify());
   return map;
+}
+
+export function invalidateToursCache() {
+  cachedBySlug = null;
+  inflight = null;
+  toursError = null;
 }
 
 export function useDbTours(base: readonly Tour[]): Tour[] {
@@ -110,4 +134,37 @@ export function useDbTours(base: readonly Tour[]): Tour[] {
     if (!cachedBySlug) return [...base];
     return base.map((entry) => cachedBySlug!.get(entry.slug) ?? entry);
   }, [base, version]);
+}
+
+/**
+ * Failure-aware tour list for ADMIN screens. `data` stays null until the
+ * API resolves; on failure `error` is set instead of silently rendering
+ * bootstrap rows as if they came from the database.
+ */
+export function useDbToursStatus(base: readonly Tour[]): DbToursStatus {
+  // Bumped when the shared DB cache resolves or fails.
+  const [version, setVersion] = useState(0);
+  useEffect(() => {
+    if (cachedBySlug) return;
+    const notify = () => setVersion((n) => n + 1);
+    listeners.add(notify);
+    void fetchDbTours();
+    return () => {
+      listeners.delete(notify);
+    };
+  }, []);
+  return useMemo(
+    () => ({
+      data: cachedBySlug ? base.map((entry) => cachedBySlug!.get(entry.slug) ?? entry) : null,
+      loading: cachedBySlug === null && toursError === null,
+      error: cachedBySlug === null ? toursError : null,
+      retry: () => {
+        toursError = null;
+        inflight = null;
+        setVersion((n) => n + 1);
+        void fetchDbTours();
+      },
+    }),
+    [base, version],
+  );
 }

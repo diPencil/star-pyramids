@@ -30,6 +30,42 @@ export const TRIP_TRAVELER_MAX = 50
 
 export type TripTimeMode = 'exact' | 'approx' | 'unsure'
 
+/**
+ * Lead-source context (Phase 3D: Blog VIP CTA tracking).
+ *
+ * Only allowlisted types are ever persisted. `blog_vip_trip` marks a
+ * request started from a Blog editorial VIP CTA; `blogSlug` is the
+ * originating story. The human-readable `blogTitle` snapshot is resolved
+ * server-side from the blogs catalogue at submit time — the browser only
+ * ever sends the slug. Null means a direct website request.
+ */
+export const TRIP_SOURCE_BLOG_VIP = 'blog_vip_trip' as const
+
+export type TripSourceType = typeof TRIP_SOURCE_BLOG_VIP
+
+export type TripSourceInput = {
+  type: TripSourceType
+  blogSlug: string
+}
+
+export type TripSource = {
+  type: TripSourceType
+  blogSlug: string
+  blogTitle: string
+}
+
+const TRIP_SOURCE_PATTERN = /^[a-z0-9-]{1,80}$/
+
+export function sanitizeTripSource(value: unknown): TripSourceInput | null {
+  if (typeof value !== 'object' || value === null) return null
+  const raw = value as Record<string, unknown>
+  if (raw.type !== TRIP_SOURCE_BLOG_VIP) return null
+  if (typeof raw.blogSlug !== 'string') return null
+  const blogSlug = raw.blogSlug.trim().slice(0, 80)
+  if (!TRIP_SOURCE_PATTERN.test(blogSlug)) return null
+  return { type: TRIP_SOURCE_BLOG_VIP, blogSlug }
+}
+
 export type MakeYourTripRequestDraft = {
   /** Known destination slug, or '' when the request is anchored to a tour. */
   destinationSlug: string
@@ -56,6 +92,8 @@ export type MakeYourTripRequestDraft = {
   notes: string
   /** Submitted contact; nationality/dialCode travel top-level on the draft. */
   contact: { name: string; email: string; phone: string }
+  /** Lead-source context. Null for direct website requests. */
+  source: TripSourceInput | null
 }
 
 const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/
@@ -236,6 +274,7 @@ export function sanitizeTripDraft(value: unknown): MakeYourTripRequestDraft | nu
     nationality: countryCode(raw.nationality) || safeText(raw.nationality, 40).trim(),
     dialCode: safeText(raw.dialCode, 8).trim(),
     notes: safeText(raw.notes, TRIP_NOTE_MAX),
+    source: sanitizeTripSource(raw.source),
     contact: {
       name: safeText(contact.name, TRIP_NAME_MAX),
       email: safeText(contact.email, TRIP_EMAIL_MAX),
@@ -290,6 +329,8 @@ export type TripRequest = {
   flightOffer: boolean
   contact: TripRequestContact
   notes: string
+  /** Lead-source context. Null for direct website requests. */
+  source: TripSource | null
   status: TripRequestStatus
   createdAt: string
   updatedAt: string

@@ -371,6 +371,8 @@ function EventFormLoader() {
   const params = useSearchParams()
   const editSlug = params.get('slug') ?? ''
   const [remote, setRemote] = useState<Event | null | undefined>(editSlug ? undefined : null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     if (!editSlug) {
@@ -379,24 +381,39 @@ function EventFormLoader() {
     }
     let cancelled = false
     setRemote(undefined)
+    setLoadError(null)
     // Single source of truth: the DB record. Base-first snapshots would
     // leave admin-created slugs unresolvable and risk stale form state.
     fetch(`/api/events/${encodeURIComponent(editSlug)}`, { credentials: 'same-origin' })
       .then(async (res) => {
         if (cancelled) return
         if (!res.ok) {
-          setRemote(null)
+          // Unknown slugs are "not found"; any other failure is a DB/API
+          // error and must never render as a missing record.
+          if (res.status === 404) setRemote(null)
+          else setLoadError(`Request failed (${res.status}).`)
           return
         }
         const data = (await res.json()) as { event?: Event }
         if (!cancelled) setRemote(data.event ?? null)
       })
       .catch(() => {
-        if (!cancelled) setRemote(null)
+        if (!cancelled) setLoadError('Could not reach the database.')
       })
     return () => { cancelled = true }
-  }, [editSlug])
+  }, [editSlug, attempt])
 
+  if (remote === undefined && loadError) {
+    return <>
+      <PageHead eyebrow="Events" title="Edit event" titleAr="تعديل فعالية" backHref="/admin/events" />
+      <Card title={<AdminText en="Could not load event" ar="تعذر تحميل الفعالية" />}>
+        <p>{loadError}</p>
+        <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+          <button type="button" className="sp-btn primary" onClick={() => { setLoadError(null); setRemote(undefined); setAttempt((n) => n + 1) }}><AdminText en="Retry" ar="إعادة المحاولة" /></button>
+        </div>
+      </Card>
+    </>
+  }
   if (remote === undefined) {
     return <>
       <PageHead eyebrow="Events" title="Edit event" titleAr="تعديل فعالية" backHref="/admin/events" />

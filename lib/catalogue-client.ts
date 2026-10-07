@@ -48,19 +48,34 @@ function toCategory(row: Record<string, unknown>): MultiDayCategory {
   };
 }
 
-type CacheEntry<T> = { list: T[] | null; inflight: Promise<T[] | null> | null; listeners: Set<() => void> };
+type CacheEntry<T> = { list: T[] | null; inflight: Promise<T[] | null> | null; listeners: Set<() => void>; error: string | null };
 
-function createCache<T>(url: string, map: (row: Record<string, unknown>) => T | null): CacheEntry<T> & { load(): void; invalidate(): void; use(base: readonly T[]): T[] } {
-  const entry: CacheEntry<T> = { list: null, inflight: null, listeners: new Set() };
+export type DbListStatus<T> = {
+  /** DB list only — null until the API resolves. Never bootstrap data. */
+  data: T[] | null;
+  loading: boolean;
+  error: string | null;
+  retry(): void;
+};
+
+function createCache<T>(url: string, map: (row: Record<string, unknown>) => T | null, label: string): CacheEntry<T> & { load(): void; invalidate(): void; use(base: readonly T[]): T[]; useStatus(): DbListStatus<T> } {
+  const entry: CacheEntry<T> = { list: null, inflight: null, listeners: new Set(), error: null };
   const load = () => {
     if (entry.list || entry.inflight) return;
+    entry.error = null;
     entry.inflight = (async () => {
       try {
         const res = await fetch(url, { credentials: 'same-origin' });
-        if (!res.ok) return null;
+        if (!res.ok) {
+          entry.error = `Request failed (${res.status}).`;
+          return null;
+        }
         const data = (await res.json()) as Record<string, unknown>;
         const rows = data.destinations ?? data.categories;
-        if (!Array.isArray(rows) || !rows.length) return null;
+        if (!Array.isArray(rows)) {
+          entry.error = `Unexpected response (${label}).`;
+          return null;
+        }
         const mapped = (rows as Record<string, unknown>[])
           .map((row) => {
             try {
@@ -70,8 +85,10 @@ function createCache<T>(url: string, map: (row: Record<string, unknown>) => T | 
             }
           })
           .filter((v): v is T => Boolean(v));
-        return mapped.length ? mapped : null;
+        // An empty table is a truthful empty list, not a failure.
+        return mapped;
       } catch {
+        entry.error = `Could not reach the database (${label}).`;
         return null;
       } finally {
         entry.inflight = null;
@@ -80,8 +97,8 @@ function createCache<T>(url: string, map: (row: Record<string, unknown>) => T | 
     void entry.inflight.then((list) => {
       if (list) {
         entry.list = list;
-        entry.listeners.forEach((notify) => notify());
       }
+      entry.listeners.forEach((notify) => notify());
     });
   };
   return {
@@ -90,6 +107,7 @@ function createCache<T>(url: string, map: (row: Record<string, unknown>) => T | 
     invalidate() {
       entry.list = null;
       entry.inflight = null;
+      entry.error = null;
     },
     use(base: readonly T[]): T[] {
       // Bumped when the shared DB cache resolves so the memo below recomputes.
@@ -109,18 +127,46 @@ function createCache<T>(url: string, map: (row: Record<string, unknown>) => T | 
       // bootstrap set); the bootstrap catalogue renders until it arrives.
       return useMemo(() => entry.list ?? [...base], [base, version]);
     },
+    useStatus(): DbListStatus<T> {
+      // Bumped when the shared DB cache resolves or fails.
+      const [version, setVersion] = useState(0);
+      useEffect(() => {
+        const notify = () => setVersion((n) => n + 1);
+        entry.listeners.add(notify);
+        load();
+        return () => {
+          entry.listeners.delete(notify);
+        };
+      }, []);
+      return useMemo(
+        () => ({
+          // Admin-only: the DB list or null. Bootstrap data is NEVER
+          // substituted here so a broken DB runtime cannot look healthy.
+          data: entry.list,
+          loading: entry.list === null && entry.error === null,
+          error: entry.list === null ? entry.error : null,
+          retry: () => {
+            entry.error = null;
+            entry.inflight = null;
+            setVersion((n) => n + 1);
+            load();
+          },
+        }),
+        [version],
+      );
+    },
   };
 }
 
 const destinationsCache = createCache<Destination>('/api/destinations', (row) => {
   const item = toDestination(row);
   return item.slug ? item : null;
-});
+}, 'destinations');
 
 const categoriesCache = createCache<MultiDayCategory>('/api/multi-day-categories', (row) => {
   const item = toCategory(row);
   return item.slug ? item : null;
-});
+}, 'categories');
 
 /**
  * Drop cached DB lists so the next read refetches. Call after any
@@ -157,4 +203,21 @@ export function useDbDestinations(base: readonly Destination[]): Destination[] {
  */
 export function useDbCategories(base: readonly MultiDayCategory[]): MultiDayCategory[] {
   return categoriesCache.use(base);
+}
+
+/**
+ * Failure-aware destination list for ADMIN screens. `data` is the DB
+ * list or null while loading/failed — bootstrap data is never
+ * substituted, so a broken DB runtime cannot look healthy.
+ */
+export function useDbDestinationsStatus(): DbListStatus<Destination> {
+  return destinationsCache.useStatus();
+}
+
+/**
+ * Failure-aware multi-day category list for ADMIN screens. Same
+ * no-fallback contract as `useDbDestinationsStatus`.
+ */
+export function useDbCategoriesStatus(): DbListStatus<MultiDayCategory> {
+  return categoriesCache.useStatus();
 }

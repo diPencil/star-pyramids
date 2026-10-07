@@ -23,12 +23,15 @@ import {
   TRIP_NAME_MAX,
   TRIP_NOTE_MAX,
   TRIP_PHONE_MAX,
+  TRIP_SOURCE_BLOG_VIP,
   TRIP_TRAVELER_MAX,
   type StaffTripRequest,
   type TripRequest,
   type TripRequestStatus,
+  type TripSource,
   type TripTimeMode,
 } from '@/lib/trip-request';
+import { findBlogBySlug } from './blogs';
 import { findDestinationBySlug } from './destinations';
 import { findTourBySlug } from './tours';
 import { notifyUser, notifyStaff } from './notifications';
@@ -115,6 +118,8 @@ export interface ValidatedTripDraft {  destinationSlug: string;
   contactName: string;
   contactEmail: string;
   contactPhone: string;
+  /** Lead-source context. Null for direct website requests. */
+  source: TripSource | null;
 }
 
 const DRAFT_KEYS = new Set([
@@ -135,6 +140,7 @@ const DRAFT_KEYS = new Set([
   'nationality',
   'dialCode',
   'notes',
+  'source',
   'contact',
 ]);
 
@@ -258,6 +264,27 @@ export async function validateTripDraft(input: unknown, opts?: { isShore?: boole
   const notes = text(body.notes) ?? '';
   if (notes.length > TRIP_NOTE_MAX || hasControlChars(notes)) fail('Notes must be 1,000 characters or fewer.');
 
+  // Lead-source context (optional). Only the allowlisted blog VIP source
+  // is accepted, and only for a blog slug that exists in the DB catalogue.
+  // The display title is resolved server-side — never trusted from input.
+  // Absent/invalid input stays a direct request only when the key itself
+  // is missing or null; a malformed source object is rejected.
+  const sourceRaw = body.source;
+  let source: TripSource | null = null;
+  if (sourceRaw !== undefined && sourceRaw !== null) {
+    if (typeof sourceRaw !== 'object' || Array.isArray(sourceRaw)) fail('Invalid request source.');
+    const sourceBody = sourceRaw as Record<string, unknown>;
+    if (sourceBody.type !== TRIP_SOURCE_BLOG_VIP) fail('Invalid request source.');
+    const blogSlug = typeof sourceBody.blogSlug === 'string' ? sourceBody.blogSlug.trim() : '';
+    if (!/^[a-z0-9-]{1,80}$/.test(blogSlug)) fail('Invalid request source.');
+    const blog = await findBlogBySlug(blogSlug);
+    if (blog) {
+      source = { type: TRIP_SOURCE_BLOG_VIP, blogSlug, blogTitle: blog.title };
+    } else {
+      fail('Invalid request source.');
+    }
+  }
+
   const contact = body.contact;
   if (typeof contact !== 'object' || contact === null) fail('Invalid request.');
   const contactRecord = contact as Record<string, unknown>;
@@ -298,6 +325,7 @@ export async function validateTripDraft(input: unknown, opts?: { isShore?: boole
     nationality,
     dialCode,
     notes,
+    source,
     contactName,
     contactEmail,
     contactPhone: normalizePhone(contactPhoneRaw),
@@ -354,6 +382,15 @@ export function toCustomerView(row: RequestRow): TripRequest {
       nationality: row.nationality,
     },
     notes: row.notes ?? '',
+    // Only allowlisted source types surface; anything else reads as direct.
+    source:
+      row.sourceType === TRIP_SOURCE_BLOG_VIP && row.sourceSlug
+        ? {
+            type: TRIP_SOURCE_BLOG_VIP,
+            blogSlug: row.sourceSlug,
+            blogTitle: row.sourceTitle || row.sourceSlug,
+          }
+        : null,
     status: FROM_DB_STATUS[row.status],
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -424,6 +461,9 @@ export async function createTripRequestRecord(
           budgetCurrency: draft.currency,
           flightOffer: draft.flightOffer,
           notes: draft.notes === '' ? null : draft.notes,
+          sourceType: draft.source?.type ?? null,
+          sourceSlug: draft.source?.blogSlug ?? null,
+          sourceTitle: draft.source?.blogTitle ?? null,
           status: 'NEW',
           activities: {
             create: { actorRole: 'customer', action: 'Request created' },

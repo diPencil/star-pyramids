@@ -7,10 +7,9 @@ import { ExternalLink, Plus, Trash2 } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
-import { useDbDestinations, invalidateCatalogueCache, dbSlugify } from '@/lib/catalogue-client'
+import { useDbDestinationsStatus, invalidateCatalogueCache, dbSlugify } from '@/lib/catalogue-client'
 import { useDbTours } from '@/lib/tours-client'
 import { ImageField } from '@/components/admin/image-field'
-import { destinations } from '@/data/content'
 import { assignableOneDayTours, getOneDayToursForDestination } from '@/data/tours'
 
 const lines = (v: string) => v.split('\n').map((s) => s.trim()).filter(Boolean)
@@ -20,7 +19,10 @@ export default function DestinationEditorPage() {
   const ar = useAdminLocale() === 'ar'
   const router = useRouter()
   const [editSlug, setEditSlug] = useState('')
-  const liveDestinations = useDbDestinations(destinations)
+  // DB-authoritative catalogue with no static fallback: a failed API read
+  // renders loading/error here, never bootstrap rows as editor records.
+  const { data: destinationData, loading: catalogueLoading, error: catalogueError, retry: retryCatalogue } = useDbDestinationsStatus()
+  const liveDestinations = destinationData ?? []
   const liveTours = useDbTours(oneDayBase)
   // Stable record identity: the init effect below re-runs only when the
   // edited record itself (not list identities) changes.
@@ -54,6 +56,7 @@ export default function DestinationEditorPage() {
   }, [])
 
   useEffect(() => {
+    if (catalogueLoading) return
     if (editSlug && liveDestinations.length && !editing) { setReady(true); return }
     if (editing) {
       setTitle(editing.title)
@@ -74,7 +77,7 @@ export default function DestinationEditorPage() {
       setInitialSlugs(linked)
     }
     setReady(true)
-  }, [editSlug, editing, liveTours])
+  }, [editSlug, editing, liveTours, catalogueLoading])
 
   const availableTours = useMemo(() => {
     const q = tourQuery.trim().toLowerCase()
@@ -175,7 +178,9 @@ export default function DestinationEditorPage() {
 
   return <>
     <PageHead eyebrow="Catalogue" title={editSlug ? 'Edit destination' : 'New destination'} titleAr={editSlug ? 'تعديل الوجهة' : 'وجهة جديدة'} sub={ar ? 'تنشر في الوجهات والرئيسية' : 'Published to destinations and the homepage'} backHref="/admin/destinations" actions={<button type="button" className="sp-btn dark" onClick={save} disabled={saving}><AdminText en="Save destination" ar="حفظ الوجهة" /></button>} />
-    {!ready ? <Card title={<AdminText en="Loading" ar="جار التحميل" />}><p style={{ color: 'var(--sp-muted)' }}><AdminText en="Loading destination..." ar="جار تحميل الوجهة..." /></p></Card> : editSlug && !editing ? (
+    {!ready || catalogueLoading ? <Card title={<AdminText en="Loading" ar="جار التحميل" />}><p style={{ color: 'var(--sp-muted)' }}><AdminText en="Loading destination..." ar="جار تحميل الوجهة..." /></p></Card> : editSlug && catalogueError ? (
+      <Card title={<AdminText en="Could not load destination" ar="تعذر تحميل الوجهة" />}><p style={{ color: 'var(--sp-muted)' }}>{catalogueError}</p><div style={{ display: 'flex', gap: 10, marginTop: 14 }}><button type="button" className="sp-btn primary" onClick={retryCatalogue}><AdminText en="Retry" ar="إعادة المحاولة" /></button></div></Card>
+    ) : editSlug && !editing ? (
       <Card title={<AdminText en="Destination not found" ar="الوجهة غير موجودة" />}><p style={{ color: 'var(--sp-muted)' }}><AdminText en="The requested destination does not exist." ar="الوجهة المطلوبة غير موجودة." /></p></Card>
     ) : <>
       <Card title={<AdminText en="Basic information" ar="البيانات الأساسية" />}>

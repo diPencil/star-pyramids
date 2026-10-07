@@ -52,6 +52,8 @@ const ar: Record<string, string> = {
   'Additional Notes.........': 'أي تفاصيل إضافية عن رحلتك', Back: 'رجوع', 'Prepare request': 'جهّز طلبك', 'Go back': 'رجوع',
   'Exact time': 'موعد محدد', 'Approximate time': 'موعد تقريبي', 'Not sure yet': 'لم أحدد بعد',
   Home: 'الرئيسية', 'Contact our team': 'تواصل مع فريقنا',
+  'Planning your VIP Egypt journey': 'خطط لرحلة مصر المميزة',
+  'Tell us your travel preferences and our team will tailor the experience for you.': 'أخبرنا بتفضيلات سفرك وسيصمم فريقنا التجربة من أجلك.',
   'Editing these details applies to this request only.': 'تعديل هذه البيانات سيطبق على هذا الطلب فقط.',
   'Save these details to my profile': 'حفظ هذه البيانات في حسابي',
   Egyptian: 'مصرية', American: 'أمريكية', British: 'بريطانية', French: 'فرنسية', German: 'ألمانية', Spanish: 'إسبانية', Italian: 'إيطالية', Saudi: 'سعودية', Emirati: 'إماراتية', Canadian: 'كندية', Australian: 'أسترالية', Other: 'أخرى',
@@ -75,6 +77,8 @@ const es: Record<string, string> = {
   'Additional Notes.........': 'Detalles adicionales sobre tu viaje', Back: 'Atrás', 'Prepare request': 'Preparar solicitud', 'Go back': 'Atrás',
   'Exact time': 'Hora exacta', 'Approximate time': 'Hora aproximada', 'Not sure yet': 'Aún no lo sé',
   Home: 'Inicio', 'Contact our team': 'Contacta con nuestro equipo',
+  'Planning your VIP Egypt journey': 'Planifica tu viaje VIP por Egipto',
+  'Tell us your travel preferences and our team will tailor the experience for you.': 'Cuéntanos tus preferencias de viaje y nuestro equipo adaptará la experiencia para ti.',
   'Editing these details applies to this request only.': 'Editar estos datos se aplica solo a esta solicitud.',
   'Save these details to my profile': 'Guardar estos datos en mi perfil',
   Egyptian: 'Egipcia', American: 'Americana', British: 'Británica', French: 'Francesa', German: 'Alemana', Spanish: 'Española', Italian: 'Italiana', Saudi: 'Saudí', Emirati: 'Emiratí', Canadian: 'Canadiense', Australian: 'Australiana', Other: 'Otra',
@@ -98,6 +102,8 @@ const it: Record<string, string> = {
   'Additional Notes.........': 'Dettagli aggiuntivi sul tuo viaggio', Back: 'Indietro', 'Prepare request': 'Prepara richiesta', 'Go back': 'Indietro',
   'Exact time': 'Orario esatto', 'Approximate time': 'Orario approssimativo', 'Not sure yet': 'Non ancora sicuro',
   Home: 'Home', 'Contact our team': 'Contatta il nostro team',
+  'Planning your VIP Egypt journey': 'Pianifica il tuo viaggio VIP in Egitto',
+  'Tell us your travel preferences and our team will tailor the experience for you.': 'Raccontaci le tue preferenze di viaggio e il nostro team adatterà l\u2019esperienza per te.',
   'Editing these details applies to this request only.': 'Modificare questi dati si applica solo a questa richiesta.',
   'Save these details to my profile': 'Salva questi dati nel mio profilo',
   Egyptian: 'Egizia', American: 'Americana', British: 'Britannica', French: 'Francese', German: 'Tedesca', Spanish: 'Spagnola', Italian: 'Italiana', Saudi: 'Saudita', Emirati: 'Emiratina', Canadian: 'Canadese', Australian: 'Australiana', Other: 'Altra',
@@ -194,6 +200,11 @@ function PlannerInner() {
   const tourSlug = initialQuery.tour?.slug ?? ''
   const tourName = locale === 'ar' ? initialQuery.tour?.titleAr ?? initialQuery.tour?.title ?? '' : initialQuery.tour?.title ?? ''
   const today = useMemo(todayLocal, [])
+  // Lead-source context from the entry URL (e.g. Blog VIP CTA). It is not
+  // shown or editable in the UI; it rides along untouched through every
+  // step and is submitted with a brand-new request only. Edits preserve
+  // the source already stored on the record (server ignores it on update).
+  const tripSource = useMemo(() => initialQuery.source, [initialQuery])
 
   // Entry modes: `?edit=SP-TR-…` loads the signed-in owner's record for
   // editing; a trip query signal prefills a fresh form; otherwise the form
@@ -389,6 +400,7 @@ function PlannerInner() {
       nationality: nationality.trim(),
       dialCode: (countries.find((country) => country.code === phoneCountry) ?? defaultCountry).dialCode,
       notes: note.trim().slice(0, TRIP_NOTE_MAX + 1),
+      source: tripSource ? { type: tripSource.type, blogSlug: tripSource.blogSlug } : null,
       contact: {
         name: fullName.trim(),
         email: email.trim(),
@@ -557,7 +569,7 @@ function PlannerInner() {
 
   return <><Breadcrumb items={[t('Make Your Trip')]} /><main className="planner-page">
     {inPreview && placed ? renderPreview(placed) : <>
-      <div className="planner-card"><h1><button type="button" className="myt-back" onClick={() => router.back()} aria-label={t('Go back')}><ArrowLeft size={20} /></button> {t('Make Your Trip')}</h1><div className="stepper">{[0, 1, 2].map((i) => {
+      <div className="planner-card"><h1><button type="button" className="myt-back" onClick={() => router.back()} aria-label={t('Go back')}><ArrowLeft size={20} /></button> {t('Make Your Trip')}</h1>{tripSource && <p className="myt-tour-note" role="note" style={{ margin: '10px 0 0' }}><strong>{t('Planning your VIP Egypt journey')}</strong><br />{t('Tell us your travel preferences and our team will tailor the experience for you.')}</p>}<div className="stepper">{[0, 1, 2].map((i) => {
         const state = shownStep > i + 1 ? 'done' : shownStep === i + 1 ? 'active' : 'todo'
         const done = shownStep > i + 1
         const isPreviewPill = i === 2

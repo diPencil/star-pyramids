@@ -1,15 +1,15 @@
 import { notFound } from 'next/navigation'
 import { OfferDetailPage } from '@/components/extended-pages'
-import { findOffer, offers } from '@/data/content'
+import { findOfferBySlug, listOfferSlugs } from '@/lib/server/offers'
 
-export function generateStaticParams() {
-  return offers.map((item) => ({ slug: item.slug }))
+export async function generateStaticParams() {
+  const slugs = await listOfferSlugs()
+  return slugs.map((slug) => ({ slug }))
 }
 
 export default async function Page({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  // Admin-prototype items use the shared `custom-` prefix (see CUSTOM_PREFIX in lib/admin-store)
-  // and resolve client-side via live overrides; only canonical misses are real 404s.
-  if (!findOffer(slug) && !slug.startsWith('custom-')) notFound()
+  // DB-authoritative catalogue: unknown slugs are real 404s.
+  if (!(await findOfferBySlug(slug))) notFound()
   return <OfferDetailPage slug={slug} />
 }

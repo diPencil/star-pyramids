@@ -12,7 +12,9 @@
 // rate-limit attempts) + Phase 2G customer favorites (favorite_items)
 // + Phase 2H customer in-app notifications (notifications)
 // + Phase 2I customer↔staff support chat (support_conversations +
-// support_messages) + Phase 2J email delivery/outbox (email_deliveries).
+// support_messages) + Phase 2J email delivery/outbox (email_deliveries)
+// + Phase 3A tours catalogue + Phase 3B destinations/categories
+// + Phase 3C events/cars catalogues + Phase 3D offers/blogs catalogues.
 // Provider gateway adapters, quotations and all
 // other domains belong to later phases and MUST NOT be added here.
 //
@@ -248,6 +250,13 @@ model TripRequest {
   flightOffer     Boolean           @default(false)
   notes           String?           @db.Text
   status          TripRequestStatus @default(NEW)
+  /// Lead source context (nullable = direct website request).
+  /// `sourceType` is a strict allowlist (e.g. `blog_vip_trip`); `sourceSlug`
+  /// is the originating record slug; `sourceTitle` is the title snapshot
+  /// taken at submit time. Set once at creation, never rewritten by edits.
+  sourceType      String?           @db.VarChar(32)
+  sourceSlug      String?           @db.VarChar(80)
+  sourceTitle     String?           @db.VarChar(200)
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 
@@ -941,4 +950,54 @@ model Car {
   updatedAt    DateTime @updatedAt
 
   @@map("cars")
+}
+
+/// Phase 3D: special-offer catalogue.
+/// Server-authoritative: public pages and admin read/write these rows.
+/// `isPublished=false` hides the record from all public surfaces.
+/// Scalar display/commercial fields live in columns; gallery,
+/// highlights and photo credits travel in `content` JSON so existing
+/// media is preserved exactly.
+model Offer {
+  id            String   @id @default(cuid())
+  slug          String   @unique @db.VarChar(80)
+  title         String   @db.VarChar(200)
+  image         String   @db.VarChar(2000)
+  badge         String   @db.VarChar(120)
+  copy          String   @db.VarChar(2000)
+  duration      String?  @db.VarChar(80)
+  rating        Float?
+  price         Float?
+  originalPrice Float?
+  deadline      String?  @db.VarChar(120)
+  isPublished   Boolean  @default(true)
+  displayOrder  Int      @default(999)
+  content       Json
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("offers")
+}
+
+/// Phase 3D: blog/journal catalogue.
+/// Server-authoritative: public pages and admin read/write these rows.
+/// `isPublished=false` hides the record from all public surfaces.
+/// Scalar list fields live in columns; the full rich editorial payload
+/// (hero, facts, sections, tips, quote, checklist, CTA, sidebar)
+/// travels in `content` JSON so existing content is preserved exactly.
+model Blog {
+  id           String   @id @default(cuid())
+  slug         String   @unique @db.VarChar(80)
+  title        String   @db.VarChar(200)
+  image        String   @db.VarChar(2000)
+  category     String   @db.VarChar(120)
+  date         String   @db.VarChar(120)
+  excerpt      String   @db.VarChar(2000)
+  isPublished  Boolean  @default(true)
+  displayOrder Int      @default(999)
+  content      Json
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("blogs")
 }

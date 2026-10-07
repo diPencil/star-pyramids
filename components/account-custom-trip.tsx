@@ -324,6 +324,7 @@ function TripRequestsSection({ startNew = false, editRef = null }: { startNew?: 
       nationality: nationality.trim(),
       dialCode: (countries.find((c) => c.code === phoneCountry) ?? defaultCountry).dialCode,
       notes: note.trim().slice(0, TRIP_NOTE_MAX + 1),
+      source: null,
       contact: {
         name: fullName.trim(),
         email: email.trim(),
