@@ -10,7 +10,7 @@ import {
   normalizeEmail,
   validatePasswordStrength,
 } from '@/lib/core/validation';
-import { getCurrentUser, isStaff } from '@/lib/server/auth';
+import { getCurrentUser, hasStaffRole } from '@/lib/server/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { toClientUser, updateAdminProfile } from '@/lib/server/users';
 
@@ -40,7 +40,7 @@ export async function PATCH(request: Request) {
   }
   const current = await getCurrentUser();
   if (!current) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
-  if (!isStaff(current)) return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
+  if (!hasStaffRole(current)) return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
 
   let body: AdminProfileBody;
   try {

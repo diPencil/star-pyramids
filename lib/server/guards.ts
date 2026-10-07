@@ -2,7 +2,7 @@ import 'server-only';
 
 import { redirect } from 'next/navigation';
 
-import { getCurrentUser, isStaff, type PublicUser } from './auth';
+import { getCurrentUser, hasStaffRole, type PublicUser } from './auth';
 
 export async function requireUser(): Promise<PublicUser> {
   const user = await getCurrentUser();
@@ -18,14 +18,16 @@ export async function requireCustomer(nextPath = '/account'): Promise<PublicUser
     redirect(`/login?next=${encodeURIComponent(nextPath)}`);
   }
   if (!user.roles.includes('CUSTOMER')) {
-    redirect(isStaff(user) ? '/admin' : '/login');
+    redirect(hasStaffRole(user) ? '/admin' : '/login');
   }
   return user;
 }
 
 export async function requireStaff(): Promise<PublicUser> {
   const user = await requireUser();
-  if (!isStaff(user)) {
+  // Any non-customer role may reach the dashboard shell (custom
+  // configurable roles included); CUSTOMER-only accounts go to /account.
+  if (!hasStaffRole(user)) {
     redirect(user.roles.includes('CUSTOMER') ? '/account' : '/login');
   }
   return user;

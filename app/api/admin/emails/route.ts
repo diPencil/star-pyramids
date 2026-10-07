@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser, isStaff } from '@/lib/server/auth';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth';
 import { countEmailDeliveries, listEmailDeliveries } from '@/lib/server/email';
 
 const STATUSES = new Set(['PENDING', 'SENT', 'FAILED', 'SKIPPED']);
@@ -13,7 +13,7 @@ const STATUSES = new Set(['PENDING', 'SENT', 'FAILED', 'SKIPPED']);
 export async function GET(request: Request) {
   const current = await getCurrentUser();
   if (!current) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
-  if (!isStaff(current)) return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
+  if (!hasPermission(current, 'emails.view')) return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
 
   const url = new URL(request.url);
   const statusParam = url.searchParams.get('status');

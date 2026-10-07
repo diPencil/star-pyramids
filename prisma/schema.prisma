@@ -47,10 +47,17 @@ model Role {
   key         String   @unique @db.VarChar(64)
   name        String   @db.VarChar(100)
   description String?  @db.VarChar(255)
+  /**
+   * System roles are platform-owned and locked in the admin UI:
+   * SUPER_ADMIN (full access, immutable) and CUSTOMER (storefront-only,
+   * managed under Customers). All other roles are configurable.
+   */
+  isSystem    Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   assignments UserRole[]
+  grants      RolePermission[]
 
   @@map("roles")
 }
@@ -103,6 +110,42 @@ model UserRole {
   @@unique([userId, roleId])
   @@index([roleId])
   @@map("user_roles")
+}
+
+/**
+ * Canonical permission catalog (Phase 4A configurable RBAC).
+ * `key` is `<module>.<action>` (e.g. `tours.edit`, `users.manage`).
+ * Grants live on RolePermission; SUPER_ADMIN bypasses checks in code and
+ * always holds the full set. CUSTOMER intentionally holds zero grants —
+ * storefront access stays role-based under Customers.
+ */
+model Permission {
+  id        String   @id @db.VarChar(191)
+  key       String   @unique @db.VarChar(100)
+  module    String   @db.VarChar(64)
+  action    String   @db.VarChar(32)
+  label     String?  @db.VarChar(120)
+  createdAt DateTime @default(now())
+
+  roleLinks RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String   @id @default(cuid())
+  roleId       String
+  permissionId String
+  grantedBy    String?  @db.VarChar(64)
+  grantedAt    DateTime @default(now())
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@map("role_permissions")
 }
 
 model Session {

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
-import { getCurrentUser, isStaff } from '@/lib/server/auth';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth';
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -34,7 +34,7 @@ export async function PUT(
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
   }
-  if (!isStaff(user)) {
+  if (!hasPermission(user, 'blogs.edit')) {
     return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
   }
 
@@ -98,7 +98,7 @@ export async function DELETE(
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
   }
-  if (!isStaff(user)) {
+  if (!hasPermission(user, 'blogs.delete')) {
     return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
   }
 

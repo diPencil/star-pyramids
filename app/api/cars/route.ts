@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
-import { getCurrentUser, isStaff } from '@/lib/server/auth';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth';
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
   }
-  if (!isStaff(user)) {
+  if (!hasPermission(user, 'cars.create')) {
     return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
   }
 

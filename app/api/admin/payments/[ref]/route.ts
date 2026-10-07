@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser, isStaff } from '@/lib/server/auth';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth';
 import { getStaffPayment } from '@/lib/server/payments';
 
 /** Staff payment detail (staff projection with linked account). */
@@ -10,7 +10,7 @@ export async function GET(
 ) {
   const current = await getCurrentUser();
   if (!current) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
-  if (!isStaff(current)) return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
+  if (!hasPermission(current, 'payments.view')) return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
   const reference = decodeURIComponent((await ctx.params).ref);
   const payment = await getStaffPayment(reference);
   if (!payment) return NextResponse.json({ error: 'Payment not found.' }, { status: 404 });

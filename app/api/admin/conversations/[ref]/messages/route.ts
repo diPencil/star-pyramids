@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser, isStaff } from '@/lib/server/auth';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { logSupportError, sendStaffMessage } from '@/lib/server/support-chat';
 
 async function requireStaff() {
   const current = await getCurrentUser();
-  if (!current || !isStaff(current)) return null;
+  if (!current || !hasPermission(current, 'support.edit')) return null;
   return current;
 }
 

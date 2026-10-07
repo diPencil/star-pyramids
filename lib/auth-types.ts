@@ -10,4 +10,6 @@ export type AuthenticatedUser = {
   emailVerifiedAt: Date | string | null;
   lastLoginAt: Date | string | null;
   roles: string[];
+  /** Effective permission keys (explicit grants; SUPER_ADMIN bypasses checks). */
+  permissions: string[];
 };

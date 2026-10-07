@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser, isStaff } from '@/lib/server/auth';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import {
   countUnreadNotifications,
@@ -9,15 +9,15 @@ import {
   markNotificationRead,
 } from '@/lib/server/notifications';
 
-async function requireStaff() {
+async function requireStaff(permission: string) {
   const current = await getCurrentUser();
-  if (!current || !isStaff(current)) return null;
+  if (!current || !hasPermission(current, permission)) return null;
   return current;
 }
 
 /** Staff-only notification list (newest first) with the unread count. */
 export async function GET() {
-  const current = await requireStaff();
+  const current = await requireStaff('support.view');
   if (!current) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
   const [notifications, unreadCount] = await Promise.all([
     listNotifications(current.id),
@@ -37,7 +37,7 @@ export async function PATCH(request: Request) {
   if (!isSameOriginRequest(request)) {
     return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
   }
-  const current = await requireStaff();
+  const current = await requireStaff('support.view');
   if (!current) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
 
   let body: unknown;

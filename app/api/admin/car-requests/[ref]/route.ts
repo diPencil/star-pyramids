@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser, isStaff } from '@/lib/server/auth';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
 import {
@@ -25,7 +25,7 @@ export async function GET(
 ) {
   const current = await getCurrentUser();
   if (!current) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
-  if (!isStaff(current)) return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
+  if (!hasPermission(current, 'requests.view')) return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
   const reference = decodeURIComponent((await ctx.params).ref);
   const item = await getStaffCarRequest(reference);
   if (!item) return NextResponse.json({ error: 'Car request not found.' }, { status: 404 });
@@ -47,7 +47,7 @@ export async function PATCH(
   }
   const current = await getCurrentUser();
   if (!current) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
-  if (!isStaff(current)) return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
+  if (!hasPermission(current, 'requests.edit')) return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
   const reference = decodeURIComponent((await ctx.params).ref);
 
   let body: StaffPatchBody;

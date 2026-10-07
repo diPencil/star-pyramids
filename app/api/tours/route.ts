@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
-import { getCurrentUser, isStaff } from '@/lib/server/auth';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth';
 
 export async function GET(request: Request) {
   // Public: list all tours (read-only, no auth required).
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
   }
-  if (!isStaff(user)) {
+  if (!hasPermission(user, 'tours.create')) {
     return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
   }
 

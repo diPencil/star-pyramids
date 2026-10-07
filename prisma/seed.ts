@@ -6,26 +6,30 @@ import { PrismaClient } from '@prisma/client';
 
 const db = new PrismaClient();
 
-const ROLES: Array<{ key: string; name: string; description: string }> = [
+const ROLES: Array<{ key: string; name: string; description: string; isSystem: boolean }> = [
   {
     key: 'SUPER_ADMIN',
     name: 'Super Admin',
     description: 'Full platform control, including roles and settings.',
+    isSystem: true,
   },
   {
     key: 'ADMIN',
     name: 'Admin',
     description: 'Operational administration (catalogue, requests, bookings).',
+    isSystem: false,
   },
   {
     key: 'STAFF',
     name: 'Staff',
     description: 'Day-to-day operations within assigned areas.',
+    isSystem: false,
   },
   {
     key: 'CUSTOMER',
     name: 'Customer',
     description: 'Registered website customer.',
+    isSystem: true,
   },
 ];
 
@@ -53,7 +57,7 @@ async function main(): Promise<void> {
   for (const role of ROLES) {
     await db.role.upsert({
       where: { key: role.key },
-      update: { name: role.name, description: role.description },
+      update: { name: role.name, description: role.description, isSystem: role.isSystem },
       create: role,
     });
   }

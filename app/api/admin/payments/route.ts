@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser, isStaff } from '@/lib/server/auth';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth';
 import { listStaffPayments } from '@/lib/server/payments';
 import { PAYMENT_STATUSES, type PaymentStatus } from '@/lib/payment';
 
@@ -20,7 +20,7 @@ function parseDate(value: string | null): Date | undefined {
 export async function GET(request: Request) {
   const current = await getCurrentUser();
   if (!current) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
-  if (!isStaff(current)) return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
+  if (!hasPermission(current, 'payments.view')) return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
 
   const url = new URL(request.url);
   const statusParam = url.searchParams.get('status');

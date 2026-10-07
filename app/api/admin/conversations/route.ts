@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser, isStaff } from '@/lib/server/auth';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth';
 import { countStaffUnread, listStaffConversations } from '@/lib/server/support-chat';
 
-async function requireStaff() {
+async function requireStaff(permission: string) {
   const current = await getCurrentUser();
-  if (!current || !isStaff(current)) return null;
+  if (!current || !hasPermission(current, permission)) return null;
   return current;
 }
 
@@ -15,7 +15,7 @@ async function requireStaff() {
  * total. Optional ?status=open|closed&query= filters.
  */
 export async function GET(request: Request) {
-  const current = await requireStaff();
+  const current = await requireStaff('support.view');
   if (!current) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
   const url = new URL(request.url);
   const statusParam = url.searchParams.get('status');

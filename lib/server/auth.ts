@@ -5,7 +5,7 @@ import 'server-only';
 
 import { db } from './db';
 import { getSession, touchSession } from './session';
-import { toPublicUser, type PublicUser } from './users';
+import { resolvePermissionKeys, toPublicUser, type PublicUser } from './users';
 
 export type { PublicUser };
 import { verifyPassword } from '../core/password';
@@ -68,7 +68,7 @@ export async function validateCredentials(
   if (row.status === 'PENDING') return { failure: 'pending' };
   const { passwordHash: _dropped, ...rest } = row;
   await markLoggedIn(row.id);
-  return { user: toPublicUser(rest) };
+  return { user: toPublicUser(rest, await resolvePermissionKeys(row.id)) };
 }
 
 export async function getCurrentUser(): Promise<PublicUser | null> {
@@ -95,11 +95,29 @@ export async function getCurrentUser(): Promise<PublicUser | null> {
   });
   if (!row || row.status !== 'ACTIVE') return null;
   await touchSession(session.id);
-  return toPublicUser(row);
+  return toPublicUser(row, await resolvePermissionKeys(row.id));
 }
 
 export function hasRole(user: PublicUser, roleKey: string): boolean {
   return user.roles.includes(roleKey);
+}
+
+/** Any dashboard identity: holds at least one non-customer role. */
+export function hasStaffRole(user: Pick<PublicUser, 'roles'>): boolean {
+  return user.roles.some((key) => key !== 'CUSTOMER');
+}
+
+/**
+ * Permission check for admin APIs. SUPER_ADMIN bypasses (full access by
+ * definition); everyone else needs the explicit grant. Matrix edits take
+ * effect on the next request with no code changes.
+ */
+export function hasPermission(
+  user: Pick<PublicUser, 'roles' | 'permissions'>,
+  key: string,
+): boolean {
+  if (user.roles.includes('SUPER_ADMIN')) return true;
+  return user.permissions.includes(key);
 }
 
 export function isStaff(user: PublicUser): boolean {

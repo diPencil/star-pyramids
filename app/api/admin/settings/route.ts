@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser, hasRole } from '@/lib/server/auth';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
 import {
@@ -19,11 +19,7 @@ import {
 export async function GET() {
   const current = await getCurrentUser();
   if (!current) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
-  if (
-    !hasRole(current, 'SUPER_ADMIN') &&
-    !hasRole(current, 'ADMIN') &&
-    !hasRole(current, 'STAFF')
-  ) {
+  if (!hasPermission(current, 'settings.view')) {
     return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
   }
   const snapshot = await getAdminSettings();
@@ -41,7 +37,7 @@ export async function PATCH(request: Request) {
   }
   const current = await getCurrentUser();
   if (!current) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
-  if (!hasRole(current, 'SUPER_ADMIN') && !hasRole(current, 'ADMIN')) {
+  if (!hasPermission(current, 'settings.edit')) {
     return NextResponse.json(
       { error: 'System settings require an Admin role.' },
       { status: 403 },
