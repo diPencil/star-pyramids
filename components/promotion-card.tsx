@@ -8,10 +8,15 @@ import { formatPrice, useLocale, tx } from './locale'
 import type { Tour } from '@/data/types'
 
 export function promotionGalleryForTour(tour: Tour, fallbackImages: readonly string[]) {
-  if (tour.gallery) return tour.gallery
+  // Stored galleries arrive decoded as arrays; an empty gallery (or a legacy
+  // undecoded payload) must fall through to the cover + static fallbacks
+  // instead of rendering an empty CardGallery. Empty sources can never
+  // become a blank first slide.
+  if (tour.gallery?.length) return tour.gallery
   let offset = 0
   for (const character of tour.slug) offset = (offset + character.charCodeAt(0)) % fallbackImages.length
   return [tour.image, ...fallbackImages.slice(offset), ...fallbackImages.slice(0, offset)]
+    .filter((source): source is string => typeof source === 'string' && source.length > 0)
     .filter((source, index, all) => all.indexOf(source) === index)
     .slice(0, 5)
 }
@@ -74,6 +79,9 @@ export function PromotionCard({
   const { currency, locale } = useLocale()
   const countdown = usePromotionCountdown(deadline)
   const hasCommercialMeta = duration || typeof rating === 'number'
+  // Genuinely imageless offers keep a branded panel with their own title —
+  // never a blank 190px box, never invented imagery.
+  const safeImages = images.filter((source): source is string => typeof source === 'string' && source.length > 0)
 
   const resolvedCountdownLabels = countdownLabels ?? [
     tx(locale, { en: 'Days', es: 'Días', it: 'Giorni', ar: 'أيام' }),
@@ -84,7 +92,11 @@ export function PromotionCard({
 
   return <article className="offer-card">
     <div className="offer-image">
-      <CardGallery images={images} title={title} href={href}>{badge && <b>{badge}</b>}</CardGallery>
+      {safeImages.length ? (
+        <CardGallery images={safeImages} title={title} href={href}>{badge && <b>{badge}</b>}</CardGallery>
+      ) : (
+        <div className="offer-image-fallback" role="img" aria-label={title}><span>{kicker}</span><strong>{title}</strong></div>
+      )}
     </div>
     <div className="offer-card-body">
       <span>{kicker}</span>

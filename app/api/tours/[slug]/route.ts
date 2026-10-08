@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
 import { getCurrentUser, hasPermission } from '@/lib/server/auth';
+import { readJsonText } from '@/lib/json-text';
 
 export async function GET(
   request: Request,
@@ -86,7 +87,7 @@ export async function GET(
     return NextResponse.json({ notFound: true }, { status: 404 });
   }
 
-  return NextResponse.json({ tour });
+  return NextResponse.json({ tour: { ...tour, gallery: readJsonText(tour.gallery) } });
 }
 
 export async function PUT(

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
 import { getCurrentUser, hasPermission } from '@/lib/server/auth';
+import { readJsonText } from '@/lib/json-text';
 
 export async function GET(request: Request) {
   // Public: list all tours (read-only, no auth required).
@@ -53,7 +54,9 @@ export async function GET(request: Request) {
           status: true,
         },
   });
-  return NextResponse.json({ tours });
+  // LONGTEXT galleries decode to arrays at the boundary (same contract as
+  // blogs/cars/offers). Raw JSON strings would reach clients as text.
+  return NextResponse.json({ tours: tours.map((tour) => ('gallery' in tour ? { ...tour, gallery: readJsonText(tour.gallery) } : tour)) });
 }
 
 export async function POST(request: Request) {

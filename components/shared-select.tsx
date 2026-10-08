@@ -27,6 +27,18 @@ type SharedSelectProps = {
   labelledBy?: string
   /** Shown when no option is selected. */
   placeholder?: ReactNode
+  /**
+   * Non-selectable guidance text rendered at the top of the OPEN dropdown only.
+   * Never becomes a form value, never appears in the closed trigger, and is
+   * excluded from keyboard navigation and typeahead.
+   */
+  guidance?: ReactNode
+  /**
+   * Base UI Select modal behavior. `true` locks page scroll while open.
+   * Homepage mini-search passes `false` so the page can still scroll.
+   * Defaults to `true` to preserve every other instance.
+   */
+  modal?: boolean
   disabled?: boolean
   invalid?: boolean
   describedBy?: string
@@ -50,6 +62,8 @@ export function SharedSelect({
   label,
   labelledBy,
   placeholder,
+  guidance,
+  modal = true,
   disabled,
   invalid,
   describedBy,
@@ -65,6 +79,7 @@ export function SharedSelect({
         value={value === '' ? null : value}
         onValueChange={(next) => onChange(typeof next === 'string' ? next : '')}
         disabled={disabled}
+        modal={modal}
       >
         <Select.Trigger
           id={id}
@@ -103,6 +118,11 @@ export function SharedSelect({
             sticky
           >
             <Select.Popup className="cselect-popup" data-popup-width={popupWidth} dir={dir} aria-label={typeof dropdownHint === 'string' ? dropdownHint : undefined}>
+              {guidance ? (
+                <div className="cselect-guidance" aria-hidden="true">
+                  <span className="cselect-guidance-text">{guidance}</span>
+                </div>
+              ) : null}
               <Select.List className="cselect-list">
                 {options.map((option) => (
                   <Select.Item
