@@ -110,11 +110,13 @@ function getFavoritesSnapshot() {
  * Authenticated favorites state (Phase 2G).
  *
  * The database is authoritative for signed-in customers: the hook
- * loads `/api/account/favorites` once per mount and every mutation
- * round-trips through the API. Guests (or unreachable API) fall back
- * to the legacy browser-local set — guest hearts stay temporary and
- * are never written to the server. The local key is left untouched
- * so existing guest data is never deleted by development.
+ * first checks the DB-backed session (`/api/auth/me`) for the CUSTOMER
+ * role and only then loads `/api/account/favorites`. Staff-only and
+ * guest sessions never request the customer-only endpoint (which would
+ * 401 for staff despite a 200 session) and fall back to the legacy
+ * browser-local set — guest/staff hearts stay temporary and are never
+ * written to the server. The local key is left untouched so existing
+ * guest data is never deleted by development.
  */
 let serverSlugsCache: string[] | null = null
 let serverMode: boolean | null = null
@@ -125,15 +127,62 @@ let serverSettledAt = 0
  *  navigations issue at most one favorites request per window. */
 const SERVER_CACHE_TTL_MS = 30 * 1000
 
+/**
+ * Role gate for the customer-only favorites API.
+ *
+ * `/api/account/favorites` requires the CUSTOMER role (see
+ * `app/api/account/favorites/route.ts`), so an authenticated staff-only
+ * session (e.g. SUPER_ADMIN without CUSTOMER) gets a 401 even though
+ * `/api/auth/me` is 200. Heart buttons mount on public pages, so an
+ * unconditional favorites fetch turns every admin page view into a
+ * spurious customer-only 401. Check the DB-backed session first and
+ * skip the favorites request entirely for guests and staff-only
+ * sessions — both stay on the temporary browser-local set.
+ */
+let authEligibleCache: boolean | null = null
+let authEligibleSettledAt = 0
+let authEligibleFetch: Promise<boolean> | null = null
+
+function fetchFavoritesEligibility(): Promise<boolean> {
+  if (authEligibleCache !== null && Date.now() - authEligibleSettledAt < SERVER_CACHE_TTL_MS) {
+    return Promise.resolve(authEligibleCache)
+  }
+  if (!authEligibleFetch) {
+    authEligibleFetch = fetch('/api/auth/me', { credentials: 'same-origin' })
+      .then(async (res) => {
+        if (!res.ok) return false
+        try {
+          const data = (await res.json()) as { user?: { roles?: unknown } }
+          return Array.isArray(data?.user?.roles) && (data.user.roles as unknown[]).includes('CUSTOMER')
+        } catch {
+          return false
+        }
+      })
+      .catch(() => false)
+      .then((eligible) => {
+        authEligibleCache = eligible
+        authEligibleSettledAt = Date.now()
+        return eligible
+      })
+      .finally(() => { authEligibleFetch = null })
+  }
+  return authEligibleFetch
+}
+
 function fetchServerFavorites(): Promise<string[] | null> {
   if (!serverFetch) {
-    serverFetch = fetch('/api/account/favorites', { credentials: 'same-origin' })
-      .then(async (res) => {
+    serverFetch = (async () => {
+      const eligible = await fetchFavoritesEligibility()
+      if (!eligible) return null
+      try {
+        const res = await fetch('/api/account/favorites', { credentials: 'same-origin' })
         if (!res.ok) return null
         const data = (await res.json()) as { favorites?: unknown }
         return Array.isArray(data.favorites) ? data.favorites.filter((slug): slug is string => typeof slug === 'string') : null
-      })
-      .catch(() => null)
+      } catch {
+        return null
+      }
+    })()
       .finally(() => { serverFetch = null })
   }
   return serverFetch
@@ -142,6 +191,9 @@ function fetchServerFavorites(): Promise<string[] | null> {
 /** Cross-tab changes always refetch, bypassing the settled cache. */
 function refreshServerFavorites(): Promise<string[] | null> {
   serverFetch = null
+  // Cross-tab writes may follow a login/logout, so re-check the session
+  // role instead of reusing a possibly stale eligibility verdict.
+  authEligibleCache = null
   return fetchServerFavorites()
 }
 
