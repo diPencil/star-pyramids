@@ -95,6 +95,7 @@ const groups = [
     items: [
       { href: '/admin/inbox', icon: MessageCircle, en: 'Inbox', ar: 'صندوق المراسلة' },
       { href: '/admin/emails', icon: Mail, en: 'Emails', ar: 'البريد' },
+      { href: '/admin/reviews', icon: Sparkles, en: 'Reviews', ar: 'التقييمات' },
     ],
   },
   {

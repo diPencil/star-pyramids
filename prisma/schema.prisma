@@ -1,28 +1,3 @@
-// STAR PYRAMIDS — backend schema.
-//
-// SCOPE: auth foundation (users, roles, sessions, setup tokens) +
-// server-authoritative settings (site settings, FX rates) + staff audit +
-// Phase 2B customer trip-request workflow (trip_requests + activity +
-// submission rate-limit attempts) + Phase 2C customer car-request workflow
-// (car_requests + activity + submission rate-limit attempts) + Phase 2D
-// customer event-request workflow (event_requests + activity +
-// submission rate-limit attempts) + Phase 2E customer booking workflow
-// (bookings + items + activity + submission rate-limit attempts) + Phase 2F-A
-// payment core (payments + immutable payment events + initiation
-// rate-limit attempts) + Phase 2G customer favorites (favorite_items)
-// + Phase 2H customer in-app notifications (notifications)
-// + Phase 2I customer↔staff support chat (support_conversations +
-// support_messages) + Phase 2J email delivery/outbox (email_deliveries)
-// + Phase 3A tours catalogue + Phase 3B destinations/categories
-// + Phase 3C events/cars catalogues + Phase 3D offers/blogs catalogues.
-// Provider gateway adapters, quotations and all
-// other domains belong to later phases and MUST NOT be added here.
-//
-// Conventions:
-// - MySQL is authoritative. UTC datetimes (app writes Date = UTC epoch).
-// - Money/FX use DECIMAL, never FLOAT. No formatted currency strings.
-// - Passwords only as hashes (see lib/server/password.ts). No demo seeds.
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -32,67 +7,54 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum UserStatus {
-  PENDING
-  ACTIVE
-  SUSPENDED
-}
-
-enum SetupTokenType {
-  PASSWORD_SETUP
-  PASSWORD_RESET
-}
-
 model Role {
-  id          String   @id @default(cuid())
-  key         String   @unique @db.VarChar(64)
-  name        String   @db.VarChar(100)
-  description String?  @db.VarChar(255)
-  /**
-   * System roles are platform-owned and locked in the admin UI:
-   * SUPER_ADMIN (full access, immutable) and CUSTOMER (storefront-only,
-   * managed under Customers). All other roles are configurable.
-   */
-  isSystem    Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  assignments UserRole[]
+  id          String           @id @default(cuid())
+  key         String           @unique @db.VarChar(64)
+  name        String           @db.VarChar(100)
+  description String?          @db.VarChar(255)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  /// *
+  ///    * System roles are platform-owned and locked in the admin UI:
+  ///    * SUPER_ADMIN (full access, immutable) and CUSTOMER (storefront-only,
+  ///    * managed under Customers). All other roles are configurable.
+  isSystem    Boolean          @default(false)
   grants      RolePermission[]
+  assignments UserRole[]
 
   @@map("roles")
 }
 
 model User {
-  id              String     @id @default(cuid())
-  publicId        String     @unique @default(uuid()) @db.VarChar(64)
-  email           String     @unique @db.VarChar(190)
-  emailNormalized String     @unique @db.VarChar(190)
-  firstName       String?    @db.VarChar(80)
-  lastName        String?    @db.VarChar(80)
-  username        String?    @unique @db.VarChar(64)
-  countryCode     String?    @db.Char(2)
-  phone           String?    @db.VarChar(32)
-  passwordHash    String?    @db.VarChar(255)
-  status          UserStatus @default(PENDING)
-  emailVerifiedAt DateTime?
-  lastLoginAt     DateTime?
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-
-  roles        UserRole[]
-  sessions     Session[]
-  setupTokens  AccountSetupToken[]
-  auditActions StaffActionAudit[] @relation("AuditActor")
-  tripRequests TripRequest[]
-  carRequests  CarRequest[]
-  eventRequests EventRequest[]
-  bookings     Booking[]
-  favorites    FavoriteItem[]
-  notifications Notification[]
-  supportConversations SupportConversation[] @relation("SupportCustomer")
+  id                           String                @id @default(cuid())
+  publicId                     String                @unique @default(uuid()) @db.VarChar(64)
+  email                        String                @unique @db.VarChar(190)
+  emailNormalized              String                @unique @db.VarChar(190)
+  passwordHash                 String?               @db.VarChar(255)
+  status                       UserStatus            @default(PENDING)
+  emailVerifiedAt              DateTime?
+  lastLoginAt                  DateTime?
+  createdAt                    DateTime              @default(now())
+  updatedAt                    DateTime              @updatedAt
+  firstName                    String?               @db.VarChar(80)
+  lastName                     String?               @db.VarChar(80)
+  username                     String?               @unique @db.VarChar(64)
+  countryCode                  String?               @db.Char(2)
+  phone                        String?               @db.VarChar(32)
+  setupTokens                  AccountSetupToken[]
+  bookings                     Booking[]
+  carRequests                  CarRequest[]
+  eventRequests                EventRequest[]
+  favorites                    FavoriteItem[]
+  notifications                Notification[]
+  reviews                      Review[]
+  sessions                     Session[]
+  auditActions                 StaffActionAudit[]    @relation("AuditActor")
   assignedSupportConversations SupportConversation[] @relation("SupportAssignee")
-  supportMessages SupportMessage[]
+  supportConversations         SupportConversation[] @relation("SupportCustomer")
+  supportMessages              SupportMessage[]
+  tripRequests                 TripRequest[]
+  roles                        UserRole[]
 
   @@index([status])
   @@map("users")
@@ -104,44 +66,40 @@ model UserRole {
   roleId     String
   assignedAt DateTime @default(now())
   assignedBy String?  @db.VarChar(64)
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role Role @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  role       Role     @relation(fields: [roleId], references: [id])
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, roleId])
   @@index([roleId])
   @@map("user_roles")
 }
 
-/**
- * Canonical permission catalog (Phase 4A configurable RBAC).
- * `key` is `<module>.<action>` (e.g. `tours.edit`, `users.manage`).
- * Grants live on RolePermission; SUPER_ADMIN bypasses checks in code and
- * always holds the full set. CUSTOMER intentionally holds zero grants —
- * storefront access stays role-based under Customers.
- */
+/// *
+///  * Canonical permission catalog (Phase 4A configurable RBAC).
+///  * `key` is `<module>.<action>` (e.g. `tours.edit`, `users.manage`).
+///  * Grants live on RolePermission; SUPER_ADMIN bypasses checks in code and
+///  * always holds the full set. CUSTOMER intentionally holds zero grants —
+///  * storefront access stays role-based under Customers.
 model Permission {
-  id        String   @id @db.VarChar(191)
-  key       String   @unique @db.VarChar(100)
-  module    String   @db.VarChar(64)
-  action    String   @db.VarChar(32)
-  label     String?  @db.VarChar(120)
-  createdAt DateTime @default(now())
-
+  id        String           @id
+  key       String           @unique @db.VarChar(100)
+  module    String           @db.VarChar(64)
+  action    String           @db.VarChar(32)
+  label     String?          @db.VarChar(120)
+  createdAt DateTime         @default(now())
   roleLinks RolePermission[]
 
   @@map("permissions")
 }
 
 model RolePermission {
-  id           String   @id @default(cuid())
+  id           String     @id @default(cuid())
   roleId       String
   permissionId String
-  grantedBy    String?  @db.VarChar(64)
-  grantedAt    DateTime @default(now())
-
-  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  grantedBy    String?    @db.VarChar(64)
+  grantedAt    DateTime   @default(now())
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@unique([roleId, permissionId])
   @@index([roleId])
@@ -158,8 +116,7 @@ model Session {
   ipAddress  String?  @db.VarChar(64)
   userAgent  String?  @db.VarChar(255)
   createdAt  DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
@@ -174,8 +131,7 @@ model AccountSetupToken {
   expiresAt DateTime
   usedAt    DateTime?
   createdAt DateTime       @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
@@ -215,8 +171,7 @@ model StaffActionAudit {
   entityId   String?  @db.VarChar(64)
   metadata   String?  @db.Text
   createdAt  DateTime @default(now())
-
-  actor User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  actor      User?    @relation("AuditActor", fields: [actorId], references: [id])
 
   @@index([actorId])
   @@index([action])
@@ -247,21 +202,6 @@ model RegistrationAttempt {
   @@map("registration_attempts")
 }
 
-enum TripRequestStatus {
-  NEW
-  REVIEWING
-  PROPOSAL_READY
-  APPROVED
-  REJECTED
-  CANCELLED
-}
-
-enum TripRequestTimeMode {
-  EXACT
-  APPROX
-  UNSURE
-}
-
 /// Phase 2B: customer trip request (Make Your Trip / account planner).
 /// The contact block is a historical snapshot taken at submit/edit time and
 /// is never rewritten by later profile changes. `userId` links the request
@@ -270,42 +210,41 @@ enum TripRequestTimeMode {
 /// identified solely by their contact snapshot. Staff-only discussion lives
 /// in internal TripRequestActivity rows and in NO customer-facing field.
 model TripRequest {
-  id              String            @id @default(cuid())
-  reference       String            @unique @db.VarChar(16)
+  id              String                @id @default(cuid())
+  reference       String                @unique @db.VarChar(16)
   userId          String?
-  contactName     String            @db.VarChar(80)
-  contactEmail    String            @db.VarChar(190)
-  contactPhone    String            @db.VarChar(32)
-  contactDialCode String            @db.VarChar(8)
-  nationality     String            @db.Char(2)
-  destinationSlug String?           @db.VarChar(80)
-  tourSlug        String?           @db.VarChar(80)
-  customTitle     String?           @db.VarChar(120)
-  requestedAddOns String            @default("[]") @db.Text
-  timeMode        TripRequestTimeMode @default(EXACT)
-  preferredFrom   DateTime?         @db.Date
-  preferredTo     DateTime?         @db.Date
-  adults          Int               @default(1)
-  children        Int               @default(0)
-  infants         Int               @default(0)
-  budgetMin       Int               @default(0)
-  budgetMax       Int               @default(0)
-  budgetCurrency  String            @default("USD") @db.Char(3)
-  flightOffer     Boolean           @default(false)
-  notes           String?           @db.Text
-  status          TripRequestStatus @default(NEW)
+  contactName     String                @db.VarChar(80)
+  contactEmail    String                @db.VarChar(190)
+  contactPhone    String                @db.VarChar(32)
+  contactDialCode String                @db.VarChar(8)
+  nationality     String                @db.Char(2)
+  destinationSlug String?               @db.VarChar(80)
+  tourSlug        String?               @db.VarChar(80)
+  customTitle     String?               @db.VarChar(120)
+  requestedAddOns String                @default("[]") @db.Text
+  timeMode        TripRequestTimeMode   @default(EXACT)
+  preferredFrom   DateTime?             @db.Date
+  preferredTo     DateTime?             @db.Date
+  adults          Int                   @default(1)
+  children        Int                   @default(0)
+  infants         Int                   @default(0)
+  budgetMin       Int                   @default(0)
+  budgetMax       Int                   @default(0)
+  budgetCurrency  String                @default("USD") @db.Char(3)
+  flightOffer     Boolean               @default(false)
+  notes           String?               @db.Text
+  status          TripRequestStatus     @default(NEW)
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  sourceSlug      String?               @db.VarChar(80)
+  sourceTitle     String?               @db.VarChar(200)
   /// Lead source context (nullable = direct website request).
   /// `sourceType` is a strict allowlist (e.g. `blog_vip_trip`); `sourceSlug`
   /// is the originating record slug; `sourceTitle` is the title snapshot
   /// taken at submit time. Set once at creation, never rewritten by edits.
-  sourceType      String?           @db.VarChar(32)
-  sourceSlug      String?           @db.VarChar(80)
-  sourceTitle     String?           @db.VarChar(200)
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-
-  user       User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
-  activities TripRequestActivity[]
+  sourceType      String?               @db.VarChar(32)
+  activities      TripRequestActivity[]
+  user            User?                 @relation(fields: [userId], references: [id])
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
@@ -314,15 +253,14 @@ model TripRequest {
 }
 
 model TripRequestActivity {
-  id         String   @id @default(cuid())
+  id         String      @id @default(cuid())
   requestId  String
-  actorRole  String   @db.VarChar(16)
-  action     String   @db.VarChar(160)
-  note       String?  @db.Text
-  isInternal Boolean  @default(false)
-  createdAt  DateTime @default(now())
-
-  request TripRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  actorRole  String      @db.VarChar(16)
+  action     String      @db.VarChar(160)
+  note       String?     @db.Text
+  isInternal Boolean     @default(false)
+  createdAt  DateTime    @default(now())
+  request    TripRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
   @@index([requestId, createdAt])
   @@map("trip_request_activities")
@@ -342,18 +280,6 @@ model TripRequestAttempt {
   @@map("trip_request_attempts")
 }
 
-enum CarRequestStatus {
-  NEW
-  REVIEWING
-  CONFIRMED
-  CANCELLED
-}
-
-enum CarTripType {
-  ONE_WAY
-  ROUND_TRIP
-}
-
 /// Phase 2C: customer car request (Rent Car / account / admin workflow).
 /// Mirrors the Phase 2B trip-request architecture: the contact block is a
 /// historical snapshot taken at submit/edit time and is never rewritten by
@@ -365,27 +291,26 @@ enum CarTripType {
 /// Staff-only discussion lives in internal CarRequestActivity rows and in
 /// NO customer-facing field.
 model CarRequest {
-  id                  String          @id @default(cuid())
-  reference           String          @unique @db.VarChar(16)
+  id                  String               @id @default(cuid())
+  reference           String               @unique @db.VarChar(16)
   userId              String?
-  vehicleSlug         String          @db.VarChar(80)
-  assignedVehicleSlug String?         @db.VarChar(80)
-  tripType            CarTripType     @default(ONE_WAY)
-  pickup              String          @db.VarChar(160)
-  dropoff             String          @db.VarChar(160)
-  pickupDate          DateTime?       @db.Date
-  returnDate          DateTime?       @db.Date
-  passengers          Int             @default(1)
-  contactName         String          @db.VarChar(80)
-  contactEmail        String          @db.VarChar(190)
-  contactPhone        String          @db.VarChar(32)
-  notes               String?         @db.Text
-  status              CarRequestStatus @default(NEW)
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
-
-  user       User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
-  activities CarRequestActivity[]
+  vehicleSlug         String               @db.VarChar(80)
+  assignedVehicleSlug String?              @db.VarChar(80)
+  tripType            CarTripType          @default(ONE_WAY)
+  pickup              String               @db.VarChar(160)
+  dropoff             String               @db.VarChar(160)
+  pickupDate          DateTime?            @db.Date
+  returnDate          DateTime?            @db.Date
+  passengers          Int                  @default(1)
+  contactName         String               @db.VarChar(80)
+  contactEmail        String               @db.VarChar(190)
+  contactPhone        String               @db.VarChar(32)
+  notes               String?              @db.Text
+  status              CarRequestStatus     @default(NEW)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  activities          CarRequestActivity[]
+  user                User?                @relation(fields: [userId], references: [id])
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
@@ -394,15 +319,14 @@ model CarRequest {
 }
 
 model CarRequestActivity {
-  id         String   @id @default(cuid())
+  id         String     @id @default(cuid())
   requestId  String
-  actorRole  String   @db.VarChar(16)
-  action     String   @db.VarChar(160)
-  note       String?  @db.Text
-  isInternal Boolean  @default(false)
-  createdAt  DateTime @default(now())
-
-  request CarRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  actorRole  String     @db.VarChar(16)
+  action     String     @db.VarChar(160)
+  note       String?    @db.Text
+  isInternal Boolean    @default(false)
+  createdAt  DateTime   @default(now())
+  request    CarRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
   @@index([requestId, createdAt])
   @@map("car_request_activities")
@@ -422,14 +346,6 @@ model CarRequestAttempt {
   @@map("car_request_attempts")
 }
 
-enum EventRequestStatus {
-  NEW
-  REVIEWING
-  APPROVED
-  REJECTED
-  CANCELLED
-}
-
 /// Phase 2D: customer event request (Events / account / admin workflow).
 /// Mirrors the trip/car-request architecture: the contact block is a
 /// historical snapshot taken at submit time and is never rewritten by
@@ -442,26 +358,25 @@ enum EventRequestStatus {
 /// cancel while new/reviewing. Staff-only discussion lives in internal
 /// EventRequestActivity rows and in NO customer-facing field.
 model EventRequest {
-  id            String            @id @default(cuid())
-  reference     String            @unique @db.VarChar(16)
-  userId        String?
-  eventSlug     String            @db.VarChar(80)
-  eventTitle    String            @db.VarChar(160)
-  eventDate     String            @db.VarChar(120)
-  eventLocation String            @db.VarChar(160)
-  attendees     Int               @default(1)
-  contactName   String            @db.VarChar(80)
-  contactEmail  String            @db.VarChar(190)
-  contactPhone  String            @db.VarChar(32)
-  contactDialCode String          @db.VarChar(8)
-  nationality   String            @db.Char(2)
-  notes         String?           @db.Text
-  status        EventRequestStatus @default(NEW)
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
-
-  user       User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
-  activities EventRequestActivity[]
+  id              String                 @id @default(cuid())
+  reference       String                 @unique @db.VarChar(16)
+  userId          String?
+  eventSlug       String                 @db.VarChar(80)
+  eventTitle      String                 @db.VarChar(160)
+  eventDate       String                 @db.VarChar(120)
+  eventLocation   String                 @db.VarChar(160)
+  attendees       Int                    @default(1)
+  contactName     String                 @db.VarChar(80)
+  contactEmail    String                 @db.VarChar(190)
+  contactPhone    String                 @db.VarChar(32)
+  contactDialCode String                 @db.VarChar(8)
+  nationality     String                 @db.Char(2)
+  notes           String?                @db.Text
+  status          EventRequestStatus     @default(NEW)
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  activities      EventRequestActivity[]
+  user            User?                  @relation(fields: [userId], references: [id])
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
@@ -471,15 +386,14 @@ model EventRequest {
 }
 
 model EventRequestActivity {
-  id         String   @id @default(cuid())
+  id         String       @id @default(cuid())
   requestId  String
-  actorRole  String   @db.VarChar(16)
-  action     String   @db.VarChar(160)
-  note       String?  @db.Text
-  isInternal Boolean  @default(false)
-  createdAt  DateTime @default(now())
-
-  request EventRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  actorRole  String       @db.VarChar(16)
+  action     String       @db.VarChar(160)
+  note       String?      @db.Text
+  isInternal Boolean      @default(false)
+  createdAt  DateTime     @default(now())
+  request    EventRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
   @@index([requestId, createdAt])
   @@map("event_request_activities")
@@ -499,22 +413,6 @@ model EventRequestAttempt {
   @@map("event_request_attempts")
 }
 
-enum BookingStatus {
-  PENDING
-  CONFIRMED
-  COMPLETED
-  CANCELLED
-}
-
-/// Honest payment state only. Phase 2E never marks a booking paid:
-/// every booking is created PENDING (unpaid) and stays there until the
-/// Phase 2F payment gateway exists. PAID/REFUNDED are reserved values.
-enum BookingPaymentStatus {
-  PENDING
-  PAID
-  REFUNDED
-}
-
 /// Phase 2E: customer booking (cart checkout workflow).
 /// Mirrors the request architectures: the contact block is a historical
 /// snapshot taken at checkout and never rewritten by later profile
@@ -528,27 +426,26 @@ enum BookingPaymentStatus {
 /// client-generated submission key that makes double clicks, retries,
 /// and re-renders resolve to ONE booking.
 model Booking {
-  id             String              @id @default(cuid())
-  reference      String              @unique @db.VarChar(16)
+  id             String               @id @default(cuid())
+  reference      String               @unique @db.VarChar(16)
   userId         String?
-  contactName    String              @db.VarChar(80)
-  contactEmail   String              @db.VarChar(190)
-  contactPhone   String              @db.VarChar(32)
-  notes          String?             @db.Text
-  currency       String              @default("USD") @db.Char(3)
-  subtotal       Decimal             @db.Decimal(10, 2)
-  discount       Decimal             @default(0) @db.Decimal(10, 2)
-  total          Decimal             @db.Decimal(10, 2)
-  status         BookingStatus       @default(PENDING)
+  contactName    String               @db.VarChar(80)
+  contactEmail   String               @db.VarChar(190)
+  contactPhone   String               @db.VarChar(32)
+  notes          String?              @db.Text
+  currency       String               @default("USD") @db.Char(3)
+  subtotal       Decimal              @db.Decimal(10, 2)
+  discount       Decimal              @default(0.00) @db.Decimal(10, 2)
+  total          Decimal              @db.Decimal(10, 2)
+  status         BookingStatus        @default(PENDING)
   paymentStatus  BookingPaymentStatus @default(PENDING)
-  idempotencyKey String?             @unique @db.VarChar(64)
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
-
-  user       User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
-  items      BookingItem[]
-  activities BookingActivity[]
-  payments   Payment[]
+  idempotencyKey String?              @unique @db.VarChar(64)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  activities     BookingActivity[]
+  items          BookingItem[]
+  user           User?                @relation(fields: [userId], references: [id])
+  payments       Payment[]
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
@@ -573,29 +470,27 @@ model BookingItem {
   adults     Int     @default(1)
   children   Int     @default(0)
   infants    Int     @default(0)
-  addons     Json    @default("[]")
+  addons     String  @db.LongText
   adultUnit  Decimal @db.Decimal(10, 2)
   childUnit  Decimal @db.Decimal(10, 2)
   infantUnit Decimal @db.Decimal(10, 2)
   addonTotal Decimal @db.Decimal(10, 2)
   lineTotal  Decimal @db.Decimal(10, 2)
-
-  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  booking    Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@index([bookingId])
   @@map("booking_items")
 }
 
 model BookingActivity {
-  id        String   @id @default(cuid())
-  bookingId String
-  actorRole String   @db.VarChar(16)
-  action    String   @db.VarChar(160)
-  note      String?  @db.Text
-  isInternal Boolean @default(false)
-  createdAt DateTime @default(now())
-
-  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  bookingId  String
+  actorRole  String   @db.VarChar(16)
+  action     String   @db.VarChar(160)
+  note       String?  @db.Text
+  isInternal Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  booking    Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@index([bookingId, createdAt])
   @@map("booking_activities")
@@ -629,24 +524,6 @@ model PasswordResetAttempt {
   @@map("password_reset_attempts")
 }
 
-/// Phase 2F-A payment lifecycle. A Payment is the money record for one
-/// booking; the booking lifecycle (PENDING/CONFIRMED/...) and the
-/// payment lifecycle evolve independently — a confirmed booking is NOT
-/// automatically paid. `provider` is the gateway key that settled (or
-/// will settle) the payment; `pending` means created locally and
-/// awaiting provider handoff in Phase 2F-B. No card numbers, CVV, raw
-/// card details, or gateway credentials are ever stored here —
-/// `metadata` holds non-sensitive provider payload only.
-enum PaymentStatus {
-  PENDING
-  PROCESSING
-  PAID
-  FAILED
-  CANCELLED
-  REFUNDED
-  PARTIALLY_REFUNDED
-}
-
 /// Phase 2F-A: provider-agnostic payment record for one booking.
 /// `amount` is the server-authoritative amount due, frozen from the
 /// booking total at initiation (integer cents in, DECIMAL stored).
@@ -654,30 +531,29 @@ enum PaymentStatus {
 /// are written by server-side transitions (future provider webhooks
 /// or audited offline workflows), never by browser input.
 model Payment {
-  id                String        @id @default(cuid())
-  reference         String        @unique @db.VarChar(16)
+  id                String         @id @default(cuid())
+  reference         String         @unique @db.VarChar(16)
   bookingId         String
-  provider          String        @default("pending") @db.VarChar(64)
-  providerPaymentId String?       @unique @db.VarChar(128)
-  status            PaymentStatus @default(PENDING)
-  currency          String        @default("USD") @db.Char(3)
-  amount            Decimal       @db.Decimal(10, 2)
-  amountPaid        Decimal       @default(0) @db.Decimal(10, 2)
-  amountRefunded    Decimal       @default(0) @db.Decimal(10, 2)
-  failureCode       String?       @db.VarChar(64)
-  failureMessage    String?       @db.VarChar(255)
-  idempotencyKey    String?       @unique @db.VarChar(64)
-  initiatedAt       DateTime      @default(now())
+  provider          String         @default("pending") @db.VarChar(64)
+  providerPaymentId String?        @unique @db.VarChar(128)
+  status            PaymentStatus  @default(PENDING)
+  currency          String         @default("USD") @db.Char(3)
+  amount            Decimal        @db.Decimal(10, 2)
+  amountPaid        Decimal        @default(0.00) @db.Decimal(10, 2)
+  amountRefunded    Decimal        @default(0.00) @db.Decimal(10, 2)
+  failureCode       String?        @db.VarChar(64)
+  failureMessage    String?        @db.VarChar(255)
+  idempotencyKey    String?        @unique @db.VarChar(64)
+  initiatedAt       DateTime       @default(now())
   paidAt            DateTime?
   failedAt          DateTime?
   cancelledAt       DateTime?
   refundedAt        DateTime?
-  metadata          String?       @db.Text
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-
-  booking Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  events  PaymentEvent[]
+  metadata          String?        @db.Text
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  events            PaymentEvent[]
+  booking           Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@index([bookingId, createdAt])
   @@index([status, createdAt])
@@ -688,47 +564,46 @@ model Payment {
 /// appends one row; rows are never updated or deleted except by
 /// booking cascade. Customer-facing views exclude internal rows.
 model Tour {
-  id              String    @id @default(cuid())
-  slug            String    @unique @db.VarChar(80)
-  aliases         Json
-  title           String    @db.VarChar(200)
-  titleAr         String?   @db.VarChar(200)
-  category        String    @db.VarChar(32)
-  destinationSlug String?    @db.VarChar(80)
-  cruiseType      String?   @db.VarChar(32)
-  departurePort   String?   @db.VarChar(80)
-  location        String    @db.VarChar(120)
-  price           Decimal   @db.Decimal(10, 2)
-  duration        String    @db.VarChar(80)
-  image           String    @db.VarChar(255)
-  gallery         Json
-  galleryCaptions Json      @default("[]")
-  summary         String    @db.Text
-  groupSize       String?   @db.VarChar(40)
-  travelStyle     String?   @db.VarChar(40)
-  deal            Json?     @db.Json
-  detail          Json?     @db.Json
-  dayDetail       Json?     @db.Json
-  categorySlugs   Json
-  journeyVideos   Json
-  photoCredits    Json
-  status          String    @default("published") @db.VarChar(20)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id              String   @id @default(cuid())
+  slug            String   @unique @db.VarChar(80)
+  aliases         String   @db.LongText
+  title           String   @db.VarChar(200)
+  titleAr         String?  @db.VarChar(200)
+  category        String   @db.VarChar(32)
+  destinationSlug String?  @db.VarChar(80)
+  cruiseType      String?  @db.VarChar(32)
+  departurePort   String?  @db.VarChar(80)
+  location        String   @db.VarChar(120)
+  price           Decimal  @db.Decimal(10, 2)
+  duration        String   @db.VarChar(80)
+  image           String   @db.VarChar(255)
+  gallery         String   @db.LongText
+  summary         String   @db.Text
+  groupSize       String?  @db.VarChar(40)
+  travelStyle     String?  @db.VarChar(40)
+  deal            String?  @db.LongText
+  detail          String?  @db.LongText
+  dayDetail       String?  @db.LongText
+  categorySlugs   String   @db.LongText
+  journeyVideos   String   @db.LongText
+  photoCredits    String   @db.LongText
+  status          String   @default("published") @db.VarChar(20)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  galleryCaptions String   @db.LongText
 
   @@map("tours")
 }
 
 model PaymentEvent {
-  id        String   @id @default(cuid())
-  paymentId String
-  actorRole String   @db.VarChar(16)
-  action    String   @db.VarChar(160)
-  note      String?  @db.Text
-  isInternal Boolean @default(false)
-  createdAt DateTime @default(now())
-
-  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  paymentId  String
+  actorRole  String   @db.VarChar(16)
+  action     String   @db.VarChar(160)
+  note       String?  @db.Text
+  isInternal Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  payment    Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
 
   @@index([paymentId, createdAt])
   @@map("payment_events")
@@ -760,8 +635,7 @@ model FavoriteItem {
   itemType  String   @default("tour") @db.VarChar(32)
   itemSlug  String   @db.VarChar(120)
   createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, itemType, itemSlug])
   @@index([userId, createdAt])
@@ -776,35 +650,19 @@ model FavoriteItem {
 /// marker: NULL means unread. New events from this phase onward only —
 /// historical records are never backfilled.
 model Notification {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
-  type      String   @db.VarChar(48)
-  title     String   @db.VarChar(160)
-  message   String   @db.VarChar(500)
-  href      String?  @db.VarChar(255)
+  type      String    @db.VarChar(48)
+  title     String    @db.VarChar(160)
+  message   String    @db.VarChar(500)
+  href      String?   @db.VarChar(255)
   readAt    DateTime?
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
   @@index([userId, readAt])
   @@map("notifications")
-}
-
-/// Phase 2I: internal STAR PYRAMIDS support conversations (customer ↔
-/// staff). One conversation thread per customer support need; the
-/// customer UX centers on their latest thread while staff work from a
-/// cross-customer inbox. `customerId` is the owning customer (server
-/// session, never browser input). `assignedStaffId` is the staff owner
-/// (nullable, staff-set only). `subject` is an optional short context
-/// label (e.g. a booking reference the question relates to). `status`
-/// is OPEN or CLOSED; closed threads are read-only history — new
-/// customer messages open a fresh thread. `lastMessageAt` orders the
-/// staff inbox. External/WhatsApp channels are NOT modeled here.
-enum SupportConversationStatus {
-  OPEN
-  CLOSED
 }
 
 model SupportConversation {
@@ -818,13 +676,13 @@ model SupportConversation {
   createdAt       DateTime                  @default(now())
   updatedAt       DateTime                  @updatedAt
   closedAt        DateTime?
-
-  customer User  @relation("SupportCustomer", fields: [customerId], references: [id], onDelete: Cascade)
-  assignee User? @relation("SupportAssignee", fields: [assignedStaffId], references: [id], onDelete: SetNull)
-  messages SupportMessage[]
+  assignee        User?                     @relation("SupportAssignee", fields: [assignedStaffId], references: [id])
+  customer        User                      @relation("SupportCustomer", fields: [customerId], references: [id], onDelete: Cascade)
+  messages        SupportMessage[]
 
   @@index([customerId, updatedAt])
   @@index([status, lastMessageAt])
+  @@index([assignedStaffId], map: "support_conversations_assignedStaffId_fkey")
   @@map("support_conversations")
 }
 
@@ -836,49 +694,34 @@ model SupportConversation {
 /// NULL means unread by the other side. No attachments, reactions, or
 /// external-channel payloads in this phase.
 model SupportMessage {
-  id             String   @id @default(cuid())
+  id             String              @id @default(cuid())
   conversationId String
   senderId       String
-  senderRole     String   @db.VarChar(16)
-  body           String   @db.VarChar(2000)
+  senderRole     String              @db.VarChar(16)
+  body           String              @db.VarChar(2000)
   readAt         DateTime?
-  createdAt      DateTime @default(now())
-
-  conversation SupportConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender       User                @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  createdAt      DateTime            @default(now())
+  conversation   SupportConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User                @relation(fields: [senderId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, createdAt])
+  @@index([senderId], map: "support_messages_senderId_fkey")
   @@map("support_messages")
 }
 
-/// Phase 2J: email delivery outbox. One row per email attempt — the
-/// authoritative record of what was sent, to whom, and with what result.
-/// `status` is PENDING (queued), SENT (provider accepted), FAILED
-/// (permanent failure), or SKIPPED (suppressed by dedup/idempotency).
-/// `providerMessageId` is the provider's ID when available (nullable).
-/// `attempt` counts delivery attempts; `errorSummary` holds a safe,
-/// non-sensitive error description. No email bodies, no secrets, no
-/// raw provider responses are stored here.
-enum EmailStatus {
-  PENDING
-  SENT
-  FAILED
-  SKIPPED
-}
-
 model EmailDelivery {
-  id                String     @id @default(cuid())
-  recipient         String     @db.VarChar(190)
-  recipientType     String     @db.VarChar(16)
-  eventType         String     @db.VarChar(48)
-  subject           String     @db.VarChar(200)
-  relatedReference  String?    @db.VarChar(64)
+  id                String      @id @default(cuid())
+  recipient         String      @db.VarChar(190)
+  recipientType     String      @db.VarChar(16)
+  eventType         String      @db.VarChar(48)
+  subject           String      @db.VarChar(200)
+  relatedReference  String?     @db.VarChar(64)
   status            EmailStatus @default(PENDING)
-  providerMessageId String?    @db.VarChar(128)
-  attempt           Int        @default(0)
-  errorSummary      String?    @db.VarChar(500)
-  idempotencyKey    String?    @unique @db.VarChar(64)
-  createdAt         DateTime   @default(now())
+  providerMessageId String?     @db.VarChar(128)
+  attempt           Int         @default(0)
+  errorSummary      String?     @db.VarChar(500)
+  idempotencyKey    String?     @unique @db.VarChar(64)
+  createdAt         DateTime    @default(now())
   sentAt            DateTime?
   failedAt          DateTime?
 
@@ -897,20 +740,20 @@ model EmailDelivery {
 /// from all public surfaces. `detail` carries the full editorial payload
 /// (hero, facts, bestFor, experiences, rhythm, practical, tourSlugs).
 model Destination {
-  id               String   @id @default(cuid())
-  slug             String   @unique @db.VarChar(80)
-  title            String   @db.VarChar(120)
-  nameAr           String?  @db.VarChar(120)
-  image            String   @db.VarChar(2000)
-  copy             String   @db.VarChar(2000)
-  copyAr           String?  @db.VarChar(2000)
-  showInOneDayTours Boolean @default(false)
-  showInDestinations Boolean @default(true)
-  isPublished      Boolean  @default(true)
-  displayOrder     Int      @default(999)
-  detail           Json
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  slug               String   @unique @db.VarChar(80)
+  title              String   @db.VarChar(120)
+  nameAr             String?  @db.VarChar(120)
+  image              String   @db.VarChar(2000)
+  copy               String   @db.VarChar(2000)
+  copyAr             String?  @db.VarChar(2000)
+  showInOneDayTours  Boolean  @default(false)
+  showInDestinations Boolean  @default(true)
+  isPublished        Boolean  @default(true)
+  displayOrder       Int      @default(999)
+  detail             String   @db.LongText
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   @@map("destinations")
 }
@@ -943,48 +786,48 @@ model MultiDayCategory {
 /// nested editorial content (gallery, highlights, program,
 /// included/excluded lists, add-ons) travels in `content` JSON.
 model Event {
-  id              String   @id @default(cuid())
-  slug            String   @unique @db.VarChar(80)
-  title           String   @db.VarChar(200)
-  titleAr         String?  @db.VarChar(200)
-  image           String   @db.VarChar(2000)
-  date            String   @db.VarChar(120)
-  startDate       String?  @db.VarChar(10)
-  endDate         String?  @db.VarChar(10)
-  startTime       String?  @db.VarChar(5)
-  endTime         String?  @db.VarChar(5)
-  timezone        String?  @db.VarChar(60)
-  location        String   @db.VarChar(120)
-  locationAr      String?  @db.VarChar(120)
-  venueName       String?  @db.VarChar(200)
-  venueNameAr     String?  @db.VarChar(200)
-  address         String?  @db.VarChar(500)
-  addressAr       String?  @db.VarChar(500)
-  city            String?  @db.VarChar(120)
-  cityAr          String?  @db.VarChar(120)
-  mapQuery        String?  @db.VarChar(200)
-  copy            String   @db.VarChar(2000)
-  copyAr          String?  @db.VarChar(2000)
-  category        String?  @db.VarChar(120)
-  categoryAr      String?  @db.VarChar(120)
-  featured        Boolean  @default(false)
-  intro           String?  @db.VarChar(2000)
-  introAr         String?  @db.VarChar(2000)
-  pricingType     String?  @db.VarChar(20)
-  price           Float?
-  currency        String?  @db.VarChar(8)
-  capacity        Int?
-  bookingDeadline String?  @db.VarChar(10)
-  organizerName   String?  @db.VarChar(200)
-  organizerNameAr String?  @db.VarChar(200)
-  organizerPhone  String?  @db.VarChar(60)
-  organizerWhatsapp String? @db.VarChar(60)
-  organizerEmail  String?  @db.VarChar(200)
-  isPublished     Boolean  @default(true)
-  displayOrder    Int      @default(999)
-  content         Json
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                String   @id @default(cuid())
+  slug              String   @unique @db.VarChar(80)
+  title             String   @db.VarChar(200)
+  titleAr           String?  @db.VarChar(200)
+  image             String   @db.VarChar(2000)
+  date              String   @db.VarChar(120)
+  startDate         String?  @db.VarChar(10)
+  endDate           String?  @db.VarChar(10)
+  startTime         String?  @db.VarChar(5)
+  endTime           String?  @db.VarChar(5)
+  timezone          String?  @db.VarChar(60)
+  location          String   @db.VarChar(120)
+  locationAr        String?  @db.VarChar(120)
+  venueName         String?  @db.VarChar(200)
+  venueNameAr       String?  @db.VarChar(200)
+  address           String?  @db.VarChar(500)
+  addressAr         String?  @db.VarChar(500)
+  city              String?  @db.VarChar(120)
+  cityAr            String?  @db.VarChar(120)
+  mapQuery          String?  @db.VarChar(200)
+  copy              String   @db.VarChar(2000)
+  copyAr            String?  @db.VarChar(2000)
+  category          String?  @db.VarChar(120)
+  categoryAr        String?  @db.VarChar(120)
+  featured          Boolean  @default(false)
+  intro             String?  @db.VarChar(2000)
+  introAr           String?  @db.VarChar(2000)
+  pricingType       String?  @db.VarChar(20)
+  price             Float?
+  currency          String?  @db.VarChar(8)
+  capacity          Int?
+  bookingDeadline   String?  @db.VarChar(10)
+  organizerName     String?  @db.VarChar(200)
+  organizerPhone    String?  @db.VarChar(60)
+  organizerWhatsapp String?  @db.VarChar(60)
+  organizerEmail    String?  @db.VarChar(200)
+  isPublished       Boolean  @default(true)
+  displayOrder      Int      @default(999)
+  content           String   @db.LongText
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  organizerNameAr   String?  @db.VarChar(200)
 
   @@map("events")
 }
@@ -1002,7 +845,7 @@ model Car {
   transmission String   @db.VarChar(60)
   dailyPrice   Float
   copy         String   @db.VarChar(2000)
-  credit       Json?
+  credit       String?  @db.LongText
   isPublished  Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -1030,7 +873,7 @@ model Offer {
   deadline      String?  @db.VarChar(120)
   isPublished   Boolean  @default(true)
   displayOrder  Int      @default(999)
-  content       Json
+  content       String   @db.LongText
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -1053,9 +896,165 @@ model Blog {
   excerpt      String   @db.VarChar(2000)
   isPublished  Boolean  @default(true)
   displayOrder Int      @default(999)
-  content      Json
+  content      String   @db.LongText
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   @@map("blogs")
+}
+
+model Review {
+  id          String       @id @default(cuid())
+  publicId    String       @unique @default(uuid()) @db.VarChar(64)
+  userId      String
+  tourSlug    String       @db.VarChar(80)
+  title       String?      @db.VarChar(160)
+  rating      Int          @db.TinyInt
+  text        String       @db.Text
+  status      ReviewStatus @default(PENDING)
+  publishedAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tourSlug])
+  @@index([tourSlug, status, createdAt])
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+  @@map("reviews")
+}
+
+/// Abuse-protection attempts for the public review submission endpoint.
+/// Counted per user-OR-ip inside a time window, pruned opportunistically.
+model ReviewAttempt {
+  id        String   @id @default(cuid())
+  userId    String?
+  ipAddress String   @db.VarChar(64)
+  tourSlug  String   @db.VarChar(80)
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([ipAddress, createdAt])
+  @@index([tourSlug, createdAt])
+  @@map("review_attempts")
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+enum SetupTokenType {
+  PASSWORD_SETUP
+  PASSWORD_RESET
+}
+
+enum TripRequestStatus {
+  NEW
+  REVIEWING
+  PROPOSAL_READY
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum TripRequestTimeMode {
+  EXACT
+  APPROX
+  UNSURE
+}
+
+enum CarRequestStatus {
+  NEW
+  REVIEWING
+  CONFIRMED
+  CANCELLED
+}
+
+enum CarTripType {
+  ONE_WAY
+  ROUND_TRIP
+}
+
+enum EventRequestStatus {
+  NEW
+  REVIEWING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+/// Honest payment state only. Phase 2E never marks a booking paid:
+/// every booking is created PENDING (unpaid) and stays there until the
+/// Phase 2F payment gateway exists. PAID/REFUNDED are reserved values.
+enum BookingPaymentStatus {
+  PENDING
+  PAID
+  REFUNDED
+}
+
+/// Phase 2F-A payment lifecycle. A Payment is the money record for one
+/// booking; the booking lifecycle (PENDING/CONFIRMED/...) and the
+/// payment lifecycle evolve independently — a confirmed booking is NOT
+/// automatically paid. `provider` is the gateway key that settled (or
+/// will settle) the payment; `pending` means created locally and
+/// awaiting provider handoff in Phase 2F-B. No card numbers, CVV, raw
+/// card details, or gateway credentials are ever stored here —
+/// `metadata` holds non-sensitive provider payload only.
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  CANCELLED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+/// Phase 2I: internal STAR PYRAMIDS support conversations (customer ↔
+/// staff). One conversation thread per customer support need; the
+/// customer UX centers on their latest thread while staff work from a
+/// cross-customer inbox. `customerId` is the owning customer (server
+/// session, never browser input). `assignedStaffId` is the staff owner
+/// (nullable, staff-set only). `subject` is an optional short context
+/// label (e.g. a booking reference the question relates to). `status`
+/// is OPEN or CLOSED; closed threads are read-only history — new
+/// customer messages open a fresh thread. `lastMessageAt` orders the
+/// staff inbox. External/WhatsApp channels are NOT modeled here.
+enum SupportConversationStatus {
+  OPEN
+  CLOSED
+}
+
+/// Phase 2J: email delivery outbox. One row per email attempt — the
+/// authoritative record of what was sent, to whom, and with what result.
+/// `status` is PENDING (queued), SENT (provider accepted), FAILED
+/// (permanent failure), or SKIPPED (suppressed by dedup/idempotency).
+/// `providerMessageId` is the provider's ID when available (nullable).
+/// `attempt` counts delivery attempts; `errorSummary` holds a safe,
+/// non-sensitive error description. No email bodies, no secrets, no
+/// raw provider responses are stored here.
+enum EmailStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+/// Phase 4E: customer reviews for tours.
+/// Authenticated CUSTOMER users submit reviews; staff moderate.
+/// Public surfaces show ONLY PUBLISHED reviews.
+/// Rating summary (average/count) computed from published DB records.
+enum ReviewStatus {
+  PENDING
+  PUBLISHED
+  REJECTED
 }
