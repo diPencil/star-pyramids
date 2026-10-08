@@ -37,8 +37,9 @@ function toError(error: unknown) {
 }
 
 export async function GET() {
-  // Staff-only directory. Any dashboard role may read; mutations below
-  // require Admin/Super Admin (enforced in the service boundary).
+  // Staff-only directory. Any dashboard role holding users.view may read;
+  // mutations below are SUPER_ADMIN-exclusive (enforced in the service
+  // boundary, regardless of legacy users.manage grants).
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });

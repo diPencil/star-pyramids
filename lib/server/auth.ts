@@ -124,11 +124,10 @@ export function hasPermission(
 }
 
 export function isStaff(user: PublicUser): boolean {
-  return (
-    hasRole(user, 'SUPER_ADMIN') ||
-    hasRole(user, 'ADMIN') ||
-    hasRole(user, 'STAFF')
-  );
+  // Any dashboard identity: holds at least one non-customer role.
+  // Must match hasStaffRole/requireStaff so custom-role staff are not
+  // bounced from /admin post-login while the shell lets them in.
+  return hasStaffRole(user);
 }
 
 // ─── Password Reset Flow ───────────────────────────────────────────────────

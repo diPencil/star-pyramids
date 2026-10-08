@@ -379,22 +379,48 @@ export interface ActorRef {
   permissions: readonly string[];
 }
 
-function requireManager(actor: ActorRef): void {
-  if (!actor.permissions.includes('users.manage')) {
-    throw new UserManagementError(
-      403,
-      'Only Admins and Super Admins can manage team members.',
-    );
+/**
+ * Capabilities reserved to SUPER_ADMIN by code (see requireSuperAdmin).
+ * Legacy grant rows for these keys may still exist on ADMIN/STAFF/custom
+ * roles, but they confer no mutation power. They must be displayed as
+ * locked — never granted — until separate owner approval rewrites them.
+ */
+export const SUPER_ADMIN_ONLY_PERMISSIONS: readonly string[] = [
+  'users.manage',
+  'roles.manage',
+];
+
+/**
+ * Effective (enforceable) permission keys for a role's raw grant list.
+ * SUPER_ADMIN is unaffected (full access by definition); every other
+ * role loses the SUPER_ADMIN-only capabilities, matching API checks.
+ */
+export function effectiveRolePermissions(roleKey: string, granted: readonly string[]): string[] {
+  if (roleKey === 'SUPER_ADMIN') return [...granted];
+  return granted.filter((key) => !(SUPER_ADMIN_ONLY_PERMISSIONS as readonly string[]).includes(key));
+}
+
+/**
+ * Owner-approved access policy: ONLY SUPER_ADMIN may mutate user
+ * identities, roles or permission grants (invite/edit/suspend staff,
+ * create/edit roles, edit the permission matrix). Legacy `users.manage` /
+ * `roles.manage` permission records are intentionally NOT consulted here —
+ * ADMIN and STAFF must not manage identities even if those rows still
+ * grant the keys. Read-only directory access stays permission-based
+ * (`users.view` / `roles.view`) at the API routes.
+ */
+function requireSuperAdmin(actor: ActorRef, action: string): void {
+  if (!actor.roles.includes('SUPER_ADMIN')) {
+    throw new UserManagementError(403, action);
   }
 }
 
+function requireManager(actor: ActorRef): void {
+  requireSuperAdmin(actor, 'Only Super Admins can manage team members.');
+}
+
 function requireRolesManager(actor: ActorRef): void {
-  if (!actor.permissions.includes('roles.manage')) {
-    throw new UserManagementError(
-      403,
-      'Only Super Admins can manage roles and permissions.',
-    );
-  }
+  requireSuperAdmin(actor, 'Only Super Admins can manage roles and permissions.');
 }
 
 function requireGrantable(
@@ -523,8 +549,10 @@ export async function updateStaffUser(
     if (!isStaffMember) {
       throw new UserManagementError(404, 'Team member not found.');
     }
-    // Lattice enforcement: only a Super Admin may touch another
-    // Admin/Super Admin. Admins manage Staff; nobody manages above rank.
+    // Lattice enforcement: user management is SUPER_ADMIN-exclusive, and
+    // only a Super Admin may touch an Admin/Super Admin account. Self
+    // role/status changes are rejected below; the last-active-Super-Admin
+    // quorum is enforced transactionally on demote/suspend.
     const targetOutranks =
       targetRoles.includes('SUPER_ADMIN') || targetRoles.includes('ADMIN');
     if (targetOutranks && !actor.roles.includes('SUPER_ADMIN')) {
@@ -731,10 +759,9 @@ export async function resolvePermissionKeys(userId: string): Promise<string[]> {
 
 /**
  * Role keys the actor may assign. SUPER_ADMIN may grant any non-customer
- * role. Anyone else may only grant non-system, non-admin-tier roles whose
- * full permission set they themselves hold (subset rule) — ADMIN keeps the
- * historic STAFF grant, custom restrictive roles stay delegable, and
- * privilege escalation is impossible by construction.
+ * role. Anyone else may grant nothing: user identity management is
+ * SUPER_ADMIN-exclusive, so legacy permission rows never confer the power
+ * to assign roles. Privilege escalation is impossible by construction.
  */
 export function grantableRoleKeys(
   actor: ActorRef,
@@ -743,11 +770,7 @@ export function grantableRoleKeys(
   if (actor.roles.includes('SUPER_ADMIN')) {
     return allRoles.filter((r) => r.key !== 'CUSTOMER').map((r) => r.key);
   }
-  const ADMIN_TIER = new Set(['SUPER_ADMIN', 'ADMIN', 'CUSTOMER']);
-  return allRoles
-    .filter((r) => !r.isSystem && !ADMIN_TIER.has(r.key))
-    .filter((r) => r.permissions.every((key) => actor.permissions.includes(key)))
-    .map((r) => r.key);
+  return [];
 }
 
 const ROLE_KEY_PATTERN = /^[A-Z][A-Z0-9_]{1,39}$/;
@@ -861,9 +884,9 @@ export async function setRolePermissions(
       throw new UserManagementError(400, 'Select a valid permission set.');
     }
   }
-  // Delegation guard: only a Super Admin may grant permissions they do
-  // not hold themselves. (Only Super Admins hold roles.manage today, so
-  // this bites if that power is ever delegated.)
+  // Delegation guard (defense-in-depth): unreachable while role
+  // management is SUPER_ADMIN-exclusive, but kept so a future policy
+  // relaxation can never silently grant above the actor's authority.
   if (!actor.roles.includes('SUPER_ADMIN')) {
     const overreach = unique.filter((key) => !actor.permissions.includes(key));
     if (overreach.length > 0) {

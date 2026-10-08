@@ -70,6 +70,45 @@ function iconForAdminNotification(type: string) {
   }
 }
 
+/**
+ * Minimum view permission (any-of) required to show each admin section.
+ * Dashboard stays visible to every staff identity as the shell landing
+ * page; every other section mirrors the `*.view` key its API enforces,
+ * so a bookings-only user never sees Payments, Users or Settings links.
+ * APIs remain the source of truth — this only keeps navigation honest.
+ */
+const NAV_VIEW_PERMISSIONS: Record<string, string[]> = {
+  '/admin/bookings': ['bookings.view'],
+  '/admin/payments': ['payments.view'],
+  '/admin/trips': ['tours.view'],
+  '/admin/destinations': ['destinations.view'],
+  '/admin/multi-day-categories': ['categories.view'],
+  '/admin/events': ['events.view'],
+  '/admin/event-requests': ['requests.view'],
+  '/admin/offers': ['offers.view'],
+  '/admin/blogs': ['blogs.view'],
+  '/admin/cars': ['cars.view'],
+  '/admin/car-requests': ['requests.view'],
+  '/admin/trip-requests': ['requests.view'],
+  '/admin/customers': ['customers.view'],
+  '/admin/inbox': ['support.view'],
+  '/admin/emails': ['emails.view'],
+  '/admin/reviews': ['reviews.view'],
+  '/admin/users': ['users.view', 'roles.view'],
+  '/admin/settings': ['settings.view'],
+}
+
+function canSeeNavItem(
+  user: { roles?: string[]; permissions?: string[] },
+  href: string,
+): boolean {
+  if (user.roles?.includes('SUPER_ADMIN')) return true
+  const keys = NAV_VIEW_PERMISSIONS[href]
+  if (!keys) return true
+  const permissions = user.permissions ?? []
+  return keys.some((key) => permissions.includes(key))
+}
+
 const groups = [
   {
     label: 'القائمة',
@@ -118,7 +157,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const [query, setQuery] = useState('')
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [userMenu, setUserMenu] = useState(false)
-  const { user } = useCurrentUser()
+  const { user, loading: sessionLoading } = useCurrentUser()
   const adminNotifications = useAdminNotifications()
   const unreadCount = adminNotifications.unreadCount
   useEffect(() => {
@@ -174,8 +213,20 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   }
 
   const ar = locale === 'ar'
+  // Until the session (roles + permissions) resolves, no real navigation
+  // item is rendered — only neutral placeholders. This guarantees an
+  // unauthorized link is never visible, even for a frame.
+  const navReady = !sessionLoading && user !== null
+  const visibleGroups = navReady
+    ? groups
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((item) => canSeeNavItem(user, item.href)),
+      }))
+      .filter((group) => group.items.length > 0)
+    : []
   const searchResults = query.trim()
-    ? groups.flatMap((group) => group.items).filter((item) => `${item.en} ${item.ar}`.toLowerCase().includes(query.trim().toLowerCase()))
+    ? visibleGroups.flatMap((group) => group.items).filter((item) => `${item.en} ${item.ar}`.toLowerCase().includes(query.trim().toLowerCase()))
     : []
 
   return (
@@ -197,8 +248,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           </Link>
         </div>
 
-        <nav className="sp-nav">
-          {groups.map((g) => (
+        <nav className="sp-nav" aria-busy={!navReady}>
+          {!navReady && (
+            <p role="status" style={{ margin: '6px 8px 4px', color: '#9db4e8', fontSize: 12 }}>
+              {ar ? 'جارٍ تحميل القائمة…' : 'Loading menu…'}
+            </p>
+          )}
+          {(navReady ? visibleGroups : []).map((g) => (
             <div key={g.label} className="sp-nav-group">
               {!collapsed && <p>{ar ? g.label : g.label === 'القائمة' ? 'MENU' : g.label === 'التواصل' ? 'INBOX' : 'ADMINISTRATION'}</p>}
               {g.items.map((item) => {
@@ -216,6 +272,17 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                   </Link>
                 )
               })}
+            </div>
+          ))}
+          {!navReady && groups.map((g) => (
+            <div key={g.label} className="sp-nav-group" aria-hidden="true">
+              {!collapsed && <p>{ar ? g.label : g.label === 'القائمة' ? 'MENU' : g.label === 'التواصل' ? 'INBOX' : 'ADMINISTRATION'}</p>}
+              {g.items.map((item) => (
+                <span key={item.href} className="sp-nav-link" style={{ pointerEvents: 'none' }}>
+                  <span style={{ width: 18, height: 18, borderRadius: 6, background: 'rgba(255,255,255,.14)' }} />
+                  {!collapsed && <span style={{ height: 12, borderRadius: 6, background: 'rgba(255,255,255,.14)', flex: 1 }} />}
+                </span>
+              ))}
             </div>
           ))}
         </nav>

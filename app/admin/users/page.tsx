@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Check, Circle, Eye, EyeOff, Pencil, Plus, ShieldCheck, UserCheck, Users } from 'lucide-react'
+import { Check, Circle, Eye, EyeOff, Lock, Pencil, Plus, ShieldCheck, UserCheck, Users } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableTools, AdminTableWrap, AdminText, Avatar, Card } from '@/components/admin/admin-ui'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
@@ -32,8 +32,8 @@ const capabilities: Record<string, { en: string[]; ar: string[] }> = {
     ar: ['وصول كامل للوحة التحكم بما فيها الإعدادات والبريد.', 'يدعو أي عضو في الفريق ويعدّله ويوقفه.', 'ينشئ الأدوار ويعدّل أي صلاحية.', 'حماية: لا يمكن إزالة آخر مدير عام نشط.'],
   },
   ADMIN: {
-    en: ['Manages catalogue, requests and bookings.', 'Invites and manages Staff members.', 'Cannot modify Admin or Super Admin accounts.', 'Cannot manage roles or grant Admin roles and above.'],
-    ar: ['يدير الكتالوج والطلبات والحجوزات.', 'يدعو الموظفين ويديرهم.', 'لا يعدّل حسابات المشرفين أو المدراء العامين.', 'لا يدير الأدوار ولا يمنح دور مشرف أو أعلى.'],
+    en: ['Manages catalogue, requests and bookings.', 'Team management is reserved for Super Admins.', 'Cannot modify Admin or Super Admin accounts.', 'Cannot manage roles or grant Admin roles and above.'],
+    ar: ['يدير الكتالوج والطلبات والحجوزات.', 'إدارة الفريق مخصصة للمدير العام.', 'لا يعدّل حسابات المشرفين أو المدراء العامين.', 'لا يدير الأدوار ولا يمنح دور مشرف أو أعلى.'],
   },
   STAFF: {
     en: ['Operates catalogue and request queues.', 'Team directory is read-only for this role.', 'Cannot invite, edit or deactivate members.'],
@@ -52,6 +52,30 @@ function roleLabel(role: DirectoryRole | undefined, key: string, ar: boolean): s
   const meta = roleMeta[key]
   if (meta) return ar ? meta.ar : meta.en
   return role?.name ?? key
+}
+
+// Short human labels for the permission actions that actually exist in
+// the database (view/create/edit/delete/manage/moderate). Unknown future
+// actions fall back to a capitalized key — never invented wording.
+//
+// ACTION_ORDER is the canonical display order used by every matrix row:
+// View, Create, Edit, Delete, Manage, Moderate. Only actions defined for
+// a module in the database are rendered; keys and semantics never change.
+const ACTION_ORDER = ['view', 'create', 'edit', 'delete', 'manage', 'moderate'] as const
+
+const ACTION_LABEL: Record<string, { en: string; ar: string }> = {
+  view: { en: 'View', ar: 'عرض' },
+  create: { en: 'Create', ar: 'إنشاء' },
+  edit: { en: 'Edit', ar: 'تعديل' },
+  delete: { en: 'Delete', ar: 'حذف' },
+  manage: { en: 'Manage', ar: 'إدارة' },
+  moderate: { en: 'Moderate', ar: 'مراجعة' },
+}
+
+function actionLabel(action: string, ar: boolean): string {
+  const hit = ACTION_LABEL[action]
+  if (hit) return ar ? hit.ar : hit.en
+  return action.charAt(0).toUpperCase() + action.slice(1)
 }
 
 function sortRoles<T extends { key: string }>(roles: readonly T[]): T[] {
@@ -76,13 +100,25 @@ export default function UsersPage() {
   // DB-authoritative directory with no static fallback: while the API is
   // loading or failing, the screen shows loading/error — never mock rows
   // masquerading as database records.
-  const { data, viewerPublicId, viewerPermissions, grantableRoles, loading, error, retry, refresh } = useDbUsersStatus()
-  const { roles: roleRows, catalog, canManageRoles, loading: rolesLoading, error: rolesError, retry: retryRoles, refresh: refreshRoles } = useDbRolesStatus()
+  const { data, viewerPublicId, viewerRoles, grantableRoles, loading, error, retry, refresh } = useDbUsersStatus()
+  const { roles: roleRows, catalog, canManageRoles, restrictedPermissions, loading: rolesLoading, error: rolesError, retry: retryRoles, refresh: refreshRoles } = useDbRolesStatus()
+  // SUPER_ADMIN-only capabilities (users.manage, roles.manage): legacy
+  // grant rows may still exist, but they confer no power and render as
+  // locked on every non-SUPER_ADMIN role — matching API enforcement.
+  const restricted = useMemo(() => new Set(restrictedPermissions), [restrictedPermissions])
+  const effectiveCount = (item: DirectoryRole) => item.key === 'SUPER_ADMIN'
+    ? item.permissions.length
+    : item.permissions.filter((key) => !restricted.has(key)).length
   const liveUsers = data ?? []
   const liveRoles = useMemo(() => (roleRows ?? []).filter((item) => item.key !== 'CUSTOMER'), [roleRows])
   const orderedRoles = useMemo(() => sortRoles(liveRoles), [liveRoles])
+  // The SUPER_ADMIN column renders as one spanning Full Access cell
+  // instead of repetitive per-permission toggles; every other role gets
+  // labeled per-permission pills in the same column order.
+  const superAdminRole = useMemo(() => orderedRoles.find((item) => item.key === 'SUPER_ADMIN') ?? null, [orderedRoles])
+  const matrixRoles = useMemo(() => orderedRoles.filter((item) => item.key !== 'SUPER_ADMIN'), [orderedRoles])
   const roleByKey = useMemo(() => new Map(liveRoles.map((item) => [item.key, item])), [liveRoles])
-  const canManage = viewerPermissions.includes('users.manage')
+  const canManage = viewerRoles.includes('SUPER_ADMIN')
 
   const modules = useMemo(() => {
     const groups = new Map<string, CatalogPermission[]>()
@@ -91,7 +127,14 @@ export default function UsersPage() {
       list.push(perm)
       groups.set(perm.module, list)
     }
-    return [...groups.entries()].map(([module, actions]) => ({ module, actions }))
+    const rank = (action: string) => {
+      const index = (ACTION_ORDER as readonly string[]).indexOf(action)
+      return index === -1 ? ACTION_ORDER.length : index
+    }
+    return [...groups.entries()].map(([module, actions]) => ({
+      module,
+      actions: [...actions].sort((a, b) => rank(a.action) - rank(b.action)),
+    }))
   }, [catalog])
 
   const [inviteOpen, setInviteOpen] = useState(false)
@@ -99,6 +142,8 @@ export default function UsersPage() {
   const [inviteLast, setInviteLast] = useState('')
   const [inviteEmail, setInviteEmail] = useState('')
   const [invitePassword, setInvitePassword] = useState('')
+  // Password starts masked on every invite; the admin reveals it explicitly.
+  const [inviteShowPassword, setInviteShowPassword] = useState(false)
   const [inviteRole, setInviteRole] = useState('STAFF')
   const [inviteErrors, setInviteErrors] = useState<FieldErrors>({})
   const [inviteServerError, setInviteServerError] = useState('')
@@ -110,6 +155,12 @@ export default function UsersPage() {
   const [editEmail, setEditEmail] = useState('')
   const [editRole, setEditRole] = useState('STAFF')
   const [editStatus, setEditStatus] = useState<'ACTIVE' | 'SUSPENDED'>('ACTIVE')
+  // Select controls are only sent when the admin explicitly touches them:
+  // otherwise opening Edit on a PENDING member (whose select defaults to
+  // ACTIVE) would silently activate them, and any concurrent role change
+  // would be overwritten with a stale value.
+  const [editRoleTouched, setEditRoleTouched] = useState(false)
+  const [editStatusTouched, setEditStatusTouched] = useState(false)
   const [editErrors, setEditErrors] = useState<FieldErrors>({})
   const [editServerError, setEditServerError] = useState('')
   const [editSaving, setEditSaving] = useState(false)
@@ -132,6 +183,7 @@ export default function UsersPage() {
     setInviteLast('')
     setInviteEmail('')
     setInvitePassword('')
+    setInviteShowPassword(false)
     setInviteRole(grantableRoles.includes('STAFF') ? 'STAFF' : (grantableRoles[0] ?? 'STAFF'))
     setInviteErrors({})
     setInviteServerError('')
@@ -145,6 +197,8 @@ export default function UsersPage() {
     setEditEmail(member.email)
     setEditRole(primaryRole(member))
     setEditStatus(member.status === 'SUSPENDED' ? 'SUSPENDED' : 'ACTIVE')
+    setEditRoleTouched(false)
+    setEditStatusTouched(false)
     setEditErrors({})
     setEditServerError('')
   }
@@ -205,15 +259,30 @@ export default function UsersPage() {
     setEditErrors(errors)
     if (Object.keys(errors).length > 0) return
     const isSelf = editTarget.publicId === viewerPublicId
+    // Diff-only payload: untouched role/status selects are never sent, so
+    // saving a name/email change cannot silently activate a PENDING member
+    // or rewrite a concurrently changed role. The server also rejects
+    // empty updates with "Nothing to update."
+    const payload: Record<string, unknown> = {}
+    const nextEmail = editEmail.trim()
+    if (nextEmail !== editTarget.email) payload.email = nextEmail
+    const nextFirst = editFirst.trim() || null
+    if (nextFirst !== (editTarget.firstName ?? null)) payload.firstName = nextFirst
+    const nextLast = editLast.trim() || null
+    if (nextLast !== (editTarget.lastName ?? null)) payload.lastName = nextLast
+    if (!isSelf) {
+      if (editRoleTouched && editRole !== primaryRole(editTarget)) payload.roleKey = editRole
+      if (editStatusTouched && editStatus !== editTarget.status) payload.status = editStatus
+    }
+    if (Object.keys(payload).length === 0) {
+      setEditTarget(null)
+      setSuccessNote(ar ? 'لا توجد تغييرات للحفظ.' : 'No changes to save.')
+      return
+    }
     setEditSaving(true)
     setEditServerError('')
     try {
-      await mutateDirectoryUser('PUT', `/api/admin/users/${encodeURIComponent(editTarget.publicId)}`, {
-        email: editEmail.trim(),
-        firstName: editFirst.trim() || null,
-        lastName: editLast.trim() || null,
-        ...(isSelf ? {} : { roleKey: editRole, status: editStatus }),
-      })
+      await mutateDirectoryUser('PUT', `/api/admin/users/${encodeURIComponent(editTarget.publicId)}`, payload)
       setEditTarget(null)
       setSuccessNote(ar ? 'تم حفظ التعديلات.' : 'Changes saved.')
       setActionError('')
@@ -318,7 +387,11 @@ export default function UsersPage() {
   const reviewRoleKey = reviewTarget ? primaryRole(reviewTarget) : null
   const reviewCaps = reviewRoleKey ? capabilities[reviewRoleKey] : null
   const reviewGranted = reviewTarget && !reviewCaps
-    ? (roleByKey.get(reviewRoleKey!)?.permissions ?? []).map((key) => catalog.find((perm) => perm.key === key)?.label ?? key)
+    ? (roleByKey.get(reviewRoleKey!)?.permissions ?? [])
+      // Legacy SUPER_ADMIN-only rows confer no power; never present them
+      // as effective capabilities (same policy overlay as the matrix).
+      .filter((key) => reviewRoleKey === 'SUPER_ADMIN' || !restricted.has(key))
+      .map((key) => catalog.find((perm) => perm.key === key)?.label ?? key)
     : []
 
   return <>
@@ -343,10 +416,14 @@ export default function UsersPage() {
           const memberRole = primaryRole(member)
           const status = statusMeta[member.status] ?? statusMeta.ACTIVE!
           const suspended = member.status === 'SUSPENDED'
+          // Self-protection in the UI (mirrors the server 403): the
+          // suspend/activate action is never offered on your own row,
+          // for every role. Compared by stable publicId, never names.
+          const rowIsSelf = member.publicId === viewerPublicId
           return <tr key={member.publicId}><td className="sp-row-number">{paging.from + index}</td><td><span className="sp-cust"><Avatar name={member.displayName} size={34} online={member.online} /><span><strong>{member.displayName}</strong><small>{roleLabel(roleByKey.get(memberRole), memberRole, ar)}</small></span></span></td><td>{roleLabel(roleByKey.get(memberRole), memberRole, ar)}</td><td dir="ltr">{member.email}</td><td><span className="sp-inline-meta"><Circle size={8} fill={status.color} color={status.color} />{ar ? status.ar : status.en}</span></td><td>{canManage ? <AdminTableActions>
             <AdminIconAction icon={Pencil} label={ar ? `تعديل ${member.displayName}` : `Edit ${member.displayName}`} onClick={() => openEdit(member)} />
-            <AdminIconAction icon={suspended ? Eye : EyeOff} tone={suspended ? 'default' : 'danger'} label={suspended ? (ar ? `تفعيل ${member.displayName}` : `Activate ${member.displayName}`) : (ar ? `إيقاف ${member.displayName}` : `Suspend ${member.displayName}`)} onClick={() => { setStatusServerError(''); setStatusTarget({ member, to: suspended ? 'ACTIVE' : 'SUSPENDED' }) }} />
-            <AdminIconAction icon={ShieldCheck} label={ar ? `مراجعة صلاحيات ${member.displayName}` : `Review ${member.displayName} permissions`} onClick={() => setReviewTarget(member)} />
+            {!rowIsSelf ? <AdminIconAction icon={suspended ? Eye : EyeOff} tone={suspended ? 'default' : 'danger'} label={suspended ? (ar ? `تفعيل ${member.displayName}` : `Activate ${member.displayName}`) : (ar ? `إيقاف ${member.displayName}` : `Suspend ${member.displayName}`)} onClick={() => { setStatusServerError(''); setStatusTarget({ member, to: suspended ? 'ACTIVE' : 'SUSPENDED' }) }} /> : null}
+            <AdminIconAction icon={ShieldCheck} label={ar ? 'عرض الصلاحيات' : 'View permissions'} onClick={() => setReviewTarget(member)} />
           </AdminTableActions> : null}</td></tr>
         })}</tbody>
       </table></AdminTableWrap> : <AdminEmpty title={<AdminText en="No team members found" ar="لا يوجد أعضاء" />} copy={<AdminText en="Try changing the search or filters." ar="جرب تغيير البحث أو الفلاتر." />} />}
@@ -357,25 +434,39 @@ export default function UsersPage() {
       : rolesError ? <><AdminEmpty title={<AdminText en="Could not load roles" ar="تعذر تحميل الأدوار" />} copy={<AdminText en={rolesError} ar={rolesError} />} /><div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}><button type="button" className="sp-btn" onClick={retryRoles}><AdminText en="Retry" ar="إعادة المحاولة" /></button></div></>
       : <AdminTableWrap><table className="sp-table">
         <thead><tr><th className="sp-row-number">#</th><th><AdminText en="Role" ar="الدور" /></th><th><AdminText en="Members" ar="الأعضاء" /></th><th><AdminText en="Permissions" ar="الصلاحيات" /></th><th></th></tr></thead>
-        <tbody>{orderedRoles.map((item, index) => <tr key={item.key}><td className="sp-row-number">{index + 1}</td><td><strong>{item.name}</strong><br /><small style={{ color: 'var(--sp-muted)' }}>{item.key}{item.isSystem ? (ar ? ' · نظام' : ' · System') : null}{item.description ? ` - ${item.description}` : null}</small></td><td>{item.memberCount}</td><td>{item.key === 'SUPER_ADMIN' ? (ar ? 'وصول كامل' : 'Full access') : item.permissions.length}</td><td>{canManageRoles && !item.isSystem ? <AdminTableActions><AdminIconAction icon={Pencil} label={ar ? `تعديل ${item.name}` : `Edit ${item.name}`} onClick={() => openRoleDialog({ mode: 'edit', role: item })} /></AdminTableActions> : null}</td></tr>)}</tbody>
+        <tbody>{orderedRoles.map((item, index) => <tr key={item.key}><td className="sp-row-number">{index + 1}</td><td><strong>{item.name}</strong><br /><small style={{ color: 'var(--sp-muted)' }}>{item.key}{item.isSystem ? (ar ? ' · نظام' : ' · System') : null}{item.description ? ` - ${item.description}` : null}</small></td><td>{item.memberCount}</td><td>{item.key === 'SUPER_ADMIN' ? (ar ? 'وصول كامل' : 'Full access') : effectiveCount(item)}</td><td>{canManageRoles && !item.isSystem ? <AdminTableActions><AdminIconAction icon={Pencil} label={ar ? `تعديل ${item.name}` : `Edit ${item.name}`} onClick={() => openRoleDialog({ mode: 'edit', role: item })} /></AdminTableActions> : null}</td></tr>)}</tbody>
       </table></AdminTableWrap>}
     </Card>
     <Card title={<AdminText en="Permission matrix" ar="مصفوفة الصلاحيات" />} sub={<AdminText en="Live role permissions from the database - Super Admins toggle cells to change access" ar="صلاحيات الأدوار الحية من قاعدة البيانات - يبدّل المدير العام الخلايا لتغيير الوصول" />}>
       {matrixError ? <p role="alert" style={{ color: '#b91c1c', margin: '0 0 8px' }}>{matrixError}</p> : null}
       {rolesLoading ? <AdminEmpty title={<AdminText en="Loading matrix…" ar="جارٍ تحميل المصفوفة…" />} copy={<AdminText en="Reading role permissions." ar="تتم قراءة صلاحيات الأدوار." />} />
       : rolesError ? <><AdminEmpty title={<AdminText en="Could not load matrix" ar="تعذر تحميل المصفوفة" />} copy={<AdminText en={rolesError} ar={rolesError} />} /><div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}><button type="button" className="sp-btn" onClick={retryRoles}><AdminText en="Retry" ar="إعادة المحاولة" /></button></div></>
-      : <AdminTableWrap><table className="sp-table sp-perm">
-        <thead><tr><th className="sp-row-number">#</th><SortableTh label={<AdminText en="Module" ar="الوحدة" />} column="module" sortKey={matrixSort.sortKey} direction={matrixSort.direction} onSort={matrixSort.sortBy} />{orderedRoles.map((item) => <SortableTh key={item.key} label={item.name} column={item.key} sortKey={matrixSort.sortKey} direction={matrixSort.direction} onSort={matrixSort.sortBy} />)}</tr></thead>
-        <tbody>{matrixSort.sortedRows.map((row, index) => <tr key={row.module}><td className="sp-row-number">{index + 1}</td><td><strong style={{ textTransform: 'capitalize' }}>{row.module}</strong></td>{orderedRoles.map((item) => <td key={item.key}><span style={{ display: 'inline-flex', gap: 4, flexWrap: 'wrap' }}>{row.actions.map((perm) => {
+      : <><div className="sp-mx-legend">
+        <span className="sp-mx-legend-item"><Check size={14} color="#15803d" /><AdminText en="Granted" ar="ممنوحة" /></span>
+        <span className="sp-mx-legend-item"><span aria-hidden="true" style={{ color: '#cbd5e1' }}>–</span><AdminText en="Not granted" ar="غير ممنوحة" /></span>
+        <span className="sp-mx-legend-item"><Lock size={13} color="#94a3b8" /><AdminText en="Super Admin only" ar="للمدير العام فقط" /></span>
+        <span className="sp-mx-legend-item"><ShieldCheck size={14} color="var(--sp-blue-deep)" /><AdminText en="Full access" ar="وصول كامل" /></span>
+      </div><AdminTableWrap><table className="sp-table sp-perm">
+        <thead><tr><th className="sp-row-number">#</th><SortableTh label={<AdminText en="Module" ar="الوحدة" />} column="module" sortKey={matrixSort.sortKey} direction={matrixSort.direction} onSort={matrixSort.sortBy} />{superAdminRole ? <th key={superAdminRole.key}><span className="sp-mx-superhead"><ShieldCheck size={15} /><span>{superAdminRole.name}</span><small><AdminText en="Full access" ar="وصول كامل" /></small></span></th> : null}{matrixRoles.map((item) => <SortableTh key={item.key} label={item.name} column={item.key} sortKey={matrixSort.sortKey} direction={matrixSort.direction} onSort={matrixSort.sortBy} />)}</tr></thead>
+        <tbody>{matrixSort.sortedRows.map((row, index) => <tr key={row.module}><td className="sp-row-number">{index + 1}</td><td><strong style={{ textTransform: 'capitalize' }}>{row.module}</strong></td>{superAdminRole ? <td key={superAdminRole.key}><span className="sp-mx-covered"><ShieldCheck size={14} aria-hidden="true" /></span></td> : null}{matrixRoles.map((item) => <td key={item.key}><span className="sp-mx-pills">{row.actions.map((perm) => {
           const granted = (row.grants[item.key] ?? []).includes(perm.action)
-          const locked = item.key === 'SUPER_ADMIN'
-          const label = `${granted ? (ar ? 'إلغاء' : 'Revoke') : (ar ? 'منح' : 'Grant')} ${perm.action} - ${row.module} - ${item.name}`
-          const icon = granted ? <Check size={15} color="#15803d" /> : <span style={{ color: '#cbd5e1' }}>-</span>
-          return canManageRoles && !locked
-            ? <button key={perm.key} type="button" onClick={() => void toggleMatrixPermission(item, perm.key, granted)} aria-label={label} title={label} aria-pressed={granted} style={{ display: 'inline-grid', placeItems: 'center', minWidth: 26, minHeight: 26, padding: '2px 4px', border: '1px solid var(--sp-border)', borderRadius: 8, background: granted ? '#f0fdf4' : 'transparent', cursor: 'pointer' }}>{icon}<span style={{ fontSize: 10, fontWeight: 800, color: granted ? '#15803d' : '#94a3b8' }}>{perm.action.slice(0, 1).toUpperCase()}</span></button>
-            : <span key={perm.key} title={`${perm.action} - ${item.name}`} style={{ display: 'inline-grid', placeItems: 'center', minWidth: 26, minHeight: 26 }}>{icon}</span>
+          // Policy overlay: SUPER_ADMIN-only capabilities render as locked
+          // on every other role — even when a legacy grant row exists —
+          // because the APIs never honor them. Never toggleable.
+          const reserved = restricted.has(perm.key)
+          const label = reserved
+            ? `${perm.label ?? perm.action} - ${row.module} - ${item.name} (${ar ? 'مخصص للمدير العام: لا يمنح أي وصول.' : 'Reserved for Super Admins: grants no access.'})`
+            : `${granted ? (ar ? 'إلغاء' : 'Revoke') : (ar ? 'منح' : 'Grant')} ${perm.label ?? perm.action} - ${row.module} - ${item.name}`
+          const pill = <>{granted ? <Check size={14} /> : null}<span>{actionLabel(perm.action, ar)}</span></>
+          if (reserved) {
+            return <span key={perm.key} className="sp-mx-pill is-locked" title={label} aria-label={label}><Lock size={13} /><span>{actionLabel(perm.action, ar)}</span></span>
+          }
+          const className = granted ? 'sp-mx-pill is-on' : 'sp-mx-pill'
+          return canManageRoles
+            ? <button key={perm.key} type="button" className={className} onClick={() => void toggleMatrixPermission(item, perm.key, granted)} aria-label={label} title={perm.label ?? label} aria-pressed={granted}>{pill}</button>
+            : <span key={perm.key} className={className} title={perm.label ?? label} aria-label={label}>{pill}</span>
         })}</span></td>)}</tr>)}</tbody>
-      </table></AdminTableWrap>}
+      </table></AdminTableWrap></>}
     </Card>
 
     <AdminConfirmDialog
@@ -396,7 +487,7 @@ export default function UsersPage() {
         {(inviteErrors.firstName || inviteErrors.lastName) && <p role="alert" style={{ color: '#b91c1c' }}>{inviteErrors.firstName ?? inviteErrors.lastName}</p>}
         <label><AdminText en="Email" ar="البريد الإلكتروني" /><input dir="ltr" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="member@starpyramids.com" /></label>
         {inviteErrors.email && <p role="alert" style={{ color: '#b91c1c' }}>{inviteErrors.email}</p>}
-        <label><AdminText en="Initial password" ar="كلمة المرور الأولية" /><input dir="ltr" type="password" value={invitePassword} onChange={(e) => setInvitePassword(e.target.value)} placeholder="••••••" /><small><AdminText en="6-8 characters. Share it securely - it is never shown again." ar="من 6 إلى 8 أحرف. شاركها بشكل آمن - لن تظهر مرة أخرى." /></small></label>
+        <label><AdminText en="Initial password" ar="كلمة المرور الأولية" /><span className="sp-password-field"><input dir="ltr" type={inviteShowPassword ? 'text' : 'password'} autoComplete="new-password" value={invitePassword} onChange={(e) => setInvitePassword(e.target.value)} placeholder="••••••" /><button type="button" className="sp-password-toggle" onClick={() => setInviteShowPassword((show) => !show)} aria-label={inviteShowPassword ? (ar ? 'إخفاء كلمة المرور' : 'Hide password') : (ar ? 'إظهار كلمة المرور' : 'Show password')} aria-pressed={inviteShowPassword}>{inviteShowPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></span><small><AdminText en="6-8 characters. Share it securely - it is never shown again." ar="من 6 إلى 8 أحرف. شاركها بشكل آمن - لن تظهر مرة أخرى." /></small></label>
         {inviteErrors.password && <p role="alert" style={{ color: '#b91c1c' }}>{inviteErrors.password}</p>}
         <label><AdminText en="Role" ar="الدور" /><SharedSelect value={inviteRole} onChange={setInviteRole} locale={ar ? 'ar' : 'en'} popupWidth="trigger" options={grantableRoles.map((key) => ({ value: key, label: roleLabel(roleByKey.get(key), key, ar) }))} /></label>
         {inviteServerError ? <p role="alert" style={{ color: '#b91c1c' }}>{inviteServerError}</p> : null}
@@ -421,10 +512,14 @@ export default function UsersPage() {
         {(editErrors.firstName || editErrors.lastName) && <p role="alert" style={{ color: '#b91c1c' }}>{editErrors.firstName ?? editErrors.lastName}</p>}
         <label><AdminText en="Email" ar="البريد الإلكتروني" /><input dir="ltr" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} /></label>
         {editErrors.email && <p role="alert" style={{ color: '#b91c1c' }}>{editErrors.email}</p>}
-        <label><AdminText en="Role" ar="الدور" /><SharedSelect value={editRole} onChange={setEditRole} locale={ar ? 'ar' : 'en'} popupWidth="trigger" options={grantableRoles.map((key) => ({ value: key, label: roleLabel(roleByKey.get(key), key, ar) }))} /></label>
-        {editIsSelf ? <p role="note" style={{ color: 'var(--sp-muted)' }}><AdminText en="You cannot change your own role. Ask another Super Admin." ar="لا يمكنك تغيير دورك. اطلب من مدير عام آخر." /></p> : null}
-        <label><AdminText en="Status" ar="الحالة" /><SharedSelect value={editStatus} onChange={(next) => setEditStatus(next as 'ACTIVE' | 'SUSPENDED')} locale={ar ? 'ar' : 'en'} popupWidth="trigger" options={[{ value: 'ACTIVE', label: ar ? statusMeta.ACTIVE!.ar : statusMeta.ACTIVE!.en }, { value: 'SUSPENDED', label: ar ? statusMeta.SUSPENDED!.ar : statusMeta.SUSPENDED!.en }]} /></label>
-        {editIsSelf ? <p role="note" style={{ color: 'var(--sp-muted)' }}><AdminText en="You cannot change your own status. Ask another Super Admin." ar="لا يمكنك تغيير حالتك. اطلب من مدير عام آخر." /></p> : null}
+        {editIsSelf ? <>
+          <label><AdminText en="Role" ar="الدور" /><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><input readOnly value={roleLabel(roleByKey.get(primaryRole(editTarget!)), primaryRole(editTarget!), ar)} style={{ flex: 1 }} /><Lock size={16} color="var(--sp-muted)" aria-hidden="true" /></span></label>
+          <p role="note" style={{ color: 'var(--sp-muted)' }}><AdminText en="Your Super Admin role is protected and cannot be changed from your own account." ar="دورك كمدير عام محمي ولا يمكن تغييره من حسابك نفسه." /></p>
+        </> : <label><AdminText en="Role" ar="الدور" /><SharedSelect value={editRole} onChange={(next) => { setEditRole(next); setEditRoleTouched(true) }} locale={ar ? 'ar' : 'en'} popupWidth="trigger" options={grantableRoles.map((key) => ({ value: key, label: roleLabel(roleByKey.get(key), key, ar) }))} /></label>}
+        {editIsSelf ? <>
+          <label><AdminText en="Status" ar="الحالة" /><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><input readOnly value={ar ? (statusMeta[editTarget!.status]?.ar ?? editTarget!.status) : (statusMeta[editTarget!.status]?.en ?? editTarget!.status)} style={{ flex: 1 }} /><Lock size={16} color="var(--sp-muted)" aria-hidden="true" /></span></label>
+          <p role="note" style={{ color: 'var(--sp-muted)' }}><AdminText en="Your account status is protected to prevent accidental loss of administrative access." ar="حالة حسابك محمية لمنع فقدان الوصول الإداري عن طريق الخطأ." /></p>
+        </> : <label><AdminText en="Status" ar="الحالة" /><SharedSelect value={editStatus} onChange={(next) => { setEditStatus(next as 'ACTIVE' | 'SUSPENDED'); setEditStatusTouched(true) }} locale={ar ? 'ar' : 'en'} popupWidth="trigger" options={[{ value: 'ACTIVE', label: ar ? statusMeta.ACTIVE!.ar : statusMeta.ACTIVE!.en }, { value: 'SUSPENDED', label: ar ? statusMeta.SUSPENDED!.ar : statusMeta.SUSPENDED!.en }]} /></label>}
         {editServerError ? <p role="alert" style={{ color: '#b91c1c' }}>{editServerError}</p> : null}
       </div>
     </AdminConfirmDialog>
@@ -455,12 +550,14 @@ export default function UsersPage() {
       open={reviewTarget !== null}
       onClose={() => setReviewTarget(null)}
       onConfirm={() => setReviewTarget(null)}
-      title={reviewTarget ? <AdminText en={`${reviewTarget.displayName} - ${roleLabel(roleByKey.get(reviewRoleKey!), reviewRoleKey!, false)}`} ar={`${reviewTarget.displayName} - ${roleLabel(roleByKey.get(reviewRoleKey!), reviewRoleKey!, true)}`} /> : ''}
-      description={<AdminText en="Effective permissions for this role" ar="الصلاحيات الفعلية لهذا الدور" />}
+      title={reviewTarget ? <AdminText en={`Role Permissions — ${reviewTarget.displayName}`} ar={`صلاحيات الدور — ${reviewTarget.displayName}`} /> : ''}
+      description={reviewTarget ? <AdminText en={`Effective permissions for the ${roleLabel(roleByKey.get(reviewRoleKey!), reviewRoleKey!, false)} role`} ar={`الصلاحيات الفعلية لدور ${roleLabel(roleByKey.get(reviewRoleKey!), reviewRoleKey!, true)}`} /> : undefined}
       confirmLabel={<AdminText en="Close" ar="إغلاق" />}
       cancelLabel={<AdminText en="Close" ar="إغلاق" />}
       canConfirm={false}
+      hideConfirm
     >
+      {reviewRoleKey === 'SUPER_ADMIN' ? <p style={{ margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 8, color: 'var(--sp-blue-deep)', fontWeight: 700 }}><ShieldCheck size={16} /><AdminText en="Full Access — unrestricted access to every module, including settings, email and team management." ar="وصول كامل — وصول غير مقيد إلى كل الوحدات بما فيها الإعدادات والبريد وإدارة الفريق." /></p> : null}
       {reviewCaps
         ? <ul style={{ margin: '0 0 4px', paddingInlineStart: 18, display: 'grid', gap: 8 }}>{(ar ? reviewCaps.ar : reviewCaps.en).map((line) => <li key={line}>{line}</li>)}</ul>
         : <ul style={{ margin: '0 0 4px', paddingInlineStart: 18, display: 'grid', gap: 8 }}>{reviewGranted.map((line) => <li key={line}>{line}</li>)}</ul>}

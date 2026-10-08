@@ -6,6 +6,7 @@ import {
   createRole,
   listPermissionCatalog,
   listRolesDetailed,
+  SUPER_ADMIN_ONLY_PERMISSIONS,
   UserManagementError,
 } from '@/lib/server/users';
 
@@ -17,8 +18,9 @@ function toError(error: unknown) {
 }
 
 export async function GET() {
-  // Any staff member may read roles + matrix (same visibility as the
-  // static matrix it replaces); mutations below require roles.manage.
+  // Any staff member holding roles.view may read roles + matrix (same
+  // visibility as the static matrix it replaces); mutations below are
+  // SUPER_ADMIN-exclusive (enforced in the service boundary).
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
@@ -34,9 +36,13 @@ export async function GET() {
     return NextResponse.json({
       roles,
       catalog,
+      // Policy overlay for the matrix: raw `roles[].permissions` stay
+      // truthful DB state, while these keys render as locked (never
+      // granted) on every non-SUPER_ADMIN role, matching API enforcement.
+      restrictedPermissions: [...SUPER_ADMIN_ONLY_PERMISSIONS],
       viewer: {
         roles: user.roles,
-        canManageRoles: hasPermission(user, 'roles.manage'),
+        canManageRoles: user.roles.includes('SUPER_ADMIN'),
       },
     });
   } catch {

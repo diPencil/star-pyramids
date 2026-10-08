@@ -29,6 +29,7 @@ export function AdminConfirmDialog({
   canConfirm = true,
   children,
   demoNote,
+  hideConfirm = false,
 }: {
   open: boolean
   onClose: () => void
@@ -41,17 +42,28 @@ export function AdminConfirmDialog({
   canConfirm?: boolean
   children?: React.ReactNode
   demoNote?: React.ReactNode
+  /** Read-only dialogs (e.g. role permissions) render only the neutral
+   * footer action — never a second, disabled confirm button. */
+  hideConfirm?: boolean
 }) {
   const ar = useAdminLocale() === 'ar'
   const panelRef = useRef<HTMLDivElement>(null)
   const confirmRef = useRef<HTMLButtonElement>(null)
+  const cancelRef = useRef<HTMLButtonElement>(null)
   const restoreRef = useRef<Element | null>(null)
+  // Use refs for callbacks to avoid re-running focus effect on every parent render
+  // when inline arrow functions are passed (common pattern).
+  const onCloseRef = useRef(onClose)
+  const onConfirmRef = useRef(onConfirm)
+  onCloseRef.current = onClose
+  onConfirmRef.current = onConfirm
 
   useEffect(() => {
     if (!open) return
     restoreRef.current = document.activeElement
-    // Focus the confirm control when usable so keyboard users land on the action.
-    const target = canConfirm ? confirmRef.current : panelRef.current
+    // Focus the confirm control when usable so keyboard users land on the
+    // action; single-action dialogs land on the neutral footer button.
+    const target = hideConfirm ? cancelRef.current : canConfirm ? confirmRef.current : panelRef.current
     target?.focus()
     const focusables = () => {
       if (!panelRef.current) return [] as HTMLElement[]
@@ -64,7 +76,7 @@ export function AdminConfirmDialog({
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault()
-        onClose()
+        onCloseRef.current()
         return
       }
       // Lightweight focus trap: keep Tab / Shift+Tab inside the open dialog.
@@ -88,7 +100,7 @@ export function AdminConfirmDialog({
       document.removeEventListener('keydown', onKey)
       if (restoreRef.current instanceof HTMLElement) restoreRef.current.focus()
     }
-  }, [open, canConfirm, onClose])
+  }, [open, canConfirm, hideConfirm])
 
   if (!open) return null
 
@@ -117,18 +129,20 @@ export function AdminConfirmDialog({
           <p className="sp-confirm-demo" role="note">{demoNote}</p>
         )}
         <div className="sp-confirm-actions">
-          <button type="button" className="sp-btn" onClick={onClose}>
+          <button type="button" ref={cancelRef} className="sp-btn" onClick={onClose}>
             {cancelLabel ?? <AdminText en="Back" ar="رجوع" />}
           </button>
-          <button
-            ref={confirmRef}
-            type="button"
-            className={cn('sp-btn', tone === 'danger' ? 'dark' : 'primary')}
-            onClick={onConfirm}
-            disabled={!canConfirm}
-          >
-            {confirmLabel}
-          </button>
+          {!hideConfirm && (
+            <button
+              ref={confirmRef}
+              type="button"
+              className={cn('sp-btn', tone === 'danger' ? 'dark' : 'primary')}
+              onClick={onConfirm}
+              disabled={!canConfirm}
+            >
+              {confirmLabel}
+            </button>
+          )}
         </div>
       </div>
     </div>

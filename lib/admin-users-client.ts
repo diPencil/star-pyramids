@@ -126,6 +126,9 @@ export type RolesDirectoryStatus = {
   roles: DirectoryRole[] | null;
   catalog: CatalogPermission[];
   canManageRoles: boolean;
+  /** SUPER_ADMIN-only capability keys: locked (never granted) on every
+   * non-SUPER_ADMIN role in the matrix, matching API enforcement. */
+  restrictedPermissions: string[];
   loading: boolean;
   error: string | null;
   retry(): void;
@@ -136,6 +139,7 @@ export function useDbRolesStatus(): RolesDirectoryStatus {
   const [roles, setRoles] = useState<DirectoryRole[] | null>(null);
   const [catalog, setCatalog] = useState<CatalogPermission[]>([]);
   const [canManageRoles, setCanManageRoles] = useState(false);
+  const [restrictedPermissions, setRestrictedPermissions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
@@ -161,11 +165,17 @@ export function useDbRolesStatus(): RolesDirectoryStatus {
         const payload = (await res.json()) as {
           roles?: unknown;
           catalog?: unknown;
+          restrictedPermissions?: unknown;
           viewer?: { canManageRoles?: unknown };
         };
         if (cancelled) return;
         setRoles(Array.isArray(payload.roles) ? (payload.roles as DirectoryRole[]) : []);
         setCatalog(Array.isArray(payload.catalog) ? (payload.catalog as CatalogPermission[]) : []);
+        setRestrictedPermissions(
+          Array.isArray(payload.restrictedPermissions)
+            ? (payload.restrictedPermissions as unknown[]).filter((key): key is string => typeof key === 'string')
+            : [],
+        );
         setCanManageRoles(payload.viewer?.canManageRoles === true);
         setLoading(false);
       } catch (err) {
@@ -182,7 +192,7 @@ export function useDbRolesStatus(): RolesDirectoryStatus {
   const retry = useCallback(() => setNonce((n) => n + 1), []);
   const refresh = useCallback(() => setNonce((n) => n + 1), []);
 
-  return { roles, catalog, canManageRoles, loading, error, retry, refresh };
+  return { roles, catalog, canManageRoles, restrictedPermissions, loading, error, retry, refresh };
 }
 
 export async function mutateDirectoryRole(

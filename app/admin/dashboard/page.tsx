@@ -97,6 +97,10 @@ export default function DashboardPage() {
   const requestSeq = useRef(0)
   // Real booking counters: stored bookings from the admin API.
   const [liveBookings, setLiveBookings] = useState<StaffBooking[] | null>(null)
+  // 403 here means the viewer's role lacks bookings.view: the card below
+  // renders the same honest restricted state as the financial KPIs instead
+  // of an empty table that could read as "no bookings".
+  const [bookingsForbidden, setBookingsForbidden] = useState(false)
   // Real tour count from the DB-authoritative catalogue (bootstrap length
   // until the response arrives).
   const [tourCount, setTourCount] = useState<number | null>(null)
@@ -116,7 +120,10 @@ export default function DashboardPage() {
     let cancelled = false
     fetch('/api/admin/bookings', { credentials: 'same-origin' })
       .then(async (res) => {
-        if (!res.ok || cancelled) return
+        if (!res.ok || cancelled) {
+          if (!cancelled && res.status === 403) setBookingsForbidden(true)
+          return
+        }
         const payload = (await res.json()) as { bookings?: StaffBooking[] }
         if (!cancelled && Array.isArray(payload.bookings)) setLiveBookings(payload.bookings)
       })
@@ -380,6 +387,12 @@ export default function DashboardPage() {
           sub={<AdminText en="Bookings needing follow-up first" ar="الحجوزات التي تحتاج متابعة أولا" />}
           action={<Link className="sp-btn" href="/admin/bookings"><AdminText en="View all" ar="عرض الكل" /></Link>}
         >
+          {bookingsForbidden ? (
+            <AdminEmpty
+              title={<AdminText en="Bookings restricted" ar="الحجوزات مقيّدة" />}
+              copy={<AdminText en="Your role cannot view bookings. Ask an admin for bookings.view." ar="دورك لا يتيح عرض الحجوزات. اطلب صلاحية bookings.view من المسؤول." />}
+            />
+          ) : (
           <AdminTableWrap><table className="sp-table">
             <thead>
               <tr><th className="sp-row-number">#</th><SortableTh label={<AdminText en="Customer" ar="العميل" />} column="customer" sortKey={latestBookingSort.sortKey} direction={latestBookingSort.direction} onSort={latestBookingSort.sortBy} /><SortableTh label={<AdminText en="Tour" ar="الرحلة" />} column="tour" sortKey={latestBookingSort.sortKey} direction={latestBookingSort.direction} onSort={latestBookingSort.sortBy} /><SortableTh label={<AdminText en="Date" ar="التاريخ" />} column="date" sortKey={latestBookingSort.sortKey} direction={latestBookingSort.direction} onSort={latestBookingSort.sortBy} /><SortableTh label={<AdminText en="Total" ar="الإجمالي" />} column="total" sortKey={latestBookingSort.sortKey} direction={latestBookingSort.direction} onSort={latestBookingSort.sortBy} /><SortableTh label={<AdminText en="Status" ar="الحالة" />} column="status" sortKey={latestBookingSort.sortKey} direction={latestBookingSort.direction} onSort={latestBookingSort.sortBy} /></tr>
@@ -402,6 +415,7 @@ export default function DashboardPage() {
               ))}
             </tbody>
           </table></AdminTableWrap>
+          )}
         </Card>
 
         <Card

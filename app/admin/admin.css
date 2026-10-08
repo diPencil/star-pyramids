@@ -239,6 +239,17 @@ html[dir="rtl"] .sp-back-btn svg { transform: scaleX(-1); }
 .sp-phone-field:focus-within { border-color: var(--sp-blue); box-shadow: 0 0 0 3px rgba(31,80,190,.1); }
 .sp-phone-field > span { display: flex; align-items: center; padding: 0 12px; border-inline-end: 1px solid var(--sp-border); background: #f5f7fb; white-space: nowrap; }
 .sp-form .sp-phone-field input { min-height: 44px; border: 0; border-radius: 0; box-shadow: none; }
+.sp-password-field { display: grid; grid-template-columns: minmax(0,1fr) auto; min-height: 46px; overflow: hidden; border: 1px solid var(--sp-border); border-radius: 12px; background: #fff; }
+.sp-password-field:focus-within { border-color: var(--sp-orange); box-shadow: 0 0 0 3px rgba(247,149,29,.18); }
+.sp-password-field > .sp-password-toggle { display: inline-grid; place-items: center; width: 44px; min-height: 44px; flex: none; padding: 0; border: 0; border-inline-start: 1px solid var(--sp-border); background: #f5f7fb; color: var(--sp-muted); cursor: pointer; }
+.sp-password-field > .sp-password-toggle:hover { color: var(--sp-blue-deep); background: #eef3ff; }
+.sp-password-field > .sp-password-toggle:focus-visible { outline: 3px solid rgba(247,149,29,.3); outline-offset: -3px; }
+.sp-form .sp-password-field input { min-height: 44px; border: 0; border-radius: 0; box-shadow: none; }
+.sp-form .sp-password-field input:focus, .sp-form .sp-password-field input:focus-visible { border-color: transparent; box-shadow: none; }
+/* Hide browser-native password reveal/clear icons (Edge legacy, Chromium-based). */
+.sp-form .sp-password-field input::-ms-reveal,
+.sp-form .sp-password-field input::-ms-clear,
+.sp-form .sp-password-field input::-webkit-credentials-auto-fill-button { display: none; }
 .sp-traveler-price-grid { display: grid; grid-template-columns: minmax(120px,.75fr) repeat(3,minmax(130px,1fr)); gap: 12px; }
 .sp-traveler-price-grid label { display: grid; gap: 7px; color: var(--sp-muted); font-size: 12px; font-weight: 800; }
 .sp-traveler-price-grid input { width: 100%; min-height: 44px; padding: 0 12px; border: 1px solid var(--sp-border); border-radius: 10px; background: #fff; color: var(--sp-text); font: inherit; }
@@ -433,6 +444,28 @@ html[dir="rtl"] .sp-back-btn svg { transform: scaleX(-1); }
 .sp-btn:disabled { opacity: .48; cursor: not-allowed; }
 .sp-group-title { margin: 18px 0 10px; color: #9a8a2e; font-size: 12px; font-weight: 800; }
 .sp-perm td:not(:first-child), .sp-perm th:not(:first-child) { text-align: center; }
+/* Permission matrix redesign: labeled pills, sticky module column for
+   horizontal scrolling (both LTR and RTL via logical properties). */
+.sp-mx-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-bottom: 12px; color: var(--sp-muted); font-size: 12px; font-weight: 600; }
+.sp-mx-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.sp-perm td:first-child, .sp-perm th:first-child { position: sticky; inset-inline-start: 0; z-index: 2; }
+.sp-perm thead th:first-child { z-index: 3; background: #f8f9fc; }
+.sp-perm td:first-child { background: #fff; border-inline-end: 1px solid #eef1f7; }
+.sp-perm tbody tr:hover td:first-child { background: #f8faff; }
+.sp-mx-pills { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-start; }
+.sp-mx-pill { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 4px 11px; border: 1px solid var(--sp-border); border-radius: 999px; background: #fff; color: var(--sp-muted); font-size: 12px; font-weight: 700; white-space: nowrap; }
+button.sp-mx-pill { cursor: pointer; font-family: inherit; }
+button.sp-mx-pill:hover { border-color: #b7c7ec; background: #eef3ff; color: var(--sp-blue); }
+button.sp-mx-pill:focus-visible { outline: 3px solid rgba(247,149,29,.28); outline-offset: 2px; }
+.sp-mx-pill.is-on { background: #f0fdf4; border-color: #86c9a6; color: #15803d; }
+.sp-mx-pill.is-locked { border-style: dashed; color: #94a3b8; background: transparent; }
+/* Compact SUPER_ADMIN column: indicator lives in the header; body rows
+   carry a single muted shield glyph so the grid stays aligned without
+   repeating the Full Access message. */
+.sp-mx-superhead { display: inline-flex; align-items: center; gap: 6px; }
+.sp-mx-superhead small { color: var(--sp-muted); font-size: 11px; font-weight: 700; }
+.sp-mx-covered { display: inline-flex; color: #b9c6df; }
+.sp-perm td { padding-top: 8px; padding-bottom: 8px; }
 .sp-gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .sp-g-item { position: relative; margin: 0; border: 1px solid var(--sp-border); border-radius: 12px; overflow: hidden; background: #fff; }
 .sp-g-item img { width: 100%; height: 110px; object-fit: cover; display: block; }
