@@ -464,7 +464,7 @@ export function validateSettingsPatch(input: {
         clean[key] = trimmed;
         break;
       case 'mail.mailbox':
-        if (bounded(1, 120, 'Enter a mailbox / folder (1-120 characters).')) clean[key] = trimmed;
+        if (bounded(1, 120, 'Enter a mailbox or folder name (1-120 characters).')) clean[key] = trimmed;
         break;
       case 'auth.google.clientId':
         if (trimmed !== '' && (trimmed.length > 500 || /\s/.test(trimmed))) {

@@ -99,8 +99,8 @@ export function VehicleDetailContent({ vehicleSlug }: { vehicleSlug: string }) {
         <div className="sp-detail-grid">
           <div><small><AdminText en="Title" ar="الاسم" /></small><strong>{car.title}</strong></div>
           <div><small><AdminText en="Slug" ar="المعرف" /></small><strong>{car.slug}</strong></div>
-          <div><small><AdminText en="Capacity" ar="السعة" /></small><strong>{car.seats || '—'}</strong></div>
-          <div><small><AdminText en="Transmission" ar="ناقل الحركة" /></small><strong>{car.transmission || '—'}</strong></div>
+          <div><small><AdminText en="Capacity" ar="السعة" /></small><strong>{car.seats || '-'}</strong></div>
+          <div><small><AdminText en="Transmission" ar="ناقل الحركة" /></small><strong>{car.transmission || '-'}</strong></div>
           <div><small><AdminText en="Daily rate" ar="السعر اليومي" /></small><strong>${car.dailyPrice}</strong></div>
         </div>
         <div>
@@ -112,7 +112,7 @@ export function VehicleDetailContent({ vehicleSlug }: { vehicleSlug: string }) {
         </div>
       </Card>
 
-      <Card title={<AdminText en="Website visibility" ar="الظهور على الموقع" />} sub={<AdminText en="Database control — not availability" ar="تحكم من قاعدة البيانات — ليس التوافر" />}>
+      <Card title={<AdminText en="Website visibility" ar="الظهور على الموقع" />} sub={<AdminText en="Database control - not availability" ar="تحكم من قاعدة البيانات - ليس التوافر" />}>
         <p style={{ margin: '0 0 12px', fontSize: 13.5, lineHeight: 1.7 }}>
           <AdminText
             en="Controls whether this vehicle appears on the public fleet and request forms everywhere. Hidden vehicles stay fully visible inside admin."

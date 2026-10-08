@@ -173,6 +173,18 @@
         "Use the same first name, last name, username, email, complete country list, calling code, and national phone fields across registration, customer profile, and admin customer forms",
         "Keep stable routes for overview, bookings, saved trips, payments, messages, profile, and settings"
       ]
+    },
+    {
+      "area": "admin-website-enquiries",
+      "direction": "Two-panel enquiry review",
+      "summary": "A searchable and status-filtered enquiry list beside spacious customer details and a single internal Save Changes workflow.",
+      "constraints": [
+        "Preserve Support Conversations and server RBAC",
+        "Use existing admin tokens and SharedSelect",
+        "Keep status, authorized staff assignment and notes in one database save",
+        "Never imply saving sends email",
+        "Preserve English, Spanish, Italian and dormant Arabic RTL"
+      ]
     }
   ]
 }

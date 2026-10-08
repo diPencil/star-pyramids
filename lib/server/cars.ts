@@ -5,6 +5,7 @@
 import "server-only";
 
 import { db } from "./db";
+import { readJsonObject } from '../json-text';
 import type { Car } from "@/data/types";
 
 type DbCarRow = {
@@ -21,7 +22,7 @@ type DbCarRow = {
 
 /** Map a Prisma Car row to the shared `Car` domain shape. */
 export function toCar(row: DbCarRow): Car {
-  const credit = (row.credit ?? null) as { label?: unknown; url?: unknown } | null;
+  const credit = readJsonObject(row.credit);
   return {
     title: row.title,
     slug: row.slug,

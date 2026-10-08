@@ -61,7 +61,7 @@ export function AdminPagination({
   return (
     <div className="sp-pagination">
       <div className="sp-pagination-info">
-        <span><AdminText en={`Showing ${from}–${to} of ${total}`} ar={`عرض ${from}–${to} من ${total}`} /></span>
+        <span><AdminText en={`Showing ${from}-${to} of ${total}`} ar={`عرض ${from}-${to} من ${total}`} /></span>
         <label>
           <AdminText en="Rows:" ar="الصفوف:" />
           <SharedSelect value={String(pageSize)} onChange={(next) => onPageSize(Number(next))} locale={ar ? 'ar' : 'en'} label={ar ? 'عدد الصفوف في الصفحة' : 'Rows per page'} options={[10, 20, 30, 50].map((n) => ({ value: String(n), label: String(n) }))} />

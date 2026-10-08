@@ -2,6 +2,7 @@ import { Analytics } from '@vercel/analytics/next'
 import { Alexandria, Montserrat } from 'next/font/google'
 import type { Metadata, Viewport } from 'next'
 import { BrandFavicon } from '@/components/brand-favicon'
+import { EnquiryHistoryTracking } from '@/components/enquiry-history-tracking'
 
 const montserrat = Montserrat({ subsets: ['latin'], variable: '--font-montserrat', display: 'swap' })
 const alexandria = Alexandria({ subsets: ['arabic'], weight: ['400', '500', '600', '700', '800'], variable: '--font-alexandria', display: 'swap', preload: false })
@@ -38,6 +39,7 @@ export default function RootLayout({
     <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body className={`${montserrat.variable} ${alexandria.variable} antialiased`}>
         <BrandFavicon />
+        <EnquiryHistoryTracking />
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>

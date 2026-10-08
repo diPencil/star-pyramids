@@ -175,7 +175,7 @@ export function CheckoutPage() {
           </div>)}
           {estimate.staleLines.map(({ item }) => <div key={item.key} className="co-line is-stale">
             <div className="cart-summary-row"><span>{item.title}</span><button type="button" className="cart-remove" onClick={() => removeFromCart(item.key)} aria-label={tx(locale, { en: 'Remove from cart', es: 'Quitar del carrito', it: 'Rimuovi dal carrello', ar: 'إزالة من السلة' })}><Trash2 size={16} /></button></div>
-            <small className="co-line-sub">{tx(locale, { en: 'No longer available — remove it to continue.', es: 'Ya no disponible — quítalo para continuar.', it: 'Non più disponibile — rimuovilo per continuare.', ar: 'لم تعد متاحة — أزلها للمتابعة.' })}</small>
+            <small className="co-line-sub">{tx(locale, { en: 'No longer available - remove it to continue.', es: 'Ya no disponible - quítalo para continuar.', it: 'Non più disponibile - rimuovilo per continuare.', ar: 'لم تعد متاحة - أزلها للمتابعة.' })}</small>
           </div>)}
           <div className="cart-summary-row total"><span>{tx(locale, { en: 'Estimated total', es: 'Total estimado', it: 'Totale stimato', ar: 'الإجمالي التقديري' })}</span><strong>{formatPrice(estimate.subtotal, currency, locale)}</strong></div>
           <p>{tx(locale, { en: 'Frontend estimate only. The final price is recalculated from our catalogue before the booking is confirmed.', es: 'Solo estimación inicial. El precio final se recalcula desde nuestro catálogo antes de confirmar la reserva.', it: 'Solo stima iniziale. Il prezzo finale è ricalcolato dal nostro catalogo prima della conferma.', ar: 'تقدير مبدئي فقط. يُعاد حساب السعر النهائي من قائمتنا قبل تأكيد الحجز.' })}</p>

@@ -41,7 +41,7 @@ export function CartPage() {
                 {pricedAddons.map((a) => <span key={a}>{a}</span>)}
                 {onRequestAddons.map((a) => <span key={a} className="on-request">{a} · {tx(locale, { en: 'on request', es: 'bajo petición', it: 'su richiesta', ar: 'حسب الطلب' })}</span>)}
               </div>}
-              <div className="cart-line-bottom"><small>{formatPrice(adultUnit, currency, locale)}{tx(locale, { en: ' / adult', es: ' / adulto', it: ' / adulto', ar: ' للبالغ' })}{item.children > 0 && `${formatPrice(childUnit, currency, locale)}${tx(locale, { en: ' / child', es: ' / niño', it: ' / bambino', ar: ' للطفل' })}`}{item.infants > 0 && `${formatPrice(infantUnit, currency, locale)}${tx(locale, { en: ' / infant', es: ' / bebé', it: ' / neonato', ar: ' للرضيع' })}`}</small><strong>{formatPrice(canonicalTotal, currency, locale)}</strong></div>
+              <div className="cart-line-bottom"><small>{formatPrice(adultUnit, currency, locale)}{tx(locale, { en: ' per adult', es: ' por adulto', it: ' per adulto', ar: ' للبالغ' })}{item.children > 0 && `${formatPrice(childUnit, currency, locale)}${tx(locale, { en: ' per child', es: ' por niño', it: ' per bambino', ar: ' للطفل' })}`}{item.infants > 0 && `${formatPrice(infantUnit, currency, locale)}${tx(locale, { en: ' per infant', es: ' por bebé', it: ' per neonato', ar: ' للرضيع' })}`}</small><strong>{formatPrice(canonicalTotal, currency, locale)}</strong></div>
             </div>
           </article>)}
           {estimate.staleLines.map(({ item }) => <article key={item.key} className="cart-item is-stale">

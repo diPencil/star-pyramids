@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
 import { getCurrentUser, hasPermission } from '@/lib/server/auth';
+import { readJsonObject, writeJsonText } from '@/lib/json-text';
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -15,7 +16,7 @@ export async function GET() {
   const blogs = await db.blog.findMany({
     orderBy: [{ displayOrder: 'asc' }, { title: 'asc' }],
   });
-  return NextResponse.json({ blogs });
+  return NextResponse.json({ blogs: blogs.map((blog) => ({ ...blog, content: readJsonObject(blog.content) })) });
 }
 
 export async function POST(request: Request) {
@@ -72,11 +73,11 @@ export async function POST(request: Request) {
       excerpt: data.excerpt.trim().slice(0, 2000),
       isPublished: data.isPublished !== false,
       displayOrder: Number.isFinite(Number(data.displayOrder)) ? Number(data.displayOrder) : 999,
-      content: data.content && typeof data.content === 'object' && !Array.isArray(data.content)
+      content: writeJsonText(data.content && typeof data.content === 'object' && !Array.isArray(data.content)
         ? data.content
-        : { editorial },
+        : { editorial }),
     },
   });
 
-  return NextResponse.json({ blog }, { status: 201 });
+  return NextResponse.json({ blog: { ...blog, content: readJsonObject(blog.content) } }, { status: 201 });
 }

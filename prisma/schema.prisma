@@ -54,6 +54,7 @@ model User {
   supportConversations         SupportConversation[] @relation("SupportCustomer")
   supportMessages              SupportMessage[]
   tripRequests                 TripRequest[]
+  assignedEnquiries            WebsiteEnquiry[]      @relation("EnquiryAssignee")
   roles                        UserRole[]
 
   @@index([status])
@@ -939,6 +940,43 @@ model ReviewAttempt {
   @@map("review_attempts")
 }
 
+/// Website enquiry — public contact/lead form submissions.
+/// No account required. Server-only RBAC for admin access.
+model WebsiteEnquiry {
+  id            String           @id @default(cuid())
+  publicId      String           @unique @default(uuid()) @db.VarChar(64)
+  name          String           @db.VarChar(120)
+  email         String           @db.VarChar(190)
+  phone         String?          @db.VarChar(32)
+  subject       String           @db.VarChar(200)
+  message       String           @db.Text
+  sourcePage    String?          @db.VarChar(120)
+  status        EnquiryStatus    @default(NEW)
+  assignedToId  String?
+  internalNotes String?          @db.Text
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  assignedTo    User?            @relation("EnquiryAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([email, createdAt])
+  @@index([sourcePage, createdAt])
+  @@map("website_enquiries")
+}
+
+/// Abuse-protection attempts for the public enquiry submission endpoint.
+/// Counted per email-OR-ip inside a time window, pruned opportunistically.
+model EnquiryAttempt {
+  id        String   @id @default(cuid())
+  email     String   @db.VarChar(190)
+  ipAddress String   @db.VarChar(64)
+  createdAt DateTime @default(now())
+
+  @@index([email, createdAt])
+  @@index([ipAddress, createdAt])
+  @@map("enquiry_attempts")
+}
+
 enum UserStatus {
   PENDING
   ACTIVE
@@ -983,6 +1021,15 @@ enum EventRequestStatus {
   APPROVED
   REJECTED
   CANCELLED
+}
+
+/// Phase 4F: website enquiries — public contact/lead form submissions.
+/// No account required. Server-only RBAC for admin access.
+enum EnquiryStatus {
+  NEW
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
 }
 
 enum BookingStatus {

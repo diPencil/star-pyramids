@@ -133,7 +133,7 @@ export function BookingDetailContent({ reference }: { reference: string }) {
                 <div><dt><AdminText en="Payment record" ar="سجل الدفع" /></dt><dd><Link href={`/admin/payments/${encodeURIComponent(item.paymentSummary.latestReference)}`}><code dir="ltr">{item.paymentSummary.latestReference}</code></Link><small style={{ color: 'var(--sp-muted)' }}>${item.paymentSummary.paidTotal.toLocaleString('en-US')} paid · {item.paymentSummary.payments} attempt{item.paymentSummary.payments === 1 ? '' : 's'}</small></dd></div>
               )}
               {item.paymentSummary && !item.paymentSummary.latestReference && (
-                <div><dt><AdminText en="Payment record" ar="سجل الدفع" /></dt><dd><small style={{ color: 'var(--sp-muted)' }}>{ar ? 'لا يوجد سجل دفع — غير مدفوع' : 'No payment record — unpaid'}</small></dd></div>
+                <div><dt><AdminText en="Payment record" ar="سجل الدفع" /></dt><dd><small style={{ color: 'var(--sp-muted)' }}>{ar ? 'لا يوجد سجل دفع - غير مدفوع' : 'No payment record - unpaid'}</small></dd></div>
               )}
               <div><dt><AdminText en="Guests" ar="الضيوف" /></dt><dd><Users size={14} />{guests}</dd></div>
               <div><dt><AdminText en="Subtotal" ar="المجموع الفرعي" /></dt><dd>${item.subtotal.toLocaleString('en-US')}</dd></div>
@@ -150,7 +150,7 @@ export function BookingDetailContent({ reference }: { reference: string }) {
                 <Link href={`/egypt-tours/${line.tourSlug}`} className="evr-event-title">{line.title}</Link>
                 <p><CalendarDays size={14} />{line.date || (ar ? 'التاريخ مفتوح' : 'Open date')}</p>
                 <p><MapPin size={14} />{line.adults} {ar ? 'بالغين' : 'adults'}{line.children > 0 && ` · ${line.children} ${ar ? 'أطفال' : 'children'}`}{line.infants > 0 && ` · ${line.infants} ${ar ? 'رضع' : 'infants'}`}</p>
-                <p><small dir="ltr">${line.adultUnit} / adult{line.children > 0 && ` · $${line.childUnit} / child`}{line.addons.length > 0 && ` · ${line.addons.join(', ')} (+$${line.addonTotal})`}</small></p>
+                <p><small dir="ltr">${line.adultUnit} per adult{line.children > 0 && ` · $${line.childUnit} per child`}{line.addons.length > 0 && ` · ${line.addons.join(', ')} (+$${line.addonTotal})`}</small></p>
                 <p><strong>${line.total.toLocaleString('en-US')}</strong></p>
               </div>
             ))}

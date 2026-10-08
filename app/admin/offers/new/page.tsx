@@ -208,7 +208,7 @@ function OfferForm({ initial, editSlug }: { initial: Offer | null; editSlug: str
       </div>
       {mode === 'existing' ? (
         <div className="sp-form">
-          <label><AdminText en="Tour" ar="الرحلة" /><SharedSelect value={tourSlug} onChange={setTourSlug} locale={ar ? 'ar' : 'en'} popupWidth="trigger" options={liveTours.map((t) => ({ value: t.slug, label: `${t.title} — $${t.price}` }))} /></label>
+          <label><AdminText en="Tour" ar="الرحلة" /><SharedSelect value={tourSlug} onChange={setTourSlug} locale={ar ? 'ar' : 'en'} popupWidth="trigger" options={liveTours.map((t) => ({ value: t.slug, label: `${t.title} - $${t.price}` }))} /></label>
           <div className="sp-form-2">
             <label><AdminText en="Discount %" ar="نسبة الخصم %" /><input type="number" min={1} max={90} value={percent} onChange={(e) => { setPercent(e.target.value); setBadge(`SAVE ${e.target.value}%`) }} /></label>
             <label><AdminText en="Ends at" ar="ينتهي في" /><DateInput value={endsAt} onChange={(e) => setEndsAt(e.target.value)} /></label>

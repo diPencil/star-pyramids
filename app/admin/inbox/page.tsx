@@ -9,6 +9,8 @@ import { formatSiteTime } from '@/components/locale'
 import { useInquiries } from '@/lib/admin-store'
 import { invalidateNotifications } from '@/lib/admin-notifications'
 import { cn } from '@/lib/utils'
+import { pickLocaleText } from '@/lib/locale-config'
+import { WebsiteEnquiries, useEnquiryLocale } from '@/components/admin/website-enquiries'
 
 interface SupportThreadSummary {
   reference: string
@@ -35,14 +37,29 @@ interface SupportThreadDetail {
   }[]
 }
 
-const tabs = [
-  { id: 'support', en: 'Support', ar: 'الدعم' },
-  { id: 'enquiries', en: 'Website enquiries', ar: 'استفسارات الموقع' },
-] as const
-
 export default function InboxPage() {
   const ar = useAdminLocale() === 'ar'
   const [tab, setTab] = useState<'support' | 'enquiries'>('support')
+  const inboxLocale = useEnquiryLocale()
+  const text = (en: string, es: string, it: string, ar: string) => pickLocaleText(inboxLocale, { en, es, it, ar })
+  const enquirySaving = useRef(false)
+  const enquiryNavigationGuard = useRef<((action: () => void) => void) | null>(null)
+  const onEnquirySaving = useCallback((saving: boolean) => { enquirySaving.current = saving }, [])
+  const enquiryDirty = useRef(false)
+  const onEnquiryDirty = useCallback((dirty: boolean) => { enquiryDirty.current = dirty }, [])
+  useEffect(() => { if (new URLSearchParams(window.location.search).get('view') === 'enquiries') setTab('enquiries') }, [])
+  const switchTab = (next: 'support' | 'enquiries') => {
+    if (next === tab || enquirySaving.current) return
+    const navigate = () => {
+      setTab(next)
+      const url = new URL(window.location.href)
+      if (next === 'enquiries') url.searchParams.set('view', 'enquiries')
+      else { url.searchParams.delete('view'); url.searchParams.delete('enquiry') }
+      window.history.replaceState(window.history.state, '', url)
+    }
+    if (enquiryNavigationGuard.current) enquiryNavigationGuard.current(navigate)
+    else navigate()
+  }
   const [threads, setThreads] = useState<SupportThreadSummary[]>([])
   const [globalUnread, setGlobalUnread] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -56,6 +73,15 @@ export default function InboxPage() {
   const [query, setQuery] = useState('')
   const [mobileChatOpen, setMobileChatOpen] = useState(false)
   const inquiries = useInquiries()
+
+  // Composer ref for support tab
+  const composerRef = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => {
+    const el = composerRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, 132)}px`
+  }, [draft, tab, detail])
 
   const fetchThreads = useCallback(async () => {
     try {
@@ -109,11 +135,7 @@ export default function InboxPage() {
       const data = (await res.json()) as SupportThreadDetail
       if (data && data.conversation) {
         setDetail(data)
-        // Opening marks incoming customer messages read server-side —
-        // refresh the list counts to match.
         void fetchThreads()
-        // The server also resolved this thread's matching staff
-        // notifications — revalidate the bell cache immediately.
         invalidateNotifications()
       }
     } finally {
@@ -165,15 +187,6 @@ export default function InboxPage() {
     }
   }
 
-  // Auto-grow the composer up to the CSS max-height, then internal scroll.
-  const composerRef = useRef<HTMLTextAreaElement>(null)
-  useEffect(() => {
-    const el = composerRef.current
-    if (!el) return
-    el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, 132)}px`
-  }, [draft])
-
   const runAction = async (action: 'close' | 'reopen' | 'assign') => {
     if (!activeRef) return
     try {
@@ -195,6 +208,7 @@ export default function InboxPage() {
     if (!q) return true
     return `${t.reference} ${t.subject} ${t.customer.email} ${t.customer.name}`.toLowerCase().includes(q)
   })
+
   const active = detail && detail.conversation.reference === activeRef ? detail : null
   const openCount = threads.filter((t) => t.status === 'open').length
   const closedCount = threads.filter((t) => t.status === 'closed').length
@@ -202,7 +216,12 @@ export default function InboxPage() {
 
   return (
     <>
-      <PageHead eyebrow="Inbox" title="Inbox" titleAr="صندوق المراسلة" sub="Real customer support conversations" subAr="محادثات دعم العملاء الحقيقية" />
+      <PageHead eyebrow="Inbox" title="Inbox" titleAr="صندوق المراسلة" sub={tab === 'enquiries' ? text('Traveller requests and team follow-up', 'Solicitudes de viajeros y seguimiento del equipo', 'Richieste dei viaggiatori e follow-up del team', 'طلبات المسافرين ومتابعة الفريق') : 'Real customer support conversations'} subAr={tab === 'enquiries' ? 'طلبات المسافرين ومتابعة الفريق' : 'محادثات دعم العملاء الحقيقية'} />
+      <div className="sp-tabs sp-inbox-tabs" aria-label={ar ? 'نوع المراسلات' : 'Inbox sections'}>
+        <button type="button" className={tab === 'support' ? 'active' : ''} aria-pressed={tab === 'support'} onClick={() => switchTab('support')}>{text('Support Conversations', 'Conversaciones de soporte', 'Conversazioni di assistenza', 'محادثات الدعم')}</button>
+        <button type="button" className={tab === 'enquiries' ? 'active' : ''} aria-pressed={tab === 'enquiries'} onClick={() => switchTab('enquiries')}>{text('Travel Enquiries', 'Consultas de viaje', 'Richieste di viaggio', 'استفسارات السفر')}</button>
+      </div>
+      {tab === 'enquiries' ? <WebsiteEnquiries navigationGuard={enquiryNavigationGuard} onDirtyChange={onEnquiryDirty} onSavingChange={onEnquirySaving} /> : <>
       <AdminStats items={[
         { label: <AdminText en="Conversations" ar="المحادثات" />, value: threads.length, note: <AdminText en="Support threads" ar="محادثات الدعم" />, icon: MessagesSquare },
         { label: <AdminText en="Unread" ar="غير المقروءة" />, value: globalUnread, note: <AdminText en="Customer messages needing attention" ar="رسائل عملاء تحتاج اهتماما" />, icon: MessageCircle, tone: 'orange' },
@@ -210,16 +229,10 @@ export default function InboxPage() {
         { label: <AdminText en="Closed" ar="المغلقة" />, value: closedCount, note: <AdminText en="Resolved history" ar="سجل المحادثات المحلولة" />, icon: Inbox },
       ]} />
       <Card title={<AdminText en="Conversations" ar="المحادثات" />} sub={<AdminText en="Customer support threads" ar="محادثات دعم العملاء" />} className="sp-inbox">
-        <div className={cn('sp-conv-list', mobileChatOpen && 'mobile-hidden')}>
+        <div className={cn('sp-conv-list', (mobileChatOpen && activeRef) && 'mobile-hidden')}>
           <div className="sp-conv-tools">
             <label className="sp-conv-search"><MessageCircle size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={ar ? 'ابحث برقم المحادثة أو العميل...' : 'Search by reference or customer...'} /></label>
-            <div className="sp-tabs">
-              {tabs.map((t) => (
-                <button key={t.id} type="button" className={tab === t.id ? 'active' : ''} onClick={() => { setTab(t.id); setMobileChatOpen(false) }}>
-                  {ar ? t.ar : t.en}
-                </button>
-              ))}
-            </div>
+
           </div>
           {tab === 'support' && loading && <AdminEmpty title={<AdminText en="Loading conversations…" ar="جارٍ تحميل المحادثات…" />} copy={<AdminText en="Fetching support threads." ar="جارٍ جلب محادثات الدعم." />} />}
           {tab === 'support' && !loading && loadError && threads.length === 0 && <AdminEmpty title={<AdminText en="Could not load conversations" ar="تعذر تحميل المحادثات" />} copy={<AdminText en="Check your connection and try again." ar="تحقق من الاتصال وحاول مجددًا." />} />}
@@ -237,24 +250,7 @@ export default function InboxPage() {
             </button>
           ))}
           {tab === 'support' && !loading && !supportList.length && !loadError && <AdminEmpty title={<AdminText en="No conversations found" ar="لا توجد محادثات" />} copy={<AdminText en="Customer support threads will appear here." ar="ستظهر محادثات دعم العملاء هنا." />} />}
-          {tab === 'enquiries' && (
-            <div style={{ padding: '12px 16px', color: 'var(--sp-muted)', fontSize: 12 }}>
-              <AdminText en="Website enquiries stored locally in this browser — not a connected channel. WhatsApp is not integrated." ar="استفسارات الموقع محفوظة محليًا في هذا المتصفح — ليست قناة متصلة. واتساب غير مرتبط." />
-            </div>
-          )}
-          {tab === 'enquiries' && inquiries.map((inquiry) => (
-            <div key={inquiry.id} className="sp-conv" role="listitem">
-              <Avatar name={inquiry.name} size={42} />
-              <div>
-                <strong>{inquiry.name} · {inquiry.channel}</strong>
-                <p>{inquiry.message}</p>
-              </div>
-              <span style={{ display: 'grid', justifyItems: 'end', gap: 6 }}>
-                <time>{formatSiteTime(inquiry.at, locale)}</time>
-              </span>
-            </div>
-          ))}
-          {tab === 'enquiries' && !inquiries.length && <AdminEmpty title={<AdminText en="No enquiries" ar="لا استفسارات" />} copy={<AdminText en="Website form enquiries will appear here." ar="ستظهر استفسارات نماذج الموقع هنا." />} />}
+
         </div>
 
         {tab === 'support' && (
@@ -314,7 +310,9 @@ export default function InboxPage() {
             </div>
           </aside>
         )}
+
       </Card>
+      </>}
     </>
   )
 }

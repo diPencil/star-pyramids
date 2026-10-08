@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { Prisma } from '@prisma/client';
+import { readJsonText, writeJsonText } from '@/lib/json-text';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
 import { getCurrentUser, hasPermission } from '@/lib/server/auth';
@@ -9,7 +9,7 @@ const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export async function GET() {
   // Public: list the full fleet (read-only, no auth required)
   const cars = await db.car.findMany({ orderBy: [{ title: 'asc' }] });
-  return NextResponse.json({ cars });
+  return NextResponse.json({ cars: cars.map((car) => ({ ...car, credit: readJsonText(car.credit) })) });
 }
 
 export async function POST(request: Request) {
@@ -48,8 +48,8 @@ export async function POST(request: Request) {
 
   const credit =
     data.credit && typeof data.credit.label === 'string' && typeof data.credit.url === 'string'
-      ? { label: data.credit.label.slice(0, 200), url: data.credit.url.slice(0, 2000) }
-      : Prisma.JsonNull;
+      ? writeJsonText({ label: data.credit.label.slice(0, 200), url: data.credit.url.slice(0, 2000) })
+      : null;
 
   const car = await db.car.create({
     data: {
@@ -65,5 +65,5 @@ export async function POST(request: Request) {
     },
   });
 
-  return NextResponse.json({ car }, { status: 201 });
+  return NextResponse.json({ car: { ...car, credit: readJsonText(car.credit) } }, { status: 201 });
 }

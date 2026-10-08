@@ -170,7 +170,7 @@ export default function UsersPage() {
     const lastError = validateName(inviteLast, 'lastName', 'Last name', 'اسم العائلة')
     if (lastError) errors.lastName = lastError
     if (!EMAIL_PATTERN.test(inviteEmail.trim())) errors.email = ar ? 'أدخل بريدًا إلكترونيًا صالحًا.' : 'Enter a valid email address.'
-    if (invitePassword.length < 6 || invitePassword.length > 8) errors.password = ar ? 'كلمة المرور من 6 إلى 8 أحرف.' : 'Password must be 6–8 characters.'
+    if (invitePassword.length < 6 || invitePassword.length > 8) errors.password = ar ? 'كلمة المرور من 6 إلى 8 أحرف.' : 'Password must be 6-8 characters.'
     setInviteErrors(errors)
     if (Object.keys(errors).length > 0) return
     setInviteSaving(true)
@@ -352,15 +352,15 @@ export default function UsersPage() {
       </table></AdminTableWrap> : <AdminEmpty title={<AdminText en="No team members found" ar="لا يوجد أعضاء" />} copy={<AdminText en="Try changing the search or filters." ar="جرب تغيير البحث أو الفلاتر." />} />}
         {rows.length > 0 && <AdminPagination page={paging.page} pageCount={paging.pageCount} onPage={paging.setPage} pageSize={paging.pageSize} onPageSize={paging.setPageSize} from={paging.from} to={paging.to} total={paging.total} />}
     </Card>
-    <Card title={<AdminText en="Roles" ar="الأدوار" />} sub={<AdminText en="Configurable staff roles — Super Admin only" ar="أدوار الفريق القابلة للضبط — للمدير العام فقط" />} action={canManageRoles ? <button type="button" className="sp-btn primary" onClick={() => openRoleDialog({ mode: 'create' })}><Plus size={17} /> <AdminText en="New role" ar="دور جديد" /></button> : undefined}>
+    <Card title={<AdminText en="Roles" ar="الأدوار" />} sub={<AdminText en="Configurable staff roles - Super Admin only" ar="أدوار الفريق القابلة للضبط - للمدير العام فقط" />} action={canManageRoles ? <button type="button" className="sp-btn primary" onClick={() => openRoleDialog({ mode: 'create' })}><Plus size={17} /> <AdminText en="New role" ar="دور جديد" /></button> : undefined}>
       {rolesLoading ? <AdminEmpty title={<AdminText en="Loading roles…" ar="جارٍ تحميل الأدوار…" />} copy={<AdminText en="Reading the role catalogue." ar="تتم قراءة سجل الأدوار." />} />
       : rolesError ? <><AdminEmpty title={<AdminText en="Could not load roles" ar="تعذر تحميل الأدوار" />} copy={<AdminText en={rolesError} ar={rolesError} />} /><div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}><button type="button" className="sp-btn" onClick={retryRoles}><AdminText en="Retry" ar="إعادة المحاولة" /></button></div></>
       : <AdminTableWrap><table className="sp-table">
         <thead><tr><th className="sp-row-number">#</th><th><AdminText en="Role" ar="الدور" /></th><th><AdminText en="Members" ar="الأعضاء" /></th><th><AdminText en="Permissions" ar="الصلاحيات" /></th><th></th></tr></thead>
-        <tbody>{orderedRoles.map((item, index) => <tr key={item.key}><td className="sp-row-number">{index + 1}</td><td><strong>{item.name}</strong><br /><small style={{ color: 'var(--sp-muted)' }}>{item.key}{item.isSystem ? (ar ? ' · نظام' : ' · System') : null}{item.description ? ` — ${item.description}` : null}</small></td><td>{item.memberCount}</td><td>{item.key === 'SUPER_ADMIN' ? (ar ? 'وصول كامل' : 'Full access') : item.permissions.length}</td><td>{canManageRoles && !item.isSystem ? <AdminTableActions><AdminIconAction icon={Pencil} label={ar ? `تعديل ${item.name}` : `Edit ${item.name}`} onClick={() => openRoleDialog({ mode: 'edit', role: item })} /></AdminTableActions> : null}</td></tr>)}</tbody>
+        <tbody>{orderedRoles.map((item, index) => <tr key={item.key}><td className="sp-row-number">{index + 1}</td><td><strong>{item.name}</strong><br /><small style={{ color: 'var(--sp-muted)' }}>{item.key}{item.isSystem ? (ar ? ' · نظام' : ' · System') : null}{item.description ? ` - ${item.description}` : null}</small></td><td>{item.memberCount}</td><td>{item.key === 'SUPER_ADMIN' ? (ar ? 'وصول كامل' : 'Full access') : item.permissions.length}</td><td>{canManageRoles && !item.isSystem ? <AdminTableActions><AdminIconAction icon={Pencil} label={ar ? `تعديل ${item.name}` : `Edit ${item.name}`} onClick={() => openRoleDialog({ mode: 'edit', role: item })} /></AdminTableActions> : null}</td></tr>)}</tbody>
       </table></AdminTableWrap>}
     </Card>
-    <Card title={<AdminText en="Permission matrix" ar="مصفوفة الصلاحيات" />} sub={<AdminText en="Live role permissions from the database — Super Admins toggle cells to change access" ar="صلاحيات الأدوار الحية من قاعدة البيانات — يبدّل المدير العام الخلايا لتغيير الوصول" />}>
+    <Card title={<AdminText en="Permission matrix" ar="مصفوفة الصلاحيات" />} sub={<AdminText en="Live role permissions from the database - Super Admins toggle cells to change access" ar="صلاحيات الأدوار الحية من قاعدة البيانات - يبدّل المدير العام الخلايا لتغيير الوصول" />}>
       {matrixError ? <p role="alert" style={{ color: '#b91c1c', margin: '0 0 8px' }}>{matrixError}</p> : null}
       {rolesLoading ? <AdminEmpty title={<AdminText en="Loading matrix…" ar="جارٍ تحميل المصفوفة…" />} copy={<AdminText en="Reading role permissions." ar="تتم قراءة صلاحيات الأدوار." />} />
       : rolesError ? <><AdminEmpty title={<AdminText en="Could not load matrix" ar="تعذر تحميل المصفوفة" />} copy={<AdminText en={rolesError} ar={rolesError} />} /><div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}><button type="button" className="sp-btn" onClick={retryRoles}><AdminText en="Retry" ar="إعادة المحاولة" /></button></div></>
@@ -369,11 +369,11 @@ export default function UsersPage() {
         <tbody>{matrixSort.sortedRows.map((row, index) => <tr key={row.module}><td className="sp-row-number">{index + 1}</td><td><strong style={{ textTransform: 'capitalize' }}>{row.module}</strong></td>{orderedRoles.map((item) => <td key={item.key}><span style={{ display: 'inline-flex', gap: 4, flexWrap: 'wrap' }}>{row.actions.map((perm) => {
           const granted = (row.grants[item.key] ?? []).includes(perm.action)
           const locked = item.key === 'SUPER_ADMIN'
-          const label = `${granted ? (ar ? 'إلغاء' : 'Revoke') : (ar ? 'منح' : 'Grant')} ${perm.action} — ${row.module} — ${item.name}`
+          const label = `${granted ? (ar ? 'إلغاء' : 'Revoke') : (ar ? 'منح' : 'Grant')} ${perm.action} - ${row.module} - ${item.name}`
           const icon = granted ? <Check size={15} color="#15803d" /> : <span style={{ color: '#cbd5e1' }}>-</span>
           return canManageRoles && !locked
             ? <button key={perm.key} type="button" onClick={() => void toggleMatrixPermission(item, perm.key, granted)} aria-label={label} title={label} aria-pressed={granted} style={{ display: 'inline-grid', placeItems: 'center', minWidth: 26, minHeight: 26, padding: '2px 4px', border: '1px solid var(--sp-border)', borderRadius: 8, background: granted ? '#f0fdf4' : 'transparent', cursor: 'pointer' }}>{icon}<span style={{ fontSize: 10, fontWeight: 800, color: granted ? '#15803d' : '#94a3b8' }}>{perm.action.slice(0, 1).toUpperCase()}</span></button>
-            : <span key={perm.key} title={`${perm.action} — ${item.name}`} style={{ display: 'inline-grid', placeItems: 'center', minWidth: 26, minHeight: 26 }}>{icon}</span>
+            : <span key={perm.key} title={`${perm.action} - ${item.name}`} style={{ display: 'inline-grid', placeItems: 'center', minWidth: 26, minHeight: 26 }}>{icon}</span>
         })}</span></td>)}</tr>)}</tbody>
       </table></AdminTableWrap>}
     </Card>
@@ -396,7 +396,7 @@ export default function UsersPage() {
         {(inviteErrors.firstName || inviteErrors.lastName) && <p role="alert" style={{ color: '#b91c1c' }}>{inviteErrors.firstName ?? inviteErrors.lastName}</p>}
         <label><AdminText en="Email" ar="البريد الإلكتروني" /><input dir="ltr" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="member@starpyramids.com" /></label>
         {inviteErrors.email && <p role="alert" style={{ color: '#b91c1c' }}>{inviteErrors.email}</p>}
-        <label><AdminText en="Initial password" ar="كلمة المرور الأولية" /><input dir="ltr" type="password" value={invitePassword} onChange={(e) => setInvitePassword(e.target.value)} placeholder="••••••" /><small><AdminText en="6–8 characters. Share it securely — it is never shown again." ar="من 6 إلى 8 أحرف. شاركها بشكل آمن — لن تظهر مرة أخرى." /></small></label>
+        <label><AdminText en="Initial password" ar="كلمة المرور الأولية" /><input dir="ltr" type="password" value={invitePassword} onChange={(e) => setInvitePassword(e.target.value)} placeholder="••••••" /><small><AdminText en="6-8 characters. Share it securely - it is never shown again." ar="من 6 إلى 8 أحرف. شاركها بشكل آمن - لن تظهر مرة أخرى." /></small></label>
         {inviteErrors.password && <p role="alert" style={{ color: '#b91c1c' }}>{inviteErrors.password}</p>}
         <label><AdminText en="Role" ar="الدور" /><SharedSelect value={inviteRole} onChange={setInviteRole} locale={ar ? 'ar' : 'en'} popupWidth="trigger" options={grantableRoles.map((key) => ({ value: key, label: roleLabel(roleByKey.get(key), key, ar) }))} /></label>
         {inviteServerError ? <p role="alert" style={{ color: '#b91c1c' }}>{inviteServerError}</p> : null}
@@ -455,7 +455,7 @@ export default function UsersPage() {
       open={reviewTarget !== null}
       onClose={() => setReviewTarget(null)}
       onConfirm={() => setReviewTarget(null)}
-      title={reviewTarget ? <AdminText en={`${reviewTarget.displayName} — ${roleLabel(roleByKey.get(reviewRoleKey!), reviewRoleKey!, false)}`} ar={`${reviewTarget.displayName} — ${roleLabel(roleByKey.get(reviewRoleKey!), reviewRoleKey!, true)}`} /> : ''}
+      title={reviewTarget ? <AdminText en={`${reviewTarget.displayName} - ${roleLabel(roleByKey.get(reviewRoleKey!), reviewRoleKey!, false)}`} ar={`${reviewTarget.displayName} - ${roleLabel(roleByKey.get(reviewRoleKey!), reviewRoleKey!, true)}`} /> : ''}
       description={<AdminText en="Effective permissions for this role" ar="الصلاحيات الفعلية لهذا الدور" />}
       confirmLabel={<AdminText en="Close" ar="إغلاق" />}
       cancelLabel={<AdminText en="Close" ar="إغلاق" />}

@@ -36,7 +36,7 @@ function toRow(booking: StaffBooking): Row {
   return {
     reference: booking.reference,
     customer: booking.account?.name || booking.contact.name,
-    tour: first?.title ?? '—',
+    tour: first?.title ?? '-',
     date,
     guests,
     total: booking.total,

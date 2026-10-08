@@ -369,35 +369,35 @@ export const blogs: Blog[] = [
       readTime: '6 min read',
       heroDescription: 'Egypt is a year-round destination, but the season you choose shapes everything from crowd levels to what you pack.',
       facts: [
-        { icon: 'Sun', label: 'Peak season', value: 'October \u2013 February' },
+        { icon: 'Sun', label: 'Peak season', value: 'October - February' },
         { icon: 'Clock3', label: 'Best balance', value: 'March & November' },
         { icon: 'Compass', label: 'Red Sea', value: 'Good all year' },
-        { icon: 'ShieldCheck', label: 'Summer deals', value: 'June \u2013 August' },
+        { icon: 'ShieldCheck', label: 'Summer deals', value: 'June - August' },
       ],
       sidebarLinks: [
-        { href: '#autumn', label: 'Autumn (Oct \u2013 Dec)' },
-        { href: '#winter', label: 'Winter (Jan \u2013 Feb)' },
-        { href: '#spring', label: 'Spring (Mar \u2013 May)' },
-        { href: '#summer', label: 'Summer (Jun \u2013 Sep)' },
+        { href: '#autumn', label: 'Autumn (Oct - Dec)' },
+        { href: '#winter', label: 'Winter (Jan - Feb)' },
+        { href: '#spring', label: 'Spring (Mar - May)' },
+        { href: '#summer', label: 'Summer (Jun - Sep)' },
       ],
       sections: [
         {
-          id: 'autumn', number: '01', eyebrow: 'October \u2013 December', heading: 'Autumn: the sweet spot',
+          id: 'autumn', number: '01', eyebrow: 'October - December', heading: 'Autumn: the sweet spot',
           lede: 'The months from October through December bring comfortable temperatures, clear skies, and a lively but manageable pace at major sites.',
           copy: ['Daytime temperatures in Cairo typically sit between 25\u00B0C and 30\u00B0C, making temple visits and outdoor exploration pleasant from morning to late afternoon. Evenings are cool enough for a light layer.', 'This is the start of the cruise season on the Nile. The river is calm, the light is warm, and Luxor\u2019s temples glow beautifully at sunset.'],
         },
         {
-          id: 'winter', number: '02', eyebrow: 'January \u2013 February', heading: 'Winter: cool days, clear light',
+          id: 'winter', number: '02', eyebrow: 'January - February', heading: 'Winter: cool days, clear light',
           copy: ['Winter in Egypt is mild by global standards, but cooler than the rest of the year. Cairo daytime temperatures hover around 18\u00B0C to 22\u00B0C, and evenings can feel brisk, especially along the Nile.', 'The clear winter light is ideal for photography, and major sites like the Pyramids and Luxor\u2019s Valley of the Kings are at their most comfortable for extended visits.'],
           image: { src: 'https://images.unsplash.com/photo-1568322445389-f64ac2515020?auto=format&fit=crop&w=1400&q=86', alt: 'The Pyramids of Giza on a clear winter morning', caption: 'Winter light at the Pyramids' },
         },
         {
-          id: 'spring', number: '03', eyebrow: 'March \u2013 May', heading: 'Spring: warm days, fewer crowds',
+          id: 'spring', number: '03', eyebrow: 'March - May', heading: 'Spring: warm days, fewer crowds',
           copy: ['Spring brings rising temperatures and a thinner crowd of visitors. March and early April offer a comfortable middle ground before the full heat of summer arrives.', 'This is a strong season for Red Sea resorts, where the water temperature is ideal for diving and snorkelling. Combine a beach stay with a few days of sightseeing for a balanced itinerary.'],
         },
         {
-          id: 'summer', number: '04', eyebrow: 'June \u2013 September', heading: 'Summer: budget-friendly and bold',
-          copy: ['Summer temperatures in Cairo and Upper Egypt regularly exceed 35\u00B0C, making midday sightseeing challenging. However, the Red Sea coast remains pleasantly warm with cooling breezes.', 'Fewer visitors mean shorter queues, more flexible hotel availability, and often better rates. If you plan around the heat\u2014early mornings and late afternoons for temples, daytime for the coast\u2014summer can be surprisingly rewarding.'],
+          id: 'summer', number: '04', eyebrow: 'June - September', heading: 'Summer: budget-friendly and bold',
+          copy: ['Summer temperatures in Cairo and Upper Egypt regularly exceed 35\u00B0C, making midday sightseeing challenging. However, the Red Sea coast remains pleasantly warm with cooling breezes.', 'Fewer visitors mean shorter queues, more flexible hotel availability, and often better rates. If you plan around the heat - early mornings and late afternoons for temples, daytime for the coast - summer can be surprisingly rewarding.'],
           image: { src: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=1400&q=86', alt: 'Turquoise waters of the Red Sea under a bright summer sky', caption: 'Red Sea summer escape' },
         },
       ],
@@ -438,12 +438,12 @@ export const blogs: Blog[] = [
         },
         {
           id: 'ful', number: '02', eyebrow: 'Morning ritual', heading: 'Ful medames: breakfast like a local',
-          copy: ['Ful medames\u2014slow-cooked fava beans seasoned with cumin, lemon, and olive oil\u2014has been a staple of Egyptian meals for centuries. Served with fresh bread, it is the breakfast of choice across the country.', 'Look for the neighbourhood ful stand where locals gather in the morning. The beans are scooped from a large copper pot and customised with tahini, chopped tomatoes, or a drizzle of chilli oil.'],
+          copy: ['Ful medames - slow-cooked fava beans seasoned with cumin, lemon, and olive oil - has been a staple of Egyptian meals for centuries. Served with fresh bread, it is the breakfast of choice across the country.', 'Look for the neighbourhood ful stand where locals gather in the morning. The beans are scooped from a large copper pot and customised with tahini, chopped tomatoes, or a drizzle of chilli oil.'],
           image: { src: 'https://images.unsplash.com/photo-1548013146-72479768bada?auto=format&fit=crop&w=1400&q=86', alt: 'A traditional Egyptian breakfast spread with ful medames and fresh bread', caption: 'A traditional ful breakfast' },
         },
         {
           id: 'molokhia', number: '03', eyebrow: 'A green classic', heading: 'Molokhia: the soup Egyptians grow up with',
-          copy: ['Molokhia is a rich, dark-green soup made from jute leaves, slow-simmered with garlic and coriander. It is served over rice or with bread and is one of the most deeply personal dishes in Egyptian home cooking.', 'The flavour is earthy and herbaceous. Every family has their own method\u2014some prefer it thick, others more brothy\u2014and it is often the dish that Egyptians miss most when they travel abroad.'],
+          copy: ['Molokhia is a rich, dark-green soup made from jute leaves, slow-simmered with garlic and coriander. It is served over rice or with bread and is one of the most deeply personal dishes in Egyptian home cooking.', 'The flavour is earthy and herbaceous. Every family has their own method - some prefer it thick, others more brothy - and it is often the dish that Egyptians miss most when they travel abroad.'],
         },
         {
           id: 'seafood', number: '04', eyebrow: 'From the coast', heading: 'Fresh seafood along the Red Sea',
@@ -452,7 +452,7 @@ export const blogs: Blog[] = [
         },
         {
           id: 'desserts', number: '05', eyebrow: 'Sweet endings', heading: 'Finish with something sweet',
-          copy: ['No Egyptian meal is complete without a sweet note. Kunafa\u2014crispy shredded pastry filled with sweet cheese and soaked in syrup\u2014is a favourite, especially during warm months.', 'Basbousa, a semolina cake drenched in syrup and sometimes topped with coconut, pairs perfectly with strong Egyptian coffee.']
+          copy: ['No Egyptian meal is complete without a sweet note. Kunafa - crispy shredded pastry filled with sweet cheese and soaked in syrup - is a favourite, especially during warm months.', 'Basbousa, a semolina cake drenched in syrup and sometimes topped with coconut, pairs perfectly with strong Egyptian coffee.']
         },
       ],
       quote: 'The best meals in Egypt are rarely planned. They happen when you follow a local\u2019s suggestion and sit down with an open appetite.',
@@ -488,16 +488,16 @@ export const blogs: Blog[] = [
         {
           id: 'morning', number: '01', eyebrow: 'Before dawn', heading: 'The drive across the river',
           lede: 'The morning begins in darkness. A car crosses the Nile before sunrise, the city still quiet, the water black and smooth under the bridge.',
-          copy: ['The West Bank feels like a different country at this hour. The air is cooler, the roads are empty, and the limestone ridges ahead catch the first hints of light as you approach the valley.', 'This is the time to notice the landscape\u2014the dry wadis, the scattered mudbrick ruins, the sense of a place that has been visited for thousands of years and still feels remote.'],
+          copy: ['The West Bank feels like a different country at this hour. The air is cooler, the roads are empty, and the limestone ridges ahead catch the first hints of light as you approach the valley.', 'This is the time to notice the landscape - the dry wadis, the scattered mudbrick ruins, the sense of a place that has been visited for thousands of years and still feels remote.'],
         },
         {
           id: 'valley', number: '02', eyebrow: 'The Valley', heading: 'When the light finds the tombs',
-          copy: ['The Valley of the Kings is built for early visits. The tomb corridors are cool and quiet before the day\u2019s first tour groups arrive, and the painted walls hold their colour better in low, even light.', 'Each tomb tells a different story. Some are vast and ornate, others narrow and personal. A good guide helps you read the scenes\u2014the journeys of the pharaohs, the symbols of protection, the carefully placed offerings.'],
+          copy: ['The Valley of the Kings is built for early visits. The tomb corridors are cool and quiet before the day\u2019s first tour groups arrive, and the painted walls hold their colour better in low, even light.', 'Each tomb tells a different story. Some are vast and ornate, others narrow and personal. A good guide helps you read the scenes - the journeys of the pharaohs, the symbols of protection, the carefully placed offerings.'],
           image: { src: 'https://images.unsplash.com/photo-1539768942893-daf53e448371?auto=format&fit=crop&w=1400&q=86', alt: 'The entrance to a painted tomb in the Valley of the Kings at sunrise', caption: 'Valley of the Kings at dawn' },
         },
         {
           id: 'temples', number: '03', eyebrow: 'Temple moments', heading: 'Hatshepsut and the cliffs',
-          copy: ['The Temple of Hatshepsut rises from the desert in clean, terraced lines against the sheer cliff face. In the early light, the geometry is sharp and the shadows are long.', 'Stand at the base and look up. The scale of the architecture against the natural rock wall is humbling\u2014a reminder that this was built not just to endure, but to impress across millennia.'],
+          copy: ['The Temple of Hatshepsut rises from the desert in clean, terraced lines against the sheer cliff face. In the early light, the geometry is sharp and the shadows are long.', 'Stand at the base and look up. The scale of the architecture against the natural rock wall is humbling - a reminder that this was built not just to endure, but to impress across millennia.'],
         },
         {
           id: 'return', number: '04', eyebrow: 'Returning at noon', heading: 'When the valley goes quiet again',

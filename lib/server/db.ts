@@ -10,8 +10,13 @@ const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
 };
 
+// A schema/client regeneration can add delegates while dev HMR retains an old
+// singleton. Replace that client rather than serving empty framework 500s.
+const cachedClient = globalForPrisma.prisma;
+const currentClient = cachedClient?.websiteEnquiry && cachedClient?.enquiryAttempt;
+if (cachedClient && !currentClient) void cachedClient.$disconnect().catch(() => undefined);
 export const db: PrismaClient =
-  globalForPrisma.prisma ?? new PrismaClient();
+  currentClient ? cachedClient! : new PrismaClient();
 
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = db;

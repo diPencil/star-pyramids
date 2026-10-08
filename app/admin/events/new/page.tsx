@@ -329,7 +329,7 @@ function EventForm({ initial, editSlug }: { initial: Event | null; editSlug: str
     <Card title={<AdminText en="Program" ar="البرنامج" />}>
       <RowList rows={program} onChange={setProgram} onAdd={() => setProgram([...program, { day: '', title: '', description: '' }])} addLabel={<AdminText en="Add program day" ar="إضافة يوم" />} render={(row, update) => <div className="sp-form"><div className="sp-form-2"><label><AdminText en="Day" ar="اليوم" /><input value={row.day} onChange={(e) => update({ day: e.target.value })} placeholder="Day 1" /></label><label><AdminText en="Title" ar="العنوان" /><input value={row.title} onChange={(e) => update({ title: e.target.value })} /></label></div><label><AdminText en="Description" ar="الوصف" /><textarea rows={2} value={row.description} onChange={(e) => update({ description: e.target.value })} /></label></div>} />
     </Card>
-    <Card title={<AdminText en="Included / Excluded" ar="المشمول / المستبعد" />}>
+    <Card title={<AdminText en="Included and Excluded" ar="المشمول والمستبعد" />}>
       <div className="sp-form">
         <div><strong><AdminText en="Included EN" ar="المشمول EN" /></strong><StringRows rows={included} onChange={setIncluded} onAdd={<AdminText en="Add included item" ar="إضافة بند مشمول" />} /></div>
         <div><strong><AdminText en="Included AR" ar="المشمول AR" /></strong><StringRows rows={includedAr} onChange={setIncludedAr} onAdd={<AdminText en="Add included item (AR)" ar="إضافة بند مشمول (AR)" />} /></div>

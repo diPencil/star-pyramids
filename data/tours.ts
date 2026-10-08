@@ -408,7 +408,7 @@ const nileCruises: Tour[] = [
         { day: 'Day 7', title: 'Luxor Temples', description: 'Arrive in Luxor. Visit Karnak Temple and Luxor Temple. Farewell dinner on the Nile.' },
         { day: 'Day 8', title: 'Disembarkation', description: 'Breakfast and disembarkation in Luxor.' },
       ],
-      included: ['7 nights on board', 'All meals and soft drinks', 'Private crew', 'Guided excursions', 'Entrance fees', 'Transfer in/out'],
+      included: ['7 nights on board', 'All meals and soft drinks', 'Private crew', 'Guided excursions', 'Entrance fees', 'Arrival and departure transfers'],
       excluded: ['Flights', 'Visa', 'Alcoholic beverages', 'Tips', 'Personal expenses'],
       locations: ['Aswan', 'Kom Ombo', 'Edfu', { id: 'dendera', name: 'Dendera', nameAr: 'دندرة', latitude: 26.1419, longitude: 32.6702 }, 'Luxor'],
       priceRows: [

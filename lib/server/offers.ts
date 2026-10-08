@@ -7,6 +7,7 @@
 import "server-only";
 
 import { db } from "./db";
+import { readJsonObject } from '../json-text';
 import type { Offer } from "@/data/types";
 
 type DbOfferRow = {
@@ -30,7 +31,7 @@ const strArray = (v: unknown): string[] =>
 
 /** Map a Prisma Offer row to the shared `Offer` domain shape. */
 export function toOffer(row: DbOfferRow): Offer {
-  const content = (row.content ?? {}) as Record<string, unknown>;
+  const content = readJsonObject(row.content);
   return {
     title: row.title,
     slug: row.slug,

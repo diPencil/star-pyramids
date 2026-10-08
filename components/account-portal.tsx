@@ -430,7 +430,7 @@ function displayBookingDate(booking: Booking, locale: Locale): string {
   if (lineDate) return lineDate
   const created = new Date(booking.createdAt)
   if (!Number.isNaN(created.getTime())) return created.toLocaleDateString(locale === 'ar' ? 'ar-EG' : locale === 'es' ? 'es-ES' : locale === 'it' ? 'it-IT' : 'en-GB')
-  return booking.lines[0]?.date || '—'
+  return booking.lines[0]?.date || '-'
 }
 
 /**
@@ -547,7 +547,7 @@ export function CustomerPagination({ page, pageCount, onPage, pageSize, onPageSi
   }
   return <div className="customer-pagination">
     <div className="customer-pagination-group">
-      <span className="customer-pagination-info">{locale === 'es' ? `Mostrando ${from}–${to} de ${total}` : locale === 'it' ? `Visualizzazione di ${from}–${to} su ${total}` : locale === 'ar' ? `عرض ${from}–${to} من ${total}` : `Showing ${from}–${to} of ${total}`}</span>
+      <span className="customer-pagination-info">{locale === 'es' ? `Mostrando ${from}-${to} de ${total}` : locale === 'it' ? `Visualizzazione di ${from}-${to} su ${total}` : locale === 'ar' ? `عرض ${from}-${to} من ${total}` : `Showing ${from}-${to} of ${total}`}</span>
       <label className="customer-pagination-size">{tx(locale, { en: 'Rows:', es: 'Filas:', it: 'Righe:', ar: 'الصفوف:' })}
         <SharedSelect value={String(pageSize)} onChange={(next) => onPageSize(Number(next))} locale={locale} label={tx(locale, { en: 'Rows per page', es: 'Filas por página', it: 'Righe per pagina', ar: 'عدد الصفوف في الصفحة' })} options={[10, 20, 30, 50].map((n) => ({ value: String(n), label: String(n) }))} />
       </label>
@@ -643,7 +643,7 @@ function BookingDetailSection({ reference, autoPrint = false }: { reference: str
       .then(() => apiBookingDetail(booking.reference))
       .then((saved) => {
         setBooking(saved)
-        setPayInfo(tx(locale, { en: `Payment attempt recorded as pending (${saved.paymentSummary?.latestReference ?? 'see Payments'}). Online payment opens here once a provider is connected — nothing has been charged.`, ar: `تم تسجيل محاولة الدفع كمعلقة (${saved.paymentSummary?.latestReference ?? 'انظر المدفوعات'}). ستظهر بوابة الدفع هنا عند ربط مزود — لم يتم خصم أي مبلغ.` }))
+        setPayInfo(tx(locale, { en: `Payment attempt recorded as pending (${saved.paymentSummary?.latestReference ?? 'see Payments'}). Online payment opens here once a provider is connected - nothing has been charged.`, ar: `تم تسجيل محاولة الدفع كمعلقة (${saved.paymentSummary?.latestReference ?? 'انظر المدفوعات'}). ستظهر بوابة الدفع هنا عند ربط مزود - لم يتم خصم أي مبلغ.` }))
       })
       .catch((err: unknown) => {
         setActionError(err instanceof Error ? err.message : (tx(locale, { en: 'Could not initiate the payment.', ar: 'تعذر بدء الدفع.' })))
@@ -653,9 +653,9 @@ function BookingDetailSection({ reference, autoPrint = false }: { reference: str
   const createdOn = displayBookingDate(booking, locale)
   const steps = [
     { done: true, label: tx(locale, { en: 'Received', es: 'Recibida', it: 'Ricevuta', ar: 'تم الاستلام' }), date: createdOn },
-    { done: booking.status !== 'pending', label: tx(locale, { en: 'Confirmation', es: 'Confirmación', it: 'Conferma', ar: 'التأكيد' }), date: booking.status !== 'pending' ? createdOn : '—' },
-    { done: booking.status === 'completed', label: tx(locale, { en: 'Trip completed', es: 'Viaje completado', it: 'Viaggio completado', ar: 'اكتمال الرحلة' }), date: booking.status === 'completed' ? createdOn : '—' },
-    ...(booking.status === 'cancelled' ? [{ done: true, label: tx(locale, { en: 'Cancelled', es: 'Cancelada', it: 'Cancellata', ar: 'ملغي' }), date: '—' }] : []),
+    { done: booking.status !== 'pending', label: tx(locale, { en: 'Confirmation', es: 'Confirmación', it: 'Conferma', ar: 'التأكيد' }), date: booking.status !== 'pending' ? createdOn : '-' },
+    { done: booking.status === 'completed', label: tx(locale, { en: 'Trip completed', es: 'Viaje completado', it: 'Viaggio completado', ar: 'اكتمال الرحلة' }), date: booking.status === 'completed' ? createdOn : '-' },
+    ...(booking.status === 'cancelled' ? [{ done: true, label: tx(locale, { en: 'Cancelled', es: 'Cancelada', it: 'Cancellata', ar: 'ملغي' }), date: '-' }] : []),
   ]
 
   return <>
@@ -704,8 +704,8 @@ function BookingDetailSection({ reference, autoPrint = false }: { reference: str
       <header><div><span>{tx(locale, { en: 'Contact', es: 'Contacto', it: 'Contatto', ar: 'التواصل' })}</span><h2>{tx(locale, { en: 'Traveler details', es: 'Datos del viajero', it: 'Dati del viaggiatore', ar: 'بيانات المسافر' })}</h2></div></header>
       <div className="customer-detail-grid">
         <div><small>{tx(locale, { en: 'Name', es: 'Nombre', it: 'Nome', ar: 'الاسم' })}</small><strong>{booking.contact.name}</strong></div>
-        <div><small>{tx(locale, { en: 'Email', es: 'Correo electrónico', it: 'Email', ar: 'البريد' })}</small><strong>{booking.contact.email || '—'}</strong></div>
-        <div><small>{tx(locale, { en: 'Phone', es: 'Teléfono', it: 'Telefono', ar: 'الهاتف' })}</small><strong>{booking.contact.phone || '—'}</strong></div>
+        <div><small>{tx(locale, { en: 'Email', es: 'Correo electrónico', it: 'Email', ar: 'البريد' })}</small><strong>{booking.contact.email || '-'}</strong></div>
+        <div><small>{tx(locale, { en: 'Phone', es: 'Teléfono', it: 'Telefono', ar: 'الهاتف' })}</small><strong>{booking.contact.phone || '-'}</strong></div>
         {booking.notes ? <div><small>{tx(locale, { en: 'Notes', es: 'Notas', it: 'Note', ar: 'ملاحظات' })}</small><strong>{booking.notes}</strong></div> : null}
       </div>
     </section>
@@ -1128,7 +1128,7 @@ function CarRequestDetailSection({ reference }: { reference: string }) {
         <div><small>{tx(locale, { en: 'Pickup', es: 'Recogida', it: 'Prelievo', ar: 'نقطة الانطلاق' })}</small><strong>{item.pickup}</strong></div>
         <div><small>{tx(locale, { en: 'Drop-off', es: 'Destino', it: 'Destinazione', ar: 'الوجهة' })}</small><strong>{item.dropoff}</strong></div>
         <div><small>{tx(locale, { en: 'Pick-up date', es: 'Fecha de recogida', it: 'Data di prelievo', ar: 'تاريخ الانطلاق' })}</small><strong dir="ltr">{formatCarDate(item.preferredPickupDate, locale)}</strong></div>
-        <div><small>{tx(locale, { en: 'Return date', es: 'Fecha de regreso', it: 'Data di ritorno', ar: 'تاريخ العودة' })}</small><strong dir="ltr">{item.tripType === 'Round Trip' && item.preferredReturnDate ? formatCarDate(item.preferredReturnDate, locale) : '—'}</strong></div>
+        <div><small>{tx(locale, { en: 'Return date', es: 'Fecha de regreso', it: 'Data di ritorno', ar: 'تاريخ العودة' })}</small><strong dir="ltr">{item.tripType === 'Round Trip' && item.preferredReturnDate ? formatCarDate(item.preferredReturnDate, locale) : '-'}</strong></div>
       </div>
     </section>
 
@@ -1325,7 +1325,7 @@ function PaymentDetailSection({ reference }: { reference: string }) {
     return <EmptyState Icon={ReceiptText} title={tx(locale, { en: 'Payment not found', ar: 'الدفع غير موجود' })} copy={loadError || (tx(locale, { en: 'It may belong to a different account.', ar: 'ربما يتبع حسابًا مختلفًا.' }))} href="/account/payments" action={tx(locale, { en: 'Back to payments', ar: 'عودة للمدفوعات' })} />
   }
 
-  const fmtDateTime = (iso: string | null) => (iso ? new Date(iso).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-US') : '—')
+  const fmtDateTime = (iso: string | null) => (iso ? new Date(iso).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-US') : '-')
   const isPending = payment.status === 'pending' || payment.status === 'processing'
 
   return <>
@@ -1342,9 +1342,9 @@ function PaymentDetailSection({ reference }: { reference: string }) {
         {payment.failedAt && <div><small>{tx(locale, { en: 'Failed on', ar: 'تاريخ الفشل' })}</small><strong>{fmtDateTime(payment.failedAt)}</strong></div>}
         {payment.cancelledAt && <div><small>{tx(locale, { en: 'Cancelled on', ar: 'تاريخ الإلغاء' })}</small><strong>{fmtDateTime(payment.cancelledAt)}</strong></div>}
         {payment.refundedAt && <div><small>{tx(locale, { en: 'Refunded on', ar: 'تاريخ الاسترداد' })}</small><strong>{fmtDateTime(payment.refundedAt)}</strong></div>}
-        <div><small>{tx(locale, { en: 'Payment method', ar: 'طريقة الدفع' })}</small><strong>{payment.provider === 'pending' ? (tx(locale, { en: 'Online payment — coming soon', ar: 'الدفع الإلكتروني — قريبًا' })) : payment.provider}{payment.providerPaymentId ? ` · ${payment.providerPaymentId}` : ''}</strong></div>
+        <div><small>{tx(locale, { en: 'Payment method', ar: 'طريقة الدفع' })}</small><strong>{payment.provider === 'pending' ? (tx(locale, { en: 'Online payment - coming soon', ar: 'الدفع الإلكتروني - قريبًا' })) : payment.provider}{payment.providerPaymentId ? ` · ${payment.providerPaymentId}` : ''}</strong></div>
       </div>
-      {isPending && <p role="status" className="form-note">{tx(locale, { en: `This payment is pending: ${formatPrice(payment.amount, currency, locale)} is awaiting payment. Nothing has been charged — the online provider handoff is not connected yet.`, ar: `هذا الدفع معلق: مبلغ ${formatPrice(payment.amount, currency, locale)} بانتظار الدفع. لم يتم خصم أي مبلغ — ربط مزود الدفع الإلكتروني غير متاح بعد.` })}</p>}
+      {isPending && <p role="status" className="form-note">{tx(locale, { en: `This payment is pending: ${formatPrice(payment.amount, currency, locale)} is awaiting payment. Nothing has been charged - the online provider handoff is not connected yet.`, ar: `هذا الدفع معلق: مبلغ ${formatPrice(payment.amount, currency, locale)} بانتظار الدفع. لم يتم خصم أي مبلغ - ربط مزود الدفع الإلكتروني غير متاح بعد.` })}</p>}
       <div className="customer-detail-actions">
         <Link href={'/account/bookings/detail?ref=' + encodeURIComponent(payment.bookingReference)} className="account-icon-action"><Eye size={16} />{tx(locale, { en: 'View related booking', ar: 'عرض الحجز المرتبط' })}</Link>
         <Link href="/account/payments" className="account-icon-action"><ArrowLeft size={16} />{tx(locale, { en: 'Back to payments', ar: 'عودة للمدفوعات' })}</Link>

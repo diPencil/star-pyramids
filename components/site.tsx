@@ -508,7 +508,7 @@ export function Header() {
 
 export function SupportWidgets(){const [active,setActive]=useState<'live'|'wa'|null>(null); return <div className="support-widgets"><LiveChatWidget open={active==='live'} onOpen={()=>setActive('live')} onClose={()=>setActive((a)=>a==='live'?null:a)}/><WhatsAppWidget open={active==='wa'} onOpen={()=>setActive('wa')} onClose={()=>setActive((a)=>a==='wa'?null:a)}/></div>}
 
-function AccessStrip(){const {locale}=useLocale(); const ex=extra[locale]; const [show,setShow]=useState(true); if(!show) return null; return <div className="access-strip"><Accessibility size={20}/><p>{ex.accessNote}</p><Link href="/accessible-travel">{ex.readMoreBtn}</Link><button type="button" onClick={()=>setShow(false)} aria-label="Dismiss">Ã—</button></div>}
+function AccessStrip(){const {locale}=useLocale(); const ex=extra[locale]; const [show,setShow]=useState(true); if(!show) return null; return <div className="access-strip"><Accessibility size={20}/><p>{ex.accessNote}</p><Link href="/accessible-travel">{ex.readMoreBtn}</Link><button type="button" onClick={()=>setShow(false)} aria-label="Dismiss">×</button></div>}
 
 function ScrollTop(){const [show,setShow]=useState(false); useEffect(()=>{const onScroll=()=>setShow(window.scrollY>500); onScroll(); window.addEventListener('scroll',onScroll,{passive:true}); return ()=>window.removeEventListener('scroll',onScroll);},[]); const goTop=()=>{const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches; window.scrollTo({top:0,behavior:reduced?'auto':'smooth'});}; return <button type="button" className={'scroll-top'+(show?' show':'')} onClick={goTop} aria-label="Scroll to top"><ArrowUp size={20}/></button>}
 
@@ -609,7 +609,7 @@ export function TourCard({ tour, variant = 'multi' }: { tour: Tour; variant?: To
       </CardGallery>
     </div>
     <div className="tour-body">
-      {cruiseTypeInfo ? <div className="meta cruise-meta"><span className="cities-pill">â—‰ {plc === 'ar' ? localizeTourLocation(tour.location) : tour.location}</span><em>{plc === 'ar' ? cruiseTypeInfo.titleAr : cruiseTypeInfo.titleEn}</em></div> : <div className="meta">â—‰ {plc === 'ar' ? localizeTourLocation(tour.location) : tour.location} <em>{tour.travelStyle ?? 'Classic'}</em></div>}
+      {cruiseTypeInfo ? <div className="meta cruise-meta"><span className="cities-pill">◉ {plc === 'ar' ? localizeTourLocation(tour.location) : tour.location}</span><em>{plc === 'ar' ? cruiseTypeInfo.titleAr : cruiseTypeInfo.titleEn}</em></div> : <div className="meta">◉ {plc === 'ar' ? localizeTourLocation(tour.location) : tour.location} <em>{tour.travelStyle ?? 'Classic'}</em></div>}
       <h3><Link href={href}>{title}</Link></h3>
       <div className="tour-bottom"><div><small>{tx(plc, { en: 'Start From', es: 'Desde', it: 'Da', ar: 'ÙŠØ¨Ø¯Ø£ Ù…Ù†' })}</small><strong>{formatPrice(tour.price, currency, plc)}</strong></div><span>{variant === 'day' ? <Clock3 size={12} /> : variant === 'cruise' ? <Ship size={12} /> : variant === 'shore' ? <Anchor size={12} /> : null}{plc === 'ar' ? localizeTourDuration(tour.duration) : tour.duration}</span></div>
     </div>
@@ -898,7 +898,7 @@ const featIt: Record<string, string> = { 'Multi-city routes': 'Itinerari multi-c
 function featLabel(locale: Locale, text: string, arText: string) { return tx(locale, { en: text, es: featEs[text] ?? text, it: featIt[text] ?? text, ar: arText }) }
 
 const crumbNames: Record<string, { ar: string; es: string; it: string }> = {'Egypt Tours': { ar: 'Ø¬ÙˆÙ„Ø§Øª Ù…ØµØ±', es: 'Circuitos por Egipto', it: 'Tour in Egitto' }, 'Nile Cruises': { ar: 'Ø±Ø­Ù„Ø§Øª Ø§Ù„Ù†ÙŠÙ„', es: 'Cruceros por el Nilo', it: 'Crociere sul Nilo' }, Trips: { ar: 'ÙƒÙ„ Ø§Ù„Ø±Ø­Ù„Ø§Øª', es: 'Viajes', it: 'Viaggi' }}
-export function Breadcrumb({items}:{items:string[]}){const {locale}=useLocale(); return <div className="breadcrumb"><div className="container"><Link href="/">{tx(locale, { en: 'Home', es: 'Inicio', it: 'Home', ar: 'Ø§Ù„Ø±Ø¦ÙŠØ³ÙŠØ©' })}</Link>{items.map(i=><span key={i}>â€º {tx(locale, { en: i, es: crumbNames[i]?.es, it: crumbNames[i]?.it, ar: crumbNames[i]?.ar })}</span>)}</div></div>}
+export function Breadcrumb({items}:{items:string[]}){const {locale}=useLocale(); return <div className="breadcrumb"><div className="container"><Link href="/">{tx(locale, { en: 'Home', es: 'Inicio', it: 'Home', ar: 'الرئيسية' })}</Link>{items.map(i=><span key={i}>› {tx(locale, { en: i, es: crumbNames[i]?.es, it: crumbNames[i]?.it, ar: crumbNames[i]?.ar })}</span>)}</div></div>}
 
 export function Heading({title,copy}:{title:string;copy?:string}){return <div className="section-heading"><h1>{title}</h1>{copy&&<p>{copy}</p>}</div>}
 

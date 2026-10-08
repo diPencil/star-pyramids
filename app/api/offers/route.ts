@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
 import { getCurrentUser, hasPermission } from '@/lib/server/auth';
+import { readJsonObject, writeJsonText } from '@/lib/json-text';
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -30,7 +31,7 @@ export async function GET() {
   const offers = await db.offer.findMany({
     orderBy: [{ displayOrder: 'asc' }, { title: 'asc' }],
   });
-  return NextResponse.json({ offers });
+  return NextResponse.json({ offers: offers.map((offer) => ({ ...offer, content: readJsonObject(offer.content) })) });
 }
 
 export async function POST(request: Request) {
@@ -96,11 +97,11 @@ export async function POST(request: Request) {
       deadline: cleanText(data.deadline, 120),
       isPublished: data.isPublished !== false,
       displayOrder: Number.isFinite(Number(data.displayOrder)) ? Number(data.displayOrder) : 999,
-      content: data.content && typeof data.content === 'object' && !Array.isArray(data.content)
+      content: writeJsonText(data.content && typeof data.content === 'object' && !Array.isArray(data.content)
         ? data.content
-        : { gallery, highlights, photoCredits },
+        : { gallery, highlights, photoCredits }),
     },
   });
 
-  return NextResponse.json({ offer }, { status: 201 });
+  return NextResponse.json({ offer: { ...offer, content: readJsonObject(offer.content) } }, { status: 201 });
 }

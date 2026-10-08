@@ -336,7 +336,7 @@ export async function setCustomerStatus(
     if (target.roles.some((r) => r.role.key !== 'CUSTOMER')) {
       throw new UserManagementError(
         404,
-        'This account holds a staff role — manage it under Users & Roles.',
+        'This account holds a staff role - manage it under Users & Roles.',
       );
     }
     const targetId = target.id;

@@ -55,7 +55,7 @@ export function PaymentDetailContent({ reference }: { reference: string }) {
     )
   }
 
-  const fmtDateTime = (iso: string | null) => (iso ? new Date(iso).toLocaleString(ar ? 'ar-EG' : 'en-US') : '—')
+  const fmtDateTime = (iso: string | null) => (iso ? new Date(iso).toLocaleString(ar ? 'ar-EG' : 'en-US') : '-')
 
   return (
     <>
@@ -79,7 +79,7 @@ export function PaymentDetailContent({ reference }: { reference: string }) {
               <div><dt><AdminText en="Amount refunded" ar="المسترد" /></dt><dd>${item.amountRefunded.toLocaleString('en-US')} USD</dd></div>
               <div><dt><AdminText en="Provider" ar="المزود" /></dt><dd><span>{item.provider === 'pending' ? (ar ? 'بانتظار الربط (بدون بوابة بعد)' : 'Awaiting handoff (no gateway yet)') : item.provider}</span></dd></div>
               {item.providerPaymentId && <div><dt><AdminText en="Provider reference" ar="مرجع المزود" /></dt><dd><code dir="ltr">{item.providerPaymentId}</code></dd></div>}
-              {item.failureCode && <div><dt><AdminText en="Failure" ar="سبب الفشل" /></dt><dd>{item.failureCode}{item.failureMessage ? ` — ${item.failureMessage}` : ''}</dd></div>}
+              {item.failureCode && <div><dt><AdminText en="Failure" ar="سبب الفشل" /></dt><dd>{item.failureCode}{item.failureMessage ? ` - ${item.failureMessage}` : ''}</dd></div>}
               <div><dt><AdminText en="Initiated" ar="أُنشئ" /></dt><dd>{fmtDateTime(item.initiatedAt)}</dd></div>
               <div><dt><AdminText en="Paid" ar="دُفع" /></dt><dd>{fmtDateTime(item.paidAt)}</dd></div>
               <div><dt><AdminText en="Last updated" ar="آخر تحديث" /></dt><dd>{fmtDateTime(item.updatedAt)}</dd></div>

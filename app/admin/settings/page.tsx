@@ -107,8 +107,8 @@ function SecretField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={configured
-          ? (ar ? '•••••••• (مضبوط — اتركه فارغا للإبقاء)' : '•••••••• (configured — leave blank to keep)')
-          : (ar ? 'غير مضبوط — أدخل للحفظ' : 'Not configured — enter to save')}
+          ? (ar ? '•••••••• (مضبوط - اتركه فارغا للإبقاء)' : '•••••••• (configured - leave blank to keep)')
+          : (ar ? 'غير مضبوط - أدخل للحفظ' : 'Not configured - enter to save')}
         autoComplete="off"
         dir="ltr"
         disabled={disabled}
@@ -124,14 +124,14 @@ function SiteClock({ timezone }: { timezone: string }) {
     const id = window.setInterval(() => setNow(new Date()), 1000)
     return () => window.clearInterval(id)
   }, [])
-  let time = '—'
+  let time = '-'
   try {
     time = new Intl.DateTimeFormat(ar ? 'ar-EG' : 'en-US', {
       hour: '2-digit', minute: '2-digit', second: '2-digit',
       timeZone: timezone, timeZoneName: 'short',
     }).format(now)
   } catch {
-    time = '—'
+    time = '-'
   }
   return <b dir="ltr">{time}</b>
 }
@@ -585,7 +585,7 @@ function EmailTab({ snapshot, canWrite, onSaved }: TabShell) {
         <SecretField labelEn="SMTP Password" labelAr="كلمة مرور SMTP" value={t.form.smtpPassword} onChange={(smtpPassword) => t.setForm((f) => ({ ...f, smtpPassword }))} configured={secretConfigured(snapshot, 'mail.smtpPassword')} disabled={!canWrite || t.saving} />
         <label><AdminText en="Timeout (seconds)" ar="المهلة (بالثواني)" /><input value={t.form.smtpTimeout} inputMode="numeric" onChange={(e) => t.setForm((f) => ({ ...f, smtpTimeout: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
       </div>
-      <p className="sp-group-title"><AdminText en="Incoming Email - IMAP / POP3" ar="البريد الوارد - IMAP / POP3" /></p>
+      <p className="sp-group-title"><AdminText en="Incoming Email - IMAP or POP3" ar="البريد الوارد - IMAP أو POP3" /></p>
       <div className="sp-form-2">
         <label><AdminText en="Protocol" ar="البروتوكول" /><SharedSelect value={t.form.imapProtocol} onChange={(next) => t.setForm((f) => ({ ...f, imapProtocol: next }))} locale={ar ? 'ar' : 'en'} options={[{ value: 'IMAP', label: 'IMAP' }, { value: 'POP3', label: 'POP3' }]} disabled={!canWrite || t.saving} /></label>
         <label><AdminText en="Incoming Host" ar="المضيف الوارد" /><input value={t.form.imapHost} onChange={(e) => t.setForm((f) => ({ ...f, imapHost: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
@@ -598,8 +598,8 @@ function EmailTab({ snapshot, canWrite, onSaved }: TabShell) {
         <label><AdminText en="Incoming Username" ar="اسم المستخدم الوارد" /><input value={t.form.imapUsername} onChange={(e) => t.setForm((f) => ({ ...f, imapUsername: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
         <SecretField labelEn="Incoming Password" labelAr="كلمة المرور الواردة" value={t.form.imapPassword} onChange={(imapPassword) => t.setForm((f) => ({ ...f, imapPassword }))} configured={secretConfigured(snapshot, 'mail.imapPassword')} disabled={!canWrite || t.saving} />
       </div>
-      <label><AdminText en="Mailbox / Folder" ar="الصندوق / المجلد" /><input value={t.form.mailbox} onChange={(e) => t.setForm((f) => ({ ...f, mailbox: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
-      <p className="sp-integration-note"><ShieldCheck size={15} /> <AdminText en="Passwords stay on the server and are never shown again. Live send/receive testing requires the mail integration phase — saving here stores configuration only." ar="تبقى كلمات المرور في الخادم ولا تظهر مجددا. يتطلب اختبار الإرسال والاستلام الحي مرحلة تكامل البريد — الحفظ هنا يخزن الإعدادات فقط." /></p>
+      <label><AdminText en="Mailbox or folder" ar="الصندوق أو المجلد" /><input value={t.form.mailbox} onChange={(e) => t.setForm((f) => ({ ...f, mailbox: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
+      <p className="sp-integration-note"><ShieldCheck size={15} /> <AdminText en="Passwords stay on the server and are never shown again. Live send/receive testing requires the mail integration phase - saving here stores configuration only." ar="تبقى كلمات المرور في الخادم ولا تظهر مجددا. يتطلب اختبار الإرسال والاستلام الحي مرحلة تكامل البريد - الحفظ هنا يخزن الإعدادات فقط." /></p>
       {!canWrite && <ReadOnlyNote />}
       <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
         <button type="button" className="sp-btn" disabled title={ar ? 'يتطلب مرحلة تكامل البريد' : 'Requires the mail integration phase'}><AdminText en="Test connection" ar="اختبار الاتصال" /></button>
@@ -617,7 +617,7 @@ const tabs = [
   { id: 'currency', icon: CircleDollarSign, en: 'Currency', ar: 'العملة', sub: 'Live conversion rates', subAr: 'أسعار التحويل الحية' },
   { id: 'social', icon: Share2, en: 'Social', ar: 'التواصل الاجتماعي', sub: 'Company profile links', subAr: 'روابط حسابات الشركة' },
   { id: 'website', icon: Palette, en: 'Website Defaults', ar: 'افتراضيات الموقع', sub: 'SEO defaults', subAr: 'إعدادات تحسين محركات البحث' },
-  { id: 'email', icon: Mail, en: 'Email Configuration', ar: 'إعداد البريد', sub: 'SMTP / IMAP mailboxes', subAr: 'صناديق البريد الصادر والوارد' },
+  { id: 'email', icon: Mail, en: 'Email Configuration', ar: 'إعداد البريد', sub: 'SMTP and IMAP mailboxes', subAr: 'صناديق البريد الصادر والوارد' },
   { id: 'whatsapp', icon: WhatsAppGlyph, en: 'WhatsApp', ar: 'واتساب', sub: 'QR session or official Cloud API', subAr: 'جلسة QR أو واجهة Cloud الرسمية' },
   { id: 'google-maps', icon: MapPinned, en: 'Google Maps', ar: 'خرائط جوجل', sub: 'Maps, places and location services', subAr: 'الخرائط والأماكن وخدمات المواقع' },
   { id: 'google-auth', icon: GoogleIcon, en: 'Google Login', ar: 'تسجيل الدخول بجوجل', sub: 'Customer account authentication', subAr: 'مصادقة حسابات العملاء' },
@@ -709,7 +709,7 @@ function WhatsAppTab({ snapshot, canWrite, onSaved }: TabShell) {
             <label><AdminText en="Webhook callback" ar="رابط Webhook" /><input value="https://starpyramids.com/api/integrations/whatsapp/webhook" readOnly dir="ltr" /></label>
             <SecretField labelEn="Verify token" labelAr="رمز التحقق" value={t.form.verifyToken} onChange={(verifyToken) => t.setForm((f) => ({ ...f, verifyToken }))} configured={secretConfigured(snapshot, 'whatsapp.verifyToken')} disabled={!canWrite || t.saving} />
           </div>
-          <p className="sp-integration-note"><ShieldCheck size={15} /> <AdminText en="Tokens stay on the server and are never shown again. Saving stores configuration only — the provider connection is not verified." ar="تبقى الرموز في الخادم ولا تظهر مجددا. الحفظ يخزن الإعدادات فقط — لم يتم التحقق من اتصال المزود." /></p>
+          <p className="sp-integration-note"><ShieldCheck size={15} /> <AdminText en="Tokens stay on the server and are never shown again. Saving stores configuration only - the provider connection is not verified." ar="تبقى الرموز في الخادم ولا تظهر مجددا. الحفظ يخزن الإعدادات فقط - لم يتم التحقق من اتصال المزود." /></p>
           {!canWrite && <ReadOnlyNote />}
           <div className="sp-integration-actions">
             <button type="button" className="sp-btn dark" onClick={save} disabled={!canWrite || t.saving}>{t.saving ? <AdminText en="Saving…" ar="جارٍ الحفظ…" /> : <AdminText en="Save configuration" ar="حفظ الإعدادات" />}</button>

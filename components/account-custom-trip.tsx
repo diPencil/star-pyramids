@@ -449,7 +449,7 @@ function TripRequestsSection({ startNew = false, editRef = null }: { startNew?: 
           </div>
           <div className="guest-rows">
             <Stepper label={tx(locale, { en: 'Adults', es: 'Adultos', it: 'Adulti', ar: 'البالغون' })} sub={tx(locale, { en: 'Ages 12+', es: '12 años o más', it: '12+ anni', ar: '12 سنة فأكثر' })} value={adults} set={setAdults} min={1} />
-            <Stepper label={tx(locale, { en: 'Children', es: 'Niños', it: 'Bambini', ar: 'الأطفال' })} sub={tx(locale, { en: 'Ages 3-11', es: 'De 3 a 11 años', it: '3–11 anni', ar: '3 - 11 سنة' })} value={children} set={setChildren} />
+            <Stepper label={tx(locale, { en: 'Children', es: 'Niños', it: 'Bambini', ar: 'الأطفال' })} sub={tx(locale, { en: 'Ages 3-11', es: 'De 3 a 11 años', it: '3-11 anni', ar: '3 - 11 سنة' })} value={children} set={setChildren} />
             <Stepper label={tx(locale, { en: 'Infants', es: 'Bebés', it: 'Neonati', ar: 'الرضع' })} sub={tx(locale, { en: 'Under 3', es: 'Menores de 3 años', it: 'Sotto i 3 anni', ar: 'أقل من 3 سنوات' })} value={infants} set={setInfants} />
           </div>
           {errors.travelers && <em className="form-error" role="alert">{errText('travelers', errors.travelers, locale)}</em>}

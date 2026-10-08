@@ -74,10 +74,10 @@ export function SharedSelect({
           aria-invalid={invalid === true ? true : undefined}
           aria-describedby={describedBy}
         >
-          <Select.Value placeholder={placeholder ?? dropdownHint}>
+          <Select.Value placeholder={placeholder ?? dropdownHint} className="cselect-value">
             {(current: string | null) => {
               const currentOption = current ? (options.find((option) => option.value === current) ?? null) : null
-              if (!currentOption) return null
+              if (!currentOption) return placeholder ?? dropdownHint
               return <span className="cselect-current"><span className="cselect-current-name">{currentOption.label}</span></span>
             }}
           </Select.Value>

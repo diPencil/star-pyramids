@@ -29,7 +29,7 @@ function toRow(payment: StaffPayment): Row {
   return {
     reference: payment.reference,
     booking: payment.bookingReference,
-    customer: payment.account?.name || payment.account?.email || '—',
+    customer: payment.account?.name || payment.account?.email || '-',
     amount: payment.amount,
     paid: payment.amountPaid,
     status: payment.status,

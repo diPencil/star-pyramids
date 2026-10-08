@@ -96,7 +96,7 @@ export function EventRequestForm({ event }: { event: Event }) {
       else if (validation.email === 'required') setErrors(tx(locale, { en: 'Email is required.', es: 'El correo electrónico es obligatorio.', it: "L'email è obbligatoria.", ar: 'البريد الإلكتروني مطلوب.' }))
       else if (validation.email === 'invalid') setErrors(tx(locale, { en: 'Check the email format.', es: 'Revisa el formato del correo electrónico.', it: "Controlla il formato dell'email.", ar: 'تحقق من صيغة البريد الإلكتروني.' }))
       else if (validation.phone) setErrors(tx(locale, { en: 'Check the phone number (at least 7 digits).', es: 'Revisa el número de teléfono (mínimo 7 dígitos).', it: 'Controlla il numero di telefono (almeno 7 cifre).', ar: 'تحقق من رقم الهاتف (7 أرقام على الأقل).' }))
-      else if (validation.attendees) setErrors(tx(locale, { en: 'Attendees must be 1–50.', es: 'Los asistentes deben ser de 1 a 50.', it: 'I partecipanti devono essere da 1 a 50.', ar: 'عدد الحضور من 1 إلى 50.' }))
+      else if (validation.attendees) setErrors(tx(locale, { en: 'Attendees must be 1-50.', es: 'Los asistentes deben ser de 1 a 50.', it: 'I partecipanti devono essere da 1 a 50.', ar: 'عدد الحضور من 1 إلى 50.' }))
       else setErrors(tx(locale, { en: 'Check the required fields.', es: 'Revisa los campos obligatorios.', it: 'Controlla i campi obbligatori.', ar: 'تحقق من الحقول المطلوبة.' }))
       return
     }

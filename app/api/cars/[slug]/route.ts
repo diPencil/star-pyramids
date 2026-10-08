@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { Prisma } from '@prisma/client';
+import { readJsonText, writeJsonText } from '@/lib/json-text';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
 import { getCurrentUser, hasPermission } from '@/lib/server/auth';
@@ -18,7 +18,7 @@ export async function GET(
     return NextResponse.json({ notFound: true }, { status: 404 });
   }
 
-  return NextResponse.json({ car });
+  return NextResponse.json({ car: { ...car, credit: readJsonText(car.credit) } });
 }
 
 export async function PUT(
@@ -70,14 +70,14 @@ export async function PUT(
       transmission: typeof data.transmission === 'string' ? data.transmission.trim().slice(0, 60) : existing.transmission,
       dailyPrice: Number.isFinite(dailyPrice) && (dailyPrice as number) >= 0 ? (dailyPrice as number) : existing.dailyPrice,
       copy: typeof data.copy === 'string' ? data.copy.trim().slice(0, 2000) : existing.copy,
-      credit: data.credit === undefined ? (existing.credit === null ? Prisma.JsonNull : existing.credit) : (data.credit && typeof data.credit.label === 'string' && typeof data.credit.url === 'string'
-        ? { label: data.credit.label.slice(0, 200), url: data.credit.url.slice(0, 2000) }
-        : Prisma.JsonNull),
+      credit: data.credit === undefined ? existing.credit : (data.credit && typeof data.credit.label === 'string' && typeof data.credit.url === 'string'
+        ? writeJsonText({ label: data.credit.label.slice(0, 200), url: data.credit.url.slice(0, 2000) })
+        : null),
       isPublished: data.isPublished === undefined ? existing.isPublished : data.isPublished !== false,
     },
   });
 
-  return NextResponse.json({ car });
+  return NextResponse.json({ car: { ...car, credit: readJsonText(car.credit) } });
 }
 
 export async function DELETE(

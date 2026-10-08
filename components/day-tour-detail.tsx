@@ -108,7 +108,7 @@ export function DayTourDetailPage({ tour: sourceTour, related: relatedProp }: { 
   }
 
   return <>
-    <div className="tour-breadcrumb day-tour-breadcrumb container"><Link href="/">{tx(locale, { en: 'Home', es: 'Inicio', it: 'Home', ar: 'الرئيسية' })}</Link><span>/</span><Link href="/egypt-tours/one-day-tours">{tx(locale, { en: 'One Day Tours', es: 'Circuitos de un día', it: 'Tour di un giorno', ar: 'رحلات اليوم الواحد' })}</Link>{region && <><span>/</span><Link href={regionHref}>{regionName}</Link></>}<span>/</span><span>{tour.title}</span></div>
+    <div className="tour-breadcrumb day-tour-breadcrumb container"><Link href="/">{tx(locale, { en: 'Home', es: 'Inicio', it: 'Home', ar: 'الرئيسية' })}</Link><span>›</span><Link href="/egypt-tours/one-day-tours">{tx(locale, { en: 'One Day Tours', es: 'Circuitos de un día', it: 'Tour di un giorno', ar: 'رحلات اليوم الواحد' })}</Link>{region && <><span>›</span><Link href={regionHref}>{regionName}</Link></>}<span>›</span><span>{tour.title}</span></div>
     <main className="tour-detail-page day-tour-detail container">
       <header className="tour-detail-header"><div><span className="eyebrow">{tx(locale, { en: 'One day Egypt experience', es: 'Una experiencia egipcia en un día', it: 'Un’esperienza egiziana in un giorno', ar: 'تجربة مصرية في يوم واحد' })}</span><h1>{tour.title}</h1></div><button type="button" className={`tour-favorite ${favorite ? "active" : ""}`} onClick={() => favorites.toggle(tour.slug)} aria-label={tx(locale, { en: 'Save tour', es: 'Guardar el viaje', it: 'Salva il viaggio', ar: 'احفظ الرحلة' })} aria-pressed={favorite}><Heart size={20} fill={favorite ? "currentColor" : "none"} /></button></header>
       <div className="tour-detail-layout">

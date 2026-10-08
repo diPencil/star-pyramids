@@ -71,7 +71,7 @@ export default function DestinationsPage() {
           <td><strong>{d.title}</strong><br /><small style={{ color: 'var(--sp-muted)' }}>{d.copy.slice(0, 76)}...</small></td>
           <td>{d.detail.experiences.length}</td>
           <td>{d.detail.tourSlugs.length}</td>
-          <td>{d.showInOneDayTours ? <StatusPill status="active" /> : <span style={{ color: 'var(--sp-muted)' }}>—</span>}</td>
+          <td>{d.showInOneDayTours ? <StatusPill status="active" /> : <span style={{ color: 'var(--sp-muted)' }}>-</span>}</td>
           <td><StatusPill status={d.isPublished === false ? 'hidden' : 'published'} /></td>
           <td><AdminTableActions>
             <AdminIconAction icon={Pencil} label={ar ? `تعديل ${d.title}` : `Edit ${d.title}`} href={`/admin/destinations/new?slug=${d.slug}`} />

@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Suspense, useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { ArrowRight, CalendarCheck, CalendarDays, Camera, Check, CircleAlert, Clock3, Compass, CarFront, Eye, EyeOff, Gift, Headphones, Mail, MapPin, MessageCircle, Minus, Phone, Plus, Search, Send, Share2, ShieldCheck, Sparkles, Star, Sun, Ticket, Users, type LucideIcon } from 'lucide-react'
 import { blogs, cars, destinations, events, faqs, offers, policies, siteImages, allSearchItems } from '@/data/content'
@@ -64,8 +64,8 @@ function ContactPageContent() {
   const steps = [['01', tx(cl, { en: 'Tell us about your trip', es: 'Cuéntanos tu viaje', it: 'Raccontaci il tuo viaggio', ar: 'احكيلنا عن رحلتك' }), tx(cl, { en: 'Share your dates, group size, and the places you want to experience.', es: 'Comparte tus fechas, el tamaño del grupo y los lugares que quieres conocer.', it: 'Condividi date, numero di partecipanti e luoghi che vuoi scoprire.', ar: 'شاركنا مواعيدك، عدد المسافرين، والأماكن اللي نفسك تشوفها.' })], ['02', tx(cl, { en: 'We shape the details', es: 'Damos forma a los detalles', it: 'Diamo forma ai dettagli', ar: 'نرتب التفاصيل' }), tx(cl, { en: 'Our local team reviews your idea and connects the right route and experiences.', es: 'Nuestro equipo local revisa tu idea y une la ruta y las experiencias adecuadas.', it: 'Il nostro team locale esamina la tua idea e collega itinerario ed esperienze giusti.', ar: 'فريقنا المحلي يراجع فكرتك ويجمع أنسب مسار وتجارب ليك.' })], ['03', tx(cl, { en: 'Receive a clear proposal', es: 'Recibe una propuesta clara', it: 'Ricevi una proposta chiara', ar: 'تستلم تصور واضح' }), tx(cl, { en: 'We return with an easy-to-review plan before you make any commitment.', es: 'Te devolvemos un plan fácil de revisar antes de ningún compromiso.', it: 'Ti presentiamo un piano facile da rivedere prima di qualsiasi impegno.', ar: 'نرجعلك بخطة مفهومة وتفاصيل جاهزة للمراجعة قبل أي التزام.' })]]
 
   return <main className="contact-v2">
-      <PageShowcaseHero image={siteImages.nile} eyebrow={tx(cl, { en: 'Local team, personal planning', es: 'Equipo local, planificación personal', it: 'Team locale, pianificazione personale', ar: 'فريق محلي, تخطيط شخصي' })} title={tx(cl, { en: 'Your Egypt journey starts with a conversation.', es: 'Tu viaje a Egipto empieza con una conversación.', it: 'Il tuo viaggio in Egitto inizia con una conversazione.', ar: 'رحلتك لمصر تبدأ بمحادثة.' })} intro={tx(cl, { en: 'Tell us how you want to experience Egypt, and we will help turn the idea into a thoughtful route shaped around your time and interests.', es: 'Cuéntanos cómo quieres vivir Egipto y te ayudaremos a convertir la idea en una ruta a medida según tu tiempo e intereses.', it: 'Raccontaci come vuoi vivere l\'Egitto: ti aiuteremo a trasformare l\'idea in un itinerario pensato su tempi e interessi.', ar: 'قولنا نفسك تشوف مصر إزاي، وإحنا نساعدك تحول الفكرة لمسار متوازن يناسب وقتك واهتماماتك.' })} primaryLabel={tx(cl, { en: 'Start the conversation', es: 'Inicia la conversación', it: 'Avvia la conversazione', ar: 'ابدأ المحادثة' })} primaryHref="#contact-enquiry" secondaryLabel={tx(cl, { en: 'Build a detailed trip', es: 'Crea un viaje detallado', it: 'Crea un viaggio dettagliato', ar: 'خطط رحلتك بالتفصيل' })} secondaryHref="/make-your-trip" railLabel={tx(cl, { en: 'Start here', es: 'Empieza aquí', it: 'Inizia qui', ar: 'ابدأ من هنا' })} railTitle={tx(cl, { en: 'Tell us the journey you have in mind.', es: 'Cuéntanos el viaje que tienes en mente.', it: 'Raccontaci il viaggio che hai in mente.', ar: 'احكيلنا عن الرحلة اللي في بالك.' })} railHref="#contact-enquiry" railMeta={[{ Icon: MessageCircle, label: tx(cl, { en: 'Preview enquiry', es: 'Solicitud de vista previa', it: 'Richiesta di anteprima', ar: 'طلب تجريبي' }) }, { Icon: ShieldCheck, label: tx(cl, { en: 'No data sent', es: 'Sin envío de datos', it: 'Nessun dato inviato', ar: 'لا يتم إرسال بيانات' }) }]} statsLabel={tx(cl, { en: 'Contact summary', es: 'Resumen de contacto', it: 'Riepilogo contatti', ar: 'ملخص التواصل' })} stats={[{ value: contactMethods.length, label: tx(cl, { en: 'Ways to connect', es: 'Formas de contactar', it: 'Modi per contattarci', ar: 'طرق للتواصل' }) }, { value: steps.length, label: tx(cl, { en: 'Planning steps', es: 'Pasos de planificación', it: 'Fasi di pianificazione', ar: 'خطوات للتخطيط' }) }]}/>
-      <Breadcrumb items={[ex.contactTitle]}/>
+      <PageShowcaseHero image={siteImages.nile} eyebrow={tx(cl, { en: 'Local team, personal planning', es: 'Equipo local, planificación personal', it: 'Team locale, pianificazione personale', ar: 'فريق محلي, تخطيط شخصي' })} title={tx(cl, { en: 'Your Egypt journey starts with a conversation.', es: 'Tu viaje a Egipto empieza con una conversación.', it: 'Il tuo viaggio in Egitto inizia con una conversazione.', ar: 'رحلتك لمصر تبدأ بمحادثة.' })} intro={tx(cl, { en: 'Tell us how you want to experience Egypt, and we will help turn the idea into a thoughtful route shaped around your time and interests.', es: 'Cuéntanos cómo quieres vivir Egipto y te ayudaremos a convertir la idea en una ruta a medida según tu tiempo e intereses.', it: 'Raccontaci come vuoi vivere l\'Egitto: ti aiuteremo a trasformare l\'idea in un itinerario pensato su tempi e interessi.', ar: 'قولنا نفسك تشوف مصر إزاي، وإحنا نساعدك تحول الفكرة لمسار متوازن يناسب وقتك واهتماماتك.' })} primaryLabel={tx(cl, { en: 'Start the conversation', es: 'Inicia la conversación', it: 'Avvia la conversazione', ar: 'ابدأ المحادثة' })} primaryHref="#contact-enquiry" secondaryLabel={tx(cl, { en: 'Build a detailed trip', es: 'Crea un viaje detallado', it: 'Crea un viaggio dettagliato', ar: 'خطط رحلتك بالتفصيل' })} secondaryHref="/make-your-trip" railLabel={tx(cl, { en: 'Start here', es: 'Empieza aquí', it: 'Inizia qui', ar: 'ابدأ من هنا' })} railTitle={tx(cl, { en: 'Tell us the journey you have in mind.', es: 'Cuéntanos el viaje que tienes en mente.', it: 'Raccontaci il viaggio che hai in mente.', ar: 'احكيلنا عن الرحلة اللي في بالك.' })} railHref="#contact-enquiry" railMeta={[{ Icon: MessageCircle, label: tx(cl, { en: 'Trip enquiry', es: 'Consulta de viaje', it: 'Richiesta di viaggio', ar: 'استفسار عن رحلة' }) }, { Icon: ShieldCheck, label: tx(cl, { en: 'Sent to our team', es: 'Enviada a nuestro equipo', it: 'Inviata al nostro team', ar: 'تُرسل إلى فريقنا' }) }]} statsLabel={tx(cl, { en: 'Contact summary', es: 'Resumen de contacto', it: 'Riepilogo contatti', ar: 'ملخص التواصل' })} stats={[{ value: contactMethods.length, label: tx(cl, { en: 'Ways to connect', es: 'Formas de contactar', it: 'Modi per contattarci', ar: 'طرق للتواصل' }) }, { value: steps.length, label: tx(cl, { en: 'Planning steps', es: 'Pasos de planificación', it: 'Fasi di pianificazione', ar: 'خطوات للتخطيط' }) }]}/>
+      <Breadcrumb items={[tx(cl, { en: 'Contact Us', es: 'Contáctanos', it: 'Contattaci', ar: 'تواصل معنا' })]}/>
 
       <section className="contact-v2-trust" aria-label={tx(cl, { en: 'Reasons to contact us', es: 'Por qué contactarnos', it: 'Perché contattarci', ar: 'مميزات التواصل معنا' })}>
         <div className="container">
@@ -112,18 +112,174 @@ function ContactPageContent() {
 export function ContactForm() {
   const { locale } = useLocale()
   const ar = locale === 'ar'
-  const [sent, setSent] = useState(false)
-  if (sent) return <div className="form-success contact-v2-success"><Check size={38} /><span>{tx(locale, { en: 'Preview complete', es: 'Vista previa completa', it: 'Anteprima completata', ar: 'تم في النسخة التجريبية' })}</span><h2>{tx(locale, { en: 'We have your trip idea.', es: 'Hemos recibido tu idea de viaje.', it: 'Abbiamo ricevuto la tua idea di viaggio.', ar: 'وصلنا لفكرة رحلتك.' })}</h2><p>{tx(locale, { en: 'This is an on-site preview confirmation. No details were transmitted.', es: 'Esta es una confirmación de vista previa en el sitio. No se ha transmitido ningún dato.', it: 'Questa è una conferma di anteprima sul sito. Nessun dato è stato trasmesso.', ar: 'ده تأكيد تجريبي داخل الموقع فقط، ولم يتم إرسال أي بيانات.' })}</p><button type="button" className="outline-btn" onClick={() => setSent(false)}>{tx(locale, { en: 'Write another message', es: 'Escribe otro mensaje', it: 'Scrivi un altro messaggio', ar: 'اكتب رسالة جديدة' })}</button></div>
-  return <form className="contact-form contact-v2-form" onSubmit={(event) => { event.preventDefault(); setSent(true) }}>
-    <div className="form-grid">
-      <label>{tx(locale, { en: 'Full name', es: 'Nombre completo', it: 'Nome completo', ar: 'الاسم بالكامل' })}<input required autoComplete="name" placeholder={tx(locale, { en: 'Your name', es: 'Tu nombre', it: 'Il tuo nome', ar: 'اسمك' })} /></label>
-      <label>{tx(locale, { en: 'Email address', es: 'Correo electrónico', it: 'Indirizzo email', ar: 'البريد الإلكتروني' })}<input required type="email" autoComplete="email" placeholder="you@example.com" /></label>
-      <label className="full">{tx(locale, { en: 'What can we help with?', es: '¿En qué podemos ayudarte?', it: 'Come possiamo aiutarti?', ar: 'نوع الرحلة' })}<select required defaultValue=""><option value="" disabled>{tx(locale, { en: 'Choose a trip type', es: 'Elige un tipo de viaje', it: 'Scegli un tipo di viaggio', ar: 'اختار نوع الرحلة' })}</option><option>{tx(locale, { en: 'One-day tour', es: 'Excursión de un día', it: 'Tour di un giorno', ar: 'رحلة يوم واحد' })}</option><option>{tx(locale, { en: 'Multi-day package', es: 'Paquete de varios días', it: 'Pacchetto di più giorni', ar: 'باكدج متعددة الأيام' })}</option><option>{tx(locale, { en: 'Nile cruise', es: 'Crucero por el Nilo', it: 'Crociera sul Nilo', ar: 'نايل كروز' })}</option><option>{tx(locale, { en: 'Shore excursion', es: 'Excursión en tierra', it: 'Escursione a terra', ar: 'رحلة شاطئية' })}</option><option>{tx(locale, { en: 'Car hire or transfer', es: 'Alquiler de coche o traslado', it: 'Noleggio auto o trasferimento', ar: 'تأجير عربية أو استقبال' })}</option><option>{tx(locale, { en: 'Custom journey', es: 'Viaje a medida', it: 'Viaggio su misura', ar: 'رحلة مصممة مخصوص' })}</option></select></label>
-      <label className="full">{tx(locale, { en: 'Tell us about your trip', es: 'Cuéntanos tu viaje', it: 'Raccontaci il tuo viaggio', ar: 'احكيلنا عن الرحلة' })}<textarea required placeholder={tx(locale, { en: 'Dates, group size, and the places or experiences you are interested in...', es: 'Fechas, tamaño del grupo y lugares o experiencias que te interesen...', it: 'Date, numero di partecipanti e luoghi o esperienze di interesse...', ar: 'المواعيد، عدد المسافرين، والأماكن أو التجارب اللي مهتم بيها...' })} /></label>
-    </div>
-    <button className="primary-btn" type="submit">{tx(locale, { en: 'Send preview enquiry', es: 'Enviar solicitud de vista previa', it: 'Invia richiesta di anteprima', ar: 'إرسال طلب تجريبي' })} <Send size={17} /></button>
-    <small className="contact-v2-form-note"><ShieldCheck size={14} />{tx(locale, { en: 'Preview form: your details do not leave this page.', es: 'Formulario de vista previa: tus datos no salen de esta página.', it: 'Modulo di anteprima: i tuoi dati non lasciano questa pagina.', ar: 'نموذج تجريبي: بياناتك لا تغادر هذه الصفحة.' })}</small>
-  </form>
+  const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle')
+  const [error, setError] = useState('')
+  const submitting = useRef(false)
+  const pendingRequest = useRef<{ payload: string; id: string } | null>(null)
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    subject: '',
+    message: '',
+  })
+
+  const handleChange = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }))
+    if (status === 'error') setStatus('idle')
+  }
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (submitting.current) return
+    if (!formData.subject) {
+      setStatus('error')
+      setError(tx(locale, { en: 'Choose a trip type.', es: 'Elige un tipo de viaje.', it: 'Scegli un tipo di viaggio.', ar: 'اختر نوع الرحلة.' }))
+      document.getElementById('contact-trip-type')?.focus()
+      return
+    }
+    submitting.current = true
+    setStatus('submitting')
+    setError('')
+
+    try {
+      const payload = JSON.stringify({ ...formData, sourcePage: '/contact' })
+      if (pendingRequest.current?.payload !== payload) {
+        const bytes = crypto.getRandomValues(new Uint8Array(16))
+        bytes[6] = (bytes[6] & 15) | 64
+        bytes[8] = (bytes[8] & 63) | 128
+        const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+        const id = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+        pendingRequest.current = { payload, id }
+      }
+      const res = await fetch('/api/enquiries', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ ...formData, sourcePage: '/contact', requestId: pendingRequest.current.id }),
+      })
+      const data = await res.json().catch(() => null)
+      const fallback = 'Could not confirm your enquiry. Please retry without changing your details.'
+      if (!res.ok) {
+        throw new Error(typeof data?.error === 'string' ? data.error : fallback)
+      }
+      if (typeof data?.enquiry?.publicId !== 'string' || !data.enquiry.publicId || typeof data.enquiry.createdAt !== 'string') throw new Error(fallback)
+      pendingRequest.current = null
+      setStatus('success')
+      setFormData({ name: '', email: '', phone: '', subject: '', message: '' })
+    } catch (err) {
+      setStatus('error')
+      setError(err instanceof Error ? err.message : 'Could not submit enquiry. Please try again.')
+    } finally {
+      submitting.current = false
+    }
+  }
+
+  if (status === 'success') {
+    return (
+      <div className="form-success contact-v2-success">
+        <Check size={38} />
+        <span>{tx(locale, { en: 'Enquiry sent', es: 'Consulta enviada', it: 'Richiesta inviata', ar: 'تم إرسال الاستفسار' })}</span>
+        <h2>{tx(locale, { en: 'We have received your enquiry.', es: 'Hemos recibido tu consulta.', it: 'Abbiamo ricevuto la tua richiesta.', ar: 'لقد تلقينا استفسارك.' })}</h2>
+        <p>{tx(locale, { en: 'Our team will review your details and get back to you shortly.', es: 'Nuestro equipo revisará tus datos y se pondrá en contacto contigo en breve.', it: 'Il nostro team esaminerà i tuoi dati e ti contatterà a breve.', ar: 'سيراجع فريقنا تفاصيلك وسيعاود الاتصال بك قريباً.' })}</p>
+        <button type="button" className="outline-btn" onClick={() => setStatus('idle')}>
+          {tx(locale, { en: 'Send another enquiry', es: 'Enviar otra consulta', it: 'Invia un\'altra richiesta', ar: 'إرسال استفسار آخر' })}
+        </button>
+      </div>
+    )
+  }
+
+  const tripTypes = [
+    { key: 'one-day', en: 'One-day tour', es: 'Excursión de un día', it: 'Tour di un giorno', ar: 'رحلة يوم واحد' },
+    { key: 'multi-day', en: 'Multi-day package', es: 'Paquete de varios días', it: 'Pacchetto di più giorni', ar: 'باكدج متعددة الأيام' },
+    { key: 'nile-cruise', en: 'Nile cruise', es: 'Crucero por el Nilo', it: 'Crociera sul Nilo', ar: 'نايل كروز' },
+    { key: 'shore', en: 'Shore excursion', es: 'Excursión en tierra', it: 'Escursione a terra', ar: 'رحلة شاطئية' },
+    { key: 'car', en: 'Car hire or transfer', es: 'Alquiler de coche o traslado', it: 'Noleggio auto o trasferimento', ar: 'تأجير عربية أو استقبال' },
+    { key: 'custom', en: 'Custom journey', es: 'Viaje a medida', it: 'Viaggio su misura', ar: 'رحلة مصممة مخصوص' },
+  ] as const
+
+  return (
+    <form className="contact-form contact-v2-form" onSubmit={handleSubmit}>
+      <div className="form-grid">
+        <label>
+          {tx(locale, { en: 'Full name', es: 'Nombre completo', it: 'Nome completo', ar: 'الاسم بالكامل' })}
+          <input
+            required
+            autoComplete="name"
+            placeholder={tx(locale, { en: 'Your name', es: 'Tu nombre', it: 'Il tuo nome', ar: 'اسمك' })}
+            value={formData.name}
+            onChange={(e) => handleChange('name', e.target.value)}
+            disabled={status === 'submitting'}
+          />
+        </label>
+        <label>
+          {tx(locale, { en: 'Email address', es: 'Correo electrónico', it: 'Indirizzo email', ar: 'البريد الإلكتروني' })}
+          <input
+            required
+            type="email"
+            autoComplete="email"
+            placeholder="you@example.com"
+            value={formData.email}
+            onChange={(e) => handleChange('email', e.target.value)}
+            disabled={status === 'submitting'}
+          />
+        </label>
+        <label>
+          {tx(locale, { en: 'Phone (optional)', es: 'Teléfono (opcional)', it: 'Telefono (opzionale)', ar: 'الهاتف (اختياري)' })}
+          <input
+            type="tel"
+            autoComplete="tel"
+            placeholder={tx(locale, { en: 'Your phone number', es: 'Tu número de teléfono', it: 'Il tuo numero di telefono', ar: 'رقم هاتفك' })}
+            value={formData.phone}
+            onChange={(e) => handleChange('phone', e.target.value)}
+            disabled={status === 'submitting'}
+          />
+        </label>
+        <label className="full">
+          {tx(locale, { en: 'What can we help with?', es: '¿En qué podemos ayudarte?', it: 'Come possiamo aiutarti?', ar: 'نوع الرحلة' })}
+          <SharedSelect
+            id="contact-trip-type"
+            value={formData.subject}
+            onChange={(value) => handleChange('subject', value)}
+            locale={locale}
+            label={tx(locale, { en: 'What can we help with?', es: '¿En qué podemos ayudarte?', it: 'Come possiamo aiutarti?', ar: 'نوع الرحلة' })}
+            placeholder={tx(locale, { en: 'Choose a trip type', es: 'Elige un tipo de viaje', it: 'Scegli un tipo di viaggio', ar: 'اختار نوع الرحلة' })}
+            options={tripTypes.map((t) => ({ value: t.key, label: tx(locale, { en: t.en, es: t.es, it: t.it, ar: t.ar }) }))}
+            disabled={status === 'submitting'}
+            popupWidth="trigger"
+          />
+        </label>
+        <label className="full">
+          {tx(locale, { en: 'Tell us about your trip', es: 'Cuéntanos tu viaje', it: 'Raccontaci il tuo viaggio', ar: 'احكيلنا عن الرحلة' })}
+          <textarea
+            required
+            placeholder={tx(locale, { en: 'Dates, group size, and the places or experiences you are interested in...', es: 'Fechas, tamaño del grupo y lugares o experiencias que te interesen...', it: 'Date, numero di partecipanti e luoghi o esperienze di interesse...', ar: 'المواعيد، عدد المسافرين، والأماكن أو التجارب اللي مهتم بيها...' })}
+            value={formData.message}
+            onChange={(e) => handleChange('message', e.target.value)}
+            disabled={status === 'submitting'}
+          />
+        </label>
+      </div>
+      {status === 'error' && (
+        <p className="contact-v2-form-error" role="alert">
+          <CircleAlert size={14} /> {error}
+        </p>
+      )}
+      <button className="primary-btn" type="submit" disabled={status === 'submitting'}>
+        {status === 'submitting' ? (
+          <>
+            <span className="spinner" style={{ display: 'inline-block', animation: 'spin 1s linear infinite', marginRight: 8 }}><Send size={17} /></span>
+            {tx(locale, { en: 'Sending...', es: 'Enviando...', it: 'Invio...', ar: 'جاري الإرسال...' })}
+          </>
+        ) : (
+          <>
+            {tx(locale, { en: 'Send enquiry', es: 'Enviar consulta', it: 'Invia richiesta', ar: 'إرسال الاستفسار' })} <Send size={17} />
+          </>
+        )}
+      </button>
+      <small className="contact-v2-form-note"><ShieldCheck size={14} />{tx(locale, { en: 'Your details are sent securely to our team.', es: 'Tus datos se envían de forma segura a nuestro equipo.', it: 'I tuoi dati vengono inviati in modo sicuro al nostro team.', ar: 'ترسل بياناتك بأمان إلى فريقنا.' })}</small>
+    </form>
+  )
 }
 
 export function CarsPage() {
@@ -162,7 +318,7 @@ export function CarCard({ car }: { car: Car }) {
           event.currentTarget.src = '/fleet-vehicle-fallback.svg'
         }}
       />
-      <span className="fleet-price-badge">{formatPrice(car.dailyPrice, currency, locale)}<small>{tx(locale, { en: ' / day', es: ' / día', it: ' / giorno', ar: ' / يوم' })}</small></span>
+      <span className="fleet-price-badge">{formatPrice(car.dailyPrice, currency, locale)}<small>{tx(locale, { en: ' per day', es: ' por día', it: ' al giorno', ar: ' في اليوم' })}</small></span>
     </div>
     <div className="fleet-card-body">
       <div className="fleet-specs"><span><Users size={14} />{car.seats}</span><span><CarFront size={14} />{car.transmission}</span></div>
@@ -256,7 +412,7 @@ function CarRequestForm({ values, errors, summary, submitting, editing, onChange
   return <form className="contact-form" onSubmit={onSubmit} noValidate>
     {summary !== '' && <p className="co-error" role="alert" style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 6px' }}><CircleAlert size={15} />{summary}</p>}
     <div className="form-grid">
-      <label className="full" htmlFor="car-vehicle">{tx(locale, { en: 'Vehicle', es: 'Vehículo', it: 'Veicolo', ar: 'السيارة' })} <em className="req" aria-hidden="true">*</em><SharedSelect id="car-vehicle" value={values.vehicleSlug} onChange={(next) => onChange({ vehicleSlug: next })} locale={locale} invalid={Boolean(errors.vehicle)} describedBy={errors.vehicle ? 'car-vehicle-error' : undefined} options={[{ value: '', label: tx(locale, { en: 'Select a vehicle', es: 'Selecciona un vehículo', it: 'Seleziona un veicolo', ar: 'اختر السيارة' }) }, ...liveCars.filter((c) => c.isPublished !== false).map((c) => ({ value: c.slug, label: `${c.title} (${formatPrice(c.dailyPrice, currency, locale)}${tx(locale, { en: ' / day', es: ' / día', it: ' / giorno', ar: ' / يوم' })})` }))]} />{errors.vehicle && <span className="field-error" id="car-vehicle-error" role="alert">{errText('vehicle')}</span>}</label>
+      <label className="full" htmlFor="car-vehicle">{tx(locale, { en: 'Vehicle', es: 'Vehículo', it: 'Veicolo', ar: 'السيارة' })} <em className="req" aria-hidden="true">*</em><SharedSelect id="car-vehicle" value={values.vehicleSlug} onChange={(next) => onChange({ vehicleSlug: next })} locale={locale} invalid={Boolean(errors.vehicle)} describedBy={errors.vehicle ? 'car-vehicle-error' : undefined} options={[{ value: '', label: tx(locale, { en: 'Select a vehicle', es: 'Selecciona un vehículo', it: 'Seleziona un veicolo', ar: 'اختر السيارة' }) }, ...liveCars.filter((c) => c.isPublished !== false).map((c) => ({ value: c.slug, label: `${c.title} (${formatPrice(c.dailyPrice, currency, locale)}${tx(locale, { en: ' per day', es: ' por día', it: ' al giorno', ar: ' في اليوم' })})` }))]} />{errors.vehicle && <span className="field-error" id="car-vehicle-error" role="alert">{errText('vehicle')}</span>}</label>
       <div className="full req-trip-type"><span id="req-trip-label">{tx(locale, { en: 'Trip type', es: 'Tipo de viaje', it: 'Tipo di viaggio', ar: 'نوع الرحلة' })} <em className="req" aria-hidden="true">*</em></span><div role="radiogroup" aria-labelledby="req-trip-label" aria-describedby={errors.tripType ? 'car-triptype-error' : undefined}>{(['One Way', 'Round Trip'] as const).map((opt) => <button key={opt} type="button" role="radio" aria-checked={values.tripType === opt} className={values.tripType === opt ? 'active' : ''} onClick={() => onChange({ tripType: values.tripType === opt ? '' : opt })}>{opt === 'One Way' ? (tx(locale, { en: 'One Way', es: 'Solo ida', it: 'Solo andata', ar: 'ذهاب فقط' })) : (tx(locale, { en: 'Round Trip', es: 'Ida y vuelta', it: 'Andata e ritorno', ar: 'ذهاب وعودة' }))}</button>)}</div>{errors.tripType && <span className="field-error" id="car-triptype-error" role="alert">{errText('tripType')}</span>}</div>
       <label className="full" htmlFor="car-pickup">{tx(locale, { en: 'Pick-up location', es: 'Lugar de recogida', it: 'Luogo di ritiro', ar: 'مكان الاستلام' })} <em className="req" aria-hidden="true">*</em><input id="car-pickup" required placeholder={tx(locale, { en: 'Airport, hotel, or city', es: 'Aeropuerto, hotel o ciudad', it: 'Aeroporto, hotel o città', ar: 'المطار أو الفندق أو المدينة' })} maxLength={CAR_LOCATION_MAX} value={values.pickup} onChange={(e) => onChange({ pickup: e.target.value })} aria-invalid={Boolean(errors.pickup)} aria-describedby={errors.pickup ? 'car-pickup-error' : undefined} />{errors.pickup && <span className="field-error" id="car-pickup-error" role="alert">{errText('pickup')}</span>}</label>
       <label className="full" htmlFor="car-dropoff">{tx(locale, { en: 'Drop-off location', es: 'Lugar de entrega', it: 'Luogo di riconsegna', ar: 'مكان الوصول' })} <em className="req" aria-hidden="true">*</em><input id="car-dropoff" required placeholder={tx(locale, { en: 'Where are you going?', es: '¿A dónde vas?', it: 'Dove sei diretto?', ar: 'إلى أين تريد الذهاب؟' })} maxLength={CAR_LOCATION_MAX} value={values.dropoff} onChange={(e) => onChange({ dropoff: e.target.value })} aria-invalid={Boolean(errors.dropoff)} aria-describedby={errors.dropoff ? 'car-dropoff-error' : undefined} />{errors.dropoff && <span className="field-error" id="car-dropoff-error" role="alert">{errText('dropoff')}</span>}</label>
@@ -511,7 +667,7 @@ function CarRequestContent() {
             <div>
               <span className="eyebrow">{tx(locale, { en: 'Your summary', es: 'Tu resumen', it: 'Il tuo riepilogo', ar: 'ملخص طلبك' })}</span>
               {vehicle
-                ? <div className="req-vehicle-mini"><img src={vehicle.image} alt={vehicle.title} /><div><strong>{vehicle.title}</strong><span>{formatPrice(vehicle.dailyPrice, currency, locale)}{tx(locale, { en: ' / day', es: ' / día', it: ' / giorno', ar: ' / يوم' })}</span></div></div>
+                ? <div className="req-vehicle-mini"><img src={vehicle.image} alt={vehicle.title} /><div><strong>{vehicle.title}</strong><span>{formatPrice(vehicle.dailyPrice, currency, locale)}{tx(locale, { en: ' per day', es: ' por día', it: ' al giorno', ar: ' في اليوم' })}</span></div></div>
                 : <p className="req-novehicle">{tx(locale, { en: 'Select a vehicle in the form to see your summary here.', es: 'Selecciona un vehículo en el formulario para ver tu resumen aquí.', it: 'Seleziona un veicolo nel modulo per vedere qui il riepilogo.', ar: 'اختر السيارة من النموذج ليظهر ملخصك هنا.' })}</p>}
               <div className="req-summary-rows">
                 <div><span>{tx(locale, { en: 'Trip type', es: 'Tipo', it: 'Tipo', ar: 'النوع' })}</span><strong>{tripLabel}</strong></div>
@@ -553,7 +709,7 @@ export function DestinationDetailPage({ slug }: { slug: string }) {
         <img src={detail.heroImage} alt={detail.heroAlt}/>
         <div className="destination-detail-shade"/>
         <div className="container destination-detail-hero-content">
-          <nav aria-label={tx(locale, { en: 'Breadcrumb', es: 'Ruta de navegación', it: 'Percorso di navigazione', ar: 'مسار التنقل' })}><Link href="/destinations">{tx(locale, { en: 'Destinations', es: 'Destinos', it: 'Destinazioni', ar: 'الوجهات' })}</Link><span>/</span><span aria-current="page">{item.title}</span></nav>
+          <nav aria-label={tx(locale, { en: 'Breadcrumb', es: 'Ruta de navegación', it: 'Percorso di navigazione', ar: 'مسار التنقل' })}><Link href="/destinations">{tx(locale, { en: 'Destinations', es: 'Destinos', it: 'Destinazioni', ar: 'الوجهات' })}</Link><span>›</span><span aria-current="page">{item.title}</span></nav>
           <span className="eyebrow">{detail.eyebrow}</span>
           <h1>{item.title}</h1>
           <p>{item.copy}</p>

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
 import { getCurrentUser, hasPermission } from '@/lib/server/auth';
+import { readJsonObject, writeJsonText } from '@/lib/json-text';
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -37,7 +38,7 @@ export async function GET(
     return NextResponse.json({ notFound: true }, { status: 404 });
   }
 
-  return NextResponse.json({ offer });
+  return NextResponse.json({ offer: { ...offer, content: readJsonObject(offer.content) } });
 }
 
 export async function PUT(
@@ -77,7 +78,7 @@ export async function PUT(
     }
   }
 
-  const existingContent = (existing.content ?? {}) as Record<string, unknown>;
+  const existingContent = readJsonObject(existing.content);
   const hasGallery = data.gallery !== undefined;
   const hasHighlights = data.highlights !== undefined;
   const hasCredits = data.photoCredits !== undefined;
@@ -110,11 +111,11 @@ export async function PUT(
       deadline: data.deadline === undefined ? existing.deadline : cleanText(data.deadline, 120),
       isPublished: data.isPublished === undefined ? existing.isPublished : data.isPublished !== false,
       displayOrder: data.displayOrder === undefined || data.displayOrder === '' ? existing.displayOrder : (Number.isFinite(Number(data.displayOrder)) ? Number(data.displayOrder) : existing.displayOrder),
-      content: data.content === undefined ? { gallery, highlights, photoCredits } : (data.content ?? {}),
+      content: writeJsonText(data.content === undefined ? { ...existingContent, gallery, highlights, photoCredits } : (data.content ?? {})),
     },
   });
 
-  return NextResponse.json({ offer });
+  return NextResponse.json({ offer: { ...offer, content: readJsonObject(offer.content) } });
 }
 
 export async function DELETE(

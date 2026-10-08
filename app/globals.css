@@ -310,6 +310,7 @@ html[dir="rtl"] .tour-booking-card input[type=date]{direction:ltr;text-align:end
 .livechat-send{width:44px;height:44px;min-height:0;flex:none;border:0;border-radius:50%;background:var(--primary);color:#fff;display:grid;place-items:center;cursor:pointer}
 .livechat-send:hover{background:var(--primary-hover)}
 @keyframes livechatIn{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.livechat-panel,.livechat-teaser,.livechat-typing i{animation:none}}
 @media(max-width:760px){.livechat-teaser{right:16px;left:16px;max-width:none;bottom:96px}.livechat-panel{right:16px;left:16px;width:auto;bottom:96px;height:min(600px,calc(100dvh - 130px))}}
 /* WhatsApp chat widget */
@@ -515,6 +516,8 @@ html[dir='rtl'] .contact-v2-form-wrap>header>span{letter-spacing:0}
 .contact-v2-form>.primary-btn{justify-content:center;width:100%;margin-top:20px;border:0;cursor:pointer}
 .contact-v2-form-note{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:13px;color:var(--muted);font-size:11px}
 .contact-v2-form-note svg{color:var(--blue)}
+.contact-v2-form-error{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:13px;color:#dc2626;font-size:12px;font-weight:600}
+.contact-v2-form-error svg{color:#dc2626}
 .contact-v2-success{min-height:410px;padding:42px 20px}
 .contact-v2-success>span{color:var(--primary);font-size:12px;font-weight:800;text-transform:uppercase}
 .contact-v2-success h2{margin:0;font-size:30px}
@@ -1110,8 +1113,9 @@ html[dir='rtl'] .events-page-hero-shade{background:linear-gradient(270deg,rgba(7
 .cselect-trigger[data-popup-open] .cselect-chevron{transform:rotate(180deg)}
 .cselect-trigger[data-placeholder]{color:#8a94a6}
 .cselect-current{display:inline-flex;align-items:center;flex-wrap:nowrap;gap:8px;min-width:0;flex:1;overflow:hidden}
-.cselect-value{display:inline-flex;align-items:center;flex-wrap:nowrap;min-width:0;flex:1;align-self:center}
-.cselect-current-name,.cselect-item-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cselect-value{display:inline-flex;align-items:center;flex-wrap:nowrap;min-width:0;flex:1;max-width:100%;overflow:hidden;align-self:center}
+.cselect-current-name,.cselect-item-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;max-width:100%}
+.cselect-current-name{flex:1}
 .cselect-compact{display:inline-flex;align-items:center;flex-wrap:nowrap;gap:6px;font-weight:800;white-space:nowrap}
 .country-flag{display:inline-flex;flex:none;align-self:center;border-radius:50%;overflow:hidden;box-shadow:0 0 0 1px rgba(0,0,0,0.08);background:#eef1f6}
 .country-flag img{width:100%;height:100%;object-fit:cover;display:block}
@@ -1196,3 +1200,6 @@ limited. These selectors are intentionally scoped to Select, not DateInput. */
 .sp-date-foot-btn:focus-visible{outline:2px solid #163a96;outline-offset:2px}
 .sp-date-foot-btn.is-clear{color:#b91c1c;border-color:#f0d4d4}
 .sp-date-foot-btn.is-clear:hover{border-color:#b91c1c;background:#fdecec}
+
+.contact-v2-form .cselect-trigger{min-height:56px;padding:0 15px;border-radius:10px;border-color:#dfe3ea;background:var(--surface);font:inherit}
+.contact-v2-form .cselect-trigger:focus-visible{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(247,149,29,.14)}

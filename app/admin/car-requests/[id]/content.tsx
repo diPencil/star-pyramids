@@ -79,8 +79,8 @@ const manageHint: Record<CarRequestStatus, { en: string; ar: string }> = {
     ar: 'هذا الطلب بانتظار مراجعة الإدارة. ابدأ المراجعة للمضي فيه، أو ألغه إذا كان يجب عدم إتمامه.',
   },
   reviewing: {
-    en: 'This request is under staff review. Assign a fleet vehicle, then confirm it — or cancel it from the available actions.',
-    ar: 'هذا الطلب قيد مراجعة الإدارة. خصص مركبة من الأسطول ثم أكده — أو ألغه من الإجراءات المتاحة.',
+    en: 'This request is under staff review. Assign a fleet vehicle, then confirm it - or cancel it from the available actions.',
+    ar: 'هذا الطلب قيد مراجعة الإدارة. خصص مركبة من الأسطول ثم أكده - أو ألغه من الإجراءات المتاحة.',
   },
   confirmed: {
     en: 'This request is confirmed as an internal decision. It is not a booking confirmation and charges nothing. Confirmed requests are terminal.',
@@ -245,7 +245,7 @@ export function CarRequestDetailContent({ requestId }: { requestId: string }) {
               <div><dt><AdminText en="Pickup" ar="الاستلام" /></dt><dd><MapPin size={13} style={{ display: 'inline', verticalAlign: '-2px' }} /> {item.pickup}</dd></div>
               <div><dt><AdminText en="Drop-off" ar="التسليم" /></dt><dd><MapPin size={13} style={{ display: 'inline', verticalAlign: '-2px' }} /> {item.dropoff}</dd></div>
               <div><dt><AdminText en="Preferred pickup date" ar="تاريخ الاستلام المفضل" /></dt><dd><CalendarDays size={14} /><span dir="ltr">{item.preferredPickupDate || (ar ? 'غير محدد' : 'Not set')}</span></dd></div>
-              <div><dt><AdminText en="Preferred return date" ar="تاريخ العودة المفضل" /></dt><dd><span dir="ltr">{item.tripType === 'Round Trip' && item.preferredReturnDate ? item.preferredReturnDate : '—'}</span></dd></div>
+              <div><dt><AdminText en="Preferred return date" ar="تاريخ العودة المفضل" /></dt><dd><span dir="ltr">{item.tripType === 'Round Trip' && item.preferredReturnDate ? item.preferredReturnDate : '-'}</span></dd></div>
               <div><dt><AdminText en="Passengers" ar="الركاب" /></dt><dd><Users size={14} />{item.passengers}</dd></div>
             </dl>
           </Card>
@@ -284,8 +284,8 @@ export function CarRequestDetailContent({ requestId }: { requestId: string }) {
             </div>
             <p style={{ margin: 0, color: 'var(--sp-muted)', fontSize: 12.5, lineHeight: 1.6 }}>
               <AdminText
-                en="Assignment only — availability has not been checked. A vehicle must be assigned before confirming."
-                ar="تخصيص فقط — لم يتم التحقق من التوافر. يجب تخصيص مركبة قبل التأكيد."
+                en="Assignment only - availability has not been checked. A vehicle must be assigned before confirming."
+                ar="تخصيص فقط - لم يتم التحقق من التوافر. يجب تخصيص مركبة قبل التأكيد."
               />
             </p>
           </Card>

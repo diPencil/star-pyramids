@@ -72,7 +72,7 @@ export function BookingPrintDocument({ booking }: { booking: Booking }) {
             <dl>
               <div><dt>{tx(locale, { en: 'Travel date', es: 'Fecha del viaje', it: 'Data del viaggio', ar: 'التاريخ' })}</dt><dd>{line.date || tx(locale, { en: 'Open date', es: 'Fecha abierta', it: 'Data aperta', ar: 'موعد مرن' })}</dd></div>
               <div><dt>{tx(locale, { en: 'Travelers', es: 'Viajeros', it: 'Viaggiatori', ar: 'المسافرون' })}</dt><dd>{line.adults + line.children + line.infants} ({tx(locale, { en: `${line.adults} adults · ${line.children} children · ${line.infants} infants`, es: `${line.adults} adultos · ${line.children} niños · ${line.infants} bebés`, it: `${line.adults} adulti · ${line.children} bambini · ${line.infants} neonati`, ar: `${line.adults} بالغين' · ${line.children} أطفال · ${line.infants} رضع` })})</dd></div>
-              {line.addons.length > 0 && <div><dt>{tx(locale, { en: 'Add-ons', es: 'Extras', it: 'Extra', ar: 'الإضافات' })}</dt><dd>{line.addons.join(' · ')} — <span dir="ltr">{money(line.addonTotal)}</span></dd></div>}
+              {line.addons.length > 0 && <div><dt>{tx(locale, { en: 'Add-ons', es: 'Extras', it: 'Extra', ar: 'الإضافات' })}</dt><dd>{line.addons.join(' · ')} - <span dir="ltr">{money(line.addonTotal)}</span></dd></div>}
             </dl>
           </article>
         ))}

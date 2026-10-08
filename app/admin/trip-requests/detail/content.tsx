@@ -269,7 +269,7 @@ export function TripRequestDetailContent({ requestId }: { requestId: string }) {
           <Card title={<AdminText en="Request overview" ar="نظرة عامة على الطلب" />}>
             <dl className="evr-kv">
               <div><dt><AdminText en="Reference" ar="المرجع" /></dt><dd><code dir="ltr">{item.reference}</code></dd></div>
-              <div><dt><AdminText en="Source" ar="المصدر" /></dt><dd>{item.source ? <span><AdminText en="Blog" ar="مدونة" /> — <Link href={`/blogs/${item.source.blogSlug}`}>{item.source.blogTitle}</Link></span> : (ar ? 'مباشر (الموقع)' : 'Direct (website)')}</dd></div>
+              <div><dt><AdminText en="Source" ar="المصدر" /></dt><dd>{item.source ? <span><AdminText en="Blog" ar="مدونة" /> - <Link href={`/blogs/${item.source.blogSlug}`}>{item.source.blogTitle}</Link></span> : (ar ? 'مباشر (الموقع)' : 'Direct (website)')}</dd></div>
               <div><dt><AdminText en="Status" ar="الحالة" /></dt><dd><span className={`sp-status is-${item.status}`}>{tripRequestStatusLabel(item.status, ar)}</span></dd></div>
               <div><dt><AdminText en="Created" ar="أُنشئ" /></dt><dd>{fmtDateTime(item.createdAt)}</dd></div>
               <div><dt><AdminText en="Last updated" ar="آخر تحديث" /></dt><dd>{fmtDateTime(item.updatedAt)}</dd></div>

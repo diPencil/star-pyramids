@@ -90,7 +90,7 @@ export default function DashboardPage() {
     id: b.reference,
     customer: b.account?.name || b.contact.name,
     avatar: '',
-    tour: b.lines[0]?.title ?? '—',
+    tour: b.lines[0]?.title ?? '-',
     date: b.lines.map((line) => line.date).find((d) => d !== '') ?? b.createdAt.slice(0, 10),
     total: b.total,
     status: b.status,

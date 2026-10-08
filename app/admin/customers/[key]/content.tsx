@@ -97,11 +97,11 @@ export function CustomerDetailContent({ customerKey }: { customerKey: string }) 
         </div>
         <div className="sp-detail-grid">
           <div><small><AdminText en="Email" ar="البريد" /></small><strong dir="ltr">{customer.email}</strong></div>
-          <div><small><AdminText en="Phone" ar="الهاتف" /></small><strong dir="ltr">{customer.phone ?? '—'}</strong></div>
-          <div><small><AdminText en="Country" ar="الدولة" /></small><strong>{customer.countryCode ?? '—'}</strong></div>
-          <div><small><AdminText en="Username" ar="اسم المستخدم" /></small><strong dir="ltr">{customer.username ?? '—'}</strong></div>
+          <div><small><AdminText en="Phone" ar="الهاتف" /></small><strong dir="ltr">{customer.phone ?? '-'}</strong></div>
+          <div><small><AdminText en="Country" ar="الدولة" /></small><strong>{customer.countryCode ?? '-'}</strong></div>
+          <div><small><AdminText en="Username" ar="اسم المستخدم" /></small><strong dir="ltr">{customer.username ?? '-'}</strong></div>
           <div><small><AdminText en="Joined" ar="تاريخ التسجيل" /></small><strong>{formatDate(customer.createdAt, ar)}</strong></div>
-          <div><small><AdminText en="Last login" ar="آخر دخول" /></small><strong>{customer.lastLoginAt ? formatDate(customer.lastLoginAt, ar) : '—'}</strong></div>
+          <div><small><AdminText en="Last login" ar="آخر دخول" /></small><strong>{customer.lastLoginAt ? formatDate(customer.lastLoginAt, ar) : '-'}</strong></div>
           <div><small><AdminText en="Status" ar="الحالة" /></small><strong>{ar ? status.ar : status.en}</strong></div>
         </div>
         {canManage ? <AdminTableActions>
@@ -122,7 +122,7 @@ export function CustomerDetailContent({ customerKey }: { customerKey: string }) 
         <tbody>{customer.bookings.map((booking) => (
           <tr key={booking.reference}>
             <td><Link href={`/admin/bookings/${encodeURIComponent(booking.reference)}`}><strong dir="ltr">{booking.reference}</strong></Link><br /><small style={{ color: 'var(--sp-muted)' }}>{formatDate(booking.createdAt, ar)}</small></td>
-            <td>{booking.items.map((item) => item.tourTitle).join(' · ') || '—'}</td>
+            <td>{booking.items.map((item) => item.tourTitle).join(' · ') || '-'}</td>
             <td>{booking.items.reduce((sum, item) => sum + item.guests, 0)}</td>
             <td>{formatMoney(booking.total, booking.currency)}</td>
             <td>{booking.paymentStatus === 'PAID'

@@ -7,6 +7,7 @@
 import "server-only";
 
 import { db } from "./db";
+import { readJsonObject } from '../json-text';
 import type { Blog } from "@/data/types";
 
 type DbBlogRow = {
@@ -23,7 +24,7 @@ type DbBlogRow = {
 
 /** Map a Prisma Blog row to the shared `Blog` domain shape. */
 export function toBlog(row: DbBlogRow): Blog {
-  const content = (row.content ?? {}) as Record<string, unknown>;
+  const content = readJsonObject(row.content);
   const editorial = (content.editorial ?? null) as Blog["editorial"];
   return {
     title: row.title,

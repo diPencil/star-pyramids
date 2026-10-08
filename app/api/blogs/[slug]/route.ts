@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
 import { getCurrentUser, hasPermission } from '@/lib/server/auth';
+import { readJsonObject, writeJsonText } from '@/lib/json-text';
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -22,7 +23,7 @@ export async function GET(
     return NextResponse.json({ notFound: true }, { status: 404 });
   }
 
-  return NextResponse.json({ blog });
+  return NextResponse.json({ blog: { ...blog, content: readJsonObject(blog.content) } });
 }
 
 export async function PUT(
@@ -63,11 +64,11 @@ export async function PUT(
   }
 
   // Preserve the rich editorial payload unless the editor sends a replacement.
-  const existingContent = (existing.content ?? {}) as Record<string, unknown>;
+  const existingContent = readJsonObject(existing.content);
   const nextContent =
     data.content === undefined
       ? data.editorial === undefined
-        ? existingContent
+        ? existing.content
         : { ...existingContent, editorial: data.editorial }
       : (data.content ?? {});
 
@@ -82,11 +83,11 @@ export async function PUT(
       excerpt: typeof data.excerpt === 'string' && data.excerpt.trim() ? data.excerpt.trim().slice(0, 2000) : existing.excerpt,
       isPublished: data.isPublished === undefined ? existing.isPublished : data.isPublished !== false,
       displayOrder: data.displayOrder === undefined || data.displayOrder === '' ? existing.displayOrder : (Number.isFinite(Number(data.displayOrder)) ? Number(data.displayOrder) : existing.displayOrder),
-      content: nextContent,
+      content: writeJsonText(nextContent),
     },
   });
 
-  return NextResponse.json({ blog });
+  return NextResponse.json({ blog: { ...blog, content: readJsonObject(blog.content) } });
 }
 
 export async function DELETE(

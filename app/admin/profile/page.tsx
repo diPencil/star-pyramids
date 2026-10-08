@@ -170,12 +170,12 @@ export default function ProfilePage() {
                   <label><AdminText en="Mobile number" ar="رقم الموبايل" /><InternationalPhoneInput value={phone} onChange={(next) => { setPhone(next); touch() }} locale={ar ? 'ar' : 'en'} countryCode={phoneCountry} onCountryChange={(code) => { setPhoneCountry(code); touch() }} /></label>
                 </div>
                 <div className="sp-form-2">
-                  <label><AdminText en="New password (optional, 6–8 characters)" ar="كلمة مرور جديدة (اختياري، ٦–٨ أحرف)" /><input type="password" value={password} onChange={(e) => { setPassword(e.target.value); touch() }} placeholder={ar ? '٦–٨ أحرف' : '6–8 characters'} dir="ltr" autoComplete="new-password" /></label>
+                  <label><AdminText en="New password (optional, 6-8 characters)" ar="كلمة مرور جديدة (اختياري، 6-8 أحرف)" /><input type="password" value={password} onChange={(e) => { setPassword(e.target.value); touch() }} placeholder={ar ? '6-8 أحرف' : '6-8 characters'} dir="ltr" autoComplete="new-password" /></label>
                   <label><AdminText en="Confirm password" ar="تأكيد كلمة المرور" /><input type="password" value={confirmPassword} onChange={(e) => { setConfirmPassword(e.target.value); touch() }} dir="ltr" autoComplete="new-password" /></label>
                 </div>
                 <div className="sp-form-2">
-                  <label><AdminText en="Role" ar="الدور" /><input value={roles.join(' · ') || '—'} readOnly disabled /></label>
-                  <label><AdminText en="Status" ar="الحالة" /><input value={status || '—'} readOnly disabled /></label>
+                  <label><AdminText en="Role" ar="الدور" /><input value={roles.join(' · ') || '-'} readOnly disabled /></label>
+                  <label><AdminText en="Status" ar="الحالة" /><input value={status || '-'} readOnly disabled /></label>
                 </div>
               </div>
             )}

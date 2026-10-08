@@ -9,6 +9,7 @@ import { randomInt } from 'node:crypto';
 import { Prisma, BookingStatus as DbStatus } from '@prisma/client';
 
 import { db } from './db';
+import { readJsonText, writeJsonText } from '../json-text';
 import {
   isValidEmail,
   isValidPersonName,
@@ -161,9 +162,9 @@ async function resolveLine(raw: unknown): Promise<ValidatedBookingLine> {
   const adults = count(body.adults);
   const children = count(body.children) ?? 0;
   const infants = count(body.infants) ?? 0;
-  if (adults === null || adults < 1 || adults > 50) throw new Error('Each item needs 1–50 adults.');
+  if (adults === null || adults < 1 || adults > 50) throw new Error('Each item needs 1-50 adults.');
   if (children < 0 || children > 50 || infants < 0 || infants > 50) {
-    throw new Error('Each item allows 0–50 children/infants.');
+    throw new Error('Each item allows 0-50 children or infants.');
   }
   if (adults + children + infants > 60) throw new Error('Each item allows at most 60 travelers.');
 
@@ -295,8 +296,9 @@ function toLineViews(row: Pick<BookingRow, 'items'>): BookingLine[] {
   return [...row.items]
     .sort((a, b) => a.tourSlug.localeCompare(b.tourSlug))
     .map((item, index) => {
-      const addons = Array.isArray(item.addons)
-        ? (item.addons as unknown[]).filter((entry): entry is string => typeof entry === 'string')
+      const storedAddons = readJsonText(item.addons);
+      const addons = Array.isArray(storedAddons)
+        ? storedAddons.filter((entry): entry is string => typeof entry === 'string')
         : [];
       return {
         key: `${item.tourSlug}|${item.travelDate || 'open'}|${item.adults}|${item.children}|${item.infants}|${index}`,
@@ -446,7 +448,7 @@ export async function createBookingRecord(
               adults: line.adults,
               children: line.children,
               infants: line.infants,
-              addons: line.addons,
+              addons: writeJsonText(line.addons),
               adultUnit: centsToDecimal(line.adultUnitCents),
               childUnit: centsToDecimal(line.childUnitCents),
               infantUnit: centsToDecimal(line.infantUnitCents),

@@ -55,7 +55,7 @@ export async function POST(request: Request) {
         ? 'Account is suspended.'
         : result.failure === 'pending'
           ? 'Account is pending activation.'
-          : 'Invalid email/username or password.';
+          : 'Invalid email, username or password.';
     return NextResponse.json({ error: message }, { status });
   }
 
