@@ -436,12 +436,18 @@ function displayBookingDate(booking: Booking, locale: Locale): string {
 /**
  * Honest payment semantics (Phase 2E): no gateway exists, so a booking is
  * unpaid until staff confirms payment in a later phase. Only an
- * explicitly stored method is ever named.
+ * explicitly stored method is ever named. Phase 2E does not store
+ * a payment method; this UI reflects the booking's actual payment state.
  */
 function displayPaymentMethod(booking: Booking, locale: Locale): string {
-  if (booking.paymentMethod === 'card') return tx(locale, { en: 'Card', es: 'Tarjeta', it: 'Carta', ar: 'بطاقة بنكية' })
-  if (booking.paymentMethod === 'arrival') return tx(locale, { en: 'On arrival', es: 'A la llegada', it: 'All’arrivo', ar: 'عند الوصول' })
-  return tx(locale, { en: 'To be confirmed', es: 'Por confirmar', it: 'Da confermare', ar: 'تُؤكد لاحقًا' })
+  // Phase 2E has no gateway: paymentMethod is never set. Show honest state.
+  if (booking.paymentStatus === 'paid') {
+    return tx(locale, { en: 'Paid', es: 'Pagado', it: 'Pagato', ar: 'مدفوع' })
+  }
+  if (booking.paymentStatus === 'refunded') {
+    return tx(locale, { en: 'Refunded', es: 'Reembolsado', it: 'Rimborsato', ar: 'مسترد' })
+  }
+  return tx(locale, { en: 'To be arranged', es: 'Por acordar', it: 'Da concordare', ar: 'سيتم الترتيب' })
 }
 
 function displayPaymentStatus(booking: Booking, locale: Locale): string {
@@ -664,7 +670,7 @@ function BookingDetailSection({ reference, autoPrint = false }: { reference: str
       <div className="customer-detail-grid">
         <div><small>{tx(locale, { en: 'Travel date', es: 'Fecha del viaje', it: 'Data del viaggio', ar: 'تاريخ السفر' })}</small><strong>{booking.lines[0]?.date || createdOn}</strong></div>
         <div><small>{tx(locale, { en: 'Travelers', es: 'Viajeros', it: 'Viaggiatori', ar: 'المسافرون' })}</small><strong>{travelers}</strong></div>
-        <div><small>{tx(locale, { en: 'Payment method', es: 'Método de pago', it: 'Metodo di pagamento', ar: 'طريقة الدفع' })}</small><strong>{displayPaymentMethod(booking, locale)}</strong></div>
+        <div><small>{tx(locale, { en: 'Payment status', es: 'Estado del pago', it: 'Stato del pagamento', ar: 'حالة الدفع' })}</small><strong>{displayPaymentMethod(booking, locale)}</strong></div>
         <div><small>{tx(locale, { en: 'Payment status', es: 'Estado del pago', it: 'Stato del pagamento', ar: 'حالة الدفع' })}</small><strong>{displayPaymentStatus(booking, locale)}{booking.paymentSummary?.latestReference ? (<> · <Link href={'/account/payments/detail?ref=' + encodeURIComponent(booking.paymentSummary.latestReference)}>{booking.paymentSummary.latestReference}</Link></>) : ''}</strong></div>
       </div>
       {payInfo && <p role="status" className="form-note">{payInfo}</p>}
@@ -1342,7 +1348,7 @@ function PaymentDetailSection({ reference }: { reference: string }) {
         {payment.failedAt && <div><small>{tx(locale, { en: 'Failed on', ar: 'تاريخ الفشل' })}</small><strong>{fmtDateTime(payment.failedAt)}</strong></div>}
         {payment.cancelledAt && <div><small>{tx(locale, { en: 'Cancelled on', ar: 'تاريخ الإلغاء' })}</small><strong>{fmtDateTime(payment.cancelledAt)}</strong></div>}
         {payment.refundedAt && <div><small>{tx(locale, { en: 'Refunded on', ar: 'تاريخ الاسترداد' })}</small><strong>{fmtDateTime(payment.refundedAt)}</strong></div>}
-        <div><small>{tx(locale, { en: 'Payment method', ar: 'طريقة الدفع' })}</small><strong>{payment.provider === 'pending' ? (tx(locale, { en: 'Online payment - coming soon', ar: 'الدفع الإلكتروني - قريبًا' })) : payment.provider}{payment.providerPaymentId ? ` · ${payment.providerPaymentId}` : ''}</strong></div>
+        <div><small>{tx(locale, { en: 'Payment provider', ar: 'مزود الدفع' })}</small><strong>{payment.provider === 'pending' ? (tx(locale, { en: 'Online payment - coming soon', ar: 'الدفع الإلكتروني - قريبًا' })) : payment.provider}{payment.providerPaymentId ? ` · ${payment.providerPaymentId}` : ''}</strong></div>
       </div>
       {isPending && <p role="status" className="form-note">{tx(locale, { en: `This payment is pending: ${formatPrice(payment.amount, currency, locale)} is awaiting payment. Nothing has been charged - the online provider handoff is not connected yet.`, ar: `هذا الدفع معلق: مبلغ ${formatPrice(payment.amount, currency, locale)} بانتظار الدفع. لم يتم خصم أي مبلغ - ربط مزود الدفع الإلكتروني غير متاح بعد.` })}</p>}
       <div className="customer-detail-actions">

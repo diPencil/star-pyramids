@@ -27,6 +27,7 @@ type Row = {
   guests: number
   total: number
   status: BookingStatus
+  paymentSummary?: { paidTotal: number; state: string }
 }
 
 function toRow(booking: StaffBooking): Row {
@@ -41,6 +42,7 @@ function toRow(booking: StaffBooking): Row {
     guests,
     total: booking.total,
     status: booking.status,
+    paymentSummary: booking.paymentSummary ? { paidTotal: booking.paymentSummary.paidTotal, state: booking.paymentSummary.state } : undefined,
   }
 }
 
@@ -82,7 +84,12 @@ export default function BookingsPage() {
   const visible = useMemo(() => rows
     .filter((row) => filter === 'all' || row.status === filter)
     .filter((row) => `${row.reference} ${row.customer} ${row.tour}`.toLowerCase().includes(query.trim().toLowerCase())), [rows, filter, query])
-  const confirmedRevenue = rows.filter((row) => row.status === 'confirmed').reduce((sum, row) => sum + row.total, 0)
+  // "Confirmed value" should reflect actually paid money, not just booking status.
+  // A confirmed booking can still be unpaid (paymentStatus: 'pending').
+  // We derive paid amount from the booking's paymentSummary (real Payment rows).
+  const confirmedRevenue = rows
+    .filter((row) => row.status === 'confirmed')
+    .reduce((sum, row) => sum + (row.paymentSummary?.paidTotal ?? 0), 0)
   const bookingSort = useAdminTableSort(visible, {
     customer: (row) => row.customer, tour: (row) => row.tour, date: (row) => row.date,
     guests: (row) => row.guests, total: (row) => row.total, status: (row) => row.status,
@@ -114,7 +121,7 @@ export default function BookingsPage() {
         { label: <AdminText en="All bookings" ar="كل الحجوزات" />, value: loading ? '…' : rows.length, note: <AdminText en="Stored bookings" ar="الحجوزات المحفوظة" />, icon: ShoppingCart },
         { label: <AdminText en="Needs follow-up" ar="تحتاج متابعة" />, value: loading ? '…' : rows.filter((row) => row.status === 'pending').length, note: <AdminText en="Pending confirmation" ar="بانتظار التأكيد" />, icon: CalendarClock, tone: 'orange' },
         { label: <AdminText en="Confirmed" ar="المؤكدة" />, value: loading ? '…' : rows.filter((row) => row.status === 'confirmed').length, note: <AdminText en="Ready for operations" ar="جاهزة للتشغيل" />, icon: CheckCircle2, tone: 'green' },
-        { label: <AdminText en="Confirmed value" ar="قيمة المؤكد" />, value: loading ? '…' : `$${confirmedRevenue.toLocaleString('en-US')}`, note: <AdminText en="Server-calculated USD" ar="بالدولار المحسوب من الخادم" />, icon: CircleDollarSign, tone: 'violet' },
+        { label: <AdminText en="Collected from confirmed bookings" ar="المحصل من الحجوزات المؤكدة" />, value: loading ? '…' : `$${confirmedRevenue.toLocaleString('en-US')}`, note: <AdminText en="Server-calculated USD" ar="بالدولار المحسوب من الخادم" />, icon: CircleDollarSign, tone: 'violet' },
       ]} />
       <Card title={<AdminText en="All bookings" ar="كل الحجوزات" />} sub={<AdminText en={`${visible.length} of ${rows.length} bookings shown`} ar={`عرض ${visible.length} من ${rows.length} حجوزات`} />}>
         <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث بحجز أو عميل أو رحلة...' : 'Search booking, customer or tour...'}>

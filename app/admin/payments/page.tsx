@@ -21,6 +21,7 @@ type Row = {
   customer: string
   amount: number
   paid: number
+  amountRefunded: number
   status: PaymentStatus
   createdAt: string
 }
@@ -32,6 +33,7 @@ function toRow(payment: StaffPayment): Row {
     customer: payment.account?.name || payment.account?.email || '-',
     amount: payment.amount,
     paid: payment.amountPaid,
+    amountRefunded: payment.amountRefunded,
     status: payment.status,
     createdAt: payment.createdAt.slice(0, 10),
   }
@@ -75,7 +77,11 @@ export default function PaymentsPage() {
   const visible = useMemo(() => rows
     .filter((row) => filter === 'all' || row.status === filter)
     .filter((row) => `${row.reference} ${row.booking} ${row.customer}`.toLowerCase().includes(query.trim().toLowerCase())), [rows, filter, query])
-  const collected = rows.filter((row) => row.status === 'paid' || row.status === 'partially_refunded' || row.status === 'refunded').reduce((sum, row) => sum + row.paid, 0)
+  // "Collected" should only count net paid money (paid - refunded).
+  // REFUNDED and PARTIALLY_REFUNDED payments are settled money that was returned.
+  const collected = rows
+    .filter((row) => row.status === 'paid' || row.status === 'partially_refunded' || row.status === 'refunded')
+    .reduce((sum, row) => sum + row.paid - row.amountRefunded, 0)
   const paymentSort = useAdminTableSort(visible, {
     reference: (row) => row.reference, booking: (row) => row.booking, customer: (row) => row.customer,
     amount: (row) => row.amount, paid: (row) => row.paid, status: (row) => row.status, createdAt: (row) => row.createdAt,
