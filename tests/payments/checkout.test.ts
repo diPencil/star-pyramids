@@ -1,0 +1,367 @@
+// Tests for checkout orchestration
+// Phase 2F-B: Provider-neutral payment gateway foundation
+
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { createCheckoutSession, validateCheckoutEligibility, getAvailableProviders } from '@/lib/server/payments/checkout'
+import { ConfigurationError, ValidationError, AuthorizationError, NotFoundError } from '@/lib/server/errors'
+import { Prisma } from '@prisma/client'
+
+// Mock the database and other dependencies
+vi.mock('@/lib/server/db', () => ({
+  db: {
+    booking: {
+      findUnique: vi.fn(),
+    },
+  },
+}))
+
+vi.mock('@/lib/server/payments', () => ({
+  initiateCustomerPayment: vi.fn(),
+  validatePaymentInitiation: vi.fn(),
+  getCustomerPayment: vi.fn(),
+}))
+
+vi.mock('@/lib/server/auth', () => ({
+  getCurrentUser: vi.fn(),
+}))
+
+vi.mock('@/lib/payments/providers/index', () => ({
+  hasEnabledProvider: vi.fn(),
+  getDefaultProvider: vi.fn(),
+  getProviderAdapterOrThrow: vi.fn(),
+  getEnabledProviders: vi.fn(),
+}))
+
+import { db } from '@/lib/server/db'
+import { initiateCustomerPayment, validatePaymentInitiation, getCustomerPayment } from '@/lib/server/payments'
+import { getCurrentUser } from '@/lib/server/auth'
+import { hasEnabledProvider, getDefaultProvider, getProviderAdapterOrThrow, getEnabledProviders } from '@/lib/payments/providers/index'
+
+describe('Checkout Orchestration', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  describe('createCheckoutSession', () => {
+    const validOptions = {
+      bookingReference: 'SP-BK-ABC123',
+      idempotencyKey: 'idem_abc123',
+      returnUrl: 'https://example.com/success',
+      cancelUrl: 'https://example.com/cancel',
+    }
+
+    const mockBooking = {
+      id: 'booking_123',
+      reference: 'SP-BK-ABC123',
+      userId: 'user_123',
+      status: 'PENDING',
+      total: new Prisma.Decimal(100.00),
+      currency: 'USD',
+      contactEmail: 'customer@example.com',
+      contactName: 'John Doe',
+    }
+
+    const mockPayment = {
+      reference: 'SP-PAY-ABC123',
+      bookingReference: 'SP-BK-ABC123',
+      amount: 100.00,
+      currency: 'USD',
+      status: 'pending',
+      provider: 'pending',
+      contactEmail: 'customer@example.com',
+      contactName: 'John Doe',
+      providerPaymentId: 'pi_123',
+      redirectUrl: 'https://checkout.stripe.com/pay/cs_123',
+    }
+
+    const mockProviderConfig = {
+      key: 'stripe',
+      name: 'Stripe',
+      enabled: true,
+      testMode: true,
+      config: { secret_key: 'sk_test_123', webhook_secret: 'whsec_123' },
+    }
+
+    const mockAdapter = {
+      key: 'stripe',
+      metadata: {
+        key: 'stripe',
+        name: 'Stripe',
+        capabilities: { immediateCapture: true, webhookDeduplication: true },
+        webhookPath: 'stripe',
+      },
+      initiate: vi.fn().mockResolvedValue({
+        provider: 'stripe',
+        providerPaymentId: 'pi_123',
+        redirectUrl: 'https://checkout.stripe.com/pay/cs_123',
+        metadata: { session_id: 'cs_123' },
+      }),
+    }
+
+    beforeEach(() => {
+      vi.clearAllMocks()
+      
+      // Default mocks
+      vi.mocked(hasEnabledProvider).mockReturnValue(true)
+      vi.mocked(getDefaultProvider).mockReturnValue({
+        key: 'stripe',
+        name: 'Stripe',
+        enabled: true,
+        testMode: true,
+        config: { secret_key: 'sk_test_123', webhook_secret: 'whsec_123' },
+      })
+      vi.mocked(getProviderAdapterOrThrow).mockReturnValue(mockAdapter as any)
+      vi.mocked(validatePaymentInitiation).mockImplementation(function(input) {
+        return {
+          bookingReference: input.bookingReference.trim(),
+          idempotencyKey: input.idempotencyKey.trim(),
+        }
+      })
+      vi.mocked(initiateCustomerPayment).mockResolvedValue({
+        payment: mockPayment,
+        created: true,
+      })
+      vi.mocked(getCurrentUser).mockResolvedValue({
+        id: 'user_123',
+        publicId: 'pub_123',
+        email: 'user@example.com',
+        firstName: 'John',
+        lastName: 'Doe',
+        roles: ['CUSTOMER'],
+        permissions: [],
+      })
+    })
+
+    it('should create checkout session successfully', async () => {
+      const result = await createCheckoutSession(validOptions)
+
+      expect(result).toEqual({
+        paymentReference: 'SP-PAY-ABC123',
+        providerPaymentId: 'pi_123',
+        redirectUrl: 'https://checkout.stripe.com/pay/cs_123',
+        created: true,
+        providerMetadata: { session_id: 'cs_123' },
+      })
+      expect(initiateCustomerPayment).toHaveBeenCalled()
+      expect(mockAdapter.initiate).toHaveBeenCalled()
+    })
+
+    it('should throw ConfigurationError when no provider enabled', async () => {
+      vi.mocked(hasEnabledProvider).mockReturnValue(false)
+
+      await expect(createCheckoutSession(validOptions)).rejects.toThrow('No payment provider is configured')
+    })
+
+    it('should throw ValidationError for invalid booking reference', async () => {
+      vi.mocked(validatePaymentInitiation).mockImplementation(function() {
+        throw new Error('Select a valid booking.')
+      })
+
+      await expect(createCheckoutSession({
+        ...validOptions,
+        bookingReference: 'INVALID',
+      })).rejects.toThrow('Select a valid booking')
+    })
+
+    it('should throw ConfigurationError when no provider adapter registered', async () => {
+      vi.mocked(getProviderAdapterOrThrow).mockImplementation(function() {
+        throw new Error('Provider "stripe" is not registered')
+      })
+
+      await expect(createCheckoutSession(validOptions)).rejects.toThrow('Provider "stripe" is not registered')
+    })
+
+    it('should pass correct parameters to adapter.initiate', async () => {
+      await createCheckoutSession(validOptions)
+
+      expect(mockAdapter.initiate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          reference: 'SP-PAY-ABC123',
+          amountCents: 10000,
+          currency: 'USD',
+          idempotencyKey: 'idem_abc123',
+          customerEmail: 'customer@example.com',
+          customerName: 'John Doe',
+          returnUrl: 'https://example.com/success',
+          cancelUrl: 'https://example.com/cancel',
+        })
+      )
+    })
+
+    it('should return created: false when payment already exists', async () => {
+      vi.mocked(initiateCustomerPayment).mockResolvedValue({
+        payment: mockPayment,
+        created: false,
+      })
+
+      const result = await createCheckoutSession(validOptions)
+      expect(result.created).toBe(false)
+    })
+
+    it('should throw error if adapter returns no providerPaymentId', async () => {
+      const badAdapter = {
+        ...mockAdapter,
+        initiate: vi.fn().mockResolvedValue({
+          provider: 'stripe',
+          providerPaymentId: undefined,
+          redirectUrl: 'https://checkout.stripe.com/pay/cs_123',
+        }),
+      }
+      vi.mocked(getProviderAdapterOrThrow).mockReturnValue(badAdapter as any)
+
+      await expect(createCheckoutSession(validOptions)).rejects.toThrow('Provider did not return a providerPaymentId')
+    })
+
+    it('should throw error if adapter returns no redirectUrl', async () => {
+      const badAdapter = {
+        ...mockAdapter,
+        initiate: vi.fn().mockResolvedValue({
+          provider: 'stripe',
+          providerPaymentId: 'pi_123',
+          redirectUrl: undefined,
+        }),
+      }
+      vi.mocked(getProviderAdapterOrThrow).mockReturnValue(badAdapter as any)
+
+      await expect(createCheckoutSession(validOptions)).rejects.toThrow('Provider did not return a redirectUrl for checkout')
+    })
+  })
+
+  describe('validateCheckoutEligibility', () => {
+    const mockBooking = {
+      id: 'booking_123',
+      reference: 'SP-BK-ABC123',
+      userId: 'user_123',
+      status: 'PENDING',
+      total: new Prisma.Decimal(100.00),
+      currency: 'USD',
+      paymentStatus: 'PENDING',
+    }
+
+    beforeEach(() => {
+      vi.clearAllMocks()
+      vi.mocked(validatePaymentInitiation).mockImplementation(function(input) {
+        return {
+          bookingReference: input.bookingReference.trim(),
+          idempotencyKey: input.idempotencyKey.trim(),
+        }
+      })
+    })
+
+    it('should return eligible for valid booking owned by user', async () => {
+      vi.mocked(db.booking.findUnique).mockResolvedValue(mockBooking)
+
+      const result = await validateCheckoutEligibility('SP-BK-ABC123', 'user_123')
+      expect(result.eligible).toBe(true)
+    })
+
+    it('should reject if booking not found', async () => {
+      vi.mocked(db.booking.findUnique).mockResolvedValue(null)
+
+      const result = await validateCheckoutEligibility('SP-BK-INVALID', 'user_123')
+      expect(result.eligible).toBe(false)
+      expect(result.reason).toBe('Booking not found')
+    })
+
+    it('should reject if user does not own booking', async () => {
+      vi.mocked(db.booking.findUnique).mockResolvedValue({
+        ...mockBooking,
+        userId: 'other_user',
+      })
+
+      const result = await validateCheckoutEligibility('SP-BK-ABC123', 'user_123')
+      expect(result.eligible).toBe(false)
+      expect(result.reason).toBe('Unauthorized')
+    })
+
+    it('should reject if booking status is not payable', async () => {
+      vi.mocked(db.booking.findUnique).mockResolvedValue({
+        ...mockBooking,
+        status: 'COMPLETED',
+      })
+
+      const result = await validateCheckoutEligibility('SP-BK-ABC123', 'user_123')
+      expect(result.eligible).toBe(false)
+      expect(result.reason).toBe('Booking is not payable')
+    })
+
+    it('should reject if booking total is zero', async () => {
+      vi.mocked(db.booking.findUnique).mockResolvedValue({
+        ...mockBooking,
+        total: new Prisma.Decimal(0),
+      })
+
+      const result = await validateCheckoutEligibility('SP-BK-ABC123', 'user_123')
+      expect(result.eligible).toBe(false)
+      expect(result.reason).toBe('Booking has no amount due')
+    })
+
+    it('should reject guest bookings without token', async () => {
+      vi.mocked(db.booking.findUnique).mockResolvedValue({
+        ...mockBooking,
+        userId: null,
+      })
+
+      const result = await validateCheckoutEligibility('SP-BK-ABC123', null)
+      expect(result.eligible).toBe(false)
+      expect(result.reason).toBe('Guest bookings require a payment token')
+    })
+  })
+
+  describe('getAvailableProviders', () => {
+    it('should return enabled providers with correct format', async () => {
+      vi.mocked(getEnabledProviders).mockReturnValue([
+        { key: 'stripe', name: 'Stripe', testMode: true, config: {}, enabled: true },
+        { key: 'paypal', name: 'PayPal', testMode: false, config: {}, enabled: true },
+      ])
+
+      const providers = getAvailableProviders()
+      expect(providers).toEqual([
+        { key: 'stripe', name: 'Stripe', testMode: true },
+        { key: 'paypal', name: 'PayPal', testMode: false },
+      ])
+    })
+
+    it('should return empty array when no providers enabled', async () => {
+      vi.mocked(getEnabledProviders).mockReturnValue([])
+
+      const providers = getAvailableProviders()
+      expect(providers).toEqual([])
+    })
+  })
+})
+
+describe('Error Classes', () => {
+  it('should create ConfigurationError with correct properties', async () => {
+    const { ConfigurationError } = await import('@/lib/server/errors')
+    const error = new ConfigurationError('No provider configured', { provider: 'stripe' })
+    expect(error.name).toBe('ConfigurationError')
+    expect(error.code).toBe('CONFIGURATION_ERROR')
+    expect(error.statusCode).toBe(503)
+    expect(error.metadata).toEqual({ provider: 'stripe' })
+  })
+
+  it('should create ValidationError with correct properties', async () => {
+    const { ValidationError } = await import('@/lib/server/errors')
+    const error = new ValidationError('Invalid booking reference', { field: 'bookingReference' })
+    expect(error.name).toBe('ValidationError')
+    expect(error.code).toBe('VALIDATION_ERROR')
+    expect(error.statusCode).toBe(400)
+  })
+
+  it('should create AuthorizationError with correct properties', async () => {
+    const { AuthorizationError } = await import('@/lib/server/errors')
+    const error = new AuthorizationError('Not your booking', { bookingRef: 'SP-BK-123' })
+    expect(error.name).toBe('AuthorizationError')
+    expect(error.code).toBe('AUTHORIZATION_ERROR')
+    expect(error.statusCode).toBe(403)
+  })
+
+  it('should create NotFoundError with correct properties', async () => {
+    const { NotFoundError } = await import('@/lib/server/errors')
+    const error = new NotFoundError('Booking not found', { reference: 'SP-BK-123' })
+    expect(error.name).toBe('NotFoundError')
+    expect(error.code).toBe('NOT_FOUND')
+    expect(error.statusCode).toBe(404)
+  })
+})

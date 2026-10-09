@@ -438,7 +438,7 @@ export async function getStaffPayment(reference: string): Promise<StaffPayment |
  * reachable from any Phase 2F-A route: no browser input can change
  * payment status. Amounts are validated in integer cents.
  */
-export async function transitionPayment(
+async function transitionPayment(
   reference: string,
   to: PaymentStatus,
   options: {
@@ -530,4 +530,4 @@ function paymentTransitionAction(from: PaymentStatus, to: PaymentStatus): string
   }
 }
 
-export { ACTIVE_PAYMENT_STATUSES };
+export { ACTIVE_PAYMENT_STATUSES, transitionPayment };
