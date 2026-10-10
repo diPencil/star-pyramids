@@ -1,14 +1,10 @@
-import { CustomerEventRequestDetailPage } from '@/components/account-event-requests'
+import type { Metadata } from 'next'
+import { CustomerAccountPage } from '@/components/account-portal'
 
-function first(value: string | string[] | undefined): string {
-  return Array.isArray(value) ? (value[0] ?? '') : (value ?? '')
+export const metadata: Metadata = {
+  title: 'Event Request Details',
+  description: 'View your STAR PYRAMIDS event request details.',
+  robots: { index: false, follow: false, nocache: true },
 }
 
-export default async function Page({
-  searchParams,
-}: {
-  searchParams: Promise<{ ref?: string | string[] }>
-}) {
-  const params = await searchParams
-  return <CustomerEventRequestDetailPage reference={first(params.ref)} />
-}
+export default function Page() { return <CustomerAccountPage section="event-requests" /> }

@@ -85,7 +85,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Enter a valid first and last name.' }, { status: 400 });
   }
   if (!isValidUsername(username)) {
-    return NextResponse.json({ error: 'Username must be 3-24 letters, numbers, or underscores.' }, { status: 400 });
+    return NextResponse.json({ error: 'Username must be 3-32 letters, numbers, underscores, dots, or hyphens.' }, { status: 400 });
   }
   if (!isValidCountryCode(countryCode) || !isValidPhone(phone)) {
     return NextResponse.json({ error: 'Enter a valid country and mobile number.' }, { status: 400 });

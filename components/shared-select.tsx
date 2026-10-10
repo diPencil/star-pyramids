@@ -1,6 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Check, ChevronDown } from 'lucide-react'
 import { Select } from '@base-ui/react/select'
 import type { CountryPopupWidth } from '@/components/country-select'
@@ -11,6 +12,8 @@ export type SharedSelectOption = {
   value: string
   /** Row content. Keep short; rows ellipsis by design. */
   label: ReactNode
+  /** Optional compact label for the closed trigger only. */
+  selectedLabel?: ReactNode
   /** Plain-text label for keyboard typeahead. Defaults to `value`. */
   text?: string
 }
@@ -44,6 +47,7 @@ type SharedSelectProps = {
   describedBy?: string
   className?: string
   popupWidth?: CountryPopupWidth
+  popupAlign?: 'start' | 'center' | 'end'
 }
 
 /**
@@ -69,19 +73,67 @@ export function SharedSelect({
   describedBy,
   className = '',
   popupWidth = 'content',
+  popupAlign,
 }: SharedSelectProps) {
   const dir = locale === 'ar' ? 'rtl' : 'ltr'
   const dropdownHint = label ?? tx(locale, { en: 'Choose from the list', es: 'Elige de la lista', it: 'Scegli dalla lista', ar: 'اختر من القائمة' })
+
+  // Controlled open state for non-modal selects to enable Escape/outside-click dismissal
+  const [open, setOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+
+  // Sync internal open state with Base UI Select's onOpenChange
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen)
+  }
+
+  // Handle Escape key to close dropdown
+  useEffect(() => {
+    if (!open || modal) return
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false)
+        triggerRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown, true) // capture phase on window
+    return () => window.removeEventListener('keydown', handleKeyDown, true)
+  }, [open, modal])
+
+  // Handle outside click to close dropdown
+  useEffect(() => {
+    if (!open || modal) return
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node
+      if (triggerRef.current && !triggerRef.current.contains(target)) {
+        const popup = document.querySelector('[data-cselect-popup]')
+        if (popup && !popup.contains(target)) {
+          setOpen(false)
+        }
+      }
+    }
+    document.addEventListener('pointerdown', handlePointerDown)
+    return () => document.removeEventListener('pointerdown', handlePointerDown)
+  }, [open, modal])
+
+  const handleValueChange = (next: string | null) => {
+    onChange(typeof next === 'string' ? next : '')
+    if (!modal) {
+      setOpen(false)
+    }
+  }
 
   return (
     <span dir={dir} className={`cselect${className ? ` ${className}` : ''}`}>
       <Select.Root
         value={value === '' ? null : value}
-        onValueChange={(next) => onChange(typeof next === 'string' ? next : '')}
+        onValueChange={handleValueChange}
         disabled={disabled}
         modal={modal}
+        onOpenChange={handleOpenChange}
       >
         <Select.Trigger
+          ref={triggerRef}
           id={id}
           className={`cselect-trigger${invalid ? ' is-invalid' : ''}`}
           aria-label={labelledBy ? undefined : label}
@@ -93,7 +145,7 @@ export function SharedSelect({
             {(current: string | null) => {
               const currentOption = current ? (options.find((option) => option.value === current) ?? null) : null
               if (!currentOption) return placeholder ?? dropdownHint
-              return <span className="cselect-current"><span className="cselect-current-name">{currentOption.label}</span></span>
+              return <span className="cselect-current"><span className="cselect-current-name">{currentOption.selectedLabel ?? currentOption.label}</span></span>
             }}
           </Select.Value>
           <Select.Icon aria-hidden="true" className="cselect-chevron">
@@ -112,12 +164,13 @@ export function SharedSelect({
           <Select.Positioner
             className="cselect-positioner"
             sideOffset={6}
+            align={popupAlign}
             alignItemWithTrigger={false}
             collisionPadding={{ top: 80, right: 12, bottom: 12, left: 12 }}
             collisionAvoidance={{ side: 'flip', align: 'flip', fallbackAxisSide: 'none' }}
             sticky
           >
-            <Select.Popup className="cselect-popup" data-popup-width={popupWidth} dir={dir} aria-label={typeof dropdownHint === 'string' ? dropdownHint : undefined}>
+            <Select.Popup className="cselect-popup" data-popup-width={popupWidth} dir={dir} aria-label={typeof dropdownHint === 'string' ? dropdownHint : undefined} data-cselect-popup>
               {guidance ? (
                 <div className="cselect-guidance" aria-hidden="true">
                   <span className="cselect-guidance-text">{guidance}</span>

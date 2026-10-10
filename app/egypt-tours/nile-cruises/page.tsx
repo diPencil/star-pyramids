@@ -1,11 +1,18 @@
 import type { Metadata } from 'next'
-import { NileCruisesPage } from '@/components/nile-cruises-page'
+import { TourListing } from '@/components/site'
+import { getSiteUrl, getHreflangEntries } from '@/lib/seo'
 
-export const metadata: Metadata = {
-  title: 'Nile Cruises | STAR PYRAMIDS',
-  description: 'Sail between ancient Egyptian temples with comfort, service, and unforgettable Nile views. Choose from standard, deluxe, superior, and luxury cruise options.',
+export async function generateMetadata(): Promise<Metadata> {
+  const siteUrl = await getSiteUrl()
+  const hreflang = await getHreflangEntries('/egypt-tours/nile-cruises')
+
+  return {
+    title: 'Nile Cruises',
+    description: 'Book Nile cruise experiences with STAR PYRAMIDS. Multi-day voyages from Luxor to Aswan, including 3-day, 4-day, 7-day, and 8-day cruise itineraries with guided shore excursions.',
+    alternates: { canonical: `${siteUrl}/egypt-tours/nile-cruises`, languages: hreflang },
+  }
 }
 
 export default function Page() {
-  return <NileCruisesPage />
+  return <TourListing slug="nile-cruises" />
 }

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/server/db';
 import { getCurrentUser } from '@/lib/server/auth';
+import { Prisma } from '@prisma/client';
+import { WEBSITE_REVIEW_SCOPE } from '@/lib/review-scope';
 
 const REVIEW_ATTEMPT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 const REVIEW_ATTEMPT_LIMIT = 5;
@@ -17,6 +19,9 @@ const REVIEW_ATTEMPT_LIMIT = 5;
  * - rate limiting per user/ip
  */
 export async function POST(request: Request) {
+  if (request.headers.get('origin') && request.headers.get('origin') !== new URL(request.url).origin) {
+    return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
+  }
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
@@ -37,14 +42,18 @@ export async function POST(request: Request) {
   }
 
   // Parse and validate body
-  let body: { tourSlug: string; rating: number; text: string; title?: string };
+  let body: unknown;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 });
   }
 
-  const { tourSlug, rating, text, title } = body;
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 });
+  const values = body as Record<string, unknown>;
+  const { rating, text, title } = values;
+  const website = values.scope === 'website';
+  const tourSlug = website ? WEBSITE_REVIEW_SCOPE : values.tourSlug;
 
   // Validate tourSlug
   if (!tourSlug || typeof tourSlug !== 'string' || tourSlug.length > 80) {
@@ -52,13 +61,13 @@ export async function POST(request: Request) {
   }
 
   // Verify tour exists
-  const tour = await db.tour.findUnique({ where: { slug: tourSlug }, select: { slug: true } });
+  const tour = website ? true : tourSlug === WEBSITE_REVIEW_SCOPE ? null : await db.tour.findUnique({ where: { slug: tourSlug }, select: { slug: true } });
   if (!tour) {
     return NextResponse.json({ error: 'Tour not found.' }, { status: 404 });
   }
 
   // Validate rating (1-5)
-  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+  if (typeof rating !== 'number' || !Number.isInteger(rating) || rating < 1 || rating > 5) {
     return NextResponse.json({ error: 'Rating must be an integer between 1 and 5.' }, { status: 400 });
   }
 
@@ -80,7 +89,7 @@ export async function POST(request: Request) {
     select: { id: true, status: true },
   });
   if (existing) {
-    return NextResponse.json({ error: 'You have already submitted a review for this tour.' }, { status: 409 });
+    return NextResponse.json({ error: website ? 'You have already submitted a website review.' : 'You have already submitted a review for this tour.' }, { status: 409 });
   }
 
   // Record attempt (abuse protection)
@@ -89,6 +98,7 @@ export async function POST(request: Request) {
   });
 
   // Create review (starts as PENDING, requires admin moderation)
+  try {
   const review = await db.review.create({
     data: {
       userId: user.id,
@@ -110,6 +120,10 @@ export async function POST(request: Request) {
   });
 
   return NextResponse.json({ review }, { status: 201 });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') return NextResponse.json({ error: 'You have already submitted this review.' }, { status: 409 });
+    return NextResponse.json({ error: 'Unable to save review. Please try again.' }, { status: 500 });
+  }
 }
 
 /**
@@ -119,9 +133,10 @@ export async function POST(request: Request) {
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const tourSlug = searchParams.get('tourSlug');
-  const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
-  const limit = Math.min(20, Math.max(1, parseInt(searchParams.get('limit') || '10', 10)));
+  const website = searchParams.get('scope') === 'website';
+  const tourSlug = website ? WEBSITE_REVIEW_SCOPE : searchParams.get('tourSlug');
+  const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
+  const limit = Math.min(20, Math.max(1, parseInt(searchParams.get('limit') || '10', 10) || 10));
   const skip = (page - 1) * limit;
 
   if (!tourSlug || tourSlug.length > 80) {
@@ -129,7 +144,7 @@ export async function GET(request: Request) {
   }
 
   // Verify tour exists
-  const tour = await db.tour.findUnique({ where: { slug: tourSlug }, select: { slug: true } });
+  const tour = website ? true : tourSlug === WEBSITE_REVIEW_SCOPE ? null : await db.tour.findUnique({ where: { slug: tourSlug }, select: { slug: true } });
   if (!tour) {
     return NextResponse.json({ error: 'Tour not found.' }, { status: 404 });
   }

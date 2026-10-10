@@ -1,3 +1,5 @@
+import { catalogueTranslationResponse, saveWithCatalogueTranslations } from '@/lib/server/catalogue-translations';
+import { validateCatalogueTranslations } from '@/lib/catalogue-translations';
 import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
@@ -16,7 +18,7 @@ export async function GET() {
   const blogs = await db.blog.findMany({
     orderBy: [{ displayOrder: 'asc' }, { title: 'asc' }],
   });
-  return NextResponse.json({ blogs: blogs.map((blog) => ({ ...blog, content: readJsonObject(blog.content) })) });
+  return NextResponse.json(await catalogueTranslationResponse('blog', { blogs: blogs.map((blog) => ({ ...blog, content: readJsonObject(blog.content) })) }));
 }
 
 export async function POST(request: Request) {
@@ -35,6 +37,10 @@ export async function POST(request: Request) {
   }
 
   const data = await request.json();
+  if (data?.translations !== undefined) {
+    try { validateCatalogueTranslations('blog', data.translations); }
+    catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'Invalid translations.' }, { status: 400 }); }
+  }
 
   const slug = typeof data.slug === 'string' ? data.slug.trim().toLowerCase() : '';
   if (!SLUG_PATTERN.test(slug) || slug.length > 80) {
@@ -63,7 +69,7 @@ export async function POST(request: Request) {
       ? data.editorial
       : (data.content as Record<string, unknown> | undefined)?.editorial ?? null;
 
-  const blog = await db.blog.create({
+  const blog = await saveWithCatalogueTranslations('blog', data.translations, undefined, (tx) => tx.blog.create({
     data: {
       slug,
       title: data.title.trim().slice(0, 200),
@@ -77,7 +83,7 @@ export async function POST(request: Request) {
         ? data.content
         : { editorial }),
     },
-  });
+  }));
 
-  return NextResponse.json({ blog: { ...blog, content: readJsonObject(blog.content) } }, { status: 201 });
+  return NextResponse.json(await catalogueTranslationResponse('blog', { blog: { ...blog, content: readJsonObject(blog.content) } }), { status: 201 });
 }

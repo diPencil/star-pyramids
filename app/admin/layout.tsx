@@ -6,6 +6,7 @@ import './admin.css';
 export const metadata: Metadata = {
   title: 'Star Pyramids | Internal Dashboard',
   description: 'Internal operations dashboard for bookings, trips, inbox and settings.',
+  robots: { index: false, follow: false, nocache: true },
 };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

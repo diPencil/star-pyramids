@@ -40,14 +40,19 @@ const accountListeners = new Set<() => void>()
 const EMPTY_FAVORITES: string[] = []
 let favoritesCache: string[] | null = null
 
+/**
+ * Empty starting profile. It carries no demo identity: an unauthenticated or
+ * unhydrated profile must render blank fields rather than a fabricated person.
+ * Signed-in customers are hydrated from the database user instead.
+ */
 export const defaultCustomerProfile: CustomerProfile = {
-  firstName: 'James',
-  lastName: 'Carter',
-  fullName: 'James Carter',
-  username: 'james_carter',
-  email: 'james.carter@example.com',
-  avatar: 'https://randomuser.me/api/portraits/men/22.jpg',
-  phone: '555 013 2400',
+  firstName: '',
+  lastName: '',
+  fullName: '',
+  username: '',
+  email: '',
+  avatar: '',
+  phone: '',
   country: 'US',
   dialCode: '+1',
   preferredLanguage: 'en',

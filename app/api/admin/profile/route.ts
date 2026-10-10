@@ -23,6 +23,7 @@ type AdminProfileBody = {
   phone?: unknown;
   password?: unknown;
   confirmPassword?: unknown;
+  avatar?: unknown;
 };
 
 function text(value: unknown): string {
@@ -56,12 +57,13 @@ export async function PATCH(request: Request) {
   const countryCode = text(body.countryCode).toUpperCase();
   const phone = text(body.phone);
   const password = text(body.password);
+  const avatar = text(body.avatar);
 
   if (!isValidPersonName(firstName) || !isValidPersonName(lastName)) {
     return NextResponse.json({ error: 'Enter a valid first and last name.' }, { status: 400 });
   }
   if (!isValidUsername(username)) {
-    return NextResponse.json({ error: 'Username must be 3-24 letters, numbers, or underscores.' }, { status: 400 });
+    return NextResponse.json({ error: 'Username must be 3-32 letters, numbers, underscores, dots, or hyphens.' }, { status: 400 });
   }
   if (!isValidEmail(email) || email.length > 190) {
     return NextResponse.json({ error: 'Enter a valid email address.' }, { status: 400 });
@@ -90,6 +92,7 @@ export async function PATCH(request: Request) {
       email,
       countryCode,
       phone,
+      avatar,
       ...(password ? { password } : {}),
     });
     return NextResponse.json({ user: toClientUser(user) });

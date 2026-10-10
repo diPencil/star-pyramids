@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/server/db';
 import { checkEnquiryRateLimit, recordEnquiryAttempt } from '@/lib/server/rate-limit';
+import { notifyStaff } from '@/lib/server/notifications';
+import { sendCustomerEmailSafe, sendStaffEmailSafe } from '@/lib/server/email';
 import { Prisma } from '@prisma/client';
 
 const MAX_NAME_LENGTH = 120;
@@ -105,6 +107,39 @@ export async function POST(request: Request) {
         createdAt: true,
       },
     });
+
+    // Staff alert + customer acknowledgement. Both are best-effort: a mail or
+    // notification failure never turns a stored enquiry into a failed request.
+    const adminHref = `/admin/inbox?view=enquiries&enquiry=${encodeURIComponent(enquiry.publicId)}`;
+    void notifyStaff({
+      type: 'admin_enquiry_received',
+      title: 'New website enquiry',
+      message: `${trimmedName} - ${trimmedSubject}`,
+      href: adminHref,
+    });
+    void sendStaffEmailSafe(
+      'enquiry_received',
+      {
+        name: trimmedName,
+        email: trimmedEmail,
+        subject: trimmedSubject,
+        message: trimmedMessage,
+        detailUrl: adminHref,
+      },
+      {
+        relatedReference: enquiry.publicId,
+        idempotencyKey: `enquiry-received:${enquiry.publicId}`,
+      },
+    );
+    void sendCustomerEmailSafe(
+      'enquiry_received_confirmation',
+      trimmedEmail,
+      { name: trimmedName },
+      {
+        relatedReference: enquiry.publicId,
+        idempotencyKey: `enquiry-confirmation:${enquiry.publicId}`,
+      },
+    );
 
     return NextResponse.json(
       { enquiry: { publicId: enquiry.publicId, createdAt: enquiry.createdAt } },

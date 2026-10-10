@@ -17,6 +17,9 @@ let brand: Record<string, string> | null = null;
 let social: SocialLink[] | null = null;
 let currency: { eur?: number; egp?: number; defaultCurrency?: 'USD' | 'EUR' | 'EGP' } | null = null;
 let localization: { defaultLanguage?: string; timezone?: string } | null = null;
+let seoTitle: string | null = null;
+let promoText: string | null = null;
+let promo2Text: string | null = null;
 
 function isValidTimezone(tz: string): boolean {
   if (!tz) return false;
@@ -56,6 +59,8 @@ type RawSettings = {
   localization?: { defaultLanguage?: unknown; timezone?: unknown };
   currency?: { defaultCurrency?: unknown };
   rates?: { eur?: unknown; egp?: unknown };
+  seo?: { title?: unknown };
+  promo?: { text?: unknown; text2?: unknown };
 };
 
 const BRAND_FIELDS = [
@@ -119,6 +124,22 @@ function applySettings(data: { settings?: unknown }): void {
     localization = { ...localization, ...nextLocalization };
     window.dispatchEvent(new Event('sp-l10n'));
   }
+
+  const seoRaw = cleanString(raw.seo?.title);
+  if (seoRaw) {
+    seoTitle = seoRaw;
+    window.dispatchEvent(new Event('sp-seo'));
+  }
+  const promoRaw = cleanString(raw.promo?.text);
+  if (promoRaw) {
+    promoText = promoRaw;
+    window.dispatchEvent(new Event('sp-promo'));
+  }
+  const promo2Raw = cleanString(raw.promo?.text2);
+  if (promo2Raw) {
+    promo2Text = promo2Raw;
+    window.dispatchEvent(new Event('sp-promo2'));
+  }
 }
 
 export function getDbBrand(): Record<string, string> | null {
@@ -137,6 +158,18 @@ export function getDbLocalization(): NonNullable<typeof localization> | null {
   return localization;
 }
 
+export function getDbSeoTitle(): string | null {
+  return seoTitle;
+}
+
+export function getDbPromoText(): string | null {
+  return promoText;
+}
+
+export function getDbPromo2Text(): string | null {
+  return promo2Text;
+}
+
 /** Fire-once fetch of the public settings snapshot. Safe to call on every mount. */
 export function ensureStorefrontSettings(): void {
   if (typeof window === 'undefined' || inflight) return;
@@ -152,4 +185,15 @@ export function ensureStorefrontSettings(): void {
       inflight = null;
     }
   })();
+}
+
+/**
+ * Force a storefront refetch (e.g. right after an admin settings save in
+ * the same tab). Clears the single-flight guard so the next
+ * `ensureStorefrontSettings()` call hits the network again.
+ */
+export function refreshStorefrontSettings(): void {
+  if (typeof window === 'undefined') return;
+  inflight = null;
+  ensureStorefrontSettings();
 }

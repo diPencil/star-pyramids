@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { Tour } from '@/data/types';
+import { isTourPublished } from '@/lib/tour-publish';
 
 const asStringArray = (value: unknown): string[] =>
   Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
@@ -36,6 +37,8 @@ function toTour(row: Record<string, unknown>): Tour {
     summary: String(row.summary ?? ''),
     groupSize: (row.groupSize as string | null) ?? undefined,
     travelStyle: (row.travelStyle as string | null) ?? undefined,
+    status: typeof row.status === 'string' ? row.status : undefined,
+    manualDeal: (row.manualDeal as Tour['deal']) ?? undefined,
     deal: (row.deal as Tour['deal']) ?? undefined,
     detail: (row.detail as Tour['detail']) ?? undefined,
     dayDetail: (row.dayDetail as Tour['dayDetail']) ?? undefined,
@@ -116,7 +119,53 @@ export function invalidateToursCache() {
   toursError = null;
 }
 
-export function useDbTours(base: readonly Tour[]): Tour[] {
+export type DbToursOptions = {
+  /**
+   * Append published DB tours absent from `base` (admin-created tours with
+   * new slugs), preserving base order first and title order for extras.
+   * Curated surfaces (homepage seasonal/popular) keep the default `false`;
+   * catalogue/listing/search/resolution surfaces pass `true`.
+   */
+  includeNew?: boolean;
+  /** When set, only appended extras of this category are included. */
+  category?: string;
+};
+
+/**
+ * Pure merge: every base slug resolves to its DB record (or the bootstrap
+ * entry while loading/offline), DB rows with an explicit non-published
+ * status are dropped, and — with `includeNew` — published DB tours absent
+ * from `base` are appended. Unit-tested without a database.
+ */
+export function resolveTours(
+  base: readonly Tour[],
+  dbMap: Map<string, Tour> | null,
+  options?: DbToursOptions,
+): Tour[] {
+  if (!dbMap) return [...base];
+  const seen = new Set<string>();
+  const out: Tour[] = [];
+  for (const entry of base) {
+    const live = dbMap.get(entry.slug);
+    const resolved = live ?? entry;
+    if (!isTourPublished(resolved)) continue;
+    if (seen.has(resolved.slug)) continue;
+    seen.add(resolved.slug);
+    out.push(resolved);
+  }
+  if (options?.includeNew) {
+    for (const tour of dbMap.values()) {
+      if (seen.has(tour.slug)) continue;
+      seen.add(tour.slug);
+      if (!isTourPublished(tour)) continue;
+      if (options.category !== undefined && tour.category !== options.category) continue;
+      out.push(tour);
+    }
+  }
+  return out;
+}
+
+export function useDbTours(base: readonly Tour[], options?: DbToursOptions): Tour[] {
   // Bumped when the shared DB cache resolves so the memo below recomputes.
   const [version, setVersion] = useState(0);
   useEffect(() => {
@@ -130,10 +179,7 @@ export function useDbTours(base: readonly Tour[]): Tour[] {
   }, []);
   // Referentially stable: identical `base` yields an identical result, so
   // consumers can safely depend on it in effects without render loops.
-  return useMemo(() => {
-    if (!cachedBySlug) return [...base];
-    return base.map((entry) => cachedBySlug!.get(entry.slug) ?? entry);
-  }, [base, version]);
+  return useMemo(() => resolveTours(base, cachedBySlug, options), [base, version, options?.includeNew, options?.category]);
 }
 
 /**
@@ -141,7 +187,7 @@ export function useDbTours(base: readonly Tour[]): Tour[] {
  * API resolves; on failure `error` is set instead of silently rendering
  * bootstrap rows as if they came from the database.
  */
-export function useDbToursStatus(base: readonly Tour[]): DbToursStatus {
+export function useDbToursStatus(base: readonly Tour[], options?: DbToursOptions): DbToursStatus {
   // Bumped when the shared DB cache resolves or fails.
   const [version, setVersion] = useState(0);
   useEffect(() => {
@@ -155,7 +201,7 @@ export function useDbToursStatus(base: readonly Tour[]): DbToursStatus {
   }, []);
   return useMemo(
     () => ({
-      data: cachedBySlug ? base.map((entry) => cachedBySlug!.get(entry.slug) ?? entry) : null,
+      data: cachedBySlug ? resolveTours(base, cachedBySlug, options) : null,
       loading: cachedBySlug === null && toursError === null,
       error: cachedBySlug === null ? toursError : null,
       retry: () => {
@@ -165,6 +211,6 @@ export function useDbToursStatus(base: readonly Tour[]): DbToursStatus {
         void fetchDbTours();
       },
     }),
-    [base, version],
+    [base, version, options?.includeNew, options?.category],
   );
 }

@@ -1,14 +1,19 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useCatalogueLanguage } from './use-catalogue-language';
+import { validateCatalogueTranslations } from './catalogue-translations';
+import { readJsonObject } from './json-text';
 import type { Car, Event } from '@/data/types';
 
 /** Normalize one `/api/events` row to the shared domain shape. */
-function toEvent(row: Record<string, unknown>): Event {
-  const content = (row.content ?? {}) as Record<string, unknown>;
+export function normalizeEventRow(row: Record<string, unknown>): Event {
+  const content = readJsonObject(row.content);
   const strArray = (v: unknown): string[] =>
     Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
   return {
+    translations: row.translations ? validateCatalogueTranslations('event', row.translations) : {},
+    content,
     title: String(row.title ?? ''),
     titleAr: typeof row.titleAr === 'string' ? row.titleAr : undefined,
     slug: String(row.slug ?? ''),
@@ -62,6 +67,7 @@ function toEvent(row: Record<string, unknown>): Event {
 function toCar(row: Record<string, unknown>): Car {
   const credit = (row.credit ?? null) as { label?: unknown; url?: unknown } | null;
   return {
+    translations: row.translations ? validateCatalogueTranslations('car', row.translations) : {},
     title: String(row.title ?? ''),
     slug: String(row.slug ?? ''),
     image: String(row.image ?? ''),
@@ -188,7 +194,7 @@ function createCache<T>(url: string, key: string, map: (row: Record<string, unkn
 }
 
 const eventsCache = createCache<Event>('/api/events', 'events', (row) => {
-  const item = toEvent(row);
+  const item = normalizeEventRow(row);
   return item.slug ? item : null;
 }, 'events');
 
@@ -211,7 +217,7 @@ export function invalidateEventsCarsCache() {
  * No browser storage is consulted.
  */
 export function useDbEvents(base: readonly Event[]): Event[] {
-  return eventsCache.use(base);
+  return useCatalogueLanguage(eventsCache.use(base), 'event');
 }
 
 /**
@@ -219,7 +225,7 @@ export function useDbEvents(base: readonly Event[]): Event[] {
  * No browser storage is consulted.
  */
 export function useDbCars(base: readonly Car[]): Car[] {
-  return carsCache.use(base);
+  return useCatalogueLanguage(carsCache.use(base), 'car');
 }
 
 /**

@@ -59,6 +59,7 @@ html[dir='rtl'] .customer-account-side nav a>svg:last-child,html[dir='rtl'] .cus
 .account-icon-action.danger:hover{border-color:#b91c1c;background:#fef2f2}
 .customer-booking-links{display:inline-flex;gap:12px;flex-wrap:wrap}
 .customer-payment-total-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 2px;color:#3d4a63;font-size:13px;font-weight:600}
+.customer-payment-total-row.discount{color:#15803d}
 .customer-payment-total-row.grand{border-top:1px solid #edf0f7;margin-top:4px;padding-top:14px;font-size:15px;color:#102b68}
 .customer-timeline{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:0}
 .customer-timeline li{position:relative;display:flex;gap:12px;padding-bottom:18px}

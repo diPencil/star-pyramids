@@ -64,12 +64,12 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  if (!isSameOriginRequest(request)) {
+    return NextResponse.json({ error: 'Invalid request origin.' }, { status: 403 });
+  }
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
-  }
-  if (!isSameOriginRequest(request)) {
-    return NextResponse.json({ error: 'Invalid request origin.' }, { status: 403 });
   }
 
   let body: unknown;

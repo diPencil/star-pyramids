@@ -2,121 +2,28 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { COMPANY_ADDRESS, COMPANY_EMAIL, COMPANY_MAP_URL, COMPANY_PHONE_DISPLAY } from '@/data/company'
-import { ensureStorefrontSettings, getDbBrand, getDbSocial } from './storefront-settings'
+import { ensureStorefrontSettings, getDbBrand, getDbPromoText, getDbSeoTitle, getDbSocial } from './storefront-settings'
 
-export type OverrideCollection = 'customers'
-
-export type AdminCustomer = {
-  slug: string
-  firstName?: string
-  lastName?: string
-  name: string
-  username: string
-  email: string
-  country: string
-  dialCode: string
-  phone: string
-  avatar?: string
-  active?: boolean
-  createdAt: string
-}
-
-export type CustomerProfilePatch = {
-  email?: string
-  phone?: string
-  country?: string
-  avatar?: string
-  notes?: string
-}
-
-export type AdminOverrides = {
-  version: 1
-  customers: AdminCustomer[]
-  customerProfiles: Record<string, CustomerProfilePatch>
-}
-
-const KEY = 'sp-admin-overrides-v1'
-export const CUSTOM_PREFIX = 'custom-'
-
-const empty: AdminOverrides = { version: 1, customers: [], customerProfiles: {} }
-
-export function isCustomSlug(slug: string) {
-  return slug.startsWith(CUSTOM_PREFIX)
-}
-
+// Slug helper used by catalogue forms. It is no longer prefixed with the
+// former local-override 'custom-' marker, which is gone with the store.
 export function slugify(title: string) {
   const base = title
     .toLowerCase()
     .replace(/[^a-z0-9\u0600-\u06FF]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 60)
-  return `${CUSTOM_PREFIX}${base || `item-${Date.now().toString(36)}`}`
+  return base || `item-${Date.now().toString(36)}`
 }
 
-export function readOverrides(): AdminOverrides {
-  if (typeof window === 'undefined') return empty
-  try {
-    const raw = window.localStorage.getItem(KEY)
-    if (!raw) return empty
-    const parsed = JSON.parse(raw) as Partial<AdminOverrides>
-    return {
-      version: 1,
-      customers: Array.isArray(parsed.customers) ? parsed.customers : [],
-      customerProfiles: parsed.customerProfiles && typeof parsed.customerProfiles === 'object' ? parsed.customerProfiles : {},
-    }
-  } catch {
-    return empty
-  }
-}
-
-function writeOverrides(data: AdminOverrides) {
-  try {
-    window.localStorage.setItem(KEY, JSON.stringify(data))
-    window.dispatchEvent(new Event('sp-overrides'))
-  } catch {
-    // Storage full or unavailable; admin keeps working in memory only.
-  }
-}
-
-export function saveCustomItem(collection: OverrideCollection, item: AdminCustomer) {
-  const data = readOverrides()
-  void collection
-  const next = [item, ...data.customers.filter((entry) => entry.slug !== item.slug)]
-  writeOverrides({ ...data, customers: next })
-}
-
-export function removeCustomItem(collection: OverrideCollection, slug: string) {
-  const data = readOverrides()
-  void collection
-  writeOverrides({ ...data, customers: data.customers.filter((entry) => entry.slug !== slug) })
-}
-
-export function setCustomerActive(slug: string, active: boolean) {
-  const data = readOverrides()
-  writeOverrides({ ...data, customers: data.customers.map((c) => (c.slug === slug ? { ...c, active } : c)) })
-}
-
-export function isCustomerActive(customer: AdminCustomer) {
-  return customer.active !== false
-}
-
-export function saveCustomerProfile(name: string, patch: CustomerProfilePatch) {
-  const data = readOverrides()
-  writeOverrides({ ...data, customerProfiles: { ...data.customerProfiles, [name]: { ...data.customerProfiles[name], ...patch } } })
-}
-
-export function useCustomerProfile(name: string): CustomerProfilePatch {
-  const [patch, setPatch] = useState<CustomerProfilePatch>({})
-  useEffect(() => {
-    const sync = () => setPatch(readOverrides().customerProfiles[name] ?? {})
-    sync()
-    window.addEventListener('sp-overrides', sync)
-    return () => window.removeEventListener('sp-overrides', sync)
-  }, [name])
-  return patch
-}
-
+/**
+ * Staff preview marker.
+ *
+ * `publicId` is the authoritative identifier of the customer being previewed.
+ * Display fields are convenience labels only - the actual records shown are
+ * fetched from the permission-gated CRM API, never from this object.
+ */
 export type ImpersonatedCustomer = {
+  publicId: string
   name: string
   email?: string
   avatar?: string
@@ -131,14 +38,15 @@ export function readImpersonation(): ImpersonatedCustomer | null {
     const raw = window.localStorage.getItem(IMPERSONATE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw) as ImpersonatedCustomer
-    if (!parsed || typeof parsed.name !== 'string') return null
+    // A publicId is required: without it no real customer record can be read.
+    if (!parsed || typeof parsed.publicId !== 'string' || !parsed.publicId) return null
     return parsed
   } catch {
     return null
   }
 }
 
-export function startImpersonation(customer: { name: string; email?: string; avatar?: string }) {
+export function startImpersonation(customer: { publicId: string; name: string; email?: string; avatar?: string }) {
   try {
     window.localStorage.setItem(IMPERSONATE_KEY, JSON.stringify({ ...customer, at: new Date().toISOString() }))
     window.dispatchEvent(new Event('sp-impersonate'))
@@ -215,31 +123,6 @@ export function useInquiries(): Inquiry[] {
   return inquiries
 }
 
-export function useLiveCollection<T>(collection: OverrideCollection, base: readonly T[], options?: { includeHidden?: boolean }): T[] {
-  const [customs, setCustoms] = useState<T[]>([])
-  useEffect(() => {
-    const sync = () => {
-      const data = readOverrides()
-      setCustoms(data[collection] as unknown as T[])
-    }
-    sync()
-    window.addEventListener('sp-overrides', sync)
-    return () => window.removeEventListener('sp-overrides', sync)
-  }, [collection])
-  return useMemo(() => {
-    return customs.length ? [...customs, ...base] : [...base]
-  }, [customs, base])
-}
-
-export function useLiveFind<T extends { slug: string }>(
-  collection: OverrideCollection,
-  base: readonly T[],
-  slug: string
-): T | undefined {
-  const list = useLiveCollection(collection, base)
-  return list.find((entry) => entry.slug === slug)
-}
-
 export type AdminProfile = {
   name: string
   username: string
@@ -283,17 +166,41 @@ export function saveAdminProfile(patch: Partial<AdminProfile>) {
   }
 }
 
-export function readImageFile(file: File): Promise<string | null> {
-  return new Promise((resolve) => {
-    if (!file.type.startsWith('image/') || file.size > 1_500_000) {
-      resolve(null)
-      return
-    }
-    const reader = new FileReader()
-    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null)
-    reader.onerror = () => resolve(null)
-    reader.readAsDataURL(file)
-  })
+/**
+ * Upload an image file to server-side media storage and resolve to its
+ * public URL. The server decides the real format, generates the filename
+ * and records the file; the browser never produces a data URL, so the
+ * stored value survives refresh, re-login and shared links.
+ *
+ * `scope` selects the permission gate only — it never influences the path.
+ */
+export type MediaScopeInput = 'avatar' | 'brand' | 'catalogue'
+
+export const MAX_IMAGE_UPLOAD_BYTES = 1_500_000
+
+export async function uploadImageFile(
+  file: File,
+  scope: MediaScopeInput = 'catalogue',
+): Promise<string | null> {
+  if (!file.type.startsWith('image/') || file.size > MAX_IMAGE_UPLOAD_BYTES) {
+    return null
+  }
+  try {
+    const body = new FormData()
+    body.append('scope', scope)
+    body.append('file', file, file.name)
+    const response = await fetch('/api/media', {
+      method: 'POST',
+      body,
+      credentials: 'same-origin',
+    })
+    if (!response.ok) return null
+    const data = (await response.json()) as { media?: { url?: unknown } }
+    const url = data.media?.url
+    return typeof url === 'string' && url.length > 0 ? url : null
+  } catch {
+    return null
+  }
 }
 
 export type BrandSettings = {
@@ -396,4 +303,39 @@ export function useSocialLinks(): SocialLink[] {
     }
   }, [])
   return links
+}
+
+export const FALLBACK_SEO_TITLE = 'STAR PYRAMIDS | Discover Egypt'
+export const FALLBACK_PROMO_TEXT = 'Add two nights to any multi-day package and save 15%, with a special upgrade included.'
+
+export function readSeoTitle(): string {
+  return getDbSeoTitle() ?? FALLBACK_SEO_TITLE
+}
+
+export function readPromoText(): string {
+  return getDbPromoText() ?? FALLBACK_PROMO_TEXT
+}
+
+export function useSeoTitle(): string {
+  const [title, setTitle] = useState<string>(FALLBACK_SEO_TITLE)
+  useEffect(() => {
+    ensureStorefrontSettings()
+    const sync = () => setTitle(readSeoTitle())
+    sync()
+    window.addEventListener('sp-seo', sync)
+    return () => window.removeEventListener('sp-seo', sync)
+  }, [])
+  return title
+}
+
+export function usePromoText(): string {
+  const [text, setText] = useState<string>(FALLBACK_PROMO_TEXT)
+  useEffect(() => {
+    ensureStorefrontSettings()
+    const sync = () => setText(readPromoText())
+    sync()
+    window.addEventListener('sp-promo', sync)
+    return () => window.removeEventListener('sp-promo', sync)
+  }, [])
+  return text
 }

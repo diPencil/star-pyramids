@@ -48,9 +48,9 @@ function formatTime(iso: string, ar: boolean): string {
  * Admin email delivery history (Phase 2J). Real DB-backed outbox
  * records from `/api/admin/emails`: status, recipient, type,
  * subject, related reference, timestamps, and safe error summaries.
- * No compose/send UI — delivery rows are created server-side by
- * domain events only. No provider is connected yet, so rows reflect
- * the development/log adapter.
+ * No compose/send UI - delivery rows are created server-side by
+ * domain events only. A row is SENT only when the SMTP server
+ * accepted the message; otherwise it is FAILED with a reason.
  */
 export default function EmailsPage() {
   const ar = useAdminLocale() === 'ar'
@@ -85,6 +85,22 @@ export default function EmailsPage() {
     return () => { cancelled = true }
   }, [status, ar])
 
+  // Provider diagnostics: configuration presence only, never secrets.
+  const [provider, setProvider] = useState<{ name: string; config: { configured: boolean; host: string | null; port: number; secure: boolean; authenticated: boolean; reason?: string } } | null>(null)
+  const [checking, setChecking] = useState(false)
+  const checkProvider = async () => {
+    setChecking(true)
+    try {
+      const res = await fetch('/api/admin/emails', { method: 'POST', credentials: 'same-origin' })
+      if (res.ok) setProvider(await res.json())
+    } catch {
+      /* diagnostics are best effort */
+    } finally {
+      setChecking(false)
+    }
+  }
+  useEffect(() => { void checkProvider() }, [])
+
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return deliveries
@@ -107,7 +123,20 @@ export default function EmailsPage() {
   const pending = deliveries.filter((row) => row.status === 'PENDING').length
 
   return <>
-    <PageHead eyebrow="Mailbox" title="Email" titleAr="البريد" sub="Real delivery history from domain events (no provider connected yet)" subAr="سجل الإرسال الحقيقي من أحداث النظام (لا يوجد مزود مرتبط بعد)" />
+    <PageHead eyebrow="Mailbox" title="Email" titleAr="البريد" sub="Real delivery history from domain events" subAr="سجل الإرسال الحقيقي من أحداث النظام" />
+    {provider && !provider.config.configured ? (
+      <p role="status" style={{ background: '#fff7ed', border: '1px solid #fdba74', color: '#9a3412', padding: '10px 12px', borderRadius: 8, margin: '0 0 12px' }}>
+        <strong>{ar ? 'مزود البريد غير مُعد.' : 'Email provider not configured.'}</strong>{' '}
+        {ar ? 'كل رسائل البريد الإلكتروني تفشل حتى تُضبط متغيرات بيئة SMTP.' : 'Every email will fail until the SMTP environment variables are set.'}{' '}
+        <code>{provider.config.reason}</code>
+      </p>
+    ) : null}
+    {provider?.config.configured ? (
+      <p role="status" style={{ background: '#f0fdf4', border: '1px solid #86efac', color: '#166534', padding: '10px 12px', borderRadius: 8, margin: '0 0 12px' }}>
+        <strong>{ar ? 'مزود البريد مُعد.' : 'Email provider configured.'}</strong>{' '}
+        {`${provider.name} · ${provider.config.host}:${provider.config.port} · ${provider.config.secure ? 'TLS' : 'STARTTLS'} · ${provider.config.authenticated ? (ar ? 'مصادق' : 'authenticated') : (ar ? 'بدون مصادقة' : 'no auth')}`}
+      </p>
+    ) : null}
     <AdminStats items={[
       { label: <AdminText en="Deliveries" ar="الرسائل" />, value: total, note: <AdminText en="Recorded email attempts" ar="محاولات الإرسال المسجلة" />, icon: Mail },
       { label: <AdminText en="Sent" ar="تم الإرسال" />, value: sent, note: <AdminText en="Accepted by adapter" ar="قبلها المحول" />, icon: Send, tone: 'green' },

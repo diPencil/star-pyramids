@@ -19,7 +19,6 @@ function offerToData(item: Offer, index: number) {
     badge: item.badge,
     copy: item.copy,
     duration: item.duration ?? null,
-    rating: item.rating ?? null,
     price: item.price ?? null,
     originalPrice: item.originalPrice ?? null,
     deadline: item.deadline ?? null,

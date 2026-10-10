@@ -28,7 +28,7 @@ export function NileCruisesPage() {
 function NileCruisesContent() {
   const { locale } = useLocale()
   const t = copy[locale]
-  const allCruises = useDbTours(cruiseTypes.flatMap((type) => getToursByCategory('nile-cruises').filter((tour) => tour.cruiseType === type.slug)))
+  const allCruises = useDbTours(cruiseTypes.flatMap((type) => getToursByCategory('nile-cruises').filter((tour) => tour.cruiseType === type.slug)), { includeNew: true, category: 'nile-cruises' })
   const featured = allCruises[0]
 
   return <>

@@ -40,6 +40,7 @@ const NOTIFICATION_TYPES = new Set([
   'admin_payment_initiated',
   'support_message_received',
   'admin_support_message_received',
+  'admin_enquiry_received',
 ]);
 
 export type NotificationType =
@@ -63,7 +64,8 @@ export type NotificationType =
   | 'admin_event_request_submitted'
   | 'admin_payment_initiated'
   | 'support_message_received'
-  | 'admin_support_message_received';
+  | 'admin_support_message_received'
+  | 'admin_enquiry_received';
 
 const TITLE_MAX = 160;
 const MESSAGE_MAX = 500;

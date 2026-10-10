@@ -16,6 +16,7 @@ import { SharedSelect } from '@/components/shared-select'
 import { displayInternationalPhone } from '@/lib/phone'
 import { InternationalPhoneInput } from '@/components/international-phone-input'
 import { DateInput } from '@/components/date-input'
+import { toISO, todayYMD } from '@/lib/date-calendar'
 import { useAuthenticatedUser } from '@/components/authenticated-user'
 import {
   TRIP_BUDGET_CAP,
@@ -444,8 +445,8 @@ function TripRequestsSection({ startNew = false, editRef = null }: { startNew?: 
             ))}
           </div>
           <div className="customer-form-grid">
-            <label>{tx(locale, { en: 'Preferred start date', es: 'Fecha de inicio preferida', it: 'Data di inizio preferita', ar: 'تاريخ البدء المفضل' })}<DateInput dir="ltr" value={from} min={new Date().toISOString().slice(0, 10)} onChange={(e) => setFrom(e.target.value)} />{fieldError('from')}</label>
-            <label>{tx(locale, { en: 'Preferred end date', es: 'Fecha de fin preferida', it: 'Data di fine preferita', ar: 'تاريخ الانتهاء المفضل' })}<DateInput dir="ltr" value={to} min={from || new Date().toISOString().slice(0, 10)} onChange={(e) => setTo(e.target.value)} />{fieldError('to')}</label>
+            <label>{tx(locale, { en: 'Preferred start date', es: 'Fecha de inicio preferida', it: 'Data di inizio preferita', ar: 'تاريخ البدء المفضل' })}<DateInput dir="ltr" value={from} min={toISO(todayYMD())} onChange={(e) => setFrom(e.target.value)} />{fieldError('from')}</label>
+            <label>{tx(locale, { en: 'Preferred end date', es: 'Fecha de fin preferida', it: 'Data di fine preferita', ar: 'تاريخ الانتهاء المفضل' })}<DateInput dir="ltr" value={to} min={from || toISO(todayYMD())} onChange={(e) => setTo(e.target.value)} />{fieldError('to')}</label>
           </div>
           <div className="guest-rows">
             <Stepper label={tx(locale, { en: 'Adults', es: 'Adultos', it: 'Adulti', ar: 'البالغون' })} sub={tx(locale, { en: 'Ages 12+', es: '12 años o más', it: '12+ anni', ar: '12 سنة فأكثر' })} value={adults} set={setAdults} min={1} />

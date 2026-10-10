@@ -1,3 +1,5 @@
+import { catalogueTranslationResponse, saveWithCatalogueTranslations, deleteWithCatalogueTranslations } from '@/lib/server/catalogue-translations';
+import { validateCatalogueTranslations } from '@/lib/catalogue-translations';
 import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
@@ -17,7 +19,7 @@ export async function GET(
     return NextResponse.json({ notFound: true }, { status: 404 });
   }
 
-  return NextResponse.json({ category });
+  return NextResponse.json(await catalogueTranslationResponse('category', { category }));
 }
 
 export async function PUT(
@@ -39,6 +41,10 @@ export async function PUT(
   }
 
   const data = await request.json();
+  if (data?.translations !== undefined) {
+    try { validateCatalogueTranslations('category', data.translations); }
+    catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'Invalid translations.' }, { status: 400 }); }
+  }
   const { slug: paramSlug } = await params;
 
   const existing = await db.multiDayCategory.findUnique({ where: { slug: paramSlug } });
@@ -57,7 +63,7 @@ export async function PUT(
     }
   }
 
-  const category = await db.multiDayCategory.update({
+  const category = await saveWithCatalogueTranslations('category', data.translations, existing.slug, (tx) => tx.multiDayCategory.update({
     where: { slug: paramSlug },
     data: {
       slug: data.slug ? String(data.slug).trim().toLowerCase() || existing.slug : existing.slug,
@@ -69,9 +75,9 @@ export async function PUT(
       order: data.order === undefined || data.order === '' ? existing.order : (Number.isFinite(Number(data.order)) ? Number(data.order) : existing.order),
       active: data.active === undefined ? existing.active : data.active !== false,
     },
-  });
+  }));
 
-  return NextResponse.json({ category });
+  return NextResponse.json(await catalogueTranslationResponse('category', { category }));
 }
 
 export async function DELETE(
@@ -101,7 +107,7 @@ export async function DELETE(
     return NextResponse.json({ error: 'Category not found.' }, { status: 404 });
   }
 
-  await db.multiDayCategory.delete({ where: { slug: paramSlug } });
+  await deleteWithCatalogueTranslations('category', paramSlug, (tx) => tx.multiDayCategory.delete({ where: { slug: paramSlug } }));
 
   return NextResponse.json({ deleted: true });
 }

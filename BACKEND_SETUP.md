@@ -148,3 +148,96 @@ rate limiting, email sending, permission matrix, dashboard metrics.
   payments, messages, quotations remain prototype (later phases).
 - Still TODO: quotation/proposal documents, booking+payment conversion,
   email/WhatsApp notifications, retroactive guest→account linking.
+
+## 12. P0 Fix 03 — server-side media storage (real uploaded files)
+
+Uploads are stored as files on disk and referenced by URL. Base64 data
+URLs are no longer produced by any upload flow.
+
+- **Registry**: `MediaAsset` (`prisma/migrations/20261010120000_media_assets`).
+  Additive `CREATE TABLE` only — no column was altered, dropped or
+  backfilled, so no existing image or record was touched. Existing
+  `data:` URLs and `https://` URLs keep working untouched.
+- **Storage**: `lib/server/media.ts` (disk I/O) + `lib/core/media-signature.ts`
+  (environment-neutral format detection, same rules as `lib/core/validation.ts`).
+  Files land at `<MEDIA_STORAGE_DIR>/<yyyy>/<mm>/<32 hex>.<ext>`; the
+  registry row stores the key and the public URL `/media/<key>`.
+- **Validation**: the format is decided from the file's magic bytes, never
+  from `File.type` or the filename. JPEG/PNG/WEBP/GIF only. The declared MIME
+  type and extension are cross-checked and rejected when they contradict the
+  real bytes. SVG, HTML, PDF and every other payload is refused.
+- **Filenames**: 128 bits of `node:crypto` randomness, generated server-side.
+  No user-supplied characters ever reach a path, so traversal, overwrite and
+  collision are structurally impossible. Writes are atomic (temp file +
+  rename), and a failed DB write deletes the file so nothing is orphaned.
+- **Serving**: `GET /media/[...path]` streams the file with the MIME type
+  recorded at upload, `X-Content-Type-Options: nosniff`, a stable `ETag` and
+  `Cache-Control: public, max-age=31536000, immutable` (safe because keys are
+  never reused — replacing an image stores a new file).
+- **Upload**: `POST /api/media` (authenticated, same-origin, per-scope
+  permissions, 120 uploads/hour per user) and `POST /api/avatar`
+  (multipart, sets the caller's own avatar).
+- **Scope permissions**: `avatar` = any signed-in user; `brand` =
+  `settings.edit`; `catalogue` = any tours/cars/destinations/offers/blogs/
+  events/categories create-or-edit grant.
+
+### Hosting requirements (important)
+
+- `MEDIA_STORAGE_DIR` **must** be a persistent, writable directory that
+  survives process restarts and redeploys. Default:
+  `<project>/storage/media`. The process user needs write access.
+- **Backup `MEDIA_STORAGE_DIR` together with the database.** The database
+  holds the references; the directory holds the bytes. Losing either side
+  breaks every uploaded image.
+- **Deploys must not clear it.** On a container platform mount a persistent
+  volume and point `MEDIA_STORAGE_DIR` at it.
+- **Horizontal scaling requires shared storage.** With more than one Node
+  instance, each replica needs the same directory (NFS/shared volume), or
+  the media route must be swapped for object storage (S3/R2). Local disk is
+  correct for the current single-VPS `next start` deployment this project
+  targets.
+- **Read-only or ephemeral filesystems do not work** (Vercel/Netlify-style
+  serverless). Those hosts need an object-storage driver.
+- Set `MEDIA_MAX_UPLOAD_BYTES` to raise/lower the server-side per-file
+  ceiling (default 5 MB). Admin image fields additionally cap at 1.5 MB and
+  avatars at 2 MB in the UI.
+
+## 13. P0 Fix 04 — guest booking access
+
+Guests who check out without an account can read their own booking
+confirmation and details without registering. The booking reference alone is
+**not** a credential and never grants access.
+
+- **Model**: `BookingAccessToken` + `BookingAccessAttempt`
+  (`prisma/migrations/20261010150000_guest_booking_access`). Additive only —
+  no booking row, column, or value was altered.
+- **Tokens**: `lib/server/booking-access.ts`. 256 bits of CSPRNG entropy
+  (`lib/core/tokens.ts`), base64url. Only the SHA-256 hash is persisted — the
+  same contract as `sessions` and `account_setup_tokens`.
+- **Scope**: tokens are issued for guest bookings only (`userId` NULL).
+  Account bookings keep the existing session-owned flow unchanged, so no
+  second credential widens their attack surface.
+- **Expiring and revocable**: default TTL 90 days
+  (`BOOKING_ACCESS_TOKEN_TTL_DAYS`). Tokens are bound to one booking
+  reference and can be revoked without touching the booking.
+- **Endpoint**: `GET /api/bookings/access/[token]`. There is deliberately no
+  reference-based variant, so a reference can never be sufficient. Read-only:
+  a leaked link can never cancel, pay, or mutate. Responses are
+  `Cache-Control: no-store`.
+- **Uniform failure**: wrong, expired and revoked tokens all return the same
+  404 body, so the endpoint is not an oracle for "did this token once exist".
+- **Brute-force budget**: failed lookups are counted per IP (30/hour). The
+  token's entropy is the primary control; this is defence in depth.
+- **Rotation**: each guest email mints a fresh token and revokes the previous
+  one, so exactly one link is live — the newest email wins (same model as
+  password reset).
+- **UI**: `GET /booking/[token]` renders a read-only confirmation reusing the
+  account booking presentation. `noindex`/`nocache` metadata; the token is read
+  from the router client-side so it is never serialized into the RSC payload.
+- **Emails**: `booking_created`, `booking_confirmed`, `booking_completed` and
+  `booking_cancelled` accept `{{accessNote}}` and `{{detailUrl}}`. Guests get
+  a private link plus an explanatory sentence; account bookings render exactly
+  as before (empty note, account detail URL).
+- **Not covered**: payment emails still point at the account payment page.
+  Guests have no payment history page, so that link is account-only today.
+  Guest payment emails are a follow-up, not a payment-logic change.

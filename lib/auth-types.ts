@@ -6,6 +6,7 @@ export type AuthenticatedUser = {
   username: string | null;
   countryCode: string | null;
   phone: string | null;
+  avatar?: string | null;
   status: string;
   emailVerifiedAt: Date | string | null;
   lastLoginAt: Date | string | null;

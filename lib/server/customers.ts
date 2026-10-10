@@ -5,7 +5,19 @@
 // hashes, no session tokens, no internal ids leave this module.
 import 'server-only';
 
+import { Prisma } from '@prisma/client';
+
+import {
+  isValidCountryCode,
+  isValidEmail,
+  isValidPersonName,
+  isValidPhone,
+  isValidUsername,
+  normalizeEmail,
+  validatePasswordStrength,
+} from '@/lib/core/validation';
 import { db } from './db';
+import { hashPassword } from '../core/password';
 import { UserManagementError, type ActorRef } from './users';
 
 export interface CustomerListItem {
@@ -91,6 +103,225 @@ export interface CustomerDetail extends CustomerListItem {
 function displayNameOf(firstName: string | null, lastName: string | null, email: string): string {
   const name = [firstName, lastName].filter(Boolean).join(' ');
   return name || email.split('@')[0]!;
+}
+
+export interface CreateCustomerInput {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  username: string;
+  countryCode: string;
+  phone: string;
+}
+
+/**
+ * Validates a staff-supplied customer payload. The same rules the public
+ * registration route enforces apply here, so an account created by staff can
+ * never be weaker than one a guest created for themselves.
+ */
+function validateCustomerInput(input: CreateCustomerInput): void {
+  if (!isValidEmail(input.email)) {
+    throw new UserManagementError(400, 'Enter a valid email address.');
+  }
+  const passwordError = validatePasswordStrength(input.password);
+  if (passwordError) {
+    throw new UserManagementError(400, passwordError);
+  }
+  if (!isValidPersonName(input.firstName)) {
+    throw new UserManagementError(400, 'Enter a valid first name.');
+  }
+  if (!isValidPersonName(input.lastName)) {
+    throw new UserManagementError(400, 'Enter a valid last name.');
+  }
+  if (!isValidUsername(input.username)) {
+    throw new UserManagementError(400, 'Enter a valid username.');
+  }
+  if (!isValidCountryCode(input.countryCode)) {
+    throw new UserManagementError(400, 'Select a valid country.');
+  }
+  if (!isValidPhone(input.phone)) {
+    throw new UserManagementError(400, 'Enter a valid phone number.');
+  }
+}
+
+/**
+ * Create a real CUSTOMER account from the CRM.
+ *
+ * The password is hashed here and never returned, logged, or selected in any
+ * read path. Staff cannot mint a staff account through this function: the
+ * CUSTOMER role is hard-coded, and staff accounts remain under Users & Roles.
+ */
+export async function createCustomer(
+  input: CreateCustomerInput,
+  actor: ActorRef,
+): Promise<CustomerListItem> {
+  validateCustomerInput(input);
+
+  const email = input.email.trim();
+  const emailNormalized = normalizeEmail(email);
+  const passwordHash = await hashPassword(input.password);
+
+  try {
+    const user = await db.user.create({
+      data: {
+        email,
+        emailNormalized,
+        passwordHash,
+        firstName: input.firstName.trim(),
+        lastName: input.lastName.trim(),
+        username: input.username.trim(),
+        countryCode: input.countryCode.trim().toUpperCase(),
+        phone: input.phone.trim(),
+        status: 'ACTIVE',
+        roles: {
+          create: {
+            assignedBy: `crm:${actor.publicId}`,
+            role: { connect: { key: 'CUSTOMER' } },
+          },
+        },
+      },
+      select: customerSelect,
+    });
+    return {
+      publicId: user.publicId,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      displayName: displayNameOf(user.firstName, user.lastName, user.email),
+      username: user.username,
+      countryCode: user.countryCode,
+      phone: user.phone,
+      status: user.status,
+      emailVerifiedAt: user.emailVerifiedAt,
+      lastLoginAt: user.lastLoginAt,
+      createdAt: user.createdAt,
+      bookingsCount: 0,
+      totalSpent: 0,
+      confirmedSpent: 0,
+      lastBookingAt: null,
+    };
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      // Do not disclose which field collided beyond the obvious identity fields.
+      throw new UserManagementError(409, 'That email or username is already in use.');
+    }
+    throw error;
+  }
+}
+
+export interface UpdateCustomerProfileInput {
+  firstName?: string;
+  lastName?: string;
+  username?: string;
+  countryCode?: string;
+  phone?: string;
+  avatar?: string;
+}
+
+/**
+ * Edit an existing customer's own profile fields. Only identity/contact data
+ * is writable here — never the password, never roles, never account status.
+ */
+export async function updateCustomerProfile(
+  targetPublicId: string,
+  patch: UpdateCustomerProfileInput,
+): Promise<CustomerListItem> {
+  const data: Record<string, string> = {};
+
+  if (patch.firstName !== undefined) {
+    if (!isValidPersonName(patch.firstName)) {
+      throw new UserManagementError(400, 'Enter a valid first name.');
+    }
+    data.firstName = patch.firstName.trim();
+  }
+  if (patch.lastName !== undefined) {
+    if (!isValidPersonName(patch.lastName)) {
+      throw new UserManagementError(400, 'Enter a valid last name.');
+    }
+    data.lastName = patch.lastName.trim();
+  }
+  if (patch.username !== undefined) {
+    if (!isValidUsername(patch.username)) {
+      throw new UserManagementError(400, 'Enter a valid username.');
+    }
+    data.username = patch.username.trim();
+  }
+  if (patch.countryCode !== undefined) {
+    if (!isValidCountryCode(patch.countryCode)) {
+      throw new UserManagementError(400, 'Select a valid country.');
+    }
+    data.countryCode = patch.countryCode.trim().toUpperCase();
+  }
+  if (patch.phone !== undefined) {
+    if (!isValidPhone(patch.phone)) {
+      throw new UserManagementError(400, 'Enter a valid phone number.');
+    }
+    data.phone = patch.phone.trim();
+  }
+  if (patch.avatar !== undefined) {
+    const avatar = patch.avatar.trim();
+    // https link, stored media path (/media/...), or a legacy data URL kept
+    // for records saved before server-side media storage existed.
+    const isStoredMedia = /^\/media\/\d{4}\/\d{2}\/[0-9a-f]{32}\.(?:jpg|png|webp|gif)$/i.test(avatar);
+    if (avatar && !/^(https:\/\/|data:image\/)/i.test(avatar) && !isStoredMedia) {
+      throw new UserManagementError(400, 'Use an https image link.');
+    }
+    if (avatar.length > 2000) {
+      throw new UserManagementError(400, 'The image reference is too long.');
+    }
+    data.avatar = avatar;
+  }
+
+  if (Object.keys(data).length === 0) {
+    throw new UserManagementError(400, 'Nothing to update.');
+  }
+
+  return db.$transaction(async (tx) => {
+    const target = await tx.user.findUnique({
+      where: { publicId: targetPublicId },
+      select: { id: true, roles: { select: { role: { select: { key: true } } } } },
+    });
+    if (!target || !target.roles.some((r) => r.role.key === 'CUSTOMER')) {
+      throw new UserManagementError(404, 'Customer not found.');
+    }
+
+    try {
+      const updated = await tx.user.update({
+        where: { id: target.id },
+        data,
+        select: {
+          ...customerSelect,
+          bookings: { select: { total: true, status: true, createdAt: true }, orderBy: { createdAt: 'desc' } },
+        },
+      });
+      return {
+        publicId: updated.publicId,
+        email: updated.email,
+        firstName: updated.firstName,
+        lastName: updated.lastName,
+        displayName: displayNameOf(updated.firstName, updated.lastName, updated.email),
+        username: updated.username,
+        countryCode: updated.countryCode,
+        phone: updated.phone,
+        status: updated.status,
+        emailVerifiedAt: updated.emailVerifiedAt,
+        lastLoginAt: updated.lastLoginAt,
+        createdAt: updated.createdAt,
+        bookingsCount: updated.bookings.length,
+        totalSpent: updated.bookings.reduce((sum, b) => sum + money(b.total), 0),
+        confirmedSpent: updated.bookings
+          .filter((b) => b.status === 'CONFIRMED')
+          .reduce((sum, b) => sum + money(b.total), 0),
+        lastBookingAt: updated.bookings[0]?.createdAt ?? null,
+      };
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new UserManagementError(409, 'That username is already in use.');
+      }
+      throw error;
+    }
+  });
 }
 
 const money = (value: unknown): number => {

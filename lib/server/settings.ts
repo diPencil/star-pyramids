@@ -50,6 +50,7 @@ export const PUBLIC_SETTING_KEYS = [
   // Website defaults / SEO
   'site.seoTitle',
   'site.promoText',
+  'site.promo2Text',
   // Google Maps (non-secret configuration only)
   'maps.mapId',
   'maps.lat',
@@ -346,6 +347,9 @@ export function validateSettingsPatch(input: {
         if (bounded(1, 160, 'Enter an SEO title (1-160 characters).')) clean[key] = trimmed;
         break;
       case 'site.promoText':
+        if (bounded(1, 500, 'Enter promo bar text (1-500 characters).')) clean[key] = trimmed;
+        break;
+      case 'site.promo2Text':
         if (bounded(1, 500, 'Enter promo bar text (1-500 characters).')) clean[key] = trimmed;
         break;
       case 'maps.mapId':
@@ -697,7 +701,7 @@ export interface StorefrontSettings {
   currency: { defaultCurrency: string };
   rates: { eur: string; egp: string };
   seo: { title: string };
-  promo: { text: string };
+  promo: { text: string; text2: string };
 }
 
 const nonEmpty = (value: unknown): string =>
@@ -758,6 +762,6 @@ export async function getStorefrontSettings(): Promise<StorefrontSettings> {
     currency: { defaultCurrency: nonEmpty(v['app.defaultCurrency']) },
     rates: snapshot.rates,
     seo: { title: nonEmpty(v['site.seoTitle']) },
-    promo: { text: nonEmpty(v['site.promoText']) },
+    promo: { text: nonEmpty(v['site.promoText']), text2: nonEmpty(v['site.promo2Text']) },
   };
 }

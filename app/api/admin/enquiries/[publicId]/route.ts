@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/server/db';
 import { getCurrentUser, hasPermission } from '@/lib/server/auth';
+import { isSameOriginRequest } from '@/lib/server/csrf';
 import { enquirySelect, enquiryStaffWhere } from '@/lib/server/enquiries';
 import type { EnquiryStatus } from '@prisma/client';
 
@@ -22,6 +23,7 @@ export async function GET(_request: Request, { params }: Context) {
 }
 
 export async function PATCH(request: Request, { params }: Context) {
+  if (!isSameOriginRequest(request)) return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
   if (!hasPermission(user, 'enquiries.manage')) return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });

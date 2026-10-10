@@ -1,8 +1,12 @@
+import type { CatalogueTranslations } from '@/lib/catalogue-translations'
+import type { TourTranslations } from '@/lib/tour-translations'
+
 export type TourCategory = 'one-day-tours' | 'multi-days-tours' | 'nile-cruises' | 'shore-excursions'
 export type TourVariant = 'multi' | 'day' | 'cruise' | 'shore'
 export type CruiseTypeSlug = 'standard-nile-cruises' | 'deluxe-nile-cruise' | 'superior-nile-cruise' | 'luxury-nile-cruise'
 
 export type TourItineraryDay = {
+  translations?: TourTranslations
   day: string
   title: string
   description: string
@@ -11,22 +15,26 @@ export type TourItineraryDay = {
 }
 
 export type TourHighlightGroup = {
+  translations?: TourTranslations
   title: string
   items: readonly string[]
 }
 
 export type TourAddOn = {
+  translations?: TourTranslations
   title: string
   price?: number
 }
 
 export type TourPriceTier = {
+  translations?: TourTranslations
   label: string
   price: number
   suffix?: string
 }
 
 export type TourPriceRow = {
+  translations?: TourTranslations
   category: string
   price: number
   note: string
@@ -36,11 +44,10 @@ export type TourPriceRow = {
   tiers?: readonly TourPriceTier[]
 }
 
-export type ReviewPlatform = 'google' | 'tripadvisor' | 'trustindex' | 'getyourguide' | 'direct'
-
 export type TourVideoPlatform = 'youtube' | 'instagram' | 'tiktok' | 'facebook' | 'vimeo' | 'direct'
 
 export type TourJourneyVideo = {
+  translations?: TourTranslations
   id: string
   url: string
   platform?: TourVideoPlatform
@@ -59,14 +66,6 @@ export type TourTravelerPrice = {
   price?: number
 }
 
-export type TourReview = {
-  name: string
-  date: string
-  stars: number
-  text: string
-  platform?: ReviewPlatform
-}
-
 export type TourLocation = string | {
   id: string
   name: string
@@ -76,6 +75,8 @@ export type TourLocation = string | {
 }
 
 export type TourDetail = {
+  translations?: TourTranslations
+  locationTranslations?: readonly (TourTranslations | null)[]
   overview: readonly string[]
   highlightImage?: string
   highlights: readonly TourHighlightGroup[]
@@ -88,15 +89,17 @@ export type TourDetail = {
   locations: readonly TourLocation[]
   priceRows?: readonly TourPriceRow[]
   travelerPrices?: readonly TourTravelerPrice[]
-  reviews?: readonly TourReview[]
 }
 
 export type DayTourDetail = {
+  translations?: TourTranslations
+  locationTranslations?: readonly (TourTranslations | null)[]
   overview: readonly string[]
   highlightImage?: string
   itineraryNote?: string
-  stops?: readonly { title: string; description: string; meals?: string; image?: string }[]
+  stops?: readonly { translations?: TourTranslations; day?: string; title: string; description: string; meals?: string; image?: string }[]
   highlights?: readonly string[]
+  highlightGroups?: readonly TourHighlightGroup[]
   gallery?: readonly { src: string; alt: string }[]
   included?: readonly string[]
   excluded?: readonly string[]
@@ -141,12 +144,17 @@ export type Tour = {
   duration: string
   image: string
   gallery?: readonly string[]
-  galleryCaptions?: readonly { en: string; ar: string }[]
+  galleryCaptions?: readonly { en: string; ar: string; translations?: TourTranslations }[]
   journeyVideos?: readonly TourJourneyVideo[]
   photoCredits?: readonly { label: string; url: string }[]
   summary: string
   groupSize?: string
   travelStyle?: string
+  /** DB publish state (`status` column: `'published'` | other). `undefined`
+   *  marks legacy/static catalogue entries, always treated as published.
+   *  Mapped from the API/DB row — never set on static entries. */
+  status?: string
+  manualDeal?: TourDeal
   deal?: TourDeal
   detail?: TourDetail
   dayDetail?: DayTourDetail
@@ -154,6 +162,7 @@ export type Tour = {
 
 /** A Multi Days travel category (theme). Catalogue concept: Category → Tours, owned by Tour.categorySlugs. */
 export type MultiDayCategory = {
+  translations?: CatalogueTranslations
   slug: string
   name: string
   nameAr: string
@@ -165,6 +174,7 @@ export type MultiDayCategory = {
 }
 
 export type Destination = {
+  translations?: CatalogueTranslations
   title: string
   slug: string
   image: string
@@ -196,6 +206,7 @@ export type Destination = {
 }
 
 export type Car = {
+  translations?: CatalogueTranslations
   title: string
   slug: string
   image: string
@@ -230,6 +241,7 @@ export type BlogGuideSection = {
 }
 
 export type Blog = {
+  translations?: CatalogueTranslations
   title: string
   slug: string
   image: string
@@ -273,6 +285,9 @@ export type EventHighlight = {
 }
 
 export type Event = {
+  /** Preserve unedited editorial content when the admin form saves. */
+  content?: Record<string, unknown>
+  translations?: CatalogueTranslations
   title: string
   titleAr?: string
   slug: string
@@ -326,6 +341,10 @@ export type Event = {
 }
 
 export type Offer = {
+  tourSlug?: string
+  discountPercent?: number
+  startsAt?: string
+  translations?: CatalogueTranslations
   title: string
   slug: string
   image: string
@@ -335,7 +354,6 @@ export type Offer = {
   copy: string
   highlights?: readonly string[]
   duration?: string
-  rating?: number
   price?: number
   originalPrice?: number
   deadline?: string
@@ -350,7 +368,7 @@ export type SearchItem = {
   slug: string
   image: string
   copy: string
-  type: 'Blog' | 'Event' | 'Offer' | 'Destination'
+  type: 'Blog' | 'Event' | 'Offer' | 'Destination' | 'Tour'
 }
 
 export type EnquiryDraft = {

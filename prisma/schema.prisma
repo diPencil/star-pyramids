@@ -41,6 +41,7 @@ model User {
   username                     String?               @unique @db.VarChar(64)
   countryCode                  String?               @db.Char(2)
   phone                        String?               @db.VarChar(32)
+  avatar                       String?               @db.VarChar(500)
   setupTokens                  AccountSetupToken[]
   bookings                     Booking[]
   carRequests                  CarRequest[]
@@ -162,6 +163,34 @@ model FxRate {
   @@unique([baseCurrency, quoteCurrency])
   @@index([quoteCurrency, isActive])
   @@map("fx_rates")
+}
+
+/// P0 Fix 03 — server-side media storage registry.
+/// One row per stored image file. `storageKey` is the relative on-disk
+/// path (`<yyyy>/<mm>/<32 hex>.<ext>`) and the only value the media route
+/// accepts; `url` is its public same-origin form (`/media/<storageKey>`)
+/// and is what catalogue, avatar and settings columns store instead of a
+/// Base64 data URL. `mimeType` is derived from the file's magic bytes,
+/// never from the browser-declared type, so the serving Content-Type can
+/// never be attacker-chosen. Rows are append-only: nothing is cascaded or
+/// rewritten, so existing images and records are never removed.
+model MediaAsset {
+  id         String   @id @default(cuid())
+  publicId   String   @unique @default(uuid()) @db.VarChar(64)
+  storageKey String   @unique @db.VarChar(255)
+  url        String   @db.VarChar(500)
+  mimeType   String   @db.VarChar(100)
+  extension  String   @db.VarChar(16)
+  byteSize   Int
+  scope      String   @default("catalogue") @db.VarChar(32)
+  /// Plain reference (not a foreign key), matching StaffActionAudit.actorId:
+  /// audit history must survive account removal.
+  uploaderId String?  @db.VarChar(64)
+  createdAt  DateTime @default(now())
+
+  @@index([scope, createdAt])
+  @@index([uploaderId, createdAt])
+  @@map("media_assets")
 }
 
 model StaffActionAudit {
@@ -447,11 +476,54 @@ model Booking {
   items          BookingItem[]
   user           User?                @relation(fields: [userId], references: [id])
   payments       Payment[]
+  accessTokens   BookingAccessToken[]
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
   @@index([contactEmail])
   @@map("bookings")
+}
+
+/// P0 Fix 04 — guest booking access.
+///
+/// A booking reference is a human-facing reference, not a credential, so it
+/// never grants access by itself. Guests who check out without an account
+/// receive a separate opaque bearer token instead; this table is the
+/// server-side half of that credential.
+///
+/// `tokenHash` stores ONLY the SHA-256 hash of the token (same contract as
+/// `sessions` and `account_setup_tokens`): a database leak cannot be replayed
+/// against this endpoint. The raw token is returned to the guest exactly once
+/// (checkout response + confirmation email) and never leaves the server
+/// again. Tokens are bound to one booking reference, expire on a fixed TTL,
+/// and can be revoked without touching the booking record itself.
+model BookingAccessToken {
+  id         String    @id @default(cuid())
+  publicId   String    @unique @default(uuid()) @db.VarChar(64)
+  bookingRef String    @db.VarChar(16)
+  tokenHash  String    @unique @db.VarChar(64)
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  booking    Booking   @relation(fields: [bookingRef], references: [reference], onDelete: Cascade)
+
+  @@index([bookingRef])
+  @@index([expiresAt])
+  @@map("booking_access_tokens")
+}
+
+/// Abuse protection for the public guest-booking lookup. Only FAILED token
+/// lookups are recorded, so this table is a brute-force signal rather than a
+/// traffic counter. Per-IP because the token itself is the secret here —
+/// there is no account bucket to attach.
+model BookingAccessAttempt {
+  id        String   @id @default(cuid())
+  ipAddress String   @db.VarChar(64)
+  createdAt DateTime @default(now())
+
+  @@index([ipAddress, createdAt])
+  @@map("booking_access_attempts")
 }
 
 /// Booking-time commercial snapshot per cart line. `tourSlug` is the
@@ -592,6 +664,7 @@ model Tour {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   galleryCaptions String   @db.LongText
+  specialOffer    Offer?
 
   @@map("tours")
 }
@@ -877,6 +950,10 @@ model Offer {
   content       String   @db.LongText
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  tourSlug      String?  @unique @db.VarChar(80)
+  discountPercent Float?
+  startsAt      DateTime?
+  tour          Tour?    @relation(fields: [tourSlug], references: [slug], onDelete: Restrict, onUpdate: Cascade)
 
   @@map("offers")
 }
@@ -902,6 +979,15 @@ model Blog {
   updatedAt    DateTime @updatedAt
 
   @@map("blogs")
+}
+
+model CatalogueTranslation {
+  entityType String @db.VarChar(24)
+  slug       String @db.VarChar(80)
+  payload    String @db.LongText
+
+  @@id([entityType, slug])
+  @@map("catalogue_translations")
 }
 
 model Review {

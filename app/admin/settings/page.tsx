@@ -1,5 +1,6 @@
 'use client'
 
+import { ReviewIntegrationsSettings } from '@/components/admin/review-integrations'
 import { useCallback, useEffect, useState } from 'react'
 import { Building2, CheckCircle2, CircleDollarSign, Cloud, Globe2, KeyRound, LogIn, Mail, MapPinned, Palette, PlugZap, Plus, QrCode, Share2, ShieldCheck } from 'lucide-react'
 import { WhatsAppGlyph } from '@/components/whatsapp-chat'
@@ -17,6 +18,7 @@ import { countryFromPhone } from '@/data/countries'
 import { toInternational } from '@/lib/phone'
 import { ENABLED_LOCALES, LOCALE_LABELS, type EnabledLocale } from '@/lib/locale-config'
 import { useCurrentUser } from '@/lib/use-current-user'
+import { refreshStorefrontSettings } from '@/lib/storefront-settings'
 
 const TIMEZONES = [
   'Africa/Cairo', 'Africa/Tunis', 'Africa/Algiers', 'Africa/Casablanca',
@@ -33,7 +35,8 @@ type SettingsSnapshot = {
 }
 
 const FALLBACK_SEO_TITLE = 'STAR PYRAMIDS | Discover Egypt'
-const FALLBACK_PROMO = 'Book any package tour and enjoy a FREE tour experience.'
+const FALLBACK_PROMO = 'Add two nights to any multi-day package and save 15%, with a special upgrade included.'
+const FALLBACK_PROMO2 = 'Limited special offers on family escapes and Nile & Red Sea combinations.'
 
 function val(snapshot: SettingsSnapshot | null, key: string, fallback = ''): string {
   const stored = snapshot?.values[key]
@@ -315,9 +318,9 @@ function GeneralTab({ snapshot, canWrite, onSaved }: TabShell) {
     <div className="sp-form">
       <label><AdminText en="Company name" ar="اسم الشركة" /><input value={t.form.companyName} onChange={(e) => t.setForm((f) => ({ ...f, companyName: e.target.value }))} disabled={!canWrite || t.saving} /></label>
       <p className="sp-group-title"><AdminText en="Logo" ar="الشعار" /></p>
-      <ImageField value={t.form.logo} onChange={(logo) => t.setForm((f) => ({ ...f, logo }))} />
+      <ImageField value={t.form.logo} onChange={(logo) => t.setForm((f) => ({ ...f, logo }))} scope="brand" disabled={!canWrite || t.saving} />
       <p className="sp-group-title"><AdminText en="Favicon" ar="أيقونة الموقع" /></p>
-      <ImageField value={t.form.favicon} onChange={(favicon) => t.setForm((f) => ({ ...f, favicon }))} />
+      <ImageField value={t.form.favicon} onChange={(favicon) => t.setForm((f) => ({ ...f, favicon }))} scope="brand" disabled={!canWrite || t.saving} />
       <p className="sp-group-title"><AdminText en="Footer tagline (under the logo)" ar="سطر الفوتر (تحت الشعار)" /></p>
       <label><AdminText en="About (EN)" ar="الوصف (EN)" /><input value={t.form.aboutEn} onChange={(e) => t.setForm((f) => ({ ...f, aboutEn: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
       <label><AdminText en="About (AR)" ar="الوصف (AR)" /><input value={t.form.aboutAr} onChange={(e) => t.setForm((f) => ({ ...f, aboutAr: e.target.value }))} disabled={!canWrite || t.saving} /></label>
@@ -371,8 +374,8 @@ function ContactTab({ snapshot, canWrite, onSaved }: TabShell) {
 
   return <div className="sp-form">
     <div className="sp-form-2">
-      <label><AdminText en="Phone number" ar="رقم الهاتف" /><InternationalPhoneInput value={t.form.phone} onChange={(phone) => t.setForm((f) => ({ ...f, phone }))} locale={ar ? 'ar' : 'en'} required /></label>
-      <label><AdminText en="WhatsApp number" ar="رقم واتساب" /><InternationalPhoneInput value={t.form.whatsapp} onChange={(whatsapp) => t.setForm((f) => ({ ...f, whatsapp }))} locale={ar ? 'ar' : 'en'} required /></label>
+      <label><AdminText en="Phone number" ar="رقم الهاتف" /><InternationalPhoneInput value={t.form.phone} onChange={(phone) => t.setForm((f) => ({ ...f, phone }))} locale={ar ? 'ar' : 'en'} required disabled={!canWrite || t.saving} /></label>
+      <label><AdminText en="WhatsApp number" ar="رقم واتساب" /><InternationalPhoneInput value={t.form.whatsapp} onChange={(whatsapp) => t.setForm((f) => ({ ...f, whatsapp }))} locale={ar ? 'ar' : 'en'} required disabled={!canWrite || t.saving} /></label>
     </div>
     <label><AdminText en="Public email" ar="البريد الإلكتروني العام" /><input type="email" value={t.form.email} onChange={(e) => t.setForm((f) => ({ ...f, email: e.target.value }))} dir="ltr" required disabled={!canWrite || t.saving} /></label>
     <label><AdminText en="Company address" ar="عنوان الشركة" /><input value={t.form.address} onChange={(e) => t.setForm((f) => ({ ...f, address: e.target.value }))} required disabled={!canWrite || t.saving} /></label>
@@ -476,6 +479,7 @@ function WebsiteTab({ snapshot, canWrite, onSaved }: TabShell) {
   const t = useTabState(snapshot, (snap) => ({
     seoTitle: val(snap, 'site.seoTitle', FALLBACK_SEO_TITLE),
     promoText: val(snap, 'site.promoText', FALLBACK_PROMO),
+    promo2Text: val(snap, 'site.promo2Text', FALLBACK_PROMO2),
   }))
 
   const save = async () => {
@@ -486,6 +490,7 @@ function WebsiteTab({ snapshot, canWrite, onSaved }: TabShell) {
       const next = await patchSettings({
         'site.seoTitle': t.form.seoTitle.trim() || FALLBACK_SEO_TITLE,
         'site.promoText': t.form.promoText.trim() || FALLBACK_PROMO,
+        'site.promo2Text': t.form.promo2Text.trim() || FALLBACK_PROMO2,
       })
       onSaved(next)
       t.setSaved(ar ? 'تم الحفظ بنجاح.' : 'Saved successfully.')
@@ -500,6 +505,7 @@ function WebsiteTab({ snapshot, canWrite, onSaved }: TabShell) {
     <div className="sp-form">
       <label><AdminText en="SEO title" ar="عنوان SEO" /><input value={t.form.seoTitle} onChange={(e) => t.setForm((f) => ({ ...f, seoTitle: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
       <label><AdminText en="Promo bar text" ar="نص الشريط الترويجي" /><textarea rows={2} value={t.form.promoText} onChange={(e) => t.setForm((f) => ({ ...f, promoText: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
+      <label><AdminText en="Promo bar text (second announcement)" ar="نص الشريط الترويجي (الإعلان الثاني)" /><textarea rows={2} value={t.form.promo2Text} onChange={(e) => t.setForm((f) => ({ ...f, promo2Text: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
       {!canWrite && <ReadOnlyNote />}
       <div><button type="button" className="sp-btn dark" onClick={save} disabled={!canWrite || t.saving}>{t.saving ? <AdminText en="Saving…" ar="جارٍ الحفظ…" /> : <AdminText en="Save" ar="حفظ" />}</button></div>
       <SaveFeedback saved={t.saved} error={t.error} />
@@ -622,6 +628,7 @@ const tabs = [
   { id: 'google-maps', icon: MapPinned, en: 'Google Maps', ar: 'خرائط جوجل', sub: 'Maps, places and location services', subAr: 'الخرائط والأماكن وخدمات المواقع' },
   { id: 'google-auth', icon: GoogleIcon, en: 'Google Login', ar: 'تسجيل الدخول بجوجل', sub: 'Customer account authentication', subAr: 'مصادقة حسابات العملاء' },
   { id: 'facebook-auth', icon: FacebookIcon, en: 'Facebook Login', ar: 'تسجيل الدخول بفيسبوك', sub: 'Customer account authentication', subAr: 'مصادقة حسابات العملاء' },
+  { id: 'reviews', icon: PlugZap, en: 'Review Integrations', ar: 'ربط التقييمات', sub: 'Review providers and connection status', subAr: 'مصادر التقييمات وحالة الاتصال' },
 ] as const
 
 function IntegrationStatus({ label }: { label?: React.ReactNode }) {
@@ -897,7 +904,13 @@ export default function SettingsPage() {
   }, [load])
 
   const activeTab = tabs.find((t) => t.id === tab)
-  const shell: TabShell = { snapshot, canWrite, onSaved: setSnapshot }
+  const handleSaved = useCallback((next: SettingsSnapshot) => {
+    setSnapshot(next)
+    // Same-tab storefront consumers (header promo, footer, prices) pick up
+    // the new DB values without a full reload.
+    refreshStorefrontSettings()
+  }, [])
+  const shell: TabShell = { snapshot, canWrite, onSaved: handleSaved }
 
   return (
     <>
@@ -924,6 +937,7 @@ export default function SettingsPage() {
           )}
           {!loading && !loadError && (
             <>
+              {tab === 'reviews' && <ReviewIntegrationsSettings canWrite={canWrite} />}
               {tab === 'whatsapp' && <WhatsAppTab {...shell} />}
               {tab === 'google-maps' && <MapsTab {...shell} />}
               {tab === 'google-auth' && <OAuthTab provider="google" {...shell} />}

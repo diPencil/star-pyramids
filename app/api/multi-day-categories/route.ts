@@ -1,3 +1,5 @@
+import { catalogueTranslationResponse, saveWithCatalogueTranslations } from '@/lib/server/catalogue-translations';
+import { validateCatalogueTranslations } from '@/lib/catalogue-translations';
 import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
@@ -10,7 +12,7 @@ export async function GET() {
   const categories = await db.multiDayCategory.findMany({
     orderBy: [{ order: 'asc' }, { name: 'asc' }],
   });
-  return NextResponse.json({ categories });
+  return NextResponse.json(await catalogueTranslationResponse('category', { categories }));
 }
 
 export async function POST(request: Request) {
@@ -29,6 +31,10 @@ export async function POST(request: Request) {
   }
 
   const data = await request.json();
+  if (data?.translations !== undefined) {
+    try { validateCatalogueTranslations('category', data.translations); }
+    catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'Invalid translations.' }, { status: 400 }); }
+  }
 
   const slug = typeof data.slug === 'string' ? data.slug.trim().toLowerCase() : '';
   if (!SLUG_PATTERN.test(slug) || slug.length > 80) {
@@ -43,7 +49,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Slug must be unique.' }, { status: 409 });
   }
 
-  const category = await db.multiDayCategory.create({
+  const category = await saveWithCatalogueTranslations('category', data.translations, undefined, (tx) => tx.multiDayCategory.create({
     data: {
       slug,
       name: data.name.trim().slice(0, 120),
@@ -54,7 +60,7 @@ export async function POST(request: Request) {
       order: Number.isFinite(Number(data.order)) ? Number(data.order) : 999,
       active: data.active !== false,
     },
-  });
+  }));
 
-  return NextResponse.json({ category }, { status: 201 });
+  return NextResponse.json(await catalogueTranslationResponse('category', { category }), { status: 201 });
 }

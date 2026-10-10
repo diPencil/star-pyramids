@@ -1,3 +1,5 @@
+import { catalogueTranslationResponse, saveWithCatalogueTranslations, deleteWithCatalogueTranslations } from '@/lib/server/catalogue-translations';
+import { validateCatalogueTranslations } from '@/lib/catalogue-translations';
 import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
@@ -23,7 +25,7 @@ export async function GET(
     return NextResponse.json({ notFound: true }, { status: 404 });
   }
 
-  return NextResponse.json({ blog: { ...blog, content: readJsonObject(blog.content) } });
+  return NextResponse.json(await catalogueTranslationResponse('blog', { blog: { ...blog, content: readJsonObject(blog.content) } }));
 }
 
 export async function PUT(
@@ -45,6 +47,10 @@ export async function PUT(
   }
 
   const data = await request.json();
+  if (data?.translations !== undefined) {
+    try { validateCatalogueTranslations('blog', data.translations); }
+    catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'Invalid translations.' }, { status: 400 }); }
+  }
   const { slug: paramSlug } = await params;
 
   const existing = await db.blog.findUnique({ where: { slug: paramSlug } });
@@ -72,7 +78,7 @@ export async function PUT(
         : { ...existingContent, editorial: data.editorial }
       : (data.content ?? {});
 
-  const blog = await db.blog.update({
+  const blog = await saveWithCatalogueTranslations('blog', data.translations, existing.slug, (tx) => tx.blog.update({
     where: { slug: paramSlug },
     data: {
       slug: data.slug ? String(data.slug).trim().toLowerCase() || existing.slug : existing.slug,
@@ -85,9 +91,9 @@ export async function PUT(
       displayOrder: data.displayOrder === undefined || data.displayOrder === '' ? existing.displayOrder : (Number.isFinite(Number(data.displayOrder)) ? Number(data.displayOrder) : existing.displayOrder),
       content: writeJsonText(nextContent),
     },
-  });
+  }));
 
-  return NextResponse.json({ blog: { ...blog, content: readJsonObject(blog.content) } });
+  return NextResponse.json(await catalogueTranslationResponse('blog', { blog: { ...blog, content: readJsonObject(blog.content) } }));
 }
 
 export async function DELETE(
@@ -115,7 +121,7 @@ export async function DELETE(
     return NextResponse.json({ error: 'Story not found.' }, { status: 404 });
   }
 
-  await db.blog.delete({ where: { slug: paramSlug } });
+  await deleteWithCatalogueTranslations('blog', paramSlug, (tx) => tx.blog.delete({ where: { slug: paramSlug } }));
 
   return NextResponse.json({ deleted: true });
 }

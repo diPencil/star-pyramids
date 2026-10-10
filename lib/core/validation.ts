@@ -10,7 +10,7 @@ const EMAIL_PATTERN = /^[^\s@]{1,120}@[^\s@]{1,120}\.[^\s@]{2,24}$/;
 const CURRENCY_PATTERN = /^[A-Z]{3}$/;
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const YMD_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
-const USERNAME_PATTERN = /^[A-Za-z0-9_]{3,24}$/;
+const USERNAME_PATTERN = /^[A-Za-z0-9_.-]{3,32}$/;
 const COUNTRY_CODE_PATTERN = /^[A-Z]{2}$/;
 /**
  * Canonical phone contract (shared by every server endpoint that accepts

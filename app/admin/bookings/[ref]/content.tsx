@@ -137,6 +137,7 @@ export function BookingDetailContent({ reference }: { reference: string }) {
               )}
               <div><dt><AdminText en="Guests" ar="الضيوف" /></dt><dd><Users size={14} />{guests}</dd></div>
               <div><dt><AdminText en="Subtotal" ar="المجموع الفرعي" /></dt><dd>${item.subtotal.toLocaleString('en-US')}</dd></div>
+              {item.discount > 0 && <div><dt><AdminText en="Deal savings" ar="توفير العروض" /></dt><dd>−${item.discount.toLocaleString('en-US')}</dd></div>}
               <div><dt><AdminText en="Total" ar="الإجمالي" /></dt><dd><strong>${item.total.toLocaleString('en-US')} USD</strong></dd></div>
               <div><dt><AdminText en="Submitted" ar="أُرسل" /></dt><dd>{fmtDateTime(item.createdAt)}</dd></div>
               <div><dt><AdminText en="Last updated" ar="آخر تحديث" /></dt><dd>{fmtDateTime(item.updatedAt)}</dd></div>

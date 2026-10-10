@@ -1,3 +1,5 @@
+import { catalogueTranslationResponse, saveWithCatalogueTranslations } from '@/lib/server/catalogue-translations';
+import { validateCatalogueTranslations } from '@/lib/catalogue-translations';
 import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
@@ -15,7 +17,7 @@ export async function GET() {
   const events = await db.event.findMany({
     orderBy: [{ displayOrder: 'asc' }, { title: 'asc' }],
   });
-  return NextResponse.json({ events });
+  return NextResponse.json(await catalogueTranslationResponse('event', { events }));
 }
 
 export async function POST(request: Request) {
@@ -34,6 +36,10 @@ export async function POST(request: Request) {
   }
 
   const data = await request.json();
+  if (data?.translations !== undefined) {
+    try { validateCatalogueTranslations('event', data.translations); }
+    catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'Invalid translations.' }, { status: 400 }); }
+  }
 
   const slug = typeof data.slug === 'string' ? data.slug.trim().toLowerCase() : '';
   if (!SLUG_PATTERN.test(slug) || slug.length > 80) {
@@ -57,7 +63,7 @@ export async function POST(request: Request) {
   const price = data.price === undefined || data.price === null || data.price === '' ? null : Number(data.price);
   const capacity = data.capacity === undefined || data.capacity === null || data.capacity === '' ? null : Number(data.capacity);
 
-  const event = await db.event.create({
+  const event = await saveWithCatalogueTranslations('event', data.translations, undefined, (tx) => tx.event.create({
     data: {
       slug,
       title: data.title.trim().slice(0, 200),
@@ -99,7 +105,7 @@ export async function POST(request: Request) {
       displayOrder: Number.isFinite(Number(data.displayOrder)) ? Number(data.displayOrder) : 999,
       content: data.content ?? {},
     },
-  });
+  }));
 
-  return NextResponse.json({ event }, { status: 201 });
+  return NextResponse.json(await catalogueTranslationResponse('event', { event }), { status: 201 });
 }

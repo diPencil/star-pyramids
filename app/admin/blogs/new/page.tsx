@@ -1,6 +1,8 @@
 'use client'
 
 import { Suspense, useEffect, useState } from 'react'
+import { ContentLanguageTabs, TranslatedInput, TranslatedTextarea } from '@/components/admin/content-language-tabs'
+import { type CatalogueTranslations } from '@/lib/catalogue-translations'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Card } from '@/components/admin/admin-ui'
@@ -21,11 +23,12 @@ function BlogForm({ initial, editSlug }: { initial: Blog | null; editSlug: strin
   const editing = Boolean(editSlug)
   const missing = editing && initial === null
 
+  const [translations, setTranslations] = useState<CatalogueTranslations>(initial?.translations ?? {})
   const [title, setTitle] = useState(initial?.title ?? '')
   const [slug, setSlug] = useState(initial?.slug ?? '')
   const [slugTouched, setSlugTouched] = useState(Boolean(initial))
-  const [category, setCategory] = useState(initial?.category ?? 'Travel Guide')
-  const [date, setDate] = useState(initial?.date ?? 'September 2026')
+  const [category, setCategory] = useState(initial?.category ?? '')
+  const [date, setDate] = useState(initial?.date ?? '')
   const [image, setImage] = useState(initial?.image ?? '')
   const [excerpt, setExcerpt] = useState(initial?.excerpt ?? '')
   const [published, setPublished] = useState(initial?.isPublished !== false)
@@ -61,6 +64,7 @@ function BlogForm({ initial, editSlug }: { initial: Blog | null; editSlug: strin
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...(editing ? {} : { slug: finalSlug }),
+          translations,
           title: title.trim(),
           image: image.trim(),
           category: category.trim(),
@@ -105,17 +109,18 @@ function BlogForm({ initial, editSlug }: { initial: Blog | null; editSlug: strin
       actions={<button type="button" className="sp-btn dark" onClick={save} disabled={saving}><AdminText en={editing ? 'Save changes' : 'Publish story'} ar={editing ? 'حفظ التعديلات' : 'نشر المقال'} /></button>}
     />
     <Card title={<AdminText en="Story details" ar="بيانات المقال" />}>
+<ContentLanguageTabs translations={translations} setTranslations={setTranslations}>
       <div className="sp-form">
         <div className="sp-form-2">
-          <label><AdminText en="Title" ar="العنوان" /><input value={title} onChange={(e) => { setTitle(e.target.value); if (!slugTouched && !editing) setSlug(slugify(e.target.value)) }} /></label>
-          <label><AdminText en="Category" ar="التصنيف" /><input value={category} onChange={(e) => setCategory(e.target.value)} /></label>
+          <label><AdminText en="Title" ar="العنوان" /><TranslatedInput field="title" value={title} onChange={(e) => { setTitle(e.target.value); if (!slugTouched && !editing) setSlug(slugify(e.target.value)) }} /></label>
+          <label><AdminText en="Category" ar="التصنيف" /><TranslatedInput field="category" value={category} onChange={(e) => setCategory(e.target.value)} placeholder={ar ? 'مثال: دليل السفر' : 'e.g. Travel Guide'} /></label>
         </div>
         <div className="sp-form-2">
           <label><AdminText en="Slug" ar="المعرف" /><input value={editing ? editSlug : (slugTouched ? slug : slugify(title))} disabled={editing} dir="ltr" onChange={(e) => { setSlugTouched(true); setSlug(cleanSlugInput(e.target.value)) }} placeholder="custom-..." />{!editing && <small><AdminText en="Lowercase letters, numbers, dashes. Must be unique." ar="أحرف صغيرة وأرقام وشرطات. يجب أن يكون فريدًا." /></small>}{editing && <small><AdminText en="Slug identity stays stable when editing." ar="يبقى المعرف ثابتًا عند التعديل." /></small>}</label>
-          <label><AdminText en="Date" ar="التاريخ" /><input value={date} onChange={(e) => setDate(e.target.value)} /></label>
+          <label><AdminText en="Date" ar="التاريخ" /><input value={date} onChange={(e) => setDate(e.target.value)} placeholder={ar ? 'مثال: مارس 2026' : 'e.g. March 2026'} /></label>
         </div>
         <ImageField value={image} onChange={setImage} />
-        <label><AdminText en="Excerpt" ar="المقتطف" /><textarea rows={3} value={excerpt} onChange={(e) => setExcerpt(e.target.value)} /></label>
+        <label><AdminText en="Excerpt" ar="المقتطف" /><TranslatedTextarea field="excerpt" rows={3} value={excerpt} onChange={(e) => setExcerpt(e.target.value)} /></label>
         <div className="sp-form-2">
           <label className="sp-check"><input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} /> <AdminText en="Published (visible on website)" ar="منشور (ظاهر على الموقع)" /></label>
           <label><AdminText en="Display order" ar="ترتيب العرض" /><input type="number" step="1" value={displayOrder} onChange={(e) => setDisplayOrder(e.target.value)} placeholder="1" /></label>
@@ -125,13 +130,15 @@ function BlogForm({ initial, editSlug }: { initial: Blog | null; editSlug: strin
       <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
         <button type="button" className="sp-btn primary" onClick={save} disabled={saving}><AdminText en={editing ? 'Save changes' : 'Publish story'} ar={editing ? 'حفظ التعديلات' : 'نشر المقال'} /></button>
       </div>
-    </Card>
+    </ContentLanguageTabs>
+</Card>
   </>
 }
 
 function normalizeBlogRow(row: Record<string, unknown>): Blog {
   const content = (row.content ?? {}) as Record<string, unknown>
   return {
+    translations: row.translations as CatalogueTranslations | undefined,
     title: String(row.title ?? ''),
     slug: String(row.slug ?? ''),
     image: String(row.image ?? ''),

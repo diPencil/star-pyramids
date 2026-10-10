@@ -177,3 +177,33 @@ export async function mutateCustomerStatus(publicId: string, status: 'ACTIVE' | 
   }
   return payload.customer;
 }
+
+/** Fields a CRM edit may write. Anything else is rejected server side. */
+export type CustomerProfilePatchInput = {
+  firstName?: string;
+  lastName?: string;
+  username?: string;
+  countryCode?: string;
+  phone?: string;
+  avatar?: string;
+};
+
+export async function mutateCustomerProfile(
+  publicId: string,
+  patch: CustomerProfilePatchInput,
+): Promise<DirectoryCustomer> {
+  const res = await fetch(`/api/admin/customers/${encodeURIComponent(publicId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+    credentials: 'same-origin',
+  });
+  const payload = (await res.json().catch(() => null)) as {
+    customer?: DirectoryCustomer;
+    error?: string;
+  } | null;
+  if (!res.ok || !payload?.customer) {
+    throw new Error(payload?.error || 'Could not save the customer.');
+  }
+  return payload.customer;
+}

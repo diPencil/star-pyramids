@@ -2,6 +2,8 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
+import { ContentLanguageTabs, TranslatedInput, TranslatedTextarea } from '@/components/admin/content-language-tabs'
+import { type CatalogueTranslations } from '@/lib/catalogue-translations'
 import { useRouter } from 'next/navigation'
 import { ExternalLink, Plus, Trash2 } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
@@ -22,7 +24,7 @@ export default function CategoryEditorPage() {
   // renders loading/error here, never bootstrap rows as editor records.
   const { data: categoryData, loading: catalogueLoading, error: catalogueError, retry: retryCatalogue } = useDbCategoriesStatus()
   const liveCategories = categoryData ?? []
-  const liveTours = useDbTours(multiBase)
+  const liveTours = useDbTours(multiBase, { includeNew: true })
   // Stable record identity: the init effect below re-runs only when the
   // edited record itself (not list identities) changes.
   const editing = useMemo(
@@ -30,6 +32,7 @@ export default function CategoryEditorPage() {
     [liveCategories, editSlug],
   )
 
+  const [translations, setTranslations] = useState<CatalogueTranslations>({})
   const [name, setName] = useState('')
   const [nameAr, setNameAr] = useState('')
   const [slug, setSlug] = useState('')
@@ -37,7 +40,7 @@ export default function CategoryEditorPage() {
   const [copyAr, setCopyAr] = useState('')
   const [image, setImage] = useState('')
   const [published, setPublished] = useState(true)
-  const [order, setOrder] = useState('99')
+  const [order, setOrder] = useState('')
   const [linkedSlugs, setLinkedSlugs] = useState<string[]>([])
   const [initialSlugs, setInitialSlugs] = useState<string[]>([])
   const [tourQuery, setTourQuery] = useState('')
@@ -53,6 +56,7 @@ export default function CategoryEditorPage() {
     if (catalogueLoading) return
     if (editSlug && liveCategories.length && !editing) { setReady(true); return }
     if (editing) {
+      setTranslations(editing.translations ?? {})
       setName(editing.name)
       setNameAr(editing.nameAr)
       setSlug(editing.slug)
@@ -82,11 +86,12 @@ export default function CategoryEditorPage() {
 
   const save = async () => {
     setError('')
-    if (!name.trim() || !nameAr.trim()) { setError(ar ? 'اكتب اسم الفئة بالإنجليزية والعربية.' : 'Enter the category name in English and Arabic.'); return }
+    if (!name.trim()) { setError(ar ? 'اكتب اسم الفئة بالإنجليزية.' : 'Enter the category name in English.'); return }
     const finalSlug = editSlug || dbSlugify(slug.trim() ? `${slug}` : name)
     if (!/^[a-z0-9-]{1,80}$/.test(finalSlug)) { setError(ar ? 'الرابط غير صالح. استخدم حروفا إنجليزية صغيرة وأرقاما وشرطات.' : 'Invalid slug. Use lowercase letters, numbers, and hyphens.'); return }
     const parsedOrder = Number(order)
     const body = {
+      translations,
       slug: finalSlug,
       name: name.trim(),
       nameAr: nameAr.trim(),
@@ -163,20 +168,24 @@ export default function CategoryEditorPage() {
       <Card title={<AdminText en="Category not found" ar="الفئة غير موجودة" />}><p style={{ color: 'var(--sp-muted)' }}><AdminText en="The requested category does not exist." ar="الفئة المطلوبة غير موجودة." /></p></Card>
     ) : <>
       <Card title={<AdminText en="Basic information" ar="البيانات الأساسية" />}>
+<ContentLanguageTabs translations={translations} setTranslations={setTranslations}>
         <div className="sp-form">
-          <div className="sp-form-2">
-            <label><AdminText en="Name (EN)" ar="الاسم (EN)" /><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Honeymoon" /></label>
-            <label><AdminText en="Name (AR)" ar="الاسم (AR)" /><input value={nameAr} onChange={(e) => setNameAr(e.target.value)} placeholder="شهر العسل" /></label>
+          <div className="sp-form">
+            <label><AdminText en="Name " ar="الاسم " /><TranslatedInput field="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Honeymoon" /></label>
+
           </div>
           <label><AdminText en="Slug" ar="الرابط" /><input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="honeymoon" dir="ltr" readOnly={Boolean(editSlug)} /></label>
         </div>
-      </Card>
+      </ContentLanguageTabs>
+</Card>
       <Card title={<AdminText en="Content" ar="المحتوى" />}>
+<ContentLanguageTabs translations={translations} setTranslations={setTranslations}>
         <div className="sp-form">
-          <label><AdminText en="Short description (EN)" ar="وصف قصير (EN)" /><textarea rows={3} value={copy} onChange={(e) => setCopy(e.target.value)} /></label>
-          <label><AdminText en="Short description (AR)" ar="وصف قصير (AR)" /><textarea rows={3} value={copyAr} onChange={(e) => setCopyAr(e.target.value)} /></label>
+          <label><AdminText en="Short description " ar="وصف قصير " /><TranslatedTextarea field="copy" rows={3} value={copy} onChange={(e) => setCopy(e.target.value)} /></label>
+
         </div>
-      </Card>
+      </ContentLanguageTabs>
+</Card>
       <Card title={<AdminText en="Media" ar="الوسائط" />} sub={<AdminText en="Cover image" ar="صورة الغلاف" />}>
         <ImageField value={image} onChange={setImage} />
       </Card>
@@ -184,7 +193,7 @@ export default function CategoryEditorPage() {
         <div className="sp-form">
           <div className="sp-form-2">
             <label className="sp-check-row"><input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} /><span><AdminText en="Published" ar="منشور" /><small><AdminText en="Hidden categories disappear from the website" ar="الفئات المخفية تختفي من الموقع" /></small></span></label>
-            <label><AdminText en="Display order" ar="ترتيب العرض" /><input type="number" value={order} onChange={(e) => setOrder(e.target.value)} dir="ltr" /></label>
+            <label><AdminText en="Display order" ar="ترتيب العرض" /><input type="number" value={order} onChange={(e) => setOrder(e.target.value)} dir="ltr" placeholder={ar ? 'مثال: 10' : 'e.g. 10'} /></label>
           </div>
         </div>
       </Card>

@@ -24,7 +24,9 @@ export function EventRequestForm({ event }: { event: Event }) {
   const [phoneCountry, setPhoneCountry] = useState(defaultCountry.code)
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
-  const [attendees, setAttendees] = useState(2)
+  // Attendees is a bounded stepper (1-50). It starts at the minimum valid
+// value rather than an assumed party size; the user chooses their own count.
+const [attendees, setAttendees] = useState(1)
   const [note, setNote] = useState('')
   const [errors, setErrors] = useState<string | null>(null)
   const [ref, setRef] = useState<string | null>(null)

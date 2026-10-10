@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminText, Avatar, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
@@ -8,106 +8,118 @@ import { ImageField } from '@/components/admin/image-field'
 import { CountrySelect } from '@/components/country-select'
 import { CountryFlag } from '@/components/country-flag'
 import { countries, defaultCountry } from '@/data/countries'
-import { bookings } from '@/components/admin/admin-data'
-import { saveCustomItem, saveCustomerProfile, useCustomerProfile, useLiveCollection, type AdminCustomer } from '@/lib/admin-store'
+import { mutateCustomerProfile, useDbCustomerDetail } from '@/lib/admin-customers-client'
 
-const NO_BASE: AdminCustomer[] = []
-
-export function generateStaticParams() {
-  return bookings.map((booking) => ({ key: booking.customer }))
-}
-
+/**
+ * CRM editor backed entirely by the database.
+ *
+ * Loads the real customer record through /api/admin/customers/[publicId] and
+ * saves through PATCH. There is no localStorage record, no mock booking
+ * directory, and no way to change a password, role, or account status from
+ * here - those live under the account and Users & Roles flows.
+ */
 export function EditCustomerContent({ customerKey }: { customerKey: string }) {
   const ar = useAdminLocale() === 'ar'
-  const key = decodeURIComponent(customerKey)
-  const customCustomers = useLiveCollection('customers', NO_BASE)
-  const isCustom = key.startsWith('custom-')
-  const original = isCustom ? customCustomers.find((c) => c.slug === key) : undefined
-  const bookingName = !isCustom && bookings.some((b) => b.customer === key) ? key : null
-  const storedPatch = useCustomerProfile(bookingName ?? '')
+  const publicId = decodeURIComponent(customerKey)
+  const { data: customer, canManage, loading, error, retry, refresh } = useDbCustomerDetail(publicId)
 
-  const originalNameParts = (original?.name ?? '').trim().split(/\s+/).filter(Boolean)
-  const [firstName, setFirstName] = useState(original?.firstName ?? originalNameParts[0] ?? '')
-  const [lastName, setLastName] = useState(original?.lastName ?? originalNameParts.slice(1).join(' '))
-  const [username, setUsername] = useState(original?.username ?? '')
-  const [email, setEmail] = useState(original?.email ?? storedPatch.email ?? '')
-  const [countryCode, setCountryCode] = useState(countries.find((c) => c.name === (original?.country ?? storedPatch.country))?.code ?? defaultCountry.code)
-  const [phone, setPhone] = useState(original?.phone.replace(/^\+\d+\s*/, '') ?? storedPatch.phone ?? '')
-  const [avatar, setAvatar] = useState(original?.avatar ?? storedPatch.avatar ?? '')
-  const [notes, setNotes] = useState(storedPatch.notes ?? '')
-  const [error, setError] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [username, setUsername] = useState('')
+  const [countryCode, setCountryCode] = useState(defaultCountry.code)
+  const [phone, setPhone] = useState('')
+  const [avatar, setAvatar] = useState('')
+  const [errorMessage, setErrorMessage] = useState('')
   const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const pending = useRef(false)
+  const hydrated = useRef(false)
 
-  if (!original && !bookingName) {
+  // Hydrate the form once the real record arrives. Never from mock data.
+  useEffect(() => {
+    if (!customer || hydrated.current) return
+    hydrated.current = true
+    setFirstName(customer.firstName ?? '')
+    setLastName(customer.lastName ?? '')
+    setUsername(customer.username ?? '')
+    setCountryCode(customer.countryCode ?? defaultCountry.code)
+    setPhone(customer.phone ?? '')
+  }, [customer])
+
+  if (loading) {
     return <>
       <PageHead eyebrow="CRM" title="Edit customer" titleAr="تعديل العميل" backHref="/admin/customers" />
-      <AdminEmpty title={<AdminText en="Customer not found" ar="العميل غير موجود" />} />
+      <AdminEmpty title={<AdminText en="Loading customer…" ar="جارٍ تحميل العميل…" />} copy={<AdminText en="Reading the customer record." ar="تتم قراءة سجل العميل." />} />
     </>
   }
 
-  const displayName = original?.name ?? bookingName ?? ''
-  const country = countries.find((c) => c.code === countryCode) ?? defaultCountry
+  if (error || !customer) {
+    return <>
+      <PageHead eyebrow="CRM" title="Edit customer" titleAr="تعديل العميل" backHref="/admin/customers" />
+      <AdminEmpty title={<AdminText en={error ? 'Could not load customer' : 'Customer not found'} ar={error ? 'تعذر تحميل العميل' : 'العميل غير موجود'} />} copy={error ? <AdminText en={error} ar={error} /> : undefined} />
+      {error ? <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}><button type="button" className="sp-btn" onClick={retry}><AdminText en="Retry" ar="إعادة المحاولة" /></button></div> : null}
+    </>
+  }
 
-  const save = () => {
-    if (original && (!firstName.trim() || !lastName.trim() || !email.trim())) {
-      setError(ar ? 'الاسم والبريد حقول إلزامية.' : 'Name and email are required.')
+  const country = countries.find((c) => c.code === countryCode) ?? defaultCountry
+  const displayName = customer.displayName
+
+  const save = async () => {
+    if (pending.current) return
+    if (!firstName.trim() || !lastName.trim()) {
+      setErrorMessage(ar ? 'الاسم الأول واسم العائلة حقول إلزامية.' : 'First and last name are required.')
       return
     }
-    if (original) {
-      const item: AdminCustomer = {
-        ...original,
+    setErrorMessage('')
+    setSaved(false)
+    pending.current = true
+    setSaving(true)
+    try {
+      await mutateCustomerProfile(publicId, {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        name: `${firstName.trim()} ${lastName.trim()}`,
-        username: username.trim() || original.username,
-        email: email.trim(),
-        country: country.name,
-        dialCode: country.dialCode,
-        phone: phone.trim() ? `${country.dialCode} ${phone.trim()}` : original.phone,
-        avatar: avatar.trim() || undefined,
-      }
-      saveCustomItem('customers', item)
-    } else if (bookingName) {
-      saveCustomerProfile(bookingName, {
-        email: email.trim() || undefined,
-        phone: phone.trim() ? `${country.dialCode} ${phone.trim()}` : undefined,
-        country: country.name,
-        avatar: avatar.trim() || undefined,
-        notes: notes.trim() || undefined,
+        username: username.trim(),
+        countryCode,
+        phone: phone.trim(),
+        avatar: avatar.trim(),
       })
+      setSaved(true)
+      refresh()
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : (ar ? 'تعذر حفظ التغييرات.' : 'Could not save the changes.'))
+    } finally {
+      pending.current = false
+      setSaving(false)
     }
-    setSaved(true)
   }
 
   return <>
-    <PageHead eyebrow="CRM" title="Edit customer" titleAr="تعديل العميل" sub={displayName} backHref={`/admin/customers/${encodeURIComponent(key)}`} actions={<>
-      <button type="button" className="sp-btn dark" onClick={save}><AdminText en="Save changes" ar="حفظ التغييرات" /></button>
+    <PageHead eyebrow="CRM" title="Edit customer" titleAr="تعديل العميل" sub={displayName} backHref={`/admin/customers/${encodeURIComponent(publicId)}`} actions={<>
+      <button type="button" className="sp-btn dark" onClick={save} disabled={saving || !canManage}>{saving ? <AdminText en="Saving..." ar="جارٍ الحفظ..." /> : <AdminText en="Save changes" ar="حفظ التغييرات" />}</button>
     </>} />
     <Card title={<AdminText en="Customer details" ar="بيانات العميل" />}>
       <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 16 }}>
         <Avatar name={displayName} src={avatar} size={56} />
-        <div><strong>{displayName}</strong><br /><small style={{ color: 'var(--sp-muted)' }}>{original ? original.username : (ar ? 'سجل دليل الحجوزات' : 'Booking directory record')}</small></div>
+        <div><strong>{displayName}</strong><br /><small style={{ color: 'var(--sp-muted)' }}>{customer.username || customer.email}</small></div>
       </div>
+      {!canManage && <p role="note" style={{ color: 'var(--sp-muted)', marginTop: 0 }}><AdminText en="Your role can view this customer but cannot save changes." ar="يمكن لدورك عرض هذا العميل，但不能 حفظ التغييرات." /></p>}
       <div className="sp-form">
-        {original && (
-          <div className="sp-form-2">
-            <label><AdminText en="First name" ar="الاسم الأول" /><input value={firstName} onChange={(e) => setFirstName(e.target.value)} /></label>
-            <label><AdminText en="Last name" ar="اسم العائلة" /><input value={lastName} onChange={(e) => setLastName(e.target.value)} /></label>
-          </div>
-        )}
-        {original && <label><AdminText en="Username" ar="اسم المستخدم" /><input value={username} onChange={(e) => setUsername(e.target.value)} dir="ltr" /></label>}
-        <label><AdminText en="Email address" ar="البريد الإلكتروني" /><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} dir="ltr" /></label>
+        <div className="sp-form-2">
+          <label><AdminText en="First name" ar="الاسم الأول" /><input value={firstName} onChange={(e) => setFirstName(e.target.value)} disabled={!canManage} /></label>
+          <label><AdminText en="Last name" ar="اسم العائلة" /><input value={lastName} onChange={(e) => setLastName(e.target.value)} disabled={!canManage} /></label>
+        </div>
+        <label><AdminText en="Username" ar="اسم المستخدم" /><input value={username} onChange={(e) => setUsername(e.target.value)} dir="ltr" disabled={!canManage} /></label>
+        <label><AdminText en="Email address" ar="البريد الإلكتروني" /><input type="email" value={customer.email} readOnly dir="ltr" aria-readonly="true" /><small style={{ color: 'var(--sp-muted)' }}><AdminText en="The customer changes their own email in account settings." ar="يغير العميل بريده الإلكتروني من إعدادات الحساب." /></small></label>
         <div className="sp-form-2">
           <label><AdminText en="Country" ar="الدولة" /><CountrySelect value={countryCode} onChange={setCountryCode} locale={ar ? 'ar' : 'en'} /></label>
-          <label><AdminText en="Mobile number" ar="رقم الموبايل" /><span className="sp-phone-field"><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><CountryFlag code={country.code} size={18} /> {country.dialCode}</span><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} dir="ltr" /></span></label>
+          <label><AdminText en="Mobile number" ar="رقم الموبايل" /><span className="sp-phone-field"><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><CountryFlag code={country.code} size={18} /> {country.dialCode}</span><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} dir="ltr" disabled={!canManage} /></span></label>
         </div>
         <ImageField value={avatar} onChange={setAvatar} />
-        {!original && <label><AdminText en="Staff notes" ar="ملاحظات الموظفين" /><textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={ar ? 'ملاحظات داخلية لا تظهر للعميل' : 'Internal notes, hidden from the customer'} /></label>}
       </div>
-      {error && <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>}
-      {saved && <p role="status" style={{ color: '#15803d' }}><AdminText en="Saved successfully." ar="تم الحفظ بنجاح." /></p>}
+      {errorMessage && <p role="alert" style={{ color: '#b91c1c' }}>{errorMessage}</p>}
+      {saved && !errorMessage && <p role="status" style={{ color: '#15803d' }}><AdminText en="Saved successfully." ar="تم الحفظ بنجاح." /></p>}
       <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-        <button type="button" className="sp-btn primary" onClick={save}><AdminText en="Save changes" ar="حفظ التغييرات" /></button>
+        <button type="button" className="sp-btn primary" onClick={save} disabled={saving || !canManage}>{saving ? <AdminText en="Saving..." ar="جارٍ الحفظ..." /> : <AdminText en="Save changes" ar="حفظ التغييرات" />}</button>
       </div>
     </Card>
   </>

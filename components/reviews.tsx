@@ -1,24 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Star, CheckCircle2 } from 'lucide-react'
-import type { TourReview } from '@/data/types'
 import { useLocale, tx } from '@/components/locale'
 import { cn } from '@/lib/utils'
-
-export type ReviewPlatform = 'google' | 'tripadvisor' | 'trustindex' | 'getyourguide' | 'direct'
-
-/** Legacy editorial reviews shown as "site reviews" (not customer submissions). */
-export type SiteReview = {
-  name: string
-  date: string
-  color: string
-  platform: ReviewPlatform
-  stars: number
-  text: string
-  tourSlugs?: readonly string[]
-}
 
 /** Customer review from the database (public API shape). */
 export type CustomerReview = {
@@ -41,41 +27,8 @@ export type ReviewInput = {
   rating: number
   title: string
   text: string
-  platform?: ReviewPlatform
+  platform?: string
 }
-
-/** Legacy review input for localStorage (homepage use only). */
-export type LegacyReviewInput = {
-  name: string
-  stars: number
-  text: string
-  platform: ReviewPlatform
-}
-
-const NILE_CRUISES = [
-  'luxury-nile-cruise',
-  'aswan-to-luxor-cruise',
-  'luxor-to-aswan-cruise',
-  'premium-dahabiya-experience',
-  'nile-discovery-cruise',
-  'classic-5-day-nile-journey',
-] as const
-
-/** Hardcoded editorial reviews — clearly labeled as "Editorial reviews" in the UI. */
-export const siteReviews: readonly SiteReview[] = [
-  { name: 'Irene Lotti', date: '12 September 2026', color: '#1d4ed8', platform: 'google', stars: 5, text: 'We booked several excursions through Star Pyramids Tours, and I must say they were unforgettable experiences. Everything was perfectly organized from start to finish.' },
-  { name: 'Todd D', date: '11 September 2026', color: '#f7951d', platform: 'tripadvisor', stars: 5, text: '5 days in Cairo. Ayman my host was incredibly knowledgeable and helpful. We had some wonderful in depth discussions about ancient Egypt.', tourSlugs: ['5-days-cairo-luxor'] },
-  { name: 'Pita Tipene', date: '10 September 2026', color: '#0d2250', platform: 'google', stars: 5, text: 'Our guide Osama was exceptional throughout our journey today and went over and beyond to make sure we were comfortable and amazed.' },
-  { name: 'Eusebio Mur', date: '9 September 2026', color: '#b8860b', platform: 'google', stars: 5, text: 'An incredible experience in southern Egypt with our guide Ahmed. Fluent in Spanish, knowledgeable about the area, and above all, honest and kind.' },
-  { name: 'Megan R.', date: '28 August 2026', color: '#1d4ed8', platform: 'tripadvisor', stars: 5, text: 'Our guide made Cairo feel easy and exciting. Every detail was beautifully handled.', tourSlugs: ['cairo-highlights-day-tour'] },
-  { name: 'Jonas P.', date: '28 August 2026', color: '#f7951d', platform: 'getyourguide', stars: 5, text: 'Perfect day at Giza. Skip-the-line access really saved us hours in the heat. Highly recommended.', tourSlugs: ['giza-pyramids-sphinx-tour'] },
-  { name: 'Daniel K.', date: '22 August 2026', color: '#1d4ed8', platform: 'tripadvisor', stars: 5, text: 'The Nile cruise and Luxor days were unforgettable. We would book again.', tourSlugs: [...NILE_CRUISES] },
-  { name: 'Karim H.', date: '20 August 2026', color: '#0d2250', platform: 'trustindex', stars: 3, text: 'Good guides and a lovely route, but the pickup was 40 minutes late. The tour itself was enjoyable.' },
-  { name: 'Emily W.', date: '15 August 2026', color: '#b8860b', platform: 'getyourguide', stars: 4, text: 'Beautiful Nile dinner cruise with lovely food and show. Boarding took a while but the evening made up for it.' },
-  { name: 'Sarah T.', date: '9 August 2026', color: '#f7951d', platform: 'tripadvisor', stars: 5, text: 'Friendly team, great communication, and the best local recommendations.' },
-  { name: 'Lena F.', date: '5 August 2026', color: '#1d4ed8', platform: 'trustindex', stars: 2, text: 'The itinerary changed last minute and communication could be better. Still, Luxor itself was amazing.', tourSlugs: ['luxor-east-west-bank', 'valley-of-the-kings-day-tour'] },
-  { name: 'Omar A.', date: '1 August 2026', color: '#0d2250', platform: 'tripadvisor', stars: 5, text: 'A smooth family trip from airport pickup to our final evening.' },
-]
 
 const AVATAR_COLORS = ['#1d4ed8', '#f7951d', '#0d2250', '#b8860b', '#00aa6c'] as const
 
@@ -117,7 +70,7 @@ async function submitReview(tourSlug: string, input: ReviewInput): Promise<{ suc
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       credentials: 'same-origin',
-      body: JSON.stringify({ tourSlug, ...input }),
+      body: JSON.stringify({ ...(tourSlug === '@website' ? { scope: 'website' } : { tourSlug }), ...input }),
     })
     const data = await res.json()
     if (!res.ok) return { success: false, error: data.error || 'Could not submit review.' }
@@ -125,12 +78,6 @@ async function submitReview(tourSlug: string, input: ReviewInput): Promise<{ suc
   } catch {
     return { success: false, error: 'Network error. Please try again.' }
   }
-}
-
-/** Get editorial (site) reviews for a tour. */
-export function getSiteReviewsForTour(slug: string): SiteReview[] {
-  const tagged = siteReviews.filter((r) => r.tourSlugs?.includes(slug))
-  return tagged.length ? [...tagged] : siteReviews.slice(0, 4).map((r) => ({ ...r }))
 }
 
 export type ReviewModalCopy = {
@@ -160,19 +107,41 @@ export function ReviewWriteModal({
   onSubmit: (input: ReviewInput) => void
   onClose: () => void
 }) {
+  const { locale } = useLocale()
   const [title, setTitle] = useState('')
   const [text, setText] = useState('')
   const [stars, setStars] = useState(5)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [mounted, setMounted] = useState(false)
+  const pending = useRef(false)
+  const dialog = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setMounted(true)
   }, [])
+  useEffect(() => {
+    if (!mounted) return
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const overflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    dialog.current?.querySelector<HTMLElement>('button, textarea, input')?.focus()
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !pending.current) onClose()
+      if (event.key !== 'Tab') return
+      const nodes = dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled), textarea, input, a[href]')
+      if (!nodes?.length) return
+      const first = nodes[0], last = nodes[nodes.length - 1]
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
+    }
+    document.addEventListener('keydown', keydown)
+    return () => { document.body.style.overflow = overflow; document.removeEventListener('keydown', keydown); previous?.focus() }
+  }, [mounted, onClose])
 
   const handleSubmit = async () => {
-    if (!text.trim() || stars < 1 || stars > 5) return
+    if (pending.current || text.trim().length < 10 || stars < 1 || stars > 5) return
+    pending.current = true
     setSubmitting(true)
     setError('')
     // If tourSlug provided, submit to API; otherwise just call onSubmit locally
@@ -188,13 +157,14 @@ export function ReviewWriteModal({
       onSubmit({ rating: stars, title: title.trim(), text: text.trim(), platform: 'direct' })
     }
     setSubmitting(false)
+    pending.current = false
   }
 
   if (!mounted) return null
 
   const modal = (
-    <div className="rev-modal" onClick={onClose}>
-      <div className="rev-modal-card" role="dialog" aria-modal="true" aria-label={copy.heading} onClick={(e) => e.stopPropagation()}>
+    <div className="rev-modal" onClick={() => { if (!pending.current) onClose() }}>
+      <div ref={dialog} className="rev-modal-card" role="dialog" aria-modal="true" aria-label={copy.heading} onClick={(e) => e.stopPropagation()}>
         <h3>{copy.heading}</h3>
         {copy.context && <p className="rev-modal-context">{copy.context}</p>}
         <div className="rev-form">
@@ -237,11 +207,12 @@ export function ReviewWriteModal({
             />
           </label>
           {error && <p className="rev-error" role="alert">{error}</p>}
+          {tourSlug === '@website' && error.includes('Authentication required') && <a href="/login">{tx(locale, { en: 'Sign in to your account', es: 'Inicia sesión en tu cuenta', it: 'Accedi al tuo account', ar: 'سجّل الدخول إلى حسابك' })}</a>}
           <div className="rev-form-actions">
             <button type="button" className="outline-btn" onClick={onClose} disabled={submitting}>
               {copy.cancel}
             </button>
-            <button type="button" className="primary-btn" onClick={handleSubmit} disabled={submitting || !text.trim()}>
+            <button type="button" className="primary-btn" onClick={handleSubmit} disabled={submitting || text.trim().length < 10}>
               {submitting ? 'Submitting...' : copy.submit}
             </button>
           </div>
@@ -262,7 +233,7 @@ export function TourReviewsSection({
 }: {
   tourSlug: string
   tourTitle: string
-  detailReviews?: readonly TourReview[]
+  detailReviews?: readonly StoredReview[]
   locale: import('@/lib/locale-config').Locale
   copy: ReviewModalCopy & { title: string; summaryReviews: string; beFirst: string; justNow: string; more: string; less: string }
 }) {
@@ -406,7 +377,6 @@ export type StoredReview = {
   date: string
   stars: number
   text: string
-  platform: ReviewPlatform
 }
 
 const SITE_KEY = 'sp-site-reviews'
@@ -421,7 +391,7 @@ function readList(key: string): StoredReview[] {
     return parsed
       .filter((r) => r && typeof r.name === 'string' && typeof r.text === 'string' && Number.isFinite(r.stars))
       .slice(0, 50)
-      .map((r) => ({ name: r.name.slice(0, 60), date: typeof r.date === 'string' ? r.date : 'Just now', stars: Math.min(5, Math.max(1, Math.round(r.stars))), text: r.text.slice(0, 1000), platform: r.platform ?? 'direct' }))
+      .map((r) => ({ name: r.name.slice(0, 60), date: typeof r.date === 'string' ? r.date : 'Just now', stars: Math.min(5, Math.max(1, Math.round(r.stars))), text: r.text.slice(0, 1000) }))
   } catch { return [] }
 }
 
@@ -434,28 +404,27 @@ export const saveUserReview = (review: StoredReview) => writeList(SITE_KEY, [rev
 export const loadTourReviews = (slug: string): StoredReview[] => (typeof window === 'undefined' ? [] : readList(tourKey(slug)))
 export const saveTourReview = (slug: string, review: StoredReview) => writeList(tourKey(slug), [review, ...readList(tourKey(slug))])
 
-export const reviewPlatforms = [
-  { id: 'all', label: 'All reviews', avg: '4.7' },
-  { id: 'google', label: 'Google', avg: '4.6' },
-  { id: 'tripadvisor', label: 'Tripadvisor', avg: '4.9' },
-  { id: 'trustindex', label: 'Trustindex', avg: '2.6' },
-  { id: 'getyourguide', label: 'Getyourguide', avg: '4.5' },
-] as const
+/** Platform badges are no longer shown on the homepage; trust signals
+  are handled server-side only. These arrays are preserved for potential
+  future integration with verified review providers. */
+export const reviewPlatforms = [] as const
 
-export const platformSummary: Record<string, { avg: string; count: string }> = {
-  all: { avg: '4.7', count: '5,308 reviews' },
-  google: { avg: '4.6', count: '2,140 reviews' },
-  tripadvisor: { avg: '4.9', count: '1,820 reviews' },
-  trustindex: { avg: '2.6', count: '98 reviews' },
-  getyourguide: { avg: '4.5', count: '1,250 reviews' },
-}
+export const platformSummary: Record<string, { avg: string; count: string }> = {}
 
 export function PlatformIcon({ id }: { id: string }) {
+  const icons: Record<string, string> = { website: '/favicon.png', tripadvisor: '/review-platforms/tripadvisor.ico', trustindex: '/review-platforms/trustindex.png', getyourguide: '/review-platforms/getyourguide.ico' }
+  if (icons[id]) return <span className="platform-ic" aria-hidden="true"><img src={icons[id]} alt="" width={24} height={24} style={{ width: 24, height: 24, objectFit: 'contain' }}/></span>
   if (id === 'google') return <span className="platform-ic" aria-label="Google"><svg viewBox="0 0 24 24"><path fill="#4285F4" d="M23.5 12.3c0-.9-.1-1.5-.3-2.3H12v4.3h6.5c-.1 1.1-.8 2.7-2.4 3.8l3.6 2.8c2.2-2 3.8-5 3.8-8.6z" /><path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.8-2.9c-1 .7-2.4 1.2-4.1 1.2-3.1 0-5.8-2.1-6.8-5l-3.7 2.9C3.5 21.3 7.5 24 12 24z" /><path fill="#FBBC05" d="M5.2 14.4c-.2-.7-.4-1.5-.4-2.4s.1-1.7.4-2.4l-3.7-2.9C.5 8.6 0 10.2 0 12s.5 3.4 1.4 4.9l3.8-2.5z" /><path fill="#EA4335" d="M12 4.7c1.8 0 3 .8 3.7 1.4l3.3-3.2C17.9 1.1 15.2 0 12 0 7.5 0 3.5 2.7 1.4 6.9l3.8 2.9c1-2.9 3.7-5.1 6.8-5.1z" /></svg></span>
-  if (id === 'tripadvisor') return <span className="platform-ic" aria-label="Tripadvisor"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#00aa6c" /><circle cx="8.4" cy="11" r="3" fill="#fff" /><circle cx="15.6" cy="11" r="3" fill="#fff" /><circle cx="8.4" cy="11" r="1.3" fill="#00aa6c" /><circle cx="15.6" cy="11" r="1.3" fill="#00aa6c" /><path d="M8 16.6c1.1 1 2.5 1.5 4 1.5s2.9-.5 4-1.5" stroke="#fff" strokeWidth="1.4" fill="none" strokeLinecap="round" /></svg></span>
-  if (id === 'trustindex') return <span className="platform-ic" aria-label="Trustindex"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#00b67a" /><path d="M8 12.5l2.7 2.7L16 9.5" stroke="#fff" strokeWidth="2.4" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
-  if (id === 'getyourguide') return <span className="platform-ic" aria-label="Getyourguide"><svg viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#ff5533" /><text x="12" y="17.5" textAnchor="middle" fontSize="14" fontWeight="800" fill="#fff" fontFamily="Arial,sans-serif">G</text></svg></span>
   return null
+}
+
+export type SiteReview = {
+  name: string
+  date: string
+  stars: number
+  text: string
+  platform?: string
+  color: string
 }
 
 export const toSiteReview = (r: StoredReview): SiteReview => ({ ...r, color: avatarColor(r.name) })

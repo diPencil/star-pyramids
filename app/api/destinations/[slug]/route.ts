@@ -1,3 +1,5 @@
+import { catalogueTranslationResponse, saveWithCatalogueTranslations, deleteWithCatalogueTranslations } from '@/lib/server/catalogue-translations';
+import { validateCatalogueTranslations } from '@/lib/catalogue-translations';
 import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
@@ -17,7 +19,7 @@ export async function GET(
     return NextResponse.json({ notFound: true }, { status: 404 });
   }
 
-  return NextResponse.json({ destination });
+  return NextResponse.json(await catalogueTranslationResponse('destination', { destination }));
 }
 
 export async function PUT(
@@ -39,6 +41,10 @@ export async function PUT(
   }
 
   const data = await request.json();
+  if (data?.translations !== undefined) {
+    try { validateCatalogueTranslations('destination', data.translations); }
+    catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'Invalid translations.' }, { status: 400 }); }
+  }
   const { slug: paramSlug } = await params;
 
   const existing = await db.destination.findUnique({ where: { slug: paramSlug } });
@@ -57,7 +63,7 @@ export async function PUT(
     }
   }
 
-  const destination = await db.destination.update({
+  const destination = await saveWithCatalogueTranslations('destination', data.translations, existing.slug, (tx) => tx.destination.update({
     where: { slug: paramSlug },
     data: {
       slug: data.slug ? String(data.slug).trim().toLowerCase() || existing.slug : existing.slug,
@@ -72,9 +78,9 @@ export async function PUT(
       displayOrder: data.displayOrder === undefined || data.displayOrder === '' ? existing.displayOrder : (Number.isFinite(Number(data.displayOrder)) ? Number(data.displayOrder) : existing.displayOrder),
       detail: data.detail === undefined ? existing.detail : (data.detail ?? {}),
     },
-  });
+  }));
 
-  return NextResponse.json({ destination });
+  return NextResponse.json(await catalogueTranslationResponse('destination', { destination }));
 }
 
 export async function DELETE(
@@ -104,7 +110,7 @@ export async function DELETE(
     return NextResponse.json({ error: 'Destination not found.' }, { status: 404 });
   }
 
-  await db.destination.delete({ where: { slug: paramSlug } });
+  await deleteWithCatalogueTranslations('destination', paramSlug, (tx) => tx.destination.delete({ where: { slug: paramSlug } }));
 
   return NextResponse.json({ deleted: true });
 }

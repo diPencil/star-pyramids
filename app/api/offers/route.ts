@@ -1,3 +1,7 @@
+import { isOfferActive } from '@/lib/special-offers';
+import { linkedOfferFields, offerBody, offerError, offerTourSelect, presentOffer } from '@/lib/server/special-offers';
+import { catalogueTranslationResponse, saveWithCatalogueTranslations } from '@/lib/server/catalogue-translations';
+import { validateCatalogueTranslations } from '@/lib/catalogue-translations';
 import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
@@ -28,10 +32,14 @@ const numOrNull = (v: unknown): number | null => {
 
 export async function GET() {
   // Public: list all offers (read-only, no auth required)
-  const offers = await db.offer.findMany({
+  const user = await getCurrentUser();
+  const admin = user && (hasPermission(user, 'offers.view') || hasPermission(user, 'offers.edit') || hasPermission(user, 'offers.create'));
+  const rows = await db.offer.findMany({
+    include: { tour: { select: offerTourSelect } },
     orderBy: [{ displayOrder: 'asc' }, { title: 'asc' }],
   });
-  return NextResponse.json({ offers: offers.map((offer) => ({ ...offer, content: readJsonObject(offer.content) })) });
+  const offers = rows.filter(row => admin || (isOfferActive(row) && (!row.tour || row.tour.status === 'published'))).map(presentOffer);
+  return NextResponse.json(await catalogueTranslationResponse('offer', { offers: offers.map((offer) => ({ ...offer, content: readJsonObject(offer.content) })) }));
 }
 
 export async function POST(request: Request) {
@@ -49,7 +57,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid request origin.' }, { status: 403 });
   }
 
-  const data = await request.json();
+  try {
+  const data = await offerBody(request);
+  if (data?.translations !== undefined) {
+    try { validateCatalogueTranslations('offer', data.translations); }
+    catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'Invalid translations.' }, { status: 400 }); }
+  }
 
   const slug = typeof data.slug === 'string' ? data.slug.trim().toLowerCase() : '';
   if (!SLUG_PATTERN.test(slug) || slug.length > 80) {
@@ -83,25 +96,29 @@ export async function POST(request: Request) {
         .filter((c) => c.label && c.url)
     : [];
 
-  const offer = await db.offer.create({
+  const savedTitle = data.title, savedBadge = data.badge, savedCopy = data.copy;
+  const offer = await saveWithCatalogueTranslations('offer', data.translations, undefined, async (tx) => {
+    const linked = await linkedOfferFields(tx, data);
+    return tx.offer.create({
     data: {
       slug,
-      title: data.title.trim().slice(0, 200),
+      title: savedTitle.trim().slice(0, 200),
       image: typeof data.image === 'string' ? data.image.trim().slice(0, 2000) : '',
-      badge: data.badge.trim().slice(0, 120),
-      copy: data.copy.trim().slice(0, 2000),
+      badge: savedBadge.trim().slice(0, 120),
+      copy: savedCopy.trim().slice(0, 2000),
       duration: cleanText(data.duration, 80),
       rating: numOrNull(data.rating),
       price: numOrNull(data.price),
       originalPrice: numOrNull(data.originalPrice),
-      deadline: cleanText(data.deadline, 120),
       isPublished: data.isPublished !== false,
       displayOrder: Number.isFinite(Number(data.displayOrder)) ? Number(data.displayOrder) : 999,
       content: writeJsonText(data.content && typeof data.content === 'object' && !Array.isArray(data.content)
         ? data.content
         : { gallery, highlights, photoCredits }),
+      ...linked,
     },
-  });
+  }); });
 
-  return NextResponse.json({ offer: { ...offer, content: readJsonObject(offer.content) } }, { status: 201 });
+  return NextResponse.json(await catalogueTranslationResponse('offer', { offer: { ...offer, content: readJsonObject(offer.content) } }), { status: 201 });
+  } catch (error) { return offerError(error); }
 }

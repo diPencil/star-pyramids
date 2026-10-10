@@ -117,8 +117,8 @@ type LocaleState = {
 
 const LocaleCtx = createContext<LocaleState>({ locale: DEFAULT_LOCALE, setLocale: () => {}, currency: 'USD', setCurrency: () => {} })
 
-export function LocaleProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE)
+export function LocaleProvider({ children, initialLocale }: { children: ReactNode; initialLocale?: Locale }) {
+  const [locale, setLocaleState] = useState<Locale>(initialLocale ?? DEFAULT_LOCALE)
   const [currency, setCurrencyState] = useState<Currency>('USD')
   const [, setRatesVersion] = useState(0)
   useEffect(() => {
@@ -141,7 +141,20 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     // An idle task runs only after those urgent hydration tasks have yielded,
     // so persisted text never races the server's initial English snapshot.
     const idleId = window.requestIdleCallback(applyPersistedPreferences)
-    const onRates = () => setRatesVersion((v) => v + 1)
+    // The DB snapshot often lands AFTER first paint. New visitors (no saved
+    // preference) must adopt the late-arriving admin defaults; visitors with
+    // an explicit choice keep it.
+    const onRates = () => {
+      setRatesVersion((v) => v + 1)
+      if (!window.localStorage.getItem('star-locale')) {
+        const next = sanitizeLocale(readLocalizationSettings().defaultLanguage)
+        setLocaleState((prev) => (prev === next ? prev : next))
+      }
+      if (!window.localStorage.getItem('star-currency')) {
+        const next = readCurrencySettings().defaultCurrency
+        setCurrencyState((prev) => (prev === next ? prev : next))
+      }
+    }
     window.addEventListener('sp-currency', onRates)
     window.addEventListener('sp-l10n', onRates)
     return () => {

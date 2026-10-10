@@ -1,7 +1,12 @@
 'use client'
 
+// 'use client' is required here: the access token is read from the router
+// rather than passed as a prop, so the credential never enters the
+// server-rendered payload that ships in the HTML.
+'use client'
+
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import {
   ArrowRight, ArrowLeft, Ban, Bell, CalendarDays, CarFront, Check, CheckCircle2, ChevronDown, ChevronRight, Compass,
@@ -24,7 +29,7 @@ import { useDbTours } from '@/lib/tours-client'
 import { cars } from '@/data/content'
 import { carActivityLabel, carRequestStatusLabel, fleetVehicleTitle, type CarRequest, type CarRequestStatus } from '@/lib/car-request'
 import { usePagination } from '@/components/admin/admin-pagination'
-import { bookings as adminBookings, type BookingRow } from '@/components/admin/admin-data'
+import { useStaffPreviewBookings } from '@/lib/staff-preview-client'
 import {
   saveCustomerProfile, useCustomerFavorites,
   useCustomerProfile, type CustomerProfile,
@@ -62,62 +67,6 @@ export function useImpersonated() {
   return impersonated
 }
 
-/**
- * Staff-preview mapping for the impersonated demo persona only. Real
- * customers always see database-backed bookings from
- * `/api/account/bookings` via `useCustomerBookings` below.
- */
-function mapAdminBooking(booking: BookingRow): Booking {
-  const match = matchCatalogTour(booking.tour)
-  const perAdult = booking.guests > 0 ? Math.round(booking.total / booking.guests) : booking.total
-  return {
-    reference: booking.id,
-    createdAt: booking.date,
-    updatedAt: booking.date,
-    status: booking.status === 'confirmed' ? 'confirmed' : booking.status === 'cancelled' ? 'cancelled' : 'pending',
-    paymentStatus: booking.status === 'confirmed' ? 'paid' : 'pending',
-    paymentMethod: 'card',
-    subtotal: booking.total,
-    discount: 0,
-    total: booking.total,
-    currency: 'USD',
-    contact: { name: booking.customer, email: 'james.carter@example.com', phone: '+1 555 013 2400' },
-    notes: '',
-    lines: [{
-      key: booking.id,
-      tourSlug: match?.slug ?? '',
-      title: booking.tour,
-      image: match?.image ?? '/egypt-hero.png',
-      date: booking.date,
-      adults: booking.guests,
-      children: 0,
-      infants: 0,
-      addons: [],
-      addonTotal: 0,
-      adultUnit: perAdult,
-      childUnit: 0,
-      infantUnit: 0,
-      total: booking.total,
-    }],
-    activity: [],
-  }
-}
-
-function matchCatalogTour(title: string) {
-  const words = title.toLowerCase().replace(/[^a-z\s]/g, ' ').split(/\s+/).filter((w) => w.length > 3)
-  let best: (typeof catalogTours)[number] | undefined
-  let bestScore = 0
-  for (const tour of catalogTours) {
-    const haystack = `${tour.slug} ${tour.title}`.toLowerCase()
-    const score = words.filter((word) => haystack.includes(word)).length
-    if (score > bestScore) {
-      bestScore = score
-      best = tour
-    }
-  }
-  return bestScore >= 2 ? best : undefined
-}
-
 async function apiBookingList(): Promise<Booking[]> {
   const res = await fetch('/api/account/bookings', { credentials: 'same-origin' })
   if (!res.ok) throw new Error('Could not load your bookings.')
@@ -145,6 +94,18 @@ async function apiBookingCancel(reference: string): Promise<Booking> {
   return data
 }
 
+/**
+ * Guest booking read. The private access token IS the credential — no
+ * session cookie is sent or required, and the server derives the booking
+ * from the token rather than from anything the caller supplies.
+ */
+async function apiGuestBooking(token: string): Promise<Booking> {
+  const res = await fetch(`/api/bookings/access/${encodeURIComponent(token)}`, { credentials: 'omit' })
+  const data = (await res.json().catch(() => ({}))) as Booking & { error?: string }
+  if (!res.ok) throw new Error(data.error || 'This booking link is not valid.')
+  return data
+}
+
 /** The signed-in customer's real bookings (database-backed). */
 export function useCustomerBookings() {
   const [bookings, setBookings] = useState<Booking[]>([])
@@ -168,10 +129,11 @@ export function useCustomerBookings() {
 export function useVisibleBookings() {
   const impersonated = useImpersonated()
   const { bookings } = useCustomerBookings()
+  const preview = useStaffPreviewBookings(impersonated?.publicId ?? null)
   return useMemo(() => {
     if (!impersonated) return bookings
-    return adminBookings.filter((booking) => booking.customer === impersonated.name).map(mapAdminBooking)
-  }, [impersonated, bookings])
+    return preview.bookings
+  }, [impersonated, bookings, preview.bookings])
 }
 
 export function useVisibleInquiries() {
@@ -280,9 +242,12 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
       .catch(() => undefined)
     return () => { cancelled = true }
   }, [])
-  const liveTours = useDbTours(catalogTours)
+  const liveTours = useDbTours(catalogTours, { includeNew: true })
   const heading = sectionHeadings[section]
   const initials = profile.fullName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'SP'
+  // Never render an empty identity block: fall back to the signed-in email and
+  // finally a neutral label rather than an empty heading.
+  const displayFullName = profile.fullName.trim() || profile.email.trim() || 'Your account'
   const [mobileOpen, setMobileOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [notificationsOpen, setNotificationsOpen] = useState(false)
@@ -310,7 +275,7 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
       </Link>
         <div className="customer-profile-mini">
           <CustomerAvatar avatar={profile.avatar} initials={initials} className="customer-avatar" name={profile.fullName} />
-          <div><strong>{profile.fullName}</strong><small>{profile.email}</small></div>
+          <div><strong>{displayFullName}</strong><small>{profile.email}</small></div>
         </div>
         <nav aria-label={tx(locale, { en: 'Account navigation', es: 'Navegación de la cuenta', it: 'Navigazione account', ar: 'قائمة الحساب' })}>
           {sectionLinks.map(({ id, href, Icon, en, es, it, ar: arLabel }) => {
@@ -346,7 +311,7 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
             <button type="button" className="customer-top-icon" onClick={() => { setNotificationsOpen((open) => !open); setUserOpen(false) }} aria-label={tx(locale, { en: 'Notifications', es: 'Notificaciones', it: 'Notifiche', ar: 'الإشعارات' })} aria-expanded={notificationsOpen}><Bell size={18} />{notifications.unreadCount > 0 && <i />}</button>
           </div>
           <div className="customer-top-popover customer-user-popover">
-            <button type="button" className="customer-top-user" onClick={() => { setUserOpen((open) => !open); setNotificationsOpen(false) }} aria-expanded={userOpen}><CustomerAvatar avatar={profile.avatar} initials={initials} className="customer-top-avatar" name={profile.fullName} /><div><strong>{profile.fullName}</strong><small>{tx(locale, { en: 'Traveler', es: 'Viajero', it: 'Viaggiatore', ar: 'مسافر' })}</small></div><ChevronDown size={15} /></button>
+            <button type="button" className="customer-top-user" onClick={() => { setUserOpen((open) => !open); setNotificationsOpen(false) }} aria-expanded={userOpen}><CustomerAvatar avatar={profile.avatar} initials={initials} className="customer-top-avatar" name={displayFullName} /><div><strong>{displayFullName}</strong><small>{tx(locale, { en: 'Traveler', es: 'Viajero', it: 'Viaggiatore', ar: 'مسافر' })}</small></div><ChevronDown size={15} /></button>
             {userOpen && <div className="customer-user-menu"><Link href="/account/profile" onClick={() => setUserOpen(false)}><UserRound size={16} />{tx(locale, { en: 'Profile', es: 'Perfil', it: 'Profilo', ar: 'الملف الشخصي' })}</Link><Link href="/account/settings" onClick={() => setUserOpen(false)}><Settings2 size={16} />{tx(locale, { en: 'Settings', es: 'Ajustes', it: 'Impostazioni', ar: 'الإعدادات' })}</Link><button type="button" onClick={logout} disabled={loggingOut}><LogOut size={16} />{tx(locale, { en: 'Sign out', es: 'Cerrar sesión', it: 'Esci', ar: 'تسجيل الخروج' })}</button></div>}
           </div>
           {notificationsOpen && <NotificationPanel onClose={() => setNotificationsOpen(false)} />}
@@ -484,7 +449,7 @@ function OverviewSection() {
   const cart = useCart()
   const cartEstimate = useMemo(() => estimateCart(cart.items), [cart.items])
   const latestBooking = bookings[0]
-  const liveTours = useDbTours(catalogTours)
+  const liveTours = useDbTours(catalogTours, { includeNew: true })
   const savedTours = favorites.slugs.map((slug) => liveTours.find((tour) => tour.slug === slug)).filter((tour) => Boolean(tour)).slice(0, 3)
 
   return <>
@@ -703,6 +668,7 @@ function BookingDetailSection({ reference, autoPrint = false }: { reference: str
         </article>
       ))}
       <div className="customer-payment-total-row"><span>{tx(locale, { en: 'Lines total', es: 'Total de líneas', it: 'Totale voci', ar: 'إجمالي البنود' })}</span><strong>{formatPrice(linesTotal, currency, locale)}</strong></div>
+      {booking.discount > 0 && <div className="customer-payment-total-row discount"><span>{tx(locale, { en: 'Deal savings', es: 'Ahorro por oferta', it: 'Risparmio offerta', ar: 'توفير العروض' })}</span><strong>−{formatPrice(booking.discount, currency, locale)}</strong></div>}
       <div className="customer-payment-total-row grand"><span>{tx(locale, { en: 'Grand total', es: 'Total general', it: 'Totale generale', ar: 'الإجمالي' })}</span><strong>{formatPrice(booking.total, currency, locale)}</strong></div>
     </section>
 
@@ -755,6 +721,151 @@ function BookingDetailSection({ reference, autoPrint = false }: { reference: str
 
 export function BookingDetailPage({ reference, autoPrint = false }: { reference: string; autoPrint?: boolean }) {
   return <LocaleProvider><AccountShell section="bookings"><BookingDetailSection reference={reference} autoPrint={autoPrint} /></AccountShell></LocaleProvider>
+}
+
+/**
+ * Guest booking access (P0 Fix 04).
+ *
+ * Read-only view for a guest who booked without an account. The private
+ * access token in the URL is the only credential — there is no session and
+ * no reference lookup — so this screen deliberately exposes NO mutation:
+ * no cancel, no payment, no messaging draft. A leaked link therefore
+ * reveals a booking and nothing more.
+ *
+ * Reuses the account booking presentation so guests and customers read the
+ * same booking identically.
+ *
+ * This is a client component on purpose: the token is read from the router
+ * rather than received as a prop, so the credential is never serialized into
+ * the server-rendered payload that ships in the HTML.
+ */
+export function GuestBookingPage({ autoPrint = false }: { autoPrint?: boolean }) {
+  const params = useParams<{ token?: string }>()
+  const token = typeof params.token === 'string' ? params.token : ''
+  return <LocaleProvider><GuestBookingSection token={token} autoPrint={autoPrint} /></LocaleProvider>
+}
+
+function GuestBookingSection({ token, autoPrint = false }: { token: string; autoPrint?: boolean }) {
+  const { locale, currency } = useLocale()
+  const [booking, setBooking] = useState<Booking | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setLoadError('')
+    apiGuestBooking(token)
+      .then((row) => { if (!cancelled) { setBooking(row); setLoading(false) } })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'This booking link is not valid.')
+          setLoading(false)
+        }
+      })
+    return () => { cancelled = true }
+  }, [token])
+
+  useEffect(() => {
+    if (autoPrint && booking) {
+      const timer = window.setTimeout(() => window.print(), 700)
+      return () => window.clearTimeout(timer)
+    }
+  }, [autoPrint, booking])
+
+  if (loading) {
+    return <div className="customer-inline-empty" role="status"><Clock3 size={20} /><span><strong>{tx(locale, { en: 'Loading booking…', es: 'Cargando la reserva…', it: 'Caricamento prenotazione…', ar: 'جارٍ تحميل الحجز…' })}</strong></span></div>
+  }
+
+  if (!booking) {
+    // One honest message for every failure: a wrong, expired or revoked
+    // link must be indistinguishable from one another.
+    return <section className="customer-account-block customer-full-block">
+      <div className="customer-empty">
+        <h2>{tx(locale, { en: 'This booking link is not valid', es: 'Este enlace de reserva no es válido', it: 'Questo link di prenotazione non è valido', ar: 'رابط الحجز غير صالح' })}</h2>
+        <p>{loadError || tx(locale, { en: 'The link may have expired or already been replaced by a newer one. Use the most recent link from your confirmation email, or contact our team with your reference.', es: 'El enlace puede haber caducado o haber sido sustituido por uno más reciente. Usa el enlace más reciente de tu correo de confirmación o contacta con nuestro equipo indicando tu referencia.', it: 'Il link potrebbe essere scaduto o essere stato sostituito da uno più recente. Usa il link più recente della tua email di conferma o contatta il nostro team con il tuo riferimento.', ar: 'ربما انتهت صلاحية الرابط أو تم استبداله بأحدث. استخدم أحدث رابط من رسالة التأكيد أو تواصل معنا مع ذكر المرجع.' })}</p>
+        <Link href="/trips">{tx(locale, { en: 'Browse trips', es: 'Explorar viajes', it: 'Sfoglia i viaggi', ar: 'تصفح الرحلات' })} <ArrowRight size={16} /></Link>
+      </div>
+    </section>
+  }
+
+  const travelers = booking.lines.reduce((sum, line) => sum + line.adults + line.children + line.infants, 0)
+  const linesTotal = booking.lines.reduce((sum, line) => sum + line.total, 0)
+  const createdOn = displayBookingDate(booking, locale)
+  const steps = [
+    { done: true, label: tx(locale, { en: 'Received', es: 'Recibida', it: 'Ricevuta', ar: 'تم الاستلام' }), date: createdOn },
+    { done: booking.status !== 'pending', label: tx(locale, { en: 'Confirmation', es: 'Confirmación', it: 'Conferma', ar: 'التأكيد' }), date: booking.status !== 'pending' ? createdOn : '-' },
+    { done: booking.status === 'completed', label: tx(locale, { en: 'Trip completed', es: 'Viaje completado', it: 'Viaggio completato', ar: 'اكتمال الرحلة' }), date: booking.status === 'completed' ? createdOn : '-' },
+    ...(booking.status === 'cancelled' ? [{ done: true, label: tx(locale, { en: 'Cancelled', es: 'Cancelada', it: 'Cancellata', ar: 'ملغي' }), date: '-' }] : []),
+  ]
+
+  return <>
+    <section className="customer-account-block">
+      <header><div><span>{booking.reference}</span><h2>{booking.lines[0]?.title || (tx(locale, { en: 'Booking details', es: 'Detalles de la reserva', it: 'Dettagli prenotazione', ar: 'تفاصيل الحجز' }))}</h2></div><span className="customer-booking-flags"><BookingStatus booking={booking} locale={locale} /></span></header>
+      <div className="customer-detail-grid">
+        <div><small>{tx(locale, { en: 'Travel date', es: 'Fecha del viaje', it: 'Data del viaggio', ar: 'تاريخ السفر' })}</small><strong>{booking.lines[0]?.date || createdOn}</strong></div>
+        <div><small>{tx(locale, { en: 'Travelers', es: 'Viajeros', it: 'Viaggiatori', ar: 'المسافرون' })}</small><strong>{travelers}</strong></div>
+        <div><small>{tx(locale, { en: 'Payment method', es: 'Método de pago', it: 'Metodo di pagamento', ar: 'طريقة الدفع' })}</small><strong>{displayPaymentMethod(booking, locale)}</strong></div>
+        <div><small>{tx(locale, { en: 'Payment status', es: 'Estado del pago', it: 'Stato del pagamento', ar: 'حالة الدفع' })}</small><strong>{displayPaymentStatus(booking, locale)}</strong></div>
+      </div>
+      <div className="customer-detail-actions">
+        <button type="button" className="account-icon-action" onClick={() => window.print()}><ReceiptText size={17} />{tx(locale, { en: 'Print booking', es: 'Imprimir la reserva', it: 'Stampa la prenotazione', ar: 'طباعة الحجز' })}</button>
+        <Link href="/contact" className="account-icon-action"><MessageCircle size={17} />{tx(locale, { en: 'Contact our team', es: 'Contacta con nuestro equipo', it: 'Contatta il nostro team', ar: 'تواصل مع فريقنا' })}</Link>
+      </div>
+    </section>
+
+    <section className="customer-account-block">
+      <header><div><span>{booking.lines.length} {tx(locale, { en: 'items', es: 'elementos', it: 'voci', ar: 'بنود' })}</span><h2>{tx(locale, { en: 'Trip details', es: 'Detalles del viaje', it: 'Dettagli del viaggio', ar: 'تفاصيل الرحلات' })}</h2></div></header>
+      {booking.lines.map((line) => (
+        <article key={line.key} className="customer-booking-row">
+          <Link href={line.tourSlug ? `/egypt-tours/${line.tourSlug}` : '/trips'}><img src={line.image || '/egypt-hero.png'} alt="" /></Link>
+          <div className="customer-booking-copy">
+            <div className="customer-booking-top"><span>{line.date || (tx(locale, { en: 'Flexible date', es: 'Fecha flexible', it: 'Data flessibile', ar: 'موعد مرن' }))}</span></div>
+            <h3>{line.tourSlug ? <Link href={`/egypt-tours/${line.tourSlug}`}>{line.title}</Link> : line.title}</h3>
+            <div className="customer-booking-meta">
+              <span><Users size={14} />{line.adults} {tx(locale, { en: 'adults', es: 'adultos', it: 'adulti', ar: 'بالغين' })}</span>
+              {line.children > 0 && <span>{line.children} {tx(locale, { en: 'children', es: 'niños', it: 'bambini', ar: 'أطفال' })}</span>}
+              {line.infants > 0 && <span>{line.infants} {tx(locale, { en: 'infants', es: 'bebés', it: 'neonati', ar: 'رضع' })}</span>}
+            </div>
+            <div className="customer-booking-meta"><span>{tx(locale, { en: 'Adult', es: 'Adulto', it: 'Adulto', ar: 'البالغ' })}: {formatPrice(line.adultUnit, currency, locale)}</span>{line.children > 0 && <span>{tx(locale, { en: 'Child', es: 'Niño', it: 'Bambino', ar: 'الطفل' })}: {formatPrice(line.childUnit, currency, locale)}</span>}</div>
+            {line.addons.length > 0 && <div className="customer-booking-meta"><span><Plus size={14} />{line.addons.join(' · ')}</span></div>}
+          </div>
+          <div className="customer-booking-total"><small>{tx(locale, { en: 'Line total', es: 'Total de la línea', it: 'Totale voce', ar: 'إجمالي البند' })}</small><strong>{formatPrice(line.total, currency, locale)}</strong></div>
+        </article>
+      ))}
+      <div className="customer-payment-total-row"><span>{tx(locale, { en: 'Lines total', es: 'Total de líneas', it: 'Totale voci', ar: 'إجمالي البنود' })}</span><strong>{formatPrice(linesTotal, currency, locale)}</strong></div>
+      {booking.discount > 0 && <div className="customer-payment-total-row discount"><span>{tx(locale, { en: 'Deal savings', es: 'Ahorro por oferta', it: 'Risparmio offerta', ar: 'توفير العروض' })}</span><strong>−{formatPrice(booking.discount, currency, locale)}</strong></div>}
+      <div className="customer-payment-total-row grand"><span>{tx(locale, { en: 'Grand total', es: 'Total general', it: 'Totale generale', ar: 'الإجمالي' })}</span><strong>{formatPrice(booking.total, currency, locale)}</strong></div>
+    </section>
+
+    <section className="customer-account-block">
+      <header><div><span>{tx(locale, { en: 'Contact', es: 'Contacto', it: 'Contatto', ar: 'التواصل' })}</span><h2>{tx(locale, { en: 'Traveler details', es: 'Datos del viajero', it: 'Dati del viaggiatore', ar: 'بيانات المسافر' })}</h2></div></header>
+      <div className="customer-detail-grid">
+        <div><small>{tx(locale, { en: 'Name', es: 'Nombre', it: 'Nome', ar: 'الاسم' })}</small><strong>{booking.contact.name}</strong></div>
+        <div><small>{tx(locale, { en: 'Email', es: 'Correo electrónico', it: 'Email', ar: 'البريد' })}</small><strong>{booking.contact.email || '-'}</strong></div>
+        <div><small>{tx(locale, { en: 'Phone', es: 'Teléfono', it: 'Telefono', ar: 'الهاتف' })}</small><strong>{booking.contact.phone || '-'}</strong></div>
+        {booking.notes ? <div><small>{tx(locale, { en: 'Notes', es: 'Notas', it: 'Note', ar: 'ملاحظات' })}</small><strong>{booking.notes}</strong></div> : null}
+      </div>
+    </section>
+
+    {booking.activity.length > 0 && (
+      <section className="customer-activity" aria-label={tx(locale, { en: 'Booking activity', es: 'Actividad de la reserva', it: 'Attività prenotazione', ar: 'سجل الحجز' })}>
+        <h3>{tx(locale, { en: 'Activity', es: 'Actividad', it: 'Attività', ar: 'سجل الحجز' })}</h3>
+        <ul>{booking.activity.map((a, i) => <li key={`${a.at}-${i}`}><span>{new Date(a.at).toLocaleString(locale === 'ar' ? 'ar-EG' : locale === 'es' ? 'es-ES' : locale === 'it' ? 'it-IT' : 'en-US')}</span><strong>{bookingActivityLabel(a.action, locale)}</strong>{a.note && <small>{a.note}</small>}</li>)}</ul>
+      </section>
+    )}
+
+    <section className="customer-account-block">
+      <header><div><span>{tx(locale, { en: 'Tracking', es: 'Seguimiento', it: 'Monitoraggio', ar: 'التتبع' })}</span><h2>{tx(locale, { en: 'Booking timeline', es: 'Cronología de la reserva', it: 'Cronologia prenotazione', ar: 'مراحل الحجز' })}</h2></div></header>
+      <ol className="customer-timeline">
+        {steps.map((step) => (
+          <li key={step.label} className={step.done ? 'done' : ''}><span /><div><strong>{step.label}</strong><small>{step.date}</small></div></li>
+        ))}
+      </ol>
+    </section>
+    {/* Print-only professional booking document (same DB-backed view). */}
+    <div className="booking-print-area" aria-hidden="true"><BookingPrintDocument booking={booking} /></div>
+  </>
 }
 
 function BookingTableRow({ booking, index }: { booking: Booking; index: number }) {
@@ -1207,7 +1318,7 @@ function FavoritesSection() {
   const { locale } = useLocale()
 
   const favorites = useCustomerFavorites()
-  const liveTours = useDbTours(catalogTours)
+  const liveTours = useDbTours(catalogTours, { includeNew: true })
   const saved = favorites.slugs.map((slug) => liveTours.find((tour) => tour.slug === slug)).filter((tour) => Boolean(tour))
   const recommendations = liveTours.filter((tour) => !favorites.has(tour.slug)).slice(0, 6)
   const savedPaging = usePagination(saved)
@@ -1382,6 +1493,9 @@ function MessagesSection() {
   const inquiries = useVisibleInquiries()
   const brand = useBrandSettings()
   const profile = useAccountProfile()
+  // First name for the greeting; empty-safe so an unhydrated profile never
+  // renders "Hi undefined".
+  const firstName = profile.fullName.trim().split(/\s+/).filter(Boolean)[0] || profile.firstName.trim() || 'there'
   const impersonated = useImpersonated()
   const bookings = useVisibleBookings()
   const thread = useSupportChat()
@@ -1452,7 +1566,7 @@ function MessagesSection() {
           : thread.loadError && !messages.length
             ? <div className="customer-chat-welcome"><span><MessageCircle size={25} /></span><h2>{tx(locale, { en: 'Messages unavailable', es: 'Mensajes no disponibles', it: 'Messaggi non disponibili', ar: 'الرسائل غير متاحة' })}</h2><p>{thread.loadError}</p><div><button type="button" onClick={thread.refresh}>{tx(locale, { en: 'Try again', es: 'Reintentar', it: 'Riprova', ar: 'حاول مجددًا' })}</button></div></div>
             : <>
-                {!messages.length && <div className="customer-chat-welcome"><span><MessageCircle size={25} /></span><h2>{locale === 'es' ? `Hola ${profile.fullName.split(' ')[0]}` : locale === 'it' ? `Ciao ${profile.fullName.split(' ')[0]}` : locale === 'ar' ? `أهلًا ${profile.fullName.split(' ')[0]}` : `Hi ${profile.fullName.split(' ')[0]}`}</h2><p>{tx(locale, { en: 'Ask about a booking, pricing, or trip details. The team reply will stay here in this conversation.', es: 'Pregunta por una reserva, precios o detalles del viaje. La respuesta del equipo quedará aquí, en esta conversación.', it: 'Chiedi info su una prenotazione, prezzi o dettagli del viaggio. La risposta del team resterà qui in questa conversazione.', ar: 'اكتب سؤالك عن الحجز أو الأسعار أو تفاصيل رحلتك، وسيظهر الرد هنا في نفس المحادثة.' })}</p><div>{(locale === 'es' ? ['Quiero seguir mi reserva', 'Quiero cambiar la fecha de mi viaje', 'Tengo una pregunta sobre un pago'] : locale === 'it' ? ['Voglio seguire la mia prenotazione', 'Voglio cambiare la data del viaggio', 'Ho una domanda su un pagamento'] : locale === 'ar' ? ['أريد متابعة حجزي', 'أحتاج تعديل موعد الرحلة', 'لدي سؤال عن الدفع'] : ['Track my booking', 'Change my travel date', 'I have a payment question']).map((prompt) => <button type="button" key={prompt} onClick={() => setDraft(prompt)}>{prompt}</button>)}</div></div>}
+                {!messages.length && <div className="customer-chat-welcome"><span><MessageCircle size={25} /></span><h2>{locale === 'es' ? `Hola ${firstName}` : locale === 'it' ? `Ciao ${firstName}` : locale === 'ar' ? `أهلًا ${firstName}` : `Hi ${firstName}`}</h2><p>{tx(locale, { en: 'Ask about a booking, pricing, or trip details. The team reply will stay here in this conversation.', es: 'Pregunta por una reserva, precios o detalles del viaje. La respuesta del equipo quedará aquí, en esta conversación.', it: 'Chiedi info su una prenotazione, prezzi o dettagli del viaggio. La risposta del team resterà qui in questa conversazione.', ar: 'اكتب سؤالك عن الحجز أو الأسعار أو تفاصيل رحلتك، وسيظهر الرد هنا في نفس المحادثة.' })}</p><div>{(locale === 'es' ? ['Quiero seguir mi reserva', 'Quiero cambiar la fecha de mi viaje', 'Tengo una pregunta sobre un pago'] : locale === 'it' ? ['Voglio seguire la mia prenotazione', 'Voglio cambiare la data del viaggio', 'Ho una domanda su un pagamento'] : locale === 'ar' ? ['أريد متابعة حجزي', 'أحتاج تعديل موعد الرحلة', 'لدي سؤال عن الدفع'] : ['Track my booking', 'Change my travel date', 'I have a payment question']).map((prompt) => <button type="button" key={prompt} onClick={() => setDraft(prompt)}>{prompt}</button>)}</div></div>}
                 {messages.map((message) => <div key={message.id} className={`customer-chat-row ${message.senderRole === 'staff' ? 'agent' : 'customer'}`}>
                   {message.senderRole === 'staff' && <span className="customer-chat-bubble-avatar"><img src="/favicon.png" alt="" /></span>}
                   <div>
@@ -1476,7 +1590,7 @@ function MessagesSection() {
     <aside className="customer-chat-context">
       <section className="customer-account-block">
         <header><div><span>{tx(locale, { en: 'Conversation context', es: 'Contexto de la conversación', it: 'Contesto conversazione', ar: 'عن المحادثة' })}</span><h2>{tx(locale, { en: 'Trip support', es: 'Asistencia de viaje', it: 'Assistenza viaggio', ar: 'مساعدة الرحلة' })}</h2></div><ShieldCheck size={19} /></header>
-        <div className="customer-chat-profile"><CustomerAvatar avatar={profile.avatar} initials={profile.fullName.slice(0, 2).toUpperCase()} className="customer-profile-avatar" name={profile.fullName} /><div><strong>{profile.fullName}</strong><small>{profile.email}</small></div></div>
+        <div className="customer-chat-profile"><CustomerAvatar avatar={profile.avatar} initials={profile.fullName.trim().slice(0, 2).toUpperCase() || 'SP'} className="customer-profile-avatar" name={profile.fullName} /><div><strong>{profile.fullName || profile.email || 'Your account'}</strong><small>{profile.email}</small></div></div>
         {latestBooking ? <Link href="/account/bookings" className="customer-chat-booking"><span><ShoppingBag size={16} /></span><div><small>{tx(locale, { en: 'Latest booking', es: 'Última reserva', it: 'Ultima prenotazione', ar: 'الحجز المرتبط' })}</small><strong>{latestBooking.reference}</strong></div><ChevronRight size={16} /></Link> : <Link href="/trips" className="customer-chat-booking"><span><Plus size={16} /></span><div><small>{tx(locale, { en: 'No current booking', es: 'Sin reserva actual', it: 'Nessuna prenotazione attiva', ar: 'لا يوجد حجز حالي' })}</small><strong>{tx(locale, { en: 'Explore trips', es: 'Explorar viajes', it: 'Esplora i viaggi', ar: 'استكشف الرحلات' })}</strong></div><ChevronRight size={16} /></Link>}
         <dl className="customer-chat-summary"><div><dt>{tx(locale, { en: 'Chat messages', es: 'Mensajes del chat', it: 'Messaggi chat', ar: 'رسائل المحادثة' })}</dt><dd>{messages.length}</dd></div><div><dt>{tx(locale, { en: 'Previous enquiries', es: 'Consultas anteriores', it: 'Richieste precedenti', ar: 'استفسارات سابقة' })}</dt><dd>{inquiries.length}</dd></div></dl>
       </section>
@@ -1501,19 +1615,38 @@ function PersonalProfileSection() {
     setForm((previous) => ({ ...previous, [key]: value }))
     setSaved(false)
   }
-  const changeAvatar = (event: ChangeEvent<HTMLInputElement>) => {
+  const changeAvatar = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
+    // Allow re-picking the same file after a failed attempt.
+    event.target.value = ''
     if (!file) return
     if (!file.type.startsWith('image/') || file.size > 2 * 1024 * 1024) {
       setAvatarError(tx(locale, { en: 'Choose an image smaller than 2 MB.', es: 'Elige una imagen de menos de 2 MB.', it: 'Scegli un’immagine inferiore a 2 MB.', ar: 'اختر صورة بحجم أقل من 2 ميجابايت.' }))
       return
     }
-    const reader = new FileReader()
-    reader.onload = () => {
-      update('avatar', typeof reader.result === 'string' ? reader.result : '')
+    // Stored server-side as a real media file; the server returns the
+    // permanent public URL, so the photo survives refresh and re-login.
+    try {
+      const body = new FormData()
+      body.append('file', file, file.name)
+      const response = await fetch('/api/avatar', {
+        method: 'POST',
+        body,
+        credentials: 'same-origin',
+      })
+      const data = await response.json().catch(() => ({ error: '' }))
+      const url = typeof data?.user?.avatar === 'string' ? data.user.avatar : ''
+      if (!response.ok || !url) {
+        setAvatarError(typeof data?.error === 'string' && data.error
+          ? data.error
+          : tx(locale, { en: 'Could not save that photo.', es: 'No se pudo guardar la foto.', it: 'Impossibile salvare la foto.', ar: 'تعذر حفظ الصورة.' }))
+        return
+      }
+      update('avatar', url)
       setAvatarError('')
+    } catch {
+      setAvatarError(tx(locale, { en: 'Could not save that photo.', es: 'No se pudo guardar la foto.', it: 'Impossibile salvare la foto.', ar: 'تعذر حفظ الصورة.' }))
     }
-    reader.readAsDataURL(file)
   }
   const reset = () => {
     setForm(current)
@@ -1544,6 +1677,9 @@ function PersonalProfileSection() {
         setSaveError(data.error || (tx(locale, { en: 'Could not save your profile.', es: 'No se pudo guardar tu perfil.', it: 'Impossibile salvare il profilo.', ar: 'تعذر حفظ الملف الشخصي.' })))
         return
       }
+
+      // The avatar is already persisted by /api/avatar at selection time,
+      // so profile save only needs to mirror the resulting URL locally.
       saveCustomerProfile(form)
       setSaved(true)
       router.refresh()
@@ -1564,12 +1700,12 @@ function PersonalProfileSection() {
         <CustomerAvatar avatar={form.avatar} initials={initials} className="customer-profile-avatar" name={displayName} />
         <div><strong>{tx(locale, { en: 'Profile photo', es: 'Foto de perfil', it: 'Foto profilo', ar: 'صورة الحساب' })}</strong><small>{tx(locale, { en: 'JPG or PNG up to 2 MB', es: 'JPG o PNG de hasta 2 MB', it: 'JPG o PNG fino a 2 MB', ar: 'JPG أو PNG حتى 2 ميجابايت' })}</small>{avatarError && <em>{avatarError}</em>}</div>
         <label aria-label={tx(locale, { en: 'Change profile photo', es: 'Cambiar la foto de perfil', it: 'Cambia la foto profilo', ar: 'تغيير صورة الحساب' })}><ImagePlus size={16} />{tx(locale, { en: 'Change photo', es: 'Cambiar foto', it: 'Cambia foto', ar: 'تغيير الصورة' })}<input type="file" accept="image/png,image/jpeg,image/webp" onChange={changeAvatar} aria-label={tx(locale, { en: 'Change profile photo', es: 'Cambiar la foto de perfil', it: 'Cambia la foto profilo', ar: 'تغيير صورة الحساب' })} /></label>
-        {form.avatar && <button type="button" onClick={() => { update('avatar', ''); setAvatarError('') }} aria-label={tx(locale, { en: 'Remove photo', es: 'Quitar la foto', it: 'Rimuovi foto', ar: 'حذف الصورة' })} title={tx(locale, { en: 'Remove photo', es: 'Quitar la foto', it: 'Rimuovi foto', ar: 'حذف الصورة' })}><Trash2 size={16} /></button>}
+        {form.avatar && <button type="button" onClick={async () => { update('avatar', ''); setAvatarError(''); await fetch('/api/avatar', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ isAdmin: false }) }).catch(() => {}) }} aria-label={tx(locale, { en: 'Remove photo', es: 'Quitar la foto', it: 'Rimuovi foto', ar: 'حذف الصورة' })} title={tx(locale, { en: 'Remove photo', es: 'Quitar la foto', it: 'Rimuovi foto', ar: 'حذف الصورة' })}><Trash2 size={16} /></button>}
       </div>
       <div className="customer-form-grid">
         <label>{tx(locale, { en: 'First name', es: 'Nombre', it: 'Nome', ar: 'الاسم الأول' })}<input required autoComplete="given-name" value={form.firstName} onChange={(event) => update('firstName', event.target.value)} /></label>
         <label>{tx(locale, { en: 'Last name', es: 'Apellidos', it: 'Cognome', ar: 'اسم العائلة' })}<input required autoComplete="family-name" value={form.lastName} onChange={(event) => update('lastName', event.target.value)} /></label>
-        <label>{tx(locale, { en: 'Username', es: 'Nombre de usuario', it: 'Nome utente', ar: 'اسم المستخدم' })}<input required dir="ltr" value={form.username} onChange={(event) => update('username', event.target.value.replace(/[^A-Za-z0-9_]/g, ''))} /></label>
+        <label>{tx(locale, { en: 'Username', es: 'Nombre de usuario', it: 'Nome utente', ar: 'اسم المستخدم' })}<input required dir="ltr" value={form.username} onChange={(event) => update('username', event.target.value.replace(/[^A-Za-z0-9_.-]/g, ''))} /></label>
         <label>{tx(locale, { en: 'Email address', es: 'Correo electrónico', it: 'Indirizzo email', ar: 'البريد الإلكتروني' })}<input required readOnly type="email" dir="ltr" value={form.email} /></label>
         <label>{tx(locale, { en: 'Country', es: 'País', it: 'Paese', ar: 'الدولة' })}<CountrySelect value={form.country} onChange={(code) => { const next = countries.find((country) => country.code === code) ?? defaultCountry; setForm((previous) => ({ ...previous, country: next.code, dialCode: next.dialCode })); setPhoneCountry(code); setSaved(false) }} locale={locale} /></label>
         <label>{tx(locale, { en: 'Phone number', es: 'Número de teléfono', it: 'Numero di telefono', ar: 'رقم الهاتف' })}<InternationalPhoneInput value={form.phone} onChange={(value) => { update('phone', value); setSaved(false) }} locale={locale} countryCode={phoneCountry} onCountryChange={setPhoneCountry} placeholder={tx(locale, { en: 'Phone number', es: 'Número de teléfono', it: 'Numero di telefono', ar: 'رقم الهاتف' })} /></label>

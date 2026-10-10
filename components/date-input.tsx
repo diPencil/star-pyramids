@@ -64,7 +64,7 @@ function synthesizeChange(value: string): ChangeEvent<HTMLInputElement> {
 }
 
 /** Locale resolved from the site provider; falls back to persisted/admin signals. No new source of truth. */
-function useDateLocale(): 'en' | 'ar' {
+function useDateLocale(): 'en' | 'es' | 'it' | 'ar' {
   const { locale } = useLocale()
   const [externalAr, setExternalAr] = useState(false)
   useEffect(() => {
@@ -88,7 +88,10 @@ function useDateLocale(): 'en' | 'ar' {
       observer.disconnect()
     }
   }, [])
-  return locale === 'ar' || externalAr ? 'ar' : 'en'
+  if (locale === 'ar' || externalAr) return 'ar'
+  if (locale === 'es') return 'es'
+  if (locale === 'it') return 'it'
+  return 'en'
 }
 
 export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(function DateInput(
@@ -189,7 +192,12 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(function D
     })
   }, [view])
 
-  const todayKey = useMemo(() => toKey(todayYMD()), [open])
+  // `todayYMD()` reads the local calendar date (no UTC-midnight parsing),
+  // recomputed every render so the highlighted/selected "today" can never
+  // go stale while the popover stays mounted.
+  const todayPart = todayYMD()
+  const todayISO = toISO(todayPart)
+  const todayKey = toKey(todayPart)
 
   const focusDay = (iso: string) => {
     setFocusKey(iso)
@@ -271,7 +279,8 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(function D
     }
   }
 
-  const defaultFocusKey = selectedISO || (cells.some((c) => c.key === todayKey && !isDisabledDay(c.key)) ? toISO(todayYMD()) : null)
+  const defaultFocusKey = selectedISO || (cells.some((c) => c.key === todayKey && !isDisabledDay(c.key)) ? todayISO : null)
+  const todayDisabled = !interactive || isDisabledDay(todayKey)
 
   const showClear = selectedISO !== '' && !required && interactive
   const PrevIcon = isRtl ? ChevronRight : ChevronLeft
@@ -391,11 +400,24 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(function D
                 })}
               </div>
               <div className="sp-date-foot">
-                <button type="button" className="sp-date-foot-btn" onClick={() => {
-                  const today = todayYMD()
-                  setView(clampViewMonth({ y: today.y, m: today.m }, minPart, maxPart))
-                  focusDay(toISO(today))
-                }}>
+                <button
+                  type="button"
+                  className="sp-date-foot-btn"
+                  disabled={todayDisabled}
+                  onClick={() => {
+                    // Select the current local date: update the input value
+                    // (via the same `onChange` contract as day cells so all
+                    // dependent filters/forms react), sync the calendar view,
+                    // and close — exactly like picking the day in the grid.
+                    // Respects min/max: disabled when today is out of range.
+                    if (isDisabledDay(todayKey)) {
+                      setView(clampViewMonth({ y: todayPart.y, m: todayPart.m }, minPart, maxPart))
+                      return
+                    }
+                    setView(clampViewMonth({ y: todayPart.y, m: todayPart.m }, minPart, maxPart))
+                    handleSelect(todayISO)
+                  }}
+                >
                   {tx(siteLocale, { en: 'Today', es: 'Hoy', it: 'Oggi', ar: 'اليوم' })}
                 </button>
                 {showClear && (

@@ -5,7 +5,6 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Avatar, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { countries, defaultCountry } from '@/data/countries'
-import { readAdminProfile, saveAdminProfile, defaultAdminProfile } from '@/lib/admin-store'
 import { ImageField } from '@/components/admin/image-field'
 import { CountrySelect } from '@/components/country-select'
 import { InternationalPhoneInput } from '@/components/international-phone-input'
@@ -46,16 +45,13 @@ export default function ProfilePage() {
         setLastName(user.lastName ?? '')
         setUsername(user.username ?? '')
         setEmail(user.email ?? '')
+        setAvatar(user.avatar ?? '')
         const code = countries.some((c) => c.code === user.countryCode) ? (user.countryCode as string) : defaultCountry.code
         setCountryCode(code)
         setPhoneCountry(code)
         setPhone(user.phone ?? '')
         setRoles(user.roles ?? [])
         setStatus(typeof user.status === 'string' ? user.status : '')
-        // Avatar is a browser-local display preference only (no DB column).
-        // Never show the stock mock photo for a real admin by default.
-        const storedAvatar = readAdminProfile().avatar
-        setAvatar(storedAvatar === defaultAdminProfile.avatar ? '' : storedAvatar)
         setLoading(false)
       })
       .catch(() => {
@@ -88,6 +84,7 @@ export default function ProfilePage() {
     }
     setSaving(true)
     try {
+      // Save profile details
       const response = await fetch('/api/admin/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -123,7 +120,21 @@ export default function ProfilePage() {
       setRoles(updated.roles ?? [])
       setPassword('')
       setConfirmPassword('')
-      saveAdminProfile({ avatar })
+
+      // Save avatar separately if it's a data URL (uploaded file)
+      if (avatar && avatar.startsWith('data:')) {
+        const avatarResponse = await fetch('/api/avatar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ avatar, isAdmin: true }),
+        })
+        const avatarData = await avatarResponse.json().catch(() => ({}))
+        if (!avatarResponse.ok) {
+          console.error('Avatar upload failed:', avatarData.error)
+        }
+      }
+
       setSaved(true)
     } catch {
       setError(ar ? 'تعذر حفظ البروفايل. حاول مرة أخرى.' : 'Could not save the profile. Please try again.')
@@ -142,10 +153,10 @@ export default function ProfilePage() {
           <div style={{ display: 'grid', justifyItems: 'center', gap: 12 }}>
             <Avatar name={displayName} src={avatar} size={96} />
             <div className="sp-form" style={{ width: '100%' }}>
-              <ImageField value={avatar} onChange={(next) => { setAvatar(next); touch() }} linkLabel={{ en: 'Avatar URL', ar: 'رابط الصورة الرمزية' }} uploadLabel={{ en: 'Upload avatar', ar: 'رفع صورة رمزية' }} />
+              <ImageField value={avatar} onChange={(next) => { setAvatar(next); touch() }} scope="avatar" linkLabel={{ en: 'Avatar URL', ar: 'رابط الصورة الرمزية' }} uploadLabel={{ en: 'Upload avatar', ar: 'رفع صورة رمزية' }} />
             </div>
             <small style={{ color: 'var(--sp-muted)', fontSize: 11, textAlign: 'center' }}>
-              <AdminText en="Avatar preview is kept in this browser only." ar="معاينة الصورة محفوظة في هذا المتصفح فقط." />
+              <AdminText en="Changes are saved to your account and persist across devices." ar="التغييرات محفوظة في حسابك وتظهر على جميع الأجهزة." />
             </small>
           </div>
         </Card>

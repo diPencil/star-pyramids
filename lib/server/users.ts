@@ -34,6 +34,7 @@ export interface PublicUser {
   username: string | null;
   countryCode: string | null;
   phone: string | null;
+  avatar?: string | null;
   status: UserStatus;
   emailVerifiedAt: Date | null;
   lastLoginAt: Date | null;
@@ -53,6 +54,7 @@ const publicSelect = {
   username: true,
   countryCode: true,
   phone: true,
+  avatar: true,
   status: true,
   emailVerifiedAt: true,
   lastLoginAt: true,
@@ -76,6 +78,10 @@ export function toPublicUser(
     username: row.username,
     countryCode: row.countryCode,
     phone: row.phone,
+    // Must be projected here or the stored avatar (an https URL, a stored
+    // /media path, or a legacy data URL) never reaches the client on a
+    // fresh read, so it appears to vanish on refresh / re-login.
+    avatar: row.avatar,
     status: row.status,
     emailVerifiedAt: row.emailVerifiedAt,
     lastLoginAt: row.lastLoginAt,
@@ -170,7 +176,7 @@ export async function createCustomerUser(
 
 export async function updateCustomerIdentity(
   userId: string,
-  input: Pick<CustomerRegistrationInput, 'firstName' | 'lastName' | 'username' | 'countryCode' | 'phone'>,
+  input: Pick<CustomerRegistrationInput, 'firstName' | 'lastName' | 'username' | 'countryCode' | 'phone'> & { avatar?: string },
 ): Promise<PublicUser> {
   const row = await db.user.update({
     where: { id: userId },
@@ -180,6 +186,7 @@ export async function updateCustomerIdentity(
       username: normalizeUsername(input.username),
       countryCode: input.countryCode.trim().toUpperCase(),
       phone: normalizePhone(input.phone),
+      avatar: input.avatar?.trim() || null,
     },
     select: publicSelect,
   });
@@ -193,6 +200,7 @@ export type AdminProfileInput = {
   email: string;
   countryCode: string;
   phone: string;
+  avatar?: string;
   /** Optional new password in cleartext; hashed here, never returned. */
   password?: string;
 };
@@ -217,10 +225,23 @@ export async function updateAdminProfile(
       emailNormalized: normalizeEmail(email),
       countryCode: input.countryCode.trim().toUpperCase(),
       phone: normalizePhone(input.phone),
+      avatar: input.avatar?.trim() || null,
       ...(input.password
         ? { passwordHash: await hashPassword(input.password) }
         : {}),
     },
+    select: publicSelect,
+  });
+  return toPublicUser(row);
+}
+
+export async function updateUserAvatar(
+  userId: string,
+  avatar: string | null,
+): Promise<PublicUser> {
+  const row = await db.user.update({
+    where: { id: userId },
+    data: { avatar },
     select: publicSelect,
   });
   return toPublicUser(row);

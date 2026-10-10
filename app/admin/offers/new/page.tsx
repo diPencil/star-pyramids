@@ -1,6 +1,9 @@
 'use client'
 
+import Link from 'next/link'
 import { Suspense, useEffect, useState } from 'react'
+import { ContentLanguageTabs, TranslatedInput, TranslatedTextarea } from '@/components/admin/content-language-tabs'
+import { type CatalogueTranslations } from '@/lib/catalogue-translations'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Card } from '@/components/admin/admin-ui'
@@ -8,7 +11,7 @@ import { useAdminLocale } from '@/components/admin/admin-locale'
 import { tours } from '@/data/tours'
 import { slugify } from '@/lib/admin-store'
 import { useDbOffers, invalidateOffersBlogsCache } from '@/lib/offers-blogs-client'
-import { useDbTours } from '@/lib/tours-client'
+import { useDbToursStatus, invalidateToursCache } from '@/lib/tours-client'
 import { ImageField } from '@/components/admin/image-field'
 import { SharedSelect } from '@/components/shared-select'
 import type { Offer } from '@/data/types'
@@ -23,17 +26,19 @@ function OfferForm({ initial, editSlug }: { initial: Offer | null; editSlug: str
   const editing = Boolean(editSlug)
   const missing = editing && initial === null
 
-  const [mode, setMode] = useState<'existing' | 'new'>('existing')
-  const [tourSlug, setTourSlug] = useState(tours[0]?.slug ?? '')
-  const [percent, setPercent] = useState('15')
-  const [endsAt, setEndsAt] = useState(initial?.deadline ?? '2026-12-31')
-  const [badge, setBadge] = useState(initial?.badge ?? 'SAVE 15%')
+  const [mode, setMode] = useState<'existing' | 'new' | 'create'>('existing')
+  const [tourSlug, setTourSlug] = useState(initial?.tourSlug ?? '')
+  const [category, setCategory] = useState('all')
+  const [startsAt, setStartsAt] = useState(initial?.startsAt?.slice(0, 10) ?? '')
+  const [percent, setPercent] = useState(initial?.discountPercent != null ? String(initial.discountPercent) : '')
+  const [endsAt, setEndsAt] = useState(initial?.deadline ?? '')
+  const [badge, setBadge] = useState(initial?.badge ?? '')
+  const [translations, setTranslations] = useState<CatalogueTranslations>(initial?.translations ?? {})
   const [title, setTitle] = useState(initial?.title ?? '')
   const [copy, setCopy] = useState(initial?.copy ?? '')
   const [price, setPrice] = useState(initial?.price != null ? String(initial.price) : '')
   const [originalPrice, setOriginalPrice] = useState(initial?.originalPrice != null ? String(initial.originalPrice) : '')
   const [duration, setDuration] = useState(initial?.duration ?? '')
-  const [rating, setRating] = useState(initial?.rating != null ? String(initial.rating) : '')
   const [image, setImage] = useState(initial?.image ?? '')
   const [gallery, setGallery] = useState((initial?.gallery ?? []).join('\n'))
   const [highlights, setHighlights] = useState((initial?.highlights ?? []).join('\n'))
@@ -43,17 +48,18 @@ function OfferForm({ initial, editSlug }: { initial: Offer | null; editSlug: str
   const [displayOrder, setDisplayOrder] = useState(initial?.displayOrder != null ? String(initial.displayOrder) : '')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
-  const liveTours = useDbTours(tours)
+  const tourStatus = useDbToursStatus([], { includeNew: true })
+  const liveTours = tourStatus.data ?? []
   const dbOffers = useDbOffers([])
 
   const tour = liveTours.find((t) => t.slug === tourSlug)
-  const dealPrice = tour ? Math.round(tour.price * (1 - Math.min(90, Math.max(0, Number(percent) || 0)) / 100)) : 0
+  const dealPrice = tour ? Math.round(tour.price * (1 - Math.min(90, Math.max(0, Number(percent) || 0)) / 100) * 100) / 100 : 0
 
   const postOffer = async (payload: Record<string, unknown>) => {
     const res = await fetch('/api/offers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, translations }),
       credentials: 'same-origin',
     })
     if (!res.ok) {
@@ -65,6 +71,7 @@ function OfferForm({ initial, editSlug }: { initial: Offer | null; editSlug: str
   const save = async () => {
     setError('')
     if (saving) return
+    if (mode === 'create' && !editing) return
     if (editing) {
       if (!title.trim()) { setError(ar ? 'اكتب عنوان العرض.' : 'Enter the offer title.'); return }
       if (!badge.trim()) { setError(ar ? 'اكتب شارة الحملة.' : 'Enter the campaign badge.'); return }
@@ -75,6 +82,8 @@ function OfferForm({ initial, editSlug }: { initial: Offer | null; editSlug: str
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            translations,
+            ...(initial?.tourSlug ? { tourSlug, discountPercent: Number(percent), startsAt: startsAt || null } : {}),
             title: title.trim(),
             badge: badge.trim(),
             copy: copy.trim(),
@@ -82,7 +91,6 @@ function OfferForm({ initial, editSlug }: { initial: Offer | null; editSlug: str
             gallery: gallery.split('\n').map((s) => s.trim()).filter(Boolean),
             highlights: highlights.split('\n').map((s) => s.trim()).filter(Boolean),
             duration: duration.trim() || null,
-            rating: rating.trim() ? Number(rating) : null,
             price: price.trim() ? Number(price) : null,
             originalPrice: originalPrice.trim() ? Number(originalPrice) : null,
             deadline: endsAt.trim() || null,
@@ -102,22 +110,32 @@ function OfferForm({ initial, editSlug }: { initial: Offer | null; editSlug: str
       }
       setSaving(false)
       invalidateOffersBlogsCache()
+      invalidateToursCache()
       router.push('/admin/offers')
       return
     }
     if (mode === 'existing') {
       if (!tour) { setError(ar ? 'اختر الرحلة.' : 'Select a tour.'); return }
+      // The field starts empty: require an explicit discount instead of
+      // silently clamping a blank value to the minimum.
+      if (!percent.trim() || !Number.isFinite(Number(percent)) || Number(percent) < 1 || Number(percent) > 90) {
+        setError(ar ? 'أدخل نسبة خصم بين 1 و90.' : 'Enter a discount between 1 and 90.')
+        return
+      }
+      if (!endsAt.trim()) { setError(ar ? 'اختر تاريخ انتهاء العرض.' : 'Choose when the offer ends.'); return }
       const pct = Math.min(90, Math.max(1, Number(percent) || 0))
       setSaving(true)
       try {
-        const offerSlug = `custom-offer-${tour.slug}`
-        if (dbOffers.some((o) => o.slug === offerSlug)) {
+        const offerSlug = `${tour.slug.slice(0, 58)}-offer-${Date.now().toString(36)}`
+        if (dbOffers.some((o) => o.tourSlug === tour.slug)) {
           throw new Error(ar ? 'يوجد عرض مرتبط بهذه الرحلة بالفعل.' : 'An offer linked to this tour already exists.')
         }
-        // Offer row first: if linking the tour discount fails below, the
-        // offer stays visible in the list and the discount can be retried.
+        // The API saves the relationship, discount and translations atomically.
         await postOffer({
           slug: offerSlug,
+          tourSlug: tour.slug,
+          discountPercent: Number(percent),
+          startsAt: startsAt || null,
           title: tour.title,
           image: tour.image,
           gallery: tour.gallery ? [...tour.gallery] : [],
@@ -130,18 +148,6 @@ function OfferForm({ initial, editSlug }: { initial: Offer | null; editSlug: str
           deadline: endsAt,
           isPublished: published,
         })
-        // The discount lives on the tour row itself (DB-authoritative) so
-        // the website badge reflects it immediately.
-        const res = await fetch(`/api/tours/${encodeURIComponent(tour.slug)}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ deal: { percent: pct, endsAt } }),
-          credentials: 'same-origin',
-        })
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({} as { error?: string }))
-          throw new Error(data.error || (ar ? 'حُفظ العرض، لكن تعذر ربط الخصم بالرحلة.' : 'Offer saved, but the tour discount could not be linked.'))
-        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to save the offer.')
         setSaving(false)
@@ -149,6 +155,7 @@ function OfferForm({ initial, editSlug }: { initial: Offer | null; editSlug: str
       }
       setSaving(false)
       invalidateOffersBlogsCache()
+      invalidateToursCache()
       router.push('/admin/offers')
       return
     }
@@ -173,7 +180,6 @@ function OfferForm({ initial, editSlug }: { initial: Offer | null; editSlug: str
         copy: copy.trim() || title.trim(),
         highlights: highlights.split('\n').map((s) => s.trim()).filter(Boolean),
         duration: duration.trim() || null,
-        rating: rating.trim() ? Number(rating) : null,
         price: price.trim() ? Number(price) : null,
         originalPrice: originalPrice.trim() ? Number(originalPrice) : null,
         deadline: endsAt.trim() || null,
@@ -200,74 +206,85 @@ function OfferForm({ initial, editSlug }: { initial: Offer | null; editSlug: str
   }
 
   return <>
-    <PageHead eyebrow="Special Offers" title={editing ? 'Edit offer' : 'New offer'} titleAr={editing ? 'تعديل عرض' : 'عرض جديد'} sub={editing ? `Editing ${editSlug}` : 'Link an existing tour or publish a standalone offer'} subAr={editing ? `تعديل ${editSlug}` : 'اربط رحلة موجودة أو انشر عرضا مستقلا'} backHref="/admin/offers" actions={<button type="button" className="sp-btn dark" onClick={save} disabled={saving}><AdminText en={editing ? 'Save changes' : 'Publish offer'} ar={editing ? 'حفظ التعديلات' : 'نشر العرض'} /></button>} />
+    <PageHead eyebrow="Special Offers" title={editing ? 'Edit offer' : 'New offer'} titleAr={editing ? 'تعديل عرض' : 'عرض جديد'} sub={editing ? `Editing ${editSlug}` : 'Link a tour, create a complete tour, or publish a marketing campaign'} subAr={editing ? `تعديل ${editSlug}` : 'اربط رحلة موجودة أو انشر عرضا مستقلا'} backHref="/admin/offers" actions={<button type="button" className="sp-btn dark" onClick={save} disabled={saving || (!editing && mode === 'create')}><AdminText en={editing ? 'Save changes' : 'Publish offer'} ar={editing ? 'حفظ التعديلات' : 'نشر العرض'} /></button>} />
     {!editing && <Card title={<AdminText en="Creation method" ar="طريقة الإنشاء" />} sub={<AdminText en="Linking a tour adds the discount badge on the website automatically" ar="ربط رحلة يضيف شارة الخصم عليها في الموقع تلقائيا" />}>
+<ContentLanguageTabs translations={translations} setTranslations={setTranslations}>
       <div className="sp-tabs" style={{ marginBottom: 16 }}>
         <button type="button" className={mode === 'existing' ? 'active' : ''} onClick={() => setMode('existing')}><AdminText en="Link existing tour" ar="سحب رحلة موجودة" /></button>
-        <button type="button" className={mode === 'new' ? 'active' : ''} onClick={() => setMode('new')}><AdminText en="New standalone offer" ar="عرض مستقل جديد" /></button>
+        <button type="button" className={mode === 'new' ? 'active' : ''} onClick={() => setMode('new')}><AdminText en="Marketing campaign" ar="حملة تسويقية" /></button>
+        <button type="button" className={mode === 'create' ? 'active' : ''} onClick={() => setMode('create')}><AdminText en="New tour with offer" ar="رحلة جديدة بعرض" /></button>
       </div>
+      {mode === 'create' && <div className="sp-form"><p><AdminText en="Create the complete tour in Trip Builder, then return here to link its offer." ar="أنشئ الرحلة الكاملة في منشئ الرحلات، ثم ارجع لربط العرض بها." /></p><Link href="/admin/trips/builder" className="sp-btn primary" style={{ justifySelf: 'start' }}><AdminText en="Open Trip Builder" ar="فتح منشئ الرحلات" /></Link></div>}
       {mode === 'existing' ? (
         <div className="sp-form">
-          <label><AdminText en="Tour" ar="الرحلة" /><SharedSelect value={tourSlug} onChange={setTourSlug} locale={ar ? 'ar' : 'en'} popupWidth="trigger" options={liveTours.map((t) => ({ value: t.slug, label: `${t.title} - $${t.price}` }))} /></label>
+          <label><AdminText en="Tour type" ar="نوع الرحلة" /><SharedSelect value={category} onChange={value => { setCategory(value); setTourSlug('') }} locale={ar ? 'ar' : 'en'} options={[{value:'all',label:ar?'كل الأنواع':'All tour types'},{value:'one-day-tours',label:'One-day tours'},{value:'multi-days-tours',label:'Multi-day packages'},{value:'nile-cruises',label:'Nile cruises'},{value:'shore-excursions',label:'Shore excursions'}]} /></label>
+          <label><AdminText en="Starts at (optional)" ar="يبدأ في (اختياري)" /><DateInput value={startsAt} onChange={e => setStartsAt(e.target.value)} /></label>
+          {tourStatus.loading && <p role="status"><AdminText en="Loading tours…" ar="جارٍ تحميل الرحلات…" /></p>}
+          {tourStatus.error && <p role="alert">{tourStatus.error} <button type="button" className="sp-btn" onClick={tourStatus.retry}><AdminText en="Retry" ar="إعادة المحاولة" /></button></p>}
+          <label><AdminText en="Tour" ar="الرحلة" /><SharedSelect value={tourSlug} onChange={setTourSlug} locale={ar ? 'ar' : 'en'} popupWidth="trigger" options={liveTours.filter(t => category === 'all' || t.category === category).map((t) => ({ value: t.slug, label: `${t.title} - $${t.price}` }))} /></label>
           <div className="sp-form-2">
-            <label><AdminText en="Discount %" ar="نسبة الخصم %" /><input type="number" min={1} max={90} value={percent} onChange={(e) => { setPercent(e.target.value); setBadge(`SAVE ${e.target.value}%`) }} /></label>
+            <label><AdminText en="Discount %" ar="نسبة الخصم %" /><input type="number" min={1} max={90} placeholder={ar ? 'مثال: 15' : 'e.g. 15'} value={percent} onChange={(e) => { setPercent(e.target.value); setBadge(e.target.value ? `SAVE ${e.target.value}%` : '') }} /></label>
             <label><AdminText en="Ends at" ar="ينتهي في" /><DateInput value={endsAt} onChange={(e) => setEndsAt(e.target.value)} /></label>
           </div>
           <div className="sp-form-2">
-            <label><AdminText en="Badge" ar="الشارة" /><input value={badge} onChange={(e) => setBadge(e.target.value)} /></label>
+            <label><AdminText en="Badge" ar="الشارة" /><TranslatedInput field="badge" value={badge} onChange={(e) => setBadge(e.target.value)} /></label>
             <label><AdminText en="Price after discount" ar="السعر بعد الخصم" /><input value={`$${dealPrice}`} readOnly /></label>
           </div>
-          <label><AdminText en="Offer description" ar="وصف العرض" /><textarea rows={3} value={copy} onChange={(e) => setCopy(e.target.value)} placeholder={tour?.summary} /></label>
+          <label><AdminText en="Offer description" ar="وصف العرض" /><TranslatedTextarea field="copy" rows={3} value={copy} onChange={(e) => setCopy(e.target.value)} placeholder={tour?.summary} /></label>
           <label className="sp-check"><input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} /> <AdminText en="Published (visible on website)" ar="منشور (ظاهر على الموقع)" /></label>
         </div>
-      ) : (
+      ) : mode === 'new' ? (
         <div className="sp-form">
           <div className="sp-form-2">
-            <label><AdminText en="Title" ar="العنوان" /><input value={title} onChange={(e) => { setTitle(e.target.value); if (!slugTouched) setSlug(slugify(e.target.value)) }} placeholder="Summer Nile Escape" /></label>
-            <label><AdminText en="Badge" ar="الشارة" /><input value={badge} onChange={(e) => setBadge(e.target.value)} placeholder="SAVE 20%" /></label>
+            <label><AdminText en="Title" ar="العنوان" /><TranslatedInput field="title" value={title} onChange={(e) => { setTitle(e.target.value); if (!slugTouched) setSlug(slugify(e.target.value)) }} placeholder="Summer Nile Escape" /></label>
+            <label><AdminText en="Badge" ar="الشارة" /><TranslatedInput field="badge" value={badge} onChange={(e) => setBadge(e.target.value)} placeholder="SAVE 20%" /></label>
           </div>
           <label><AdminText en="Slug" ar="المعرف" /><input value={slugTouched ? slug : slugify(title)} dir="ltr" onChange={(e) => { setSlugTouched(true); setSlug(cleanSlugInput(e.target.value)) }} placeholder="custom-..." /><small><AdminText en="Lowercase letters, numbers, dashes. Must be unique." ar="أحرف صغيرة وأرقام وشرطات. يجب أن يكون فريدًا." /></small></label>
-          <label><AdminText en="Description" ar="الوصف" /><textarea rows={3} value={copy} onChange={(e) => setCopy(e.target.value)} /></label>
+          <label><AdminText en="Description" ar="الوصف" /><TranslatedTextarea field="copy" rows={3} value={copy} onChange={(e) => setCopy(e.target.value)} /></label>
           <div className="sp-form-2">
             <label><AdminText en="Price" ar="السعر" /><input type="number" value={price} onChange={(e) => setPrice(e.target.value)} /></label>
             <label><AdminText en="Price before discount" ar="السعر قبل الخصم" /><input type="number" value={originalPrice} onChange={(e) => setOriginalPrice(e.target.value)} /></label>
           </div>
           <div className="sp-form-2">
-            <label><AdminText en="Duration" ar="المدة" /><input value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="5 days" /></label>
+            <label><AdminText en="Duration" ar="المدة" /><TranslatedInput field="duration" value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="5 days" /></label>
             <label><AdminText en="Deadline" ar="الموعد النهائي" /><DateInput value={endsAt} onChange={(e) => setEndsAt(e.target.value)} /></label>
           </div>
           <ImageField value={image} onChange={setImage} />
-          <label><AdminText en="Highlights (one per line)" ar="النقاط البارزة (سطر لكل نقطة)" /><textarea rows={3} value={highlights} onChange={(e) => setHighlights(e.target.value)} /></label>
+          <label><AdminText en="Highlights (one per line)" ar="النقاط البارزة (سطر لكل نقطة)" /><TranslatedTextarea field="highlights" rows={3} value={highlights} onChange={(e) => setHighlights(e.target.value)} /></label>
           <div className="sp-form-2">
             <label className="sp-check"><input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} /> <AdminText en="Published (visible on website)" ar="منشور (ظاهر على الموقع)" /></label>
             <label><AdminText en="Display order" ar="ترتيب العرض" /><input type="number" step="1" value={displayOrder} onChange={(e) => setDisplayOrder(e.target.value)} placeholder="1" /></label>
           </div>
         </div>
-      )}
+      ) : null}
       {error && <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>}
       <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-        <button type="button" className="sp-btn primary" onClick={save} disabled={saving}><AdminText en="Publish offer" ar="نشر العرض" /></button>
+        <button type="button" className="sp-btn primary" onClick={save} disabled={saving || mode === 'create'}><AdminText en="Publish offer" ar="نشر العرض" /></button>
       </div>
-    </Card>}
+    </ContentLanguageTabs>
+</Card>}
     {editing && <Card title={<AdminText en="Offer details" ar="بيانات العرض" />}>
+<ContentLanguageTabs translations={translations} setTranslations={setTranslations}>
       <div className="sp-form">
+        {initial?.tourSlug && <><p><AdminText en="Linked tour" ar="الرحلة المرتبطة" />: <Link href={`/admin/trips/builder?slug=${initial.tourSlug}`}>{initial.tourSlug}</Link></p><div className="sp-form-2"><label><AdminText en="Discount %" ar="نسبة الخصم" /><input type="number" min={1} max={90} step="0.01" value={percent} onChange={e=>setPercent(e.target.value)} /></label><label><AdminText en="Starts at (optional)" ar="يبدأ في (اختياري)" /><DateInput value={startsAt} onChange={e=>setStartsAt(e.target.value)} /></label></div><p><AdminText en="Tour images, duration and booking prices come from the linked tour." ar="صور الرحلة ومدتها وأسعار الحجز تأتي من الرحلة المرتبطة." /></p></>}
         <div className="sp-form-2">
-          <label><AdminText en="Title" ar="العنوان" /><input value={title} onChange={(e) => setTitle(e.target.value)} /></label>
-          <label><AdminText en="Badge" ar="الشارة" /><input value={badge} onChange={(e) => setBadge(e.target.value)} /></label>
+          <label><AdminText en="Title" ar="العنوان" /><TranslatedInput field="title" value={title} onChange={(e) => setTitle(e.target.value)} /></label>
+          <label><AdminText en="Badge" ar="الشارة" /><TranslatedInput field="badge" value={badge} onChange={(e) => setBadge(e.target.value)} /></label>
         </div>
-        <label><AdminText en="Description" ar="الوصف" /><textarea rows={3} value={copy} onChange={(e) => setCopy(e.target.value)} /></label>
-        <div className="sp-form-2">
+        <label><AdminText en="Description" ar="الوصف" /><TranslatedTextarea field="copy" rows={3} value={copy} onChange={(e) => setCopy(e.target.value)} /></label>
+        {!initial?.tourSlug && <><div className="sp-form-2">
           <label><AdminText en="Price" ar="السعر" /><input type="number" value={price} onChange={(e) => setPrice(e.target.value)} /></label>
           <label><AdminText en="Price before discount" ar="السعر قبل الخصم" /><input type="number" value={originalPrice} onChange={(e) => setOriginalPrice(e.target.value)} /></label>
         </div>
         <div className="sp-form-2">
-          <label><AdminText en="Duration" ar="المدة" /><input value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="5 days" /></label>
-          <label><AdminText en="Rating" ar="التقييم" /><input type="number" min="0" max="5" step="0.1" value={rating} onChange={(e) => setRating(e.target.value)} /></label>
+          <label><AdminText en="Duration" ar="المدة" /><TranslatedInput field="duration" value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="5 days" /></label>
         </div>
+        </>}
         <label><AdminText en="Deadline" ar="الموعد النهائي" /><DateInput value={endsAt} onChange={(e) => setEndsAt(e.target.value)} /></label>
-        <ImageField value={image} onChange={setImage} />
+        {!initial?.tourSlug && <><ImageField value={image} onChange={setImage} />
         <label><AdminText en="Gallery (one URL per line)" ar="المعرض (رابط في كل سطر)" /><textarea rows={3} value={gallery} onChange={(e) => setGallery(e.target.value)} placeholder="https://..." /></label>
-        <label><AdminText en="Highlights (one per line)" ar="النقاط البارزة (سطر لكل نقطة)" /><textarea rows={3} value={highlights} onChange={(e) => setHighlights(e.target.value)} /></label>
+        </>}
+        <label><AdminText en="Highlights (one per line)" ar="النقاط البارزة (سطر لكل نقطة)" /><TranslatedTextarea field="highlights" rows={3} value={highlights} onChange={(e) => setHighlights(e.target.value)} /></label>
         <div className="sp-form-2">
           <label className="sp-check"><input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} /> <AdminText en="Published (visible on website)" ar="منشور (ظاهر على الموقع)" /></label>
           <label><AdminText en="Display order" ar="ترتيب العرض" /><input type="number" step="1" value={displayOrder} onChange={(e) => setDisplayOrder(e.target.value)} placeholder="1" /></label>
@@ -277,7 +294,8 @@ function OfferForm({ initial, editSlug }: { initial: Offer | null; editSlug: str
       <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
         <button type="button" className="sp-btn primary" onClick={save} disabled={saving}><AdminText en="Save changes" ar="حفظ التعديلات" /></button>
       </div>
-    </Card>}
+    </ContentLanguageTabs>
+</Card>}
   </>
 }
 
@@ -345,6 +363,10 @@ function normalizeOfferRow(row: Record<string, unknown>): Offer {
   const gallery = strArray(row.gallery ?? content.gallery)
   const highlights = strArray(row.highlights ?? content.highlights)
   return {
+    tourSlug: typeof row.tourSlug === 'string' ? row.tourSlug : undefined,
+    discountPercent: typeof row.discountPercent === 'number' ? row.discountPercent : undefined,
+    startsAt: typeof row.startsAt === 'string' ? row.startsAt : undefined,
+    translations: row.translations as CatalogueTranslations | undefined,
     title: String(row.title ?? ''),
     slug: String(row.slug ?? ''),
     image: String(row.image ?? ''),
@@ -353,7 +375,6 @@ function normalizeOfferRow(row: Record<string, unknown>): Offer {
     copy: String(row.copy ?? ''),
     highlights: highlights.length ? highlights : undefined,
     duration: typeof row.duration === 'string' ? row.duration : undefined,
-    rating: typeof row.rating === 'number' ? row.rating : undefined,
     price: typeof row.price === 'number' ? row.price : undefined,
     originalPrice: typeof row.originalPrice === 'number' ? row.originalPrice : undefined,
     deadline: typeof row.deadline === 'string' ? row.deadline : undefined,

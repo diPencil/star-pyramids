@@ -1,3 +1,5 @@
+import { catalogueTranslationResponse, saveWithCatalogueTranslations } from '@/lib/server/catalogue-translations';
+import { validateCatalogueTranslations } from '@/lib/catalogue-translations';
 import { NextResponse } from 'next/server';
 import { readJsonText, writeJsonText } from '@/lib/json-text';
 import { isSameOriginRequest } from '@/lib/server/csrf';
@@ -9,7 +11,7 @@ const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export async function GET() {
   // Public: list the full fleet (read-only, no auth required)
   const cars = await db.car.findMany({ orderBy: [{ title: 'asc' }] });
-  return NextResponse.json({ cars: cars.map((car) => ({ ...car, credit: readJsonText(car.credit) })) });
+  return NextResponse.json(await catalogueTranslationResponse('car', { cars: cars.map((car) => ({ ...car, credit: readJsonText(car.credit) })) }));
 }
 
 export async function POST(request: Request) {
@@ -28,6 +30,10 @@ export async function POST(request: Request) {
   }
 
   const data = await request.json();
+  if (data?.translations !== undefined) {
+    try { validateCatalogueTranslations('car', data.translations); }
+    catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'Invalid translations.' }, { status: 400 }); }
+  }
 
   const slug = typeof data.slug === 'string' ? data.slug.trim().toLowerCase() : '';
   if (!SLUG_PATTERN.test(slug) || slug.length > 80) {
@@ -51,7 +57,7 @@ export async function POST(request: Request) {
       ? writeJsonText({ label: data.credit.label.slice(0, 200), url: data.credit.url.slice(0, 2000) })
       : null;
 
-  const car = await db.car.create({
+  const car = await saveWithCatalogueTranslations('car', data.translations, undefined, (tx) => tx.car.create({
     data: {
       slug,
       title: data.title.trim().slice(0, 200),
@@ -63,7 +69,7 @@ export async function POST(request: Request) {
       credit,
       isPublished: data.isPublished !== false,
     },
-  });
+  }));
 
-  return NextResponse.json({ car: { ...car, credit: readJsonText(car.credit) } }, { status: 201 });
+  return NextResponse.json(await catalogueTranslationResponse('car', { car: { ...car, credit: readJsonText(car.credit) } }), { status: 201 });
 }

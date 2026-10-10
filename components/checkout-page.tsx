@@ -52,7 +52,7 @@ export function CheckoutPage() {
   const [attempted, setAttempted] = useState(false)
   const [sending, setSending] = useState(false)
   const [submitError, setSubmitError] = useState('')
-  const [placed, setPlaced] = useState<{ reference: string; total: number; linked: boolean } | null>(null)
+  const [placed, setPlaced] = useState<{ reference: string; total: number; linked: boolean; guestAccessUrl: string | null } | null>(null)
   const sendFailed = tx(locale, { en: 'Could not send the request. Please try again.', es: 'No se pudo enviar la solicitud. Inténtalo de nuevo.', it: 'Impossibile inviare la richiesta. Riprova.', ar: 'تعذر إرسال الطلب. حاول مجددًا.' })
 
   const copy = {
@@ -107,15 +107,21 @@ export function CheckoutPage() {
       body: JSON.stringify(draft),
     })
       .then(async (res) => {
-        const data = (await res.json()) as Booking & { error?: string }
+        const data = (await res.json()) as Booking & { error?: string; guestAccessUrl?: string | null }
         if (!res.ok) throw new Error(data.error || sendFailed)
-        // Guest checkouts are not linked to an account: confirm honestly.
+        // Guest checkouts get a private link from the server: the booking is
+        // not linked to an account, so the reference alone opens nothing.
+        const guestAccessUrl = typeof data.guestAccessUrl === 'string' ? data.guestAccessUrl : null
         let linked = true
-        try {
-          const detail = await fetch(`/api/account/bookings/${encodeURIComponent(data.reference)}`, { credentials: 'same-origin' })
-          linked = detail.ok
-        } catch { linked = false }
-        setPlaced({ reference: data.reference, total: data.total, linked })
+        if (!guestAccessUrl) {
+          try {
+            const detail = await fetch(`/api/account/bookings/${encodeURIComponent(data.reference)}`, { credentials: 'same-origin' })
+            linked = detail.ok
+          } catch { linked = false }
+        } else {
+          linked = false
+        }
+        setPlaced({ reference: data.reference, total: data.total, linked, guestAccessUrl })
         clearCart()
         rotateCheckoutKey()
       })
@@ -139,10 +145,14 @@ export function CheckoutPage() {
         <div className="req-summary-rows">
           <div><span>{tx(locale, { en: 'Booking total', es: 'Total de la reserva', it: 'Totale prenotazione', ar: 'إجمالي الحجز' })}</span><strong>{formatPrice(placed.total, currency, locale)}</strong></div>
         </div>
-        <p>{placed.linked
+        <p>{placed.guestAccessUrl
+          ? tx(locale, { en: 'We rechecked your tour prices and confirmed the total. This private link is the only way to open this booking — we have emailed it to you too, and each new email replaces it.', es: 'Hemos revisado los precios de tus tours y confirmado el total. Este enlace privado es la única forma de abrir esta reserva: también te lo hemos enviado por correo y cada correo nuevo lo sustituye.', it: 'Abbiamo ricontrollato i prezzi dei tuoi tour e confermato il totale. Questo link privato è l’unico modo per aprire la prenotazione: te l’abbiamo inviato per email e ogni nuova email lo sostituisce.', ar: 'راجعنا أسعار رحلاتك وأكدنا الإجمالي. هذا الرابط الخاص هو الطريقة الوحيدة لفتح الحجز — وقد أرسلناه إليك بالبريد أيضًا، وكل رسالة جديدة تستبدله.' })
+          : placed.linked
           ? tx(locale, { en: 'We rechecked your tour prices and confirmed the total. Track your booking from your account.', es: 'Hemos revisado los precios de tus tours y confirmado el total. Sigue tu reserva desde tu cuenta.', it: 'Abbiamo ricontrollato i prezzi dei tuoi tour e confermato il totale. Segui la tua prenotazione dal tuo account.', ar: 'راجعنا أسعار رحلاتك وأكدنا الإجمالي. تابع حجزك من حسابك.' })
           : tx(locale, { en: 'We rechecked your tour prices and confirmed the total. Quote the reference when you contact our team.', es: 'Hemos revisado los precios de tus tours y confirmado el total. Menciona la referencia cuando contactes con nuestro equipo.', it: 'Abbiamo ricontrollato i prezzi dei tuoi tour e confermato il totale. Cita il riferimento quando contatti il nostro team.', ar: 'راجعنا أسعار رحلاتك وأكدنا الإجمالي. اذكر المرجع عند التواصل مع فريقنا.' })}</p>
-        <div className="car-success-actions">{placed.linked && <Link className="primary-btn" href={`/account/bookings/detail?ref=${encodeURIComponent(placed.reference)}`}>{tx(locale, { en: 'View booking', es: 'Ver reserva', it: 'Visualizza prenotazione', ar: 'عرض الحجز' })}</Link>}<Link className="outline-btn" href="/trips">{tx(locale, { en: 'Browse more trips', es: 'Explorar más viajes', it: 'Sfoglia altri viaggi', ar: 'تصفح المزيد من الرحلات' })}</Link></div>
+        <div className="car-success-actions">{placed.guestAccessUrl
+          ? <Link className="primary-btn" href={placed.guestAccessUrl}>{tx(locale, { en: 'View your booking', es: 'Ver tu reserva', it: 'Visualizza la prenotazione', ar: 'عرض حجزك' })}</Link>
+          : placed.linked && <Link className="primary-btn" href={`/account/bookings/detail?ref=${encodeURIComponent(placed.reference)}`}>{tx(locale, { en: 'View booking', es: 'Ver reserva', it: 'Visualizza prenotazione', ar: 'عرض الحجز' })}</Link>}<Link className="outline-btn" href="/trips">{tx(locale, { en: 'Browse more trips', es: 'Explorar más viajes', it: 'Sfoglia altri viaggi', ar: 'تصفح المزيد من الرحلات' })}</Link></div>
       </div> : !items.length ? <div className="cart-empty">
         <h2>{tx(locale, { en: 'Nothing to check out', es: 'Nada que comprar', it: 'Niente da acquistare', ar: 'لا توجد عناصر لإتمامها' })}</h2>
         <p>{tx(locale, { en: 'Add a trip to the cart first.', es: 'Añade primero un viaje al carrito.', it: 'Aggiungi prima un viaggio al carrello.', ar: 'أضف رحلة إلى السلة أولًا.' })}</p>
@@ -177,6 +187,7 @@ export function CheckoutPage() {
             <div className="cart-summary-row"><span>{item.title}</span><button type="button" className="cart-remove" onClick={() => removeFromCart(item.key)} aria-label={tx(locale, { en: 'Remove from cart', es: 'Quitar del carrito', it: 'Rimuovi dal carrello', ar: 'إزالة من السلة' })}><Trash2 size={16} /></button></div>
             <small className="co-line-sub">{tx(locale, { en: 'No longer available - remove it to continue.', es: 'Ya no disponible - quítalo para continuar.', it: 'Non più disponibile - rimuovilo per continuare.', ar: 'لم تعد متاحة - أزلها للمتابعة.' })}</small>
           </div>)}
+          {estimate.discount > 0 && <div className="cart-summary-row discount"><span>{tx(locale, { en: 'Deal savings', es: 'Ahorro por oferta', it: 'Risparmio offerta', ar: 'توفير العروض' })}</span><strong>−{formatPrice(estimate.discount, currency, locale)}</strong></div>}
           <div className="cart-summary-row total"><span>{tx(locale, { en: 'Estimated total', es: 'Total estimado', it: 'Totale stimato', ar: 'الإجمالي التقديري' })}</span><strong>{formatPrice(estimate.subtotal, currency, locale)}</strong></div>
           <p>{tx(locale, { en: 'Frontend estimate only. The final price is recalculated from our catalogue before the booking is confirmed.', es: 'Solo estimación inicial. El precio final se recalcula desde nuestro catálogo antes de confirmar la reserva.', it: 'Solo stima iniziale. Il prezzo finale è ricalcolato dal nostro catalogo prima della conferma.', ar: 'تقدير مبدئي فقط. يُعاد حساب السعر النهائي من قائمتنا قبل تأكيد الحجز.' })}</p>
           <button type="submit" className="primary-btn" disabled={staleBlocked || sending}>{sending ? tx(locale, { en: 'Sending...', es: 'Enviando...', it: 'Invio in corso...', ar: 'جارٍ الإرسال...' }) : tx(locale, { en: 'Request booking', es: 'Solicitar reserva', it: 'Richiedi prenotazione', ar: 'إرسال طلب الحجز' })} <ArrowRight size={17} /></button>

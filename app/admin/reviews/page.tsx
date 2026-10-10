@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { WEBSITE_REVIEW_SCOPE } from '@/lib/review-scope'
 import { ArrowRight, CircleAlert, CheckCircle2, XCircle, Search } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminIconAction, AdminTableActions, AdminTableTools, AdminTableWrap, AdminText, Avatar, Card, StatusPill } from '@/components/admin/admin-ui'
@@ -132,7 +133,7 @@ export default function ReviewsPage() {
                 <thead>
                   <tr>
                     <th className="sp-row-number">#</th>
-                    <SortableTh label={<AdminText en="Tour" ar="الرحلة" />} column="tourSlug" {...reviewSort} onSort={reviewSort.sortBy} />
+                    <SortableTh label={<AdminText en="Review source" ar="مصدر التقييم" />} column="tourSlug" {...reviewSort} onSort={reviewSort.sortBy} />
                     <SortableTh label={<AdminText en="Customer" ar="العميل" />} column="userName" {...reviewSort} onSort={reviewSort.sortBy} />
                     <SortableTh label={<AdminText en="Rating" ar="التقييم" />} column="rating" {...reviewSort} onSort={reviewSort.sortBy} />
                     <SortableTh label={<AdminText en="Status" ar="الحالة" />} column="status" {...reviewSort} onSort={reviewSort.sortBy} />
@@ -145,8 +146,8 @@ export default function ReviewsPage() {
                     <tr key={r.publicId}>
                       <td className="sp-row-number">{paging.from + index}</td>
                       <td>
-                        <Link href={`/egypt-tours/${r.tourSlug}`} target="_blank" rel="noopener noreferrer">
-                          {r.tourSlug}
+                        <Link href={r.tourSlug === WEBSITE_REVIEW_SCOPE ? '/' : `/egypt-tours/${r.tourSlug}`} target="_blank" rel="noopener noreferrer">
+                          {r.tourSlug === WEBSITE_REVIEW_SCOPE ? <AdminText en="Website review" ar="تقييم الموقع" /> : r.tourSlug}
                         </Link>
                       </td>
                       <td>

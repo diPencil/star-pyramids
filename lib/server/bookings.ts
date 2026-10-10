@@ -17,7 +17,7 @@ import {
   normalizeEmail,
   normalizePhone,
 } from '../core/validation';
-import { dayTourTerms, getBookingTotal } from '@/data/tours';
+import { dayTourTerms, getBookingTotal, getTravelerUnitPrices } from '@/data/tours';
 import { findTourBySlug } from './tours';
 import {
   canTransitionBooking,
@@ -36,9 +36,56 @@ import {
 } from './payments';
 import { notifyUser, notifyStaff } from './notifications';
 import { sendCustomerEmailSafe, sendStaffEmailSafe } from './email';
+import {
+  GuestBookingAccessError,
+  guestBookingPath,
+  issueGuestBookingToken,
+  resolveGuestBookingToken,
+  revokeGuestBookingTokens,
+} from './booking-access';
 
 const REF_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const REF_ATTEMPTS = 5;
+
+/**
+ * Shown to guests above their private link so the one-off nature of the
+ * link is explicit. Empty for account bookings, which keeps their existing
+ * copy byte-identical.
+ */
+const GUEST_ACCESS_NOTE =
+  'You booked as a guest, so this private link is your access to the booking. ';
+
+/**
+ * Resolve the correct link for the booking owner: a private guest link for
+ * guest bookings, the account detail page for account bookings.
+ *
+ * `rotate` revokes any previously issued guest link before minting a new
+ * one, so exactly one guest link is ever live (the newest email wins) —
+ * the same "latest link is authoritative" model as password reset.
+ */
+async function ownerBookingLink(
+  reference: string,
+  isGuest: boolean,
+  rotate: boolean,
+): Promise<{ detailUrl: string; accessNote: string }> {
+  if (!isGuest) {
+    return {
+      detailUrl: `/account/bookings/detail?ref=${encodeURIComponent(reference)}`,
+      accessNote: '',
+    };
+  }
+  if (rotate) await revokeGuestBookingTokens(reference);
+  const issued = await issueGuestBookingToken(reference);
+  // No token means no booking row (or it belongs to an account after all).
+  // Fall back to the reference-based link rather than leaking an empty URL.
+  if (!issued) {
+    return {
+      detailUrl: `/account/bookings/detail?ref=${encodeURIComponent(reference)}`,
+      accessNote: '',
+    };
+  }
+  return { detailUrl: guestBookingPath(issued.token), accessNote: GUEST_ACCESS_NOTE };
+}
 
 function mintReferenceCandidate(): string {
   let suffix = '';
@@ -107,6 +154,10 @@ export interface ValidatedBookingLine {
   infantUnitCents: number;
   addonTotalCents: number;
   lineTotalCents: number;
+  /** Savings on this line from the tour's active deal (integer cents, ≥ 0). */
+  lineDiscountCents: number;
+  /** Pre-discount line value: original traveler units + add-ons (integer cents). */
+  lineOriginalCents: number;
 }
 
 export interface ValidatedBookingDraft {
@@ -191,6 +242,15 @@ async function resolveLine(raw: unknown): Promise<ValidatedBookingLine> {
   const childUnitCents = toCents(pricing.child);
   const infantUnitCents = toCents(pricing.infant);
   const travelerCents = adults * adultUnitCents + children * childUnitCents + infants * infantUnitCents;
+  // The active deal (percent + date window, resolved from the DB tour row)
+  // is the ONLY discount source: it is applied here, once, to traveler
+  // units. Add-ons are never discounted. The browser can neither inject
+  // nor suppress it — selections only, prices never read from the body.
+  const list = getTravelerUnitPrices(tour, Math.max(1, adults + children + infants));
+  const originalTravelerCents =
+    adults * toCents(list.adult) + children * toCents(list.child) + infants * toCents(list.infant);
+  const lineDiscountCents = Math.max(0, originalTravelerCents - travelerCents);
+  const lineOriginalCents = originalTravelerCents + addonTotalCents;
   return {
     tourSlug,
     tourTitle: tour.title.slice(0, 200),
@@ -205,6 +265,8 @@ async function resolveLine(raw: unknown): Promise<ValidatedBookingLine> {
     infantUnitCents,
     addonTotalCents,
     lineTotalCents: travelerCents + addonTotalCents,
+    lineDiscountCents,
+    lineOriginalCents,
   };
 }
 
@@ -260,10 +322,12 @@ export async function validateBookingDraft(input: unknown): Promise<ValidatedBoo
   const idempotencyKey = text(body.idempotencyKey)?.trim() ?? '';
   if (!KEY_PATTERN.test(idempotencyKey)) throw new Error('Invalid request.');
 
-  const subtotalCents = lines.reduce((sum, line) => sum + line.lineTotalCents, 0);
+  const subtotalCents = lines.reduce((sum, line) => sum + line.lineOriginalCents, 0);
   if (subtotalCents <= 0) throw new Error('Your cart has no chargeable items.');
-  // No promo/discount engine exists: discount is always zero.
-  const discountCents = 0;
+  // Booking snapshot semantics: `subtotal` is the ORIGINAL list value,
+  // `discount` is the total deal savings, `total` is what is owed.
+  // Stored line units are the CHARGED (post-deal) units.
+  const discountCents = lines.reduce((sum, line) => sum + line.lineDiscountCents, 0);
   return {
     lines,
     subtotalCents,
@@ -414,11 +478,11 @@ const rowInclude = {
 export async function createBookingRecord(
   userId: string | null,
   draft: ValidatedBookingDraft,
-): Promise<{ booking: Booking; created: boolean }> {
+): Promise<{ booking: Booking; created: boolean; guestAccessUrl: string | null }> {
   const existingByKey = draft.idempotencyKey
     ? await db.booking.findUnique({ where: { idempotencyKey: draft.idempotencyKey }, include: rowInclude })
     : null;
-  if (existingByKey) return { booking: toCustomerView(existingByKey), created: false };
+  if (existingByKey) return { booking: toCustomerView(existingByKey), created: false, guestAccessUrl: null };
 
   let lastError: unknown = null;
   for (let attempt = 0; attempt < REF_ATTEMPTS; attempt += 1) {
@@ -462,6 +526,10 @@ export async function createBookingRecord(
         },
         include: rowInclude,
       });
+      // Guest checkouts (userId NULL) have no account to log into, so a
+      // private expiring link is minted and emailed to them. Account
+      // bookings keep the existing session-owned customer link.
+      const { detailUrl, accessNote } = await ownerBookingLink(reference, userId === null, true);
       // Receipt for the new booking. Idempotent replays return early
       // above with created:false, so a retried key never notifies twice.
       // Guests (userId NULL) are skipped — no account to notify.
@@ -490,7 +558,8 @@ export async function createBookingRecord(
         tourTitle: draft.lines.map((line) => line.tourTitle).join(', '),
         total: (draft.totalCents / 100).toFixed(2),
         currency: 'USD',
-        detailUrl: `/account/bookings/detail?ref=${encodeURIComponent(reference)}`,
+        detailUrl,
+        accessNote,
       }, { relatedReference: reference, idempotencyKey: `booking_created:${reference}` });
       await sendStaffEmailSafe('admin_booking_created', {
         name: draft.contactName,
@@ -499,7 +568,14 @@ export async function createBookingRecord(
         currency: 'USD',
         detailUrl: `/admin/bookings/${encodeURIComponent(reference)}`,
       }, { relatedReference: reference, idempotencyKey: `admin_booking_created:${reference}` });
-      return { booking: toCustomerView(row), created: true };
+      return {
+        booking: toCustomerView(row),
+        created: true,
+        // Guests get their private link back so the confirmation screen can
+        // show it immediately. Account bookings use their session instead,
+        // so they receive null and nothing changes for them.
+        guestAccessUrl: userId === null ? detailUrl : null,
+      };
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         // Idempotency-key race: another request won — return the winner.
@@ -509,7 +585,7 @@ export async function createBookingRecord(
             where: { idempotencyKey: draft.idempotencyKey },
             include: rowInclude,
           });
-          if (winner) return { booking: toCustomerView(winner), created: false };
+          if (winner) return { booking: toCustomerView(winner), created: false, guestAccessUrl: null };
         }
         lastError = error;
         continue;
@@ -541,6 +617,25 @@ export async function getCustomerBooking(
   });
   // Guest bookings (userId NULL) never match an authenticated customer.
   if (!row || !row.userId || row.userId !== userId) return null;
+  return toCustomerView(row);
+}
+
+/**
+ * Guest booking read, authorised ONLY by a valid access token.
+ *
+ * The reference is derived from the token server-side; it is never accepted
+ * from the caller. Read-only on purpose — a guest link never cancels, pays,
+ * or mutates anything, so a leaked link cannot cost a traveller money.
+ * Returns the same customer-safe projection as the authenticated flow.
+ */
+export async function getGuestBooking(rawToken: string): Promise<Booking> {
+  const { reference } = await resolveGuestBookingToken(rawToken);
+  const row = await db.booking.findUnique({ where: { reference }, include: rowInclude });
+  // A token pointing at a booking that has since gained an account is
+  // served through the account flow instead, so ownership never forks.
+  if (!row || row.userId) {
+    throw new GuestBookingAccessError('not-found');
+  }
   return toCustomerView(row);
 }
 
@@ -646,13 +741,21 @@ export async function transitionStaffBooking(
     // Status-change email to the booking contact snapshot (guests
     // included). Transition guard rejects repeats, and the
     // idempotency key adds a second layer against duplicate sends.
+    // Guests receive a freshly rotated private link: the previous one is
+    // revoked so only the newest email stays usable.
+    const { detailUrl, accessNote } = await ownerBookingLink(
+      reference,
+      existing.userId === null,
+      true,
+    );
     await sendCustomerEmailSafe(
       to === 'confirmed' ? 'booking_confirmed' : to === 'completed' ? 'booking_completed' : 'booking_cancelled',
       row.contactEmail,
       {
         name: row.contactName,
         reference,
-        detailUrl: `/account/bookings/detail?ref=${encodeURIComponent(reference)}`,
+        detailUrl,
+        accessNote,
       },
       { relatedReference: reference, idempotencyKey: `booking_${to}:${reference}` },
     );

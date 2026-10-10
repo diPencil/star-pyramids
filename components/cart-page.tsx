@@ -56,6 +56,7 @@ export function CartPage() {
         <aside className="cart-summary">
           <h2>{tx(locale, { en: 'Order summary', es: 'Resumen del pedido', it: 'Riepilogo ordine', ar: 'ملخص الطلب' })}</h2>
           <div className="cart-summary-row"><span>{tx(locale, { en: 'Trips', es: 'Viajes', it: 'Viaggi', ar: 'عدد الرحلات' })}</span><strong>{estimate.validLines.length}</strong></div>
+          {estimate.discount > 0 && <div className="cart-summary-row discount"><span>{tx(locale, { en: 'Deal savings', es: 'Ahorro por oferta', it: 'Risparmio offerta', ar: 'توفير العروض' })}</span><strong>−{formatPrice(estimate.discount, currency, locale)}</strong></div>}
           <div className="cart-summary-row total"><span>{tx(locale, { en: 'Estimated subtotal', es: 'Subtotal estimado', it: 'Subtotale stimato', ar: 'الإجمالي التقديري' })}</span><strong>{formatPrice(estimate.subtotal, currency, locale)}</strong></div>
           <p>{tx(locale, { en: 'Frontend estimate only. The final price, taxes, and fees are confirmed with our team before payment.', es: 'Solo estimación inicial. El precio final, impuestos y tasas se confirman con nuestro equipo antes del pago.', it: 'Solo stima iniziale. Prezzo finale, tasse e costi sono confermati con il nostro team prima del pagamento.', ar: 'تقدير مبدئي فقط. السعر النهائي والضرائب والرسوم تُؤكد مع فريقنا قبل الدفع.' })}</p>
           {estimate.validLines.length > 0

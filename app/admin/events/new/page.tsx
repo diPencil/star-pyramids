@@ -1,13 +1,15 @@
 'use client'
 
 import { Suspense, useEffect, useMemo, useState } from 'react'
+import { ContentLanguageTabs, TranslatedInput, TranslatedTextarea, useContentLanguage, removeContentRow } from '@/components/admin/content-language-tabs'
+import { alignTranslationRows, type CatalogueTranslations } from '@/lib/catalogue-translations'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Plus, Trash2 } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { slugify } from '@/lib/admin-store'
-import { invalidateEventsCarsCache, useDbEvents } from '@/lib/events-cars-client'
+import { invalidateEventsCarsCache, useDbEvents, normalizeEventRow } from '@/lib/events-cars-client'
 import { sanitizeEvent } from '@/lib/events'
 import { ImageField } from '@/components/admin/image-field'
 import { SharedSelect } from '@/components/shared-select'
@@ -22,36 +24,43 @@ type ProgramRow = { day: string; title: string; description: string }
 const cleanSlugInput = (value: string) =>
   value.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').replace(/-+/g, '-').slice(0, 80)
 
-function RowList<T>({ rows, onChange, render, onAdd, addLabel }: {
+function RowList<T>({ rows, onChange, render, onAdd, addLabel, prefix }: {
+  prefix?: string
   rows: T[]
   onChange: (rows: T[]) => void
   render: (row: T, update: (patch: Partial<T>) => void, index: number) => React.ReactNode
   onAdd: () => void
   addLabel: React.ReactNode
 }) {
+  const language = useContentLanguage()
+  const english = !language || language.locale === 'en'
   return (
     <div className="sp-repeat-list">
+      {!english && <p className="sp-builder-note">Add or remove items in English, then translate them here.</p>}
       {rows.map((row, index) => (
         <article className="sp-repeat-card" key={index}>
-          <header className="sp-repeat-head"><strong>#{index + 1}</strong><button type="button" className="sp-icon-btn danger" onClick={() => onChange(rows.filter((_, i) => i !== index))} aria-label="Remove row"><Trash2 size={18} /></button></header>
+          <header className="sp-repeat-head"><strong>#{index + 1}</strong><button type="button" className="sp-icon-btn danger" disabled={!english} onClick={() => { removeContentRow(language, prefix, index); onChange(rows.filter((_, i) => i !== index)) }} aria-label="Remove row"><Trash2 size={18} /></button></header>
           {render(row, (patch) => onChange(rows.map((r, i) => (i === index ? { ...r, ...patch } : r))), index)}
         </article>
       ))}
-      <button type="button" className="sp-btn" onClick={onAdd}><Plus size={15} />{addLabel}</button>
+      <button type="button" className="sp-btn" disabled={!english} onClick={onAdd}><Plus size={15} />{addLabel}</button>
     </div>
   )
 }
 
-function StringRows({ rows, onChange, onAdd, placeholder }: { rows: string[]; onChange: (rows: string[]) => void; onAdd: React.ReactNode; placeholder?: string }) {
+function StringRows({ rows, onChange, onAdd, placeholder, prefix }: { prefix?: string; rows: string[]; onChange: (rows: string[]) => void; onAdd: React.ReactNode; placeholder?: string }) {
+  const language = useContentLanguage()
+  const english = !language || language.locale === 'en'
   return (
     <div className="sp-repeat-list">
+      {!english && <p className="sp-builder-note">Add or remove items in English, then translate them here.</p>}
       {rows.map((row, index) => (
         <div className="sp-repeat-row" key={index}>
-          <input value={row} onChange={(e) => onChange(rows.map((r, i) => (i === index ? e.target.value : r)))} placeholder={placeholder} />
-          <button type="button" className="sp-icon-btn danger" onClick={() => onChange(rows.filter((_, i) => i !== index))} aria-label="Remove row"><Trash2 size={18} /></button>
+          {prefix ? <TranslatedInput field={`${prefix}.${index}`} value={row} onChange={(e) => onChange(rows.map((r, i) => (i === index ? e.target.value : r)))} placeholder={placeholder} /> : <input value={row} onChange={(e) => onChange(rows.map((r, i) => (i === index ? e.target.value : r)))} placeholder={placeholder} />}
+          <button type="button" className="sp-icon-btn danger" disabled={!english} onClick={() => { removeContentRow(language, prefix, index); onChange(rows.filter((_, i) => i !== index)) }} aria-label="Remove row"><Trash2 size={18} /></button>
         </div>
       ))}
-      <button type="button" className="sp-btn" onClick={() => onChange([...rows, ''])}><Plus size={15} />{onAdd}</button>
+      <button type="button" className="sp-btn" disabled={!english} onClick={() => onChange([...rows, ''])}><Plus size={15} />{onAdd}</button>
     </div>
   )
 }
@@ -64,6 +73,7 @@ function EventForm({ initial, editSlug }: { initial: Event | null; editSlug: str
   const editing = Boolean(editSlug)
   const missing = editing && initial === null
 
+  const [translations, setTranslations] = useState<CatalogueTranslations>(initial?.translations ?? {})
   const [title, setTitle] = useState(initial?.title ?? '')
   const [titleAr, setTitleAr] = useState(initial?.titleAr ?? '')
   const [slug, setSlug] = useState(initial?.slug ?? '')
@@ -140,6 +150,18 @@ function EventForm({ initial, editSlug }: { initial: Event | null; editSlug: str
       setError(ar ? 'هذا المعرف مستخدم بالفعل. اختر معرفًا مختلفًا.' : 'This slug is already taken. Choose a different one.')
       return
     }
+    let savedTranslations = translations
+    try {
+      const retain = <T,>(rows: T[], predicate: (row: T) => boolean) => rows.flatMap((row, index) => predicate(row) ? [index] : [])
+      savedTranslations = alignTranslationRows(savedTranslations, 'highlights', retain(highlights, (row) => Boolean(row.title.trim() && row.description.trim())))
+      savedTranslations = alignTranslationRows(savedTranslations, 'program', retain(program, (row) => Boolean(row.day.trim() && row.title.trim())))
+      savedTranslations = alignTranslationRows(savedTranslations, 'addOns', retain(addOns, (row) => Boolean(row.title.trim())))
+      savedTranslations = alignTranslationRows(savedTranslations, 'included', retain(included, (row) => Boolean(row.trim())))
+      savedTranslations = alignTranslationRows(savedTranslations, 'excluded', retain(excluded, (row) => Boolean(row.trim())))
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Check translated content.')
+      return
+    }
     const candidate = {
       title: title.trim(), titleAr: titleAr.trim() || undefined, slug: finalSlug, image: image.trim(),
       gallery: gallery.map((g) => g.trim()).filter(Boolean),
@@ -156,6 +178,7 @@ function EventForm({ initial, editSlug }: { initial: Event | null; editSlug: str
       currency: currency.trim().toUpperCase() || undefined,
       capacity: capacity.trim() ? Number(capacity) : undefined,
       bookingDeadline: bookingDeadline.trim() || undefined,
+      organizerNameAr: initial?.organizerNameAr,
       organizerName: organizerName.trim() || undefined, organizerPhone: organizerPhone.trim() || undefined,
       organizerWhatsapp: organizerWhatsapp.trim() || undefined, organizerEmail: organizerEmail.trim() || undefined,
       isPublished: published ? undefined : false,
@@ -188,8 +211,10 @@ function EventForm({ initial, editSlug }: { initial: Event | null; editSlug: str
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...clean,
+          translations: savedTranslations,
           slug: finalSlug,
           content: {
+            ...initial?.content,
             gallery: clean.gallery ?? [],
             highlights: clean.highlights ?? [],
             program: clean.program ?? [],
@@ -236,33 +261,37 @@ function EventForm({ initial, editSlug }: { initial: Event | null; editSlug: str
       actions={<span style={{ display: 'flex', gap: 8 }}><button type="button" className="sp-btn dark" onClick={save} disabled={saving}><AdminText en={editing ? 'Save changes' : 'Publish event'} ar={editing ? 'حفظ التعديلات' : 'نشر الفعالية'} /></button></span>}
     />
     <Card title={<AdminText en="Basic" ar="أساسي" />}>
+<ContentLanguageTabs translations={translations} setTranslations={setTranslations}>
       <div className="sp-form">
-        <div className="sp-form-2">
-          <label><AdminText en="Title EN *" ar="العنوان EN *" /><input value={title} onChange={(e) => { setTitle(e.target.value); if (!slugTouched && !editing) setSlug(slugify(e.target.value)) }} /></label>
-          <label><AdminText en="Title AR" ar="العنوان AR" /><input value={titleAr} onChange={(e) => setTitleAr(e.target.value)} /></label>
+        <div className="sp-form">
+          <label><AdminText en="Title *" ar="العنوان EN *" /><TranslatedInput field="title" value={title} onChange={(e) => { setTitle(e.target.value); if (!slugTouched && !editing) setSlug(slugify(e.target.value)) }} /></label>
+
         </div>
         <div className="sp-form-2">
           <label><AdminText en="Slug" ar="المعرف" /><input value={editing ? editSlug : autoSlug} disabled={editing} dir="ltr" onChange={(e) => { setSlugTouched(true); setSlug(cleanSlugInput(e.target.value)) }} placeholder="custom-..." />{!editing && <small><AdminText en="Lowercase letters, numbers, dashes. Must be unique." ar="أحرف صغيرة وأرقام وشرطات. يجب أن يكون فريدًا." /></small>}{editing && <small><AdminText en="Slug identity stays stable when editing." ar="يبقى المعرف ثابتًا عند التعديل." /></small>}</label>
-          <label><AdminText en="Category EN" ar="التصنيف EN" /><input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Festival" /></label>
+          <label><AdminText en="Category" ar="التصنيف EN" /><TranslatedInput field="category" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Festival" /></label>
         </div>
-        <div className="sp-form-2">
-          <label><AdminText en="Category AR" ar="التصنيف AR" /><input value={categoryAr} onChange={(e) => setCategoryAr(e.target.value)} /></label>
+        <div className="sp-form">
+
           <label className="sp-check"><input type="checkbox" checked={featured} onChange={(e) => setFeatured(e.target.checked)} /> <AdminText en="Featured in hero" ar="مميزة في الواجهة" /></label>
         </div>
       </div>
-    </Card>
+    </ContentLanguageTabs>
+</Card>
     <Card title={<AdminText en="Content" ar="المحتوى" />}>
+<ContentLanguageTabs translations={translations} setTranslations={setTranslations}>
       <div className="sp-form">
-        <div className="sp-form-2">
-          <label><AdminText en="Short copy EN" ar="وصف مختصر EN" /><textarea rows={2} value={copy} onChange={(e) => setCopy(e.target.value)} /></label>
-          <label><AdminText en="Short copy AR" ar="وصف مختصر AR" /><textarea rows={2} value={copyAr} onChange={(e) => setCopyAr(e.target.value)} /></label>
+        <div className="sp-form">
+          <label><AdminText en="Short copy" ar="وصف مختصر EN" /><TranslatedTextarea field="copy" rows={2} value={copy} onChange={(e) => setCopy(e.target.value)} /></label>
+
         </div>
-        <div className="sp-form-2">
-          <label><AdminText en="Intro EN" ar="مقدمة EN" /><textarea rows={2} value={intro} onChange={(e) => setIntro(e.target.value)} /></label>
-          <label><AdminText en="Intro AR" ar="مقدمة AR" /><textarea rows={2} value={introAr} onChange={(e) => setIntroAr(e.target.value)} /></label>
+        <div className="sp-form">
+          <label><AdminText en="Intro" ar="مقدمة EN" /><TranslatedTextarea field="intro" rows={2} value={intro} onChange={(e) => setIntro(e.target.value)} /></label>
+
         </div>
       </div>
-    </Card>
+    </ContentLanguageTabs>
+</Card>
     <Card title={<AdminText en="Schedule" ar="المواعيد" />}>
       <div className="sp-form">
         <div className="sp-form-2">
@@ -280,26 +309,28 @@ function EventForm({ initial, editSlug }: { initial: Event | null; editSlug: str
       </div>
     </Card>
     <Card title={<AdminText en="Venue" ar="المكان" />}>
+<ContentLanguageTabs translations={translations} setTranslations={setTranslations}>
       <div className="sp-form">
-        <div className="sp-form-2">
-          <label><AdminText en="Location display *" ar="الموقع المعروض *" /><input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Cairo" /></label>
-          <label><AdminText en="Location AR" ar="الموقع AR" /><input value={locationAr} onChange={(e) => setLocationAr(e.target.value)} /></label>
+        <div className="sp-form">
+          <label><AdminText en="Location display *" ar="الموقع المعروض *" /><TranslatedInput field="location" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Cairo" /></label>
+
         </div>
-        <div className="sp-form-2">
-          <label><AdminText en="Venue name EN" ar="اسم المكان EN" /><input value={venueName} onChange={(e) => setVenueName(e.target.value)} /></label>
-          <label><AdminText en="Venue name AR" ar="اسم المكان AR" /><input value={venueNameAr} onChange={(e) => setVenueNameAr(e.target.value)} /></label>
+        <div className="sp-form">
+          <label><AdminText en="Venue name" ar="اسم المكان EN" /><TranslatedInput field="venueName" value={venueName} onChange={(e) => setVenueName(e.target.value)} /></label>
+
         </div>
-        <div className="sp-form-2">
-          <label><AdminText en="Address EN" ar="العنوان EN" /><input value={address} onChange={(e) => setAddress(e.target.value)} /></label>
-          <label><AdminText en="Address AR" ar="العنوان AR" /><input value={addressAr} onChange={(e) => setAddressAr(e.target.value)} /></label>
+        <div className="sp-form">
+          <label><AdminText en="Address" ar="العنوان EN" /><TranslatedInput field="address" value={address} onChange={(e) => setAddress(e.target.value)} /></label>
+
         </div>
-        <div className="sp-form-2">
-          <label><AdminText en="City EN" ar="المدينة EN" /><input value={city} onChange={(e) => setCity(e.target.value)} /></label>
-          <label><AdminText en="City AR" ar="المدينة AR" /><input value={cityAr} onChange={(e) => setCityAr(e.target.value)} /></label>
+        <div className="sp-form">
+          <label><AdminText en="City" ar="المدينة EN" /><TranslatedInput field="city" value={city} onChange={(e) => setCity(e.target.value)} /></label>
+
         </div>
         <label><AdminText en="Map query (safe search)" ar="استعلام الخريطة" /><input value={mapQuery} onChange={(e) => setMapQuery(e.target.value)} dir="ltr" placeholder="Cairo Egypt" /><small><AdminText en="Blank = venue + city, or first city. Never sends multi-city strings blindly." ar="فارغ = المكان + المدينة أو أول مدينة. لا يرسل نصوص المدن المتعددة مباشرة." /></small></label>
       </div>
-    </Card>
+    </ContentLanguageTabs>
+</Card>
     <Card title={<AdminText en="Pricing" ar="الأسعار" />}>
       <div className="sp-form">
         <div className="sp-form-2">
@@ -324,26 +355,35 @@ function EventForm({ initial, editSlug }: { initial: Event | null; editSlug: str
       </div>
     </Card>
     <Card title={<AdminText en="Highlights" ar="أبرز النقاط" />}>
-      <RowList rows={highlights} onChange={setHighlights} onAdd={() => setHighlights([...highlights, { title: '', titleAr: '', description: '', descriptionAr: '' }])} addLabel={<AdminText en="Add highlight" ar="إضافة نقطة" />} render={(row, update) => <div className="sp-form"><div className="sp-form-2"><label><AdminText en="Title EN" ar="العنوان EN" /><input value={row.title} onChange={(e) => update({ title: e.target.value })} /></label><label><AdminText en="Title AR" ar="العنوان AR" /><input value={row.titleAr} onChange={(e) => update({ titleAr: e.target.value })} /></label></div><label><AdminText en="Description EN" ar="الوصف EN" /><textarea rows={2} value={row.description} onChange={(e) => update({ description: e.target.value })} /></label><label><AdminText en="Description AR" ar="الوصف AR" /><textarea rows={2} value={row.descriptionAr} onChange={(e) => update({ descriptionAr: e.target.value })} /></label></div>} />
-    </Card>
+<ContentLanguageTabs translations={translations} setTranslations={setTranslations}>
+      <RowList prefix="highlights" rows={highlights} onChange={setHighlights} onAdd={() => setHighlights([...highlights, { title: '', titleAr: '', description: '', descriptionAr: '' }])} addLabel={<AdminText en="Add highlight" ar="إضافة نقطة" />} render={(row, update, index) => <div className="sp-form"><div className="sp-form"><label><AdminText en="Title" ar="العنوان EN" /><TranslatedInput field={`highlights.${index}.title`} value={row.title} onChange={(e) => update({ title: e.target.value })} /></label></div><label><AdminText en="Description" ar="الوصف EN" /><TranslatedTextarea field={`highlights.${index}.description`} rows={2} value={row.description} onChange={(e) => update({ description: e.target.value })} /></label></div>} />
+    </ContentLanguageTabs>
+</Card>
     <Card title={<AdminText en="Program" ar="البرنامج" />}>
-      <RowList rows={program} onChange={setProgram} onAdd={() => setProgram([...program, { day: '', title: '', description: '' }])} addLabel={<AdminText en="Add program day" ar="إضافة يوم" />} render={(row, update) => <div className="sp-form"><div className="sp-form-2"><label><AdminText en="Day" ar="اليوم" /><input value={row.day} onChange={(e) => update({ day: e.target.value })} placeholder="Day 1" /></label><label><AdminText en="Title" ar="العنوان" /><input value={row.title} onChange={(e) => update({ title: e.target.value })} /></label></div><label><AdminText en="Description" ar="الوصف" /><textarea rows={2} value={row.description} onChange={(e) => update({ description: e.target.value })} /></label></div>} />
-    </Card>
+<ContentLanguageTabs translations={translations} setTranslations={setTranslations}>
+      <RowList prefix="program" rows={program} onChange={setProgram} onAdd={() => setProgram([...program, { day: '', title: '', description: '' }])} addLabel={<AdminText en="Add program day" ar="إضافة يوم" />} render={(row, update, index) => <div className="sp-form"><div className="sp-form-2"><label><AdminText en="Day" ar="اليوم" /><TranslatedInput field={`program.${index}.day`} value={row.day} onChange={(e) => update({ day: e.target.value })} placeholder="Day 1" /></label><label><AdminText en="Title" ar="العنوان" /><TranslatedInput field={`program.${index}.title`} value={row.title} onChange={(e) => update({ title: e.target.value })} /></label></div><label><AdminText en="Description" ar="الوصف" /><TranslatedTextarea field={`program.${index}.description`} rows={2} value={row.description} onChange={(e) => update({ description: e.target.value })} /></label></div>} />
+    </ContentLanguageTabs>
+</Card>
     <Card title={<AdminText en="Included and Excluded" ar="المشمول والمستبعد" />}>
+<ContentLanguageTabs translations={translations} setTranslations={setTranslations}>
       <div className="sp-form">
-        <div><strong><AdminText en="Included EN" ar="المشمول EN" /></strong><StringRows rows={included} onChange={setIncluded} onAdd={<AdminText en="Add included item" ar="إضافة بند مشمول" />} /></div>
-        <div><strong><AdminText en="Included AR" ar="المشمول AR" /></strong><StringRows rows={includedAr} onChange={setIncludedAr} onAdd={<AdminText en="Add included item (AR)" ar="إضافة بند مشمول (AR)" />} /></div>
-        <div><strong><AdminText en="Excluded EN" ar="المستبعد EN" /></strong><StringRows rows={excluded} onChange={setExcluded} onAdd={<AdminText en="Add excluded item" ar="إضافة بند مستبعد" />} /></div>
-        <div><strong><AdminText en="Excluded AR" ar="المستبعد AR" /></strong><StringRows rows={excludedAr} onChange={setExcludedAr} onAdd={<AdminText en="Add excluded item (AR)" ar="إضافة بند مستبعد (AR)" />} /></div>
+        <div><strong><AdminText en="Included" ar="المشمول EN" /></strong><StringRows prefix="included" rows={included} onChange={setIncluded} onAdd={<AdminText en="Add included item" ar="إضافة بند مشمول" />} /></div>
+
+        <div><strong><AdminText en="Excluded" ar="المستبعد EN" /></strong><StringRows prefix="excluded" rows={excluded} onChange={setExcluded} onAdd={<AdminText en="Add excluded item" ar="إضافة بند مستبعد" />} /></div>
+
       </div>
-    </Card>
+    </ContentLanguageTabs>
+</Card>
     <Card title={<AdminText en="Add-ons" ar="إضافات" />}>
-      <RowList rows={addOns} onChange={setAddOns} onAdd={() => setAddOns([...addOns, { title: '', price: '' }])} addLabel={<AdminText en="Add add-on" ar="إضافة خدمة" />} render={(row, update) => <div className="sp-form-2"><label><AdminText en="Title" ar="العنوان" /><input value={row.title} onChange={(e) => update({ title: e.target.value })} /></label><label><AdminText en="Price (blank = on request)" ar="السعر (فارغ = عند الطلب)" /><input type="number" min="0" step="0.01" value={row.price} onChange={(e) => update({ price: e.target.value })} /></label></div>} />
-    </Card>
+<ContentLanguageTabs translations={translations} setTranslations={setTranslations}>
+      <RowList prefix="addOns" rows={addOns} onChange={setAddOns} onAdd={() => setAddOns([...addOns, { title: '', price: '' }])} addLabel={<AdminText en="Add add-on" ar="إضافة خدمة" />} render={(row, update, index) => <div className="sp-form-2"><label><AdminText en="Title" ar="العنوان" /><TranslatedInput field={`addOns.${index}.title`} value={row.title} onChange={(e) => update({ title: e.target.value })} /></label><label><AdminText en="Price (blank = on request)" ar="السعر (فارغ = عند الطلب)" /><input type="number" min="0" step="0.01" value={row.price} onChange={(e) => update({ price: e.target.value })} /></label></div>} />
+    </ContentLanguageTabs>
+</Card>
     <Card title={<AdminText en="Organizer" ar="المنظم" />}>
+<ContentLanguageTabs translations={translations} setTranslations={setTranslations}>
       <div className="sp-form">
         <div className="sp-form-2">
-          <label><AdminText en="Name" ar="الاسم" /><input value={organizerName} onChange={(e) => setOrganizerName(e.target.value)} /></label>
+          <label><AdminText en="Name" ar="الاسم" /><TranslatedInput field="organizerName" value={organizerName} onChange={(e) => setOrganizerName(e.target.value)} /></label>
           <label><AdminText en="Email" ar="البريد" /><input value={organizerEmail} onChange={(e) => setOrganizerEmail(e.target.value)} dir="ltr" placeholder="you@example.com" /></label>
         </div>
         <div className="sp-form-2">
@@ -351,7 +391,8 @@ function EventForm({ initial, editSlug }: { initial: Event | null; editSlug: str
           <label><AdminText en="WhatsApp" ar="واتساب" /><InternationalPhoneInput value={organizerWhatsapp} onChange={setOrganizerWhatsapp} locale={ar ? 'ar' : 'en'} /></label>
         </div>
       </div>
-    </Card>
+    </ContentLanguageTabs>
+</Card>
     <Card title={<AdminText en="Publishing" ar="النشر" />}>
       <div className="sp-form">
         <div className="sp-form-2">
@@ -395,7 +436,7 @@ function EventFormLoader() {
           return
         }
         const data = (await res.json()) as { event?: Event }
-        if (!cancelled) setRemote(data.event ?? null)
+        if (!cancelled) setRemote(data.event ? normalizeEventRow(data.event as unknown as Record<string, unknown>) : null)
       })
       .catch(() => {
         if (!cancelled) setLoadError('Could not reach the database.')

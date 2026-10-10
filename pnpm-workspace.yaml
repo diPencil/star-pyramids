@@ -1,5 +1,8 @@
-pmOnFail: ignore
+ignoredBuiltDependencies:
+  - '@prisma/client'
 
 minimumReleaseAgeExclude:
   - '@next/*'
   - next
+
+pmOnFail: ignore

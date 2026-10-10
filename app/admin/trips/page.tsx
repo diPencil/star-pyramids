@@ -2,12 +2,14 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
-import { Anchor, ExternalLink, Layers3, MapPinned, Pencil, Plus, ShipWheel } from 'lucide-react'
+import { Anchor, ExternalLink, Eye, EyeOff, Layers3, MapPinned, Pencil, Plus, ShipWheel } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableTools, AdminTableWrap, AdminText, Card, StatusPill } from '@/components/admin/admin-ui'
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
+import { invalidateToursCache } from '@/lib/tours-client'
+import { isTourPublished } from '@/lib/tour-publish'
 
 type TripRow = {
   slug: string
@@ -18,6 +20,7 @@ type TripRow = {
   duration: string
   deal?: unknown
   aliases?: string[]
+  status?: string
 }
 
 export default function TripsPage() {
@@ -27,6 +30,9 @@ export default function TripsPage() {
   const [tours, setTours] = useState<TripRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [busySlug, setBusySlug] = useState<string | null>(null)
+  const [actionError, setActionError] = useState('')
+  const [actionOk, setActionOk] = useState('')
 
   // DB-authoritative catalogue (no static fallback).
   useEffect(() => {
@@ -54,9 +60,39 @@ export default function TripsPage() {
       .filter((t) => (cat === 'all' ? true : t.category === cat))
       .filter((t) => (q ? (t.title + t.location).toLowerCase().includes(q.toLowerCase()) : true))
   }, [tours, cat, q])
+  const setPublished = async (slug: string, published: boolean) => {
+    if (busySlug) return
+    setBusySlug(slug)
+    setActionError('')
+    setActionOk('')
+    try {
+      const res = await fetch(`/api/tours/${encodeURIComponent(slug)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: published ? 'published' : 'draft' }),
+        credentials: 'same-origin',
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({} as { error?: string }))
+        throw new Error(data.error || 'Failed to update visibility.')
+      }
+      setTours((current) => current.map((t) => (t.slug === slug ? { ...t, status: published ? 'published' : 'draft' } : t)))
+      invalidateToursCache()
+      setActionOk(
+        published
+          ? (ar ? `تم نشر "${slug}". ستظهر في الموقع العام.` : `"${slug}" published. It now appears on the public website.`)
+          : (ar ? `تم إخفاء "${slug}". لن تظهر في الموقع العام.` : `"${slug}" unpublished. It is now hidden from the public website.`),
+      )
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to update visibility.')
+    } finally {
+      setBusySlug(null)
+    }
+  }
+
   const tripSort = useAdminTableSort(rows, {
     tour: (row) => row.title, category: (row) => row.category, location: (row) => row.location,
-    price: (row) => Number(row.price), status: (row) => row.deal ? 'active' : 'published',
+    price: (row) => Number(row.price), status: (row) => row.status ?? 'published',
   }, 'tour', 'asc')
   const paging = usePagination(tripSort.sortedRows)
 
@@ -86,6 +122,8 @@ export default function TripsPage() {
           ))}
           </div>
         </AdminTableTools>
+        {actionError ? <p role="alert" style={{ color: '#b91c1c', margin: '8px 0 0' }}>{actionError}</p> : null}
+        {actionOk ? <p role="status" style={{ color: '#0e9f6e', margin: '8px 0 0' }}>{actionOk}</p> : null}
         {loading ? <AdminEmpty title={<AdminText en="Loading trips…" ar="جارٍ تحميل الرحلات…" />} copy={<AdminText en="Reading the authoritative catalogue." ar="تتم قراءة السجل المعتمد." />} />
         : error ? <AdminEmpty title={<AdminText en="Could not load trips" ar="تعذر تحميل الرحلات" />} copy={<AdminText en={error} ar={error} />} />
         : rows.length ? <AdminTableWrap><table className="sp-table">
@@ -100,10 +138,21 @@ export default function TripsPage() {
                 <td>{ar ? ({'all': 'الكل', 'one-day-tours': 'رحلات اليوم الواحد', 'multi-days-tours': 'رحلات متعددة الأيام', 'nile-cruises': 'رحلات النيل', 'shore-excursions': 'رحلات الشواطئ'}[t.category] ?? t.category) : ({'all': 'All', 'one-day-tours': 'One day tours', 'multi-days-tours': 'Multi days tours', 'nile-cruises': 'Nile cruises', 'shore-excursions': 'Shore excursions'}[t.category] ?? t.category)}</td>
                 <td>{t.location}</td>
                 <td>${String(t.price)}</td>
-                <td><StatusPill status={t.deal ? 'active' : 'published'} /></td>
+                <td><StatusPill status={isTourPublished(t) ? 'published' : 'hidden'} /></td>
                 <td><AdminTableActions>
                   <AdminIconAction icon={Pencil} label={ar ? `تعديل ${t.title}` : `Edit ${t.title}`} href={`/admin/trips/builder?slug=${t.slug}`} />
                   <AdminIconAction icon={ExternalLink} label={ar ? `عرض ${t.title} على الموقع` : `View ${t.title} on website`} href={`/egypt-tours/${t.slug}`} />
+                  <button
+                    type="button"
+                    className="sp-icon-btn"
+                    disabled={busySlug === t.slug}
+                    aria-busy={busySlug === t.slug}
+                    onClick={() => void setPublished(t.slug, !isTourPublished(t))}
+                    aria-label={isTourPublished(t) ? (ar ? `إخفاء ${t.title}` : `Unpublish ${t.title}`) : (ar ? `نشر ${t.title}` : `Publish ${t.title}`)}
+                    title={isTourPublished(t) ? (ar ? 'إخفاء' : 'Unpublish') : (ar ? 'نشر' : 'Publish')}
+                  >
+                    {isTourPublished(t) ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
                 </AdminTableActions></td>
               </tr>
             ))}

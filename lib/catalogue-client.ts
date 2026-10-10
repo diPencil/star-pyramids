@@ -1,14 +1,18 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useCatalogueLanguage } from './use-catalogue-language';
+import { validateCatalogueTranslations } from './catalogue-translations';
+import { readJsonObject } from './json-text';
 import type { Destination, MultiDayCategory } from '@/data/types';
 
 /** Normalize one `/api/destinations` row to the shared domain shape. */
 function toDestination(row: Record<string, unknown>): Destination {
-  const detail = (row.detail ?? {}) as Record<string, unknown>;
+  const detail = readJsonObject(row.detail);
   const strArray = (v: unknown): string[] =>
     Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
   return {
+    translations: row.translations ? validateCatalogueTranslations('destination', row.translations) : {},
     title: String(row.title ?? ''),
     slug: String(row.slug ?? ''),
     image: String(row.image ?? ''),
@@ -37,6 +41,7 @@ function toDestination(row: Record<string, unknown>): Destination {
 /** Normalize one `/api/multi-day-categories` row to the shared domain shape. */
 function toCategory(row: Record<string, unknown>): MultiDayCategory {
   return {
+    translations: row.translations ? validateCatalogueTranslations('category', row.translations) : {},
     slug: String(row.slug ?? ''),
     name: String(row.name ?? ''),
     nameAr: String(row.nameAr ?? ''),
@@ -194,7 +199,7 @@ export function dbSlugify(value: string): string {
  * No browser storage is consulted.
  */
 export function useDbDestinations(base: readonly Destination[]): Destination[] {
-  return destinationsCache.use(base);
+  return useCatalogueLanguage(destinationsCache.use(base), 'destination');
 }
 
 /**
@@ -202,7 +207,7 @@ export function useDbDestinations(base: readonly Destination[]): Destination[] {
  * No browser storage is consulted.
  */
 export function useDbCategories(base: readonly MultiDayCategory[]): MultiDayCategory[] {
-  return categoriesCache.use(base);
+  return useCatalogueLanguage(categoriesCache.use(base), 'category');
 }
 
 /**

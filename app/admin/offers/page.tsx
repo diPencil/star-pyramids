@@ -1,5 +1,6 @@
 'use client'
 
+import { isOfferActive, offerHref } from '@/lib/special-offers'
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { BadgePercent, ExternalLink, Eye, EyeOff, Pencil, Plus, Tags, Ticket, Trash2 } from 'lucide-react'
@@ -57,22 +58,6 @@ export default function OffersPage() {
         const data = await res.json().catch(() => ({} as { error?: string }))
         throw new Error(data.error || 'Failed to delete offer.')
       }
-      if (slug.startsWith('custom-offer-')) {
-        // Linked discounts live on the tour row: clear the DB deal as well
-        // so the website badge disappears together with the offer.
-        const tourSlug = slug.replace('custom-offer-', '')
-        try {
-          const dealRes = await fetch(`/api/tours/${encodeURIComponent(tourSlug)}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ deal: null }),
-            credentials: 'same-origin',
-          })
-          if (!dealRes.ok) throw new Error()
-        } catch {
-          throw new Error(ar ? `حُذف العرض، لكن تعذر إزالة الخصم عن الرحلة ${tourSlug} في قاعدة البيانات.` : `Offer deleted, but the discount on tour ${tourSlug} could not be cleared in the database.`)
-        }
-      }
       invalidateOffersBlogsCache()
       // Refresh from the DB source of truth.
       window.location.reload()
@@ -102,7 +87,7 @@ export default function OffersPage() {
     <AdminStats items={[
       { label: <AdminText en="All offers" ar="كل العروض" />, value: liveOffers.length, note: <AdminText en="DB-backed catalogue" ar="كتالوج قاعدة البيانات" />, icon: Ticket },
       { label: <AdminText en="Campaign labels" ar="شارات الحملات" />, value: badges.length, note: <AdminText en="Unique offer badges" ar="شارات عروض فريدة" />, icon: Tags, tone: 'orange' },
-      { label: <AdminText en="Published" ar="المنشورة" />, value: publishedCount, note: <AdminText en="Visible on the website" ar="ظاهرة على الموقع" />, icon: BadgePercent, tone: 'violet' },
+      { label: <AdminText en="Published" ar="المنشورة" />, value: publishedCount, note: <AdminText en="Publication enabled; dates still apply" ar="النشر مفعّل مع مراعاة مواعيد العرض" />, icon: BadgePercent, tone: 'violet' },
       { label: <AdminText en="Hidden" ar="المخفية" />, value: hiddenCount, note: <AdminText en="Admin only" ar="للإدارة فقط" />, icon: EyeOff, tone: 'orange' },
     ]} />
     <Card title={<AdminText en="All offers" ar="كل العروض" />} sub={<AdminText en={`${rows.length} of ${liveOffers.length} offers shown`} ar={`عرض ${rows.length} من ${liveOffers.length} عروض`} />}>
@@ -117,12 +102,14 @@ export default function OffersPage() {
         <thead><tr><th className="sp-row-number">#</th><SortableTh label={<AdminText en="Offer" ar="العرض" />} column="offer" {...offerSort} onSort={offerSort.sortBy} /><SortableTh label={<AdminText en="Badge" ar="الشارة" />} column="badge" {...offerSort} onSort={offerSort.sortBy} /><SortableTh label={<AdminText en="Price" ar="السعر" />} column="price" {...offerSort} onSort={offerSort.sortBy} /><SortableTh label={<AdminText en="Highlights" ar="البارزة" />} column="highlights" {...offerSort} onSort={offerSort.sortBy} /><SortableTh label={<AdminText en="Status" ar="الحالة" />} column="status" {...offerSort} onSort={offerSort.sortBy} /><th></th></tr></thead>
         <tbody>{paging.pageRows.map((offer, index) => {
           const isHidden = offer.isPublished === false
+          const scheduled = Boolean(offer.startsAt && Date.parse(offer.startsAt) > Date.now())
+          const statusLabel = isHidden ? (ar ? 'مخفية' : 'Hidden') : scheduled ? (ar ? 'مجدولة' : 'Scheduled') : !isOfferActive(offer) ? (ar ? 'منتهية' : 'Expired') : (ar ? 'نشطة' : 'Active')
           return <tr key={offer.slug}>
             <td className="sp-row-number">{paging.from + index}</td>
-            <td><strong>{offer.title}</strong><br /><small style={{ color: 'var(--sp-muted)' }}>{offer.copy.slice(0, 70)}...</small></td><td>{offer.badge}</td><td>{offer.price ? `$${offer.price}` : <AdminText en="Not set" ar="غير محدد" />}</td><td>{offer.highlights?.length ?? 0}</td><td><span className={`sp-status is-${isHidden ? 'cancelled' : 'confirmed'}`}>{isHidden ? (ar ? 'مخفية' : 'Hidden') : (ar ? 'منشورة' : 'Published')}</span></td>
+            <td><strong>{offer.title}</strong><br /><small style={{ color: 'var(--sp-muted)' }}>{offer.copy.slice(0, 70)}...</small></td><td>{offer.badge}</td><td>{offer.price ? `$${offer.price}` : <AdminText en="Not set" ar="غير محدد" />}</td><td>{offer.highlights?.length ?? 0}</td><td><span className={`sp-status is-${isHidden ? 'cancelled' : 'confirmed'}`}>{statusLabel}</span></td>
             <td><AdminTableActions>
               <AdminIconAction icon={Pencil} label={ar ? `تعديل ${offer.title}` : `Edit ${offer.title}`} href={`/admin/offers/new?slug=${encodeURIComponent(offer.slug)}`} />
-              <AdminIconAction icon={ExternalLink} label={ar ? `عرض ${offer.title}` : `View ${offer.title}`} href={`/special-offers/${offer.slug}`} />
+              <AdminIconAction icon={ExternalLink} label={ar ? `عرض ${offer.title}` : `View ${offer.title}`} href={offerHref(offer)} />
               <button type="button" className="sp-icon-btn" onClick={() => void setPublished(offer.slug, isHidden ? true : false)} aria-label={isHidden ? (ar ? `نشر ${offer.title}` : `Publish ${offer.title}`) : (ar ? `إخفاء ${offer.title}` : `Hide ${offer.title}`)} title={isHidden ? (ar ? 'نشر' : 'Publish') : (ar ? 'إخفاء' : 'Hide')}>{isHidden ? <Eye size={18} /> : <EyeOff size={18} />}</button>
               <button type="button" className="sp-delete-btn" onClick={() => setDeleteSlug(offer.slug)}><Trash2 size={14} /> <AdminText en="Delete" ar="حذف" /></button>
             </AdminTableActions></td>

@@ -1,14 +1,10 @@
-import { CarRequestDetailPage } from '@/components/account-portal'
+import type { Metadata } from 'next'
+import { CustomerAccountPage } from '@/components/account-portal'
 
-function first(value: string | string[] | undefined): string {
-  return Array.isArray(value) ? (value[0] ?? '') : (value ?? '')
+export const metadata: Metadata = {
+  title: 'Car Request Details',
+  description: 'View your STAR PYRAMIDS car rental request details.',
+  robots: { index: false, follow: false, nocache: true },
 }
 
-export default async function Page({
-  searchParams,
-}: {
-  searchParams: Promise<{ ref?: string | string[] }>
-}) {
-  const params = await searchParams
-  return <CarRequestDetailPage reference={first(params.ref)} />
-}
+export default function Page() { return <CustomerAccountPage section="car-requests" /> }

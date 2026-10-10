@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useCatalogueLanguage } from './use-catalogue-language';
+import { validateCatalogueTranslations } from './catalogue-translations';
 import type { Blog, Offer } from '@/data/types';
 
 /** Normalize one `/api/offers` row to the shared domain shape. */
@@ -11,6 +13,10 @@ function toOffer(row: Record<string, unknown>): Offer {
   const gallery = strArray(content.gallery);
   const highlights = strArray(content.highlights);
   return {
+    tourSlug: typeof row.tourSlug === 'string' ? row.tourSlug : undefined,
+    discountPercent: typeof row.discountPercent === 'number' ? row.discountPercent : undefined,
+    startsAt: typeof row.startsAt === 'string' ? row.startsAt : undefined,
+    translations: row.translations ? validateCatalogueTranslations('offer', row.translations) : {},
     title: String(row.title ?? ''),
     slug: String(row.slug ?? ''),
     image: String(row.image ?? ''),
@@ -33,6 +39,7 @@ function toOffer(row: Record<string, unknown>): Offer {
 function toBlog(row: Record<string, unknown>): Blog {
   const content = (row.content ?? {}) as Record<string, unknown>;
   return {
+    translations: row.translations ? validateCatalogueTranslations('blog', row.translations) : {},
     title: String(row.title ?? ''),
     slug: String(row.slug ?? ''),
     image: String(row.image ?? ''),
@@ -69,7 +76,7 @@ function createCache<T>(url: string, key: string, map: (row: Record<string, unkn
         }
         const data = (await res.json()) as Record<string, unknown>;
         const rows = data[key];
-        if (!Array.isArray(rows) || !rows.length) return null;
+        if (!Array.isArray(rows)) throw Error('Invalid catalogue response.');
         const mapped = (rows as Record<string, unknown>[])
           .map((row) => {
             try {
@@ -176,7 +183,7 @@ export function invalidateOffersBlogsCache() {
  * No browser storage is consulted.
  */
 export function useDbOffers(base: readonly Offer[]): Offer[] {
-  return offersCache.use(base);
+  return useCatalogueLanguage(offersCache.use(base), 'offer');
 }
 
 /**
@@ -184,7 +191,7 @@ export function useDbOffers(base: readonly Offer[]): Offer[] {
  * No browser storage is consulted.
  */
 export function useDbBlogs(base: readonly Blog[]): Blog[] {
-  return blogsCache.use(base);
+  return useCatalogueLanguage(blogsCache.use(base), 'blog');
 }
 
 /**

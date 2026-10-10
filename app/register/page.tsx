@@ -1,10 +1,12 @@
+import type { Metadata } from 'next'
 import { RegisterPage } from '@/components/auth-pages'
-import { redirect } from 'next/navigation'
-import { getCurrentUser } from '@/lib/server/auth'
-import { authorizedPostLoginPath } from '@/lib/server/auth-navigation'
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
-  const [user, params] = await Promise.all([getCurrentUser(), searchParams])
-  if (user) redirect(authorizedPostLoginPath(user, params.next))
+export const metadata: Metadata = {
+  title: 'Create Account',
+  description: 'Create your STAR PYRAMIDS account to book Egypt trips and manage your travel.',
+  robots: { index: false, follow: false, nocache: true },
+}
+
+export default function Page() {
   return <RegisterPage />
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/server/db';
 import { getCurrentUser, hasPermission } from '@/lib/server/auth';
+import { isSameOriginRequest } from '@/lib/server/csrf';
 
 /**
  * GET /api/admin/reviews/[publicId]
@@ -63,6 +64,9 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ publicId: string }> }
 ) {
+  if (!isSameOriginRequest(request)) {
+    return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
+  }
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });

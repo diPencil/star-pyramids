@@ -1,3 +1,7 @@
+import { isOfferActive } from '@/lib/special-offers';
+import { linkedOfferFields, offerBody, offerError, offerTourSelect, presentOffer } from '@/lib/server/special-offers';
+import { catalogueTranslationResponse, saveWithCatalogueTranslations, deleteWithCatalogueTranslations } from '@/lib/server/catalogue-translations';
+import { validateCatalogueTranslations } from '@/lib/catalogue-translations';
 import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
@@ -32,14 +36,18 @@ export async function GET(
 ) {
   // Public: view a single offer by slug
   const { slug } = await params;
-  const offer = await db.offer.findUnique({ where: { slug } });
+  const row = await db.offer.findUnique({ where: { slug }, include: { tour: { select: offerTourSelect } } });
+  const user = await getCurrentUser();
+  const admin = user && (hasPermission(user, 'offers.view') || hasPermission(user, 'offers.edit'));
+  const offer = row && (admin || (isOfferActive(row) && (!row.tour || row.tour.status === 'published'))) ? presentOffer(row) : null;
 
   if (!offer) {
     return NextResponse.json({ notFound: true }, { status: 404 });
   }
 
-  return NextResponse.json({ offer: { ...offer, content: readJsonObject(offer.content) } });
+  return NextResponse.json(await catalogueTranslationResponse('offer', { offer: { ...offer, content: readJsonObject(offer.content) } }));
 }
+
 
 export async function PUT(
   request: Request,
@@ -59,7 +67,12 @@ export async function PUT(
     return NextResponse.json({ error: 'Invalid request origin.' }, { status: 403 });
   }
 
-  const data = await request.json();
+  try {
+  const data = await offerBody(request);
+  if (data?.translations !== undefined) {
+    try { validateCatalogueTranslations('offer', data.translations); }
+    catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'Invalid translations.' }, { status: 400 }); }
+  }
   const { slug: paramSlug } = await params;
 
   const existing = await db.offer.findUnique({ where: { slug: paramSlug } });
@@ -96,7 +109,9 @@ export async function PUT(
         : [])
     : (existingContent.photoCredits ?? []);
 
-  const offer = await db.offer.update({
+  const offer = await saveWithCatalogueTranslations('offer', data.translations, existing.slug, async (tx) => {
+    const linked = await linkedOfferFields(tx, data, existing);
+    return tx.offer.update({
     where: { slug: paramSlug },
     data: {
       slug: data.slug ? String(data.slug).trim().toLowerCase() || existing.slug : existing.slug,
@@ -108,14 +123,15 @@ export async function PUT(
       rating: data.rating === undefined ? existing.rating : numOrNull(data.rating),
       price: data.price === undefined ? existing.price : numOrNull(data.price),
       originalPrice: data.originalPrice === undefined ? existing.originalPrice : numOrNull(data.originalPrice),
-      deadline: data.deadline === undefined ? existing.deadline : cleanText(data.deadline, 120),
       isPublished: data.isPublished === undefined ? existing.isPublished : data.isPublished !== false,
       displayOrder: data.displayOrder === undefined || data.displayOrder === '' ? existing.displayOrder : (Number.isFinite(Number(data.displayOrder)) ? Number(data.displayOrder) : existing.displayOrder),
       content: writeJsonText(data.content === undefined ? { ...existingContent, gallery, highlights, photoCredits } : (data.content ?? {})),
+      ...linked,
     },
-  });
+  }); });
 
-  return NextResponse.json({ offer: { ...offer, content: readJsonObject(offer.content) } });
+  return NextResponse.json(await catalogueTranslationResponse('offer', { offer: { ...offer, content: readJsonObject(offer.content) } }));
+  } catch (error) { return offerError(error); }
 }
 
 export async function DELETE(
@@ -143,7 +159,7 @@ export async function DELETE(
     return NextResponse.json({ error: 'Offer not found.' }, { status: 404 });
   }
 
-  await db.offer.delete({ where: { slug: paramSlug } });
+  await deleteWithCatalogueTranslations('offer', paramSlug, (tx) => tx.offer.delete({ where: { slug: paramSlug } }));
 
   return NextResponse.json({ deleted: true });
 }

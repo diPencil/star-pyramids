@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { WEBSITE_REVIEW_SCOPE } from '@/lib/review-scope'
 import { ArrowLeft, ArrowRight, CheckCircle2, XCircle, CircleAlert, Star } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Avatar, Card, StatusPill } from '@/components/admin/admin-ui'
@@ -102,8 +103,8 @@ export default function ReviewDetailPage({ params }: { params: Promise<{ publicI
         eyebrow="Reputation"
         title="Review"
         titleAr="التقييم"
-        sub={`Tour: ${review.tourSlug}`}
-        subAr={`الرحلة: ${review.tourSlug}`}
+        sub={review.tourSlug === WEBSITE_REVIEW_SCOPE ? 'Website review' : `Tour: ${review.tourSlug}`}
+        subAr={review.tourSlug === WEBSITE_REVIEW_SCOPE ? 'تقييم الموقع' : `الرحلة: ${review.tourSlug}`}
         actions={
           <>
             <Link className="sp-btn" href="/admin/reviews"><ArrowLeft size={16} /><AdminText en="Back to reviews" ar="العودة للتقييمات" /></Link>
@@ -123,9 +124,9 @@ export default function ReviewDetailPage({ params }: { params: Promise<{ publicI
             </div>
           </div>
           <div style={{ marginBottom: 16 }}>
-            <strong>{review.tourSlug}</strong>
-            <Link href={`/egypt-tours/${review.tourSlug}`} target="_blank" rel="noopener noreferrer" className="text-link" style={{ marginLeft: 12 }}>
-              <AdminText en="View tour page" ar="عرض صفحة الرحلة" /> <ArrowRight size={14} />
+            <strong>{review.tourSlug === WEBSITE_REVIEW_SCOPE ? (ar ? 'تقييم الموقع' : 'Website review') : review.tourSlug}</strong>
+            <Link href={review.tourSlug === WEBSITE_REVIEW_SCOPE ? '/' : `/egypt-tours/${review.tourSlug}`} target="_blank" rel="noopener noreferrer" className="text-link" style={{ marginLeft: 12 }}>
+              <AdminText en={review.tourSlug === WEBSITE_REVIEW_SCOPE ? 'View website' : 'View tour page'} ar={review.tourSlug === WEBSITE_REVIEW_SCOPE ? 'عرض الموقع' : 'عرض صفحة الرحلة'} /> <ArrowRight size={14} />
             </Link>
           </div>
           {review.title && <p style={{ fontWeight: 600, marginBottom: 12 }}>"{review.title}"</p>}

@@ -85,10 +85,27 @@ export function initialViewMonth(
   return clampViewMonth({ y: today.y, m: today.m }, min, max)
 }
 
-export const MONTH_NAMES: Record<'en' | 'ar', string[]> = {
+export type DateLocale = 'en' | 'es' | 'it' | 'ar'
+
+function intlLocaleFor(locale: DateLocale): string {
+  if (locale === 'ar') return 'ar-EG'
+  if (locale === 'es') return 'es-ES'
+  if (locale === 'it') return 'it-IT'
+  return 'en-US'
+}
+
+export const MONTH_NAMES: Record<DateLocale, string[]> = {
   en: [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December',
+  ],
+  es: [
+    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+  ],
+  it: [
+    'gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno',
+    'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre',
   ],
   ar: [
     'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
@@ -96,15 +113,17 @@ export const MONTH_NAMES: Record<'en' | 'ar', string[]> = {
   ],
 }
 
-export const WEEKDAY_NAMES: Record<'en' | 'ar', string[]> = {
+export const WEEKDAY_NAMES: Record<DateLocale, string[]> = {
   en: ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'],
+  es: ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá'],
+  it: ['Do', 'Lu', 'Ma', 'Me', 'Gi', 'Ve', 'Sa'],
   ar: ['أحد', 'اثنين', 'ثلا', 'أرب', 'خمي', 'جمع', 'سبت'],
 }
 
-export function monthLabel(view: { y: number; m: number }, locale: 'en' | 'ar'): string {
+export function monthLabel(view: { y: number; m: number }, locale: DateLocale): string {
   try {
     // Local noon avoids every DST edge; only the month name is read back.
-    const label = new Intl.DateTimeFormat(locale === 'ar' ? 'ar-EG' : 'en-US', {
+    const label = new Intl.DateTimeFormat(intlLocaleFor(locale), {
       month: 'long',
       year: 'numeric',
     }).format(new Date(view.y, view.m - 1, 1, 12))
@@ -117,7 +136,7 @@ export function monthLabel(view: { y: number; m: number }, locale: 'en' | 'ar'):
 
 const ARABIC_INDIC_DIGITS = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩']
 
-function withLocaleDigits(value: string, locale: 'en' | 'ar'): string {
+function withLocaleDigits(value: string, locale: DateLocale): string {
   if (locale !== 'ar') return value
   return value.replace(/[0-9]/g, (digit) => ARABIC_INDIC_DIGITS[Number(digit)])
 }
@@ -130,7 +149,7 @@ function withLocaleDigits(value: string, locale: 'en' | 'ar'): string {
  * so RTL cannot visually reorder them into `YYYY/MM/DD`.
  * The calendar month header (`monthLabel`) keeps localized month names.
  */
-export function displayFor(iso: string, locale: 'en' | 'ar'): string {
+export function displayFor(iso: string, locale: DateLocale): string {
   const part = parseYMD(iso)
   if (!part) return ''
   const day = String(part.d).padStart(2, '0')
@@ -139,11 +158,11 @@ export function displayFor(iso: string, locale: 'en' | 'ar'): string {
   return withLocaleDigits(`${day}/${month}/${year}`, locale)
 }
 
-export function fullDateLabel(iso: string, locale: 'en' | 'ar'): string {
+export function fullDateLabel(iso: string, locale: DateLocale): string {
   const part = parseYMD(iso)
   if (!part) return iso
   try {
-    return new Intl.DateTimeFormat(locale === 'ar' ? 'ar-EG' : 'en-US', {
+    return new Intl.DateTimeFormat(intlLocaleFor(locale), {
       weekday: 'long',
       day: 'numeric',
       month: 'long',

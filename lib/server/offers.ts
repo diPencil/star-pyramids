@@ -1,3 +1,4 @@
+import { offerTourSelect, presentOffer } from './special-offers';
 // Shared server-only Offer repository — DB-authoritative catalogue.
 // `data/content.ts` remains the preserved bootstrap/reference source; all
 // runtime reads in Server Components and API routes go through this
@@ -9,8 +10,12 @@ import "server-only";
 import { db } from "./db";
 import { readJsonObject } from '../json-text';
 import type { Offer } from "@/data/types";
+import { isOfferActive } from '../special-offers';
 
 type DbOfferRow = {
+  tourSlug?: string | null;
+  discountPercent?: number | null;
+  startsAt?: Date | null;
   slug: string;
   title: string;
   image: string;
@@ -33,6 +38,9 @@ const strArray = (v: unknown): string[] =>
 export function toOffer(row: DbOfferRow): Offer {
   const content = readJsonObject(row.content);
   return {
+    tourSlug: row.tourSlug ?? undefined,
+    discountPercent: row.discountPercent ?? undefined,
+    startsAt: row.startsAt?.toISOString(),
     title: row.title,
     slug: row.slug,
     image: row.image,
@@ -64,15 +72,16 @@ export async function listOfferSlugs(): Promise<string[]> {
 }
 
 export async function findOfferBySlug(slug: string): Promise<Offer | null> {
-  const row = await db.offer.findUnique({ where: { slug } });
-  return row ? toOffer(row as unknown as DbOfferRow) : null;
+  const row = await db.offer.findUnique({ where: { slug }, include: { tour: { select: offerTourSelect } } });
+  return row && isOfferActive(row) && (!row.tour || row.tour.status === 'published') ? toOffer(presentOffer(row)) : null;
 }
 
 /** Public discovery: published offers only. */
 export async function getPublishedDbOffers(): Promise<Offer[]> {
   const rows = await db.offer.findMany({
     where: { isPublished: true },
+    include: { tour: { select: offerTourSelect } },
     orderBy: [{ displayOrder: "asc" }, { title: "asc" }],
   });
-  return rows.map((r) => toOffer(r as unknown as DbOfferRow));
+  return rows.filter(r => isOfferActive(r) && (!r.tour || r.tour.status === 'published')).map(presentOffer).map((r) => toOffer(r as unknown as DbOfferRow));
 }

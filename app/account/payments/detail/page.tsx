@@ -1,14 +1,10 @@
-import { PaymentDetailPage } from '@/components/account-portal'
+import type { Metadata } from 'next'
+import { CustomerAccountPage } from '@/components/account-portal'
 
-function first(value: string | string[] | undefined): string {
-  return Array.isArray(value) ? (value[0] ?? '') : (value ?? '')
+export const metadata: Metadata = {
+  title: 'Payment Details',
+  description: 'View your STAR PYRAMIDS payment details.',
+  robots: { index: false, follow: false, nocache: true },
 }
 
-export default async function Page({
-  searchParams,
-}: {
-  searchParams: Promise<{ ref?: string | string[] }>
-}) {
-  const params = await searchParams
-  return <PaymentDetailPage reference={first(params.ref)} />
-}
+export default function Page() { return <CustomerAccountPage section="payments" /> }

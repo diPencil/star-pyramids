@@ -2,12 +2,13 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
-import { Circle, Heart, MessageCircle, UserCheck, UserX, Users } from 'lucide-react'
+import { Circle, Eye, Heart, MessageCircle, Pencil, UserCheck, UserX, Users } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableWrap, AdminText, Avatar, Card, StatusPill } from '@/components/admin/admin-ui'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { mutateCustomerStatus, useDbCustomerDetail } from '@/lib/admin-customers-client'
+import { startImpersonation } from '@/lib/admin-store'
 
 const accountStatusMeta = {
   ACTIVE: { en: 'Active', ar: 'نشط', color: '#22c55e' },
@@ -79,6 +80,10 @@ export function CustomerDetailContent({ customerKey }: { customerKey: string }) 
       titleAr={name}
       sub={`${customer.email}${customer.username ? ` · ${customer.username}` : ''}`}
       backHref="/admin/customers"
+      actions={<>
+        {canManage ? <Link className="sp-btn" href={`/admin/customers/${encodeURIComponent(key)}/edit`}><Pencil size={15} /> <AdminText en="Edit" ar="تعديل" /></Link> : null}
+        {canManage ? <button type="button" className="sp-btn dark" onClick={() => startImpersonation({ publicId: key, name, email: customer.email })}><Eye size={15} /> <AdminText en="View as customer" ar="عرض كعميل" /></button> : null}
+      </>}
     />
     {successNote ? <p role="status" style={{ color: '#15803d', margin: '0 0 12px' }}>{successNote}</p> : null}
 

@@ -1,8 +1,11 @@
 // STAR PYRAMIDS email service (Phase 2J). Server-only email architecture
 // with a provider adapter interface, typed templates, HTML + plain-text
-// output, and a safe development/log adapter. No real provider is
-// integrated yet — the dev adapter logs intent and records delivery
-// rows without sending anything externally.
+// output, and a real SMTP transport.
+//
+// The default provider is the SMTP adapter (`lib/server/email-smtp.ts`),
+// configured entirely from environment variables. A delivery is only ever
+// recorded as SENT when the SMTP server accepted the message; anything else
+// is recorded as FAILED with a safe error summary.
 //
 // Design principles:
 // - Server-only: never imported from client components
@@ -11,9 +14,11 @@
 // - Best-effort: email failure never breaks the business transaction
 // - Idempotent: dedup via idempotencyKey prevents duplicate sends
 // - No secrets in DB/UI/logs: only safe metadata is stored
+// - Fail closed: an unconfigured provider reports FAILED, never a fake SENT
 import 'server-only';
 
 import { db } from './db';
+import { SmtpProviderAdapter } from './email-smtp';
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
@@ -63,22 +68,12 @@ export interface EmailProviderAdapter {
   send(input: SendEmailInput): Promise<{ providerMessageId?: string }>;
 }
 
-// ─── Development / Log Adapter ──────────────────────────────────────────
+// ─── Default Provider ────────────────────────────────────────────────────
 
-/**
- * Safe development adapter: logs the email intent and records a
- * SENT delivery row without actually sending anything. This ensures
- * the full flow is testable without a real provider.
- */
-class DevelopmentLogAdapter implements EmailProviderAdapter {
-  readonly name = 'development-log';
-
-  async send(input: SendEmailInput): Promise<{ providerMessageId?: string }> {
-    // Log intent only — never log email bodies or sensitive content
-    console.log(`[email:dev] Would send "${input.subject}" to ${input.to} (${input.eventType})`);
-    return { providerMessageId: `dev-${Date.now()}` };
-  }
-}
+// The real SMTP transport is the default. It fails closed when SMTP is not
+// configured: the delivery row is recorded as FAILED with the reason, so a
+// missing configuration is visible instead of silently reporting a fake SENT.
+let providerAdapter: EmailProviderAdapter = new SmtpProviderAdapter();
 
 // ─── Sender Configuration ────────────────────────────────────────────────
 
@@ -96,6 +91,33 @@ function getSenderConfig(): SenderConfig {
     fromEmail: 'sales@starpyramids.com',
     replyTo: null,
   };
+}
+
+/**
+ * DB-backed sender identity. Admin Settings (mail.fromName / mail.fromEmail)
+ * is the source of truth; hardcoded defaults render only until a value is
+ * stored. Never throws — callers always get a usable sender.
+ */
+async function getSenderConfigAsync(): Promise<SenderConfig> {
+  const fallback = getSenderConfig();
+  if (process.env.VITEST === 'true') return fallback;
+  try {
+    const { getSetting } = await import('./settings');
+    const [name, email] = await Promise.all([
+      getSetting('mail.fromName'),
+      getSetting('mail.fromEmail'),
+    ]);
+    const cleanName = typeof name === 'string' && name.trim() ? name.trim().slice(0, 120) : '';
+    const cleanEmail =
+      typeof email === 'string' && isValidEmailAddress(email.trim()) ? email.trim().toLowerCase() : '';
+    return {
+      fromName: cleanName || fallback.fromName,
+      fromEmail: cleanEmail || fallback.fromEmail,
+      replyTo: null,
+    };
+  } catch {
+    return fallback;
+  }
 }
 
 // ─── HTML Escaping ───────────────────────────────────────────────────────
@@ -121,8 +143,9 @@ function renderTemplate(template: string, data: EmailTemplateData): string {
 
 // ─── Branded HTML Shell ──────────────────────────────────────────────────
 
-function wrapHtml(title: string, bodyHtml: string): string {
+function wrapHtml(title: string, bodyHtml: string, fromName?: string): string {
   const config = getSenderConfig();
+  const brand = fromName && fromName.trim() ? fromName.trim().slice(0, 120) : config.fromName;
   return `<!DOCTYPE html>
 <html lang="en" dir="ltr">
 <head>
@@ -143,13 +166,13 @@ function wrapHtml(title: string, bodyHtml: string): string {
 <body>
   <div class="wrapper">
     <div class="header">
-      <h1>${escapeHtml(config.fromName)}</h1>
+      <h1>${escapeHtml(brand)}</h1>
     </div>
     <div class="content">
       ${bodyHtml}
     </div>
     <div class="footer">
-      <p>${escapeHtml(config.fromName)} &mdash; Cairo, Egypt</p>
+      <p>${escapeHtml(brand)} &mdash; Cairo, Egypt</p>
       <p>This email was sent automatically. Please do not reply directly to this address.</p>
     </div>
   </div>
@@ -176,6 +199,8 @@ export type EmailEventType =
   | 'event_request_submitted'
   | 'event_request_update'
   | 'support_message_received'
+  | 'enquiry_received'
+  | 'enquiry_received_confirmation'
   | 'admin_booking_created'
   | 'admin_trip_request_submitted'
   | 'admin_car_request_submitted'
@@ -198,23 +223,23 @@ const TEMPLATES: Record<EmailEventType, EmailTemplateDefinition> = {
   },
   booking_created: {
     subject: 'Booking received - {{reference}}',
-    bodyHtml: '<h2>Booking received</h2><p>Hi {{name}},</p><p>We have received your booking <strong>{{reference}}</strong> for {{tourTitle}}.</p><p>Total: {{total}} {{currency}}</p><p><a href="{{detailUrl}}" class="btn">View booking</a></p>',
-    bodyText: 'Booking received\n\nHi {{name}},\n\nWe have received your booking {{reference}} for {{tourTitle}}.\n\nTotal: {{total}} {{currency}}\n\nView booking: {{detailUrl}}',
+    bodyHtml: '<h2>Booking received</h2><p>Hi {{name}},</p><p>We have received your booking <strong>{{reference}}</strong> for {{tourTitle}}.</p><p>Total: {{total}} {{currency}}</p><p>{{accessNote}}<a href="{{detailUrl}}" class="btn">View booking</a></p>',
+    bodyText: 'Booking received\n\nHi {{name}},\n\nWe have received your booking {{reference}} for {{tourTitle}}.\n\nTotal: {{total}} {{currency}}\n\n{{accessNote}}View booking: {{detailUrl}}',
   },
   booking_confirmed: {
     subject: 'Booking confirmed - {{reference}}',
-    bodyHtml: '<h2>Booking confirmed</h2><p>Hi {{name}},</p><p>Your booking <strong>{{reference}}</strong> is now confirmed.</p><p><a href="{{detailUrl}}" class="btn">View booking</a></p>',
-    bodyText: 'Booking confirmed\n\nHi {{name}},\n\nYour booking {{reference}} is now confirmed.\n\nView booking: {{detailUrl}}',
+    bodyHtml: '<h2>Booking confirmed</h2><p>Hi {{name}},</p><p>Your booking <strong>{{reference}}</strong> is now confirmed.</p><p>{{accessNote}}<a href="{{detailUrl}}" class="btn">View booking</a></p>',
+    bodyText: 'Booking confirmed\n\nHi {{name}},\n\nYour booking {{reference}} is now confirmed.\n\n{{accessNote}}View booking: {{detailUrl}}',
   },
   booking_completed: {
     subject: 'Booking completed - {{reference}}',
-    bodyHtml: '<h2>Booking completed</h2><p>Hi {{name}},</p><p>Your booking <strong>{{reference}}</strong> has been marked as completed. Thank you for travelling with us!</p>',
-    bodyText: 'Booking completed\n\nHi {{name}},\n\nYour booking {{reference}} has been marked as completed. Thank you for travelling with us!',
+    bodyHtml: '<h2>Booking completed</h2><p>Hi {{name}},</p><p>Your booking <strong>{{reference}}</strong> has been marked as completed. Thank you for travelling with us!</p><p>{{accessNote}}<a href="{{detailUrl}}" class="btn">View booking</a></p>',
+    bodyText: 'Booking completed\n\nHi {{name}},\n\nYour booking {{reference}} has been marked as completed. Thank you for travelling with us!\n\n{{accessNote}}View booking: {{detailUrl}}',
   },
   booking_cancelled: {
     subject: 'Booking cancelled - {{reference}}',
-    bodyHtml: '<h2>Booking cancelled</h2><p>Hi {{name}},</p><p>Your booking <strong>{{reference}}</strong> has been cancelled. Contact us if you need anything else.</p>',
-    bodyText: 'Booking cancelled\n\nHi {{name}},\n\nYour booking {{reference}} has been cancelled. Contact us if you need anything else.',
+    bodyHtml: '<h2>Booking cancelled</h2><p>Hi {{name}},</p><p>Your booking <strong>{{reference}}</strong> has been cancelled. Contact us if you need anything else.</p><p>{{accessNote}}<a href="{{detailUrl}}" class="btn">View booking</a></p>',
+    bodyText: 'Booking cancelled\n\nHi {{name}},\n\nYour booking {{reference}} has been cancelled. Contact us if you need anything else.\n\n{{accessNote}}View booking: {{detailUrl}}',
   },
   payment_initiated: {
     subject: 'Payment initiated - {{reference}}',
@@ -271,6 +296,16 @@ const TEMPLATES: Record<EmailEventType, EmailTemplateDefinition> = {
     bodyHtml: '<h2>New message</h2><p>Hi {{name}},</p><p>Our travel team has replied to your support conversation <strong>{{reference}}</strong>.</p><p><a href="{{detailUrl}}" class="btn">Read message</a></p>',
     bodyText: 'New message\n\nHi {{name}},\n\nOur travel team has replied to your support conversation {{reference}}.\n\nRead message: {{detailUrl}}',
   },
+  enquiry_received: {
+    subject: 'New website enquiry - {{subject}}',
+    bodyHtml: '<h2>New website enquiry</h2><p><strong>{{name}}</strong> ({{email}}) sent an enquiry.</p><p><strong>Subject:</strong> {{subject}}</p><p>{{message}}</p><p><a href="{{detailUrl}}" class="btn">Open enquiry</a></p>',
+    bodyText: 'New website enquiry\n\n{{name}} ({{email}}) sent an enquiry.\n\nSubject: {{subject}}\n\n{{message}}\n\nOpen enquiry: {{detailUrl}}',
+  },
+  enquiry_received_confirmation: {
+    subject: 'We received your message',
+    bodyHtml: '<h2>Thank you, {{name}}</h2><p>We have received your message and a member of our travel team will reply shortly.</p><p>If you need anything in the meantime, reply to this email.</p>',
+    bodyText: 'Thank you, {{name}}\n\nWe have received your message and a member of our travel team will reply shortly.\n\nIf you need anything in the meantime, reply to this email.',
+  },
   admin_booking_created: {
     subject: 'New booking - {{reference}}',
     bodyHtml: '<h2>New booking received</h2><p>Booking <strong>{{reference}}</strong> from {{name}} needs review.</p><p>Total: {{total}} {{currency}}</p><p><a href="{{detailUrl}}" class="btn">Review booking</a></p>',
@@ -310,8 +345,6 @@ const TEMPLATES: Record<EmailEventType, EmailTemplateDefinition> = {
 
 // ─── Core Send Function ──────────────────────────────────────────────────
 
-let providerAdapter: EmailProviderAdapter = new DevelopmentLogAdapter();
-
 export function setEmailProvider(adapter: EmailProviderAdapter): void {
   providerAdapter = adapter;
 }
@@ -322,16 +355,20 @@ export function getEmailProvider(): EmailProviderAdapter {
 
 /**
  * Render a template with data and produce HTML + plain-text output.
+ * `fromName` overrides the header/footer brand line (used by the
+ * DB-backed sender path); omitted keeps the built-in default so existing
+ * callers and tests are unaffected.
  */
 export function renderEmailTemplate(
   eventType: EmailEventType,
   data: EmailTemplateData,
+  fromName?: string,
 ): EmailTemplate {
   const def = TEMPLATES[eventType];
   if (!def) throw new Error(`Unknown email template: ${eventType}`);
   return {
     subject: renderTemplate(def.subject, data),
-    html: wrapHtml(def.subject, renderTemplate(def.bodyHtml, data)),
+    html: wrapHtml(def.subject, renderTemplate(def.bodyHtml, data), fromName),
     text: renderTemplate(def.bodyText, data),
   };
 }
@@ -347,7 +384,8 @@ export async function sendTemplatedEmail(
   data: EmailTemplateData,
   options?: { relatedReference?: string; idempotencyKey?: string },
 ): Promise<EmailDeliveryRecord> {
-  const template = renderEmailTemplate(eventType, data);
+  const sender = await getSenderConfigAsync();
+  const template = renderEmailTemplate(eventType, data, sender.fromName);
   return sendEmail({
     to,
     recipientType,
@@ -387,9 +425,14 @@ export async function sendEmail(input: SendEmailInput): Promise<EmailDeliveryRec
     },
   });
 
-  // Attempt send via adapter
+  // Attempt send via adapter. The delivery is only marked SENT when the
+  // provider confirms acceptance; an adapter that resolves without a
+  // message id is treated as an error rather than a success.
   try {
     const result = await providerAdapter.send(input);
+    if (!result || typeof result !== 'object') {
+      throw new Error('The email provider returned no delivery result.');
+    }
     const updated = await db.emailDelivery.update({
       where: { id: delivery.id },
       data: {
@@ -397,11 +440,20 @@ export async function sendEmail(input: SendEmailInput): Promise<EmailDeliveryRec
         providerMessageId: result.providerMessageId ?? null,
         attempt: { increment: 1 },
         sentAt: new Date(),
+        errorSummary: null,
+        failedAt: null,
       },
+    });
+    logEmailEvent('info', 'email.sent', {
+      deliveryId: delivery.id,
+      eventType: delivery.eventType,
+      recipientType: delivery.recipientType,
+      provider: providerAdapter.name,
+      hasProviderMessageId: Boolean(result.providerMessageId),
     });
     return toDeliveryRecord(updated);
   } catch (error) {
-    const errorSummary = error instanceof Error ? error.message.slice(0, 500) : 'Unknown error';
+    const errorSummary = summarizeEmailError(error);
     const updated = await db.emailDelivery.update({
       where: { id: delivery.id },
       data: {
@@ -411,8 +463,50 @@ export async function sendEmail(input: SendEmailInput): Promise<EmailDeliveryRec
         failedAt: new Date(),
       },
     });
+    logEmailEvent('error', 'email.failed', {
+      deliveryId: delivery.id,
+      eventType: delivery.eventType,
+      recipientType: delivery.recipientType,
+      provider: providerAdapter.name,
+      errorSummary,
+    });
     return toDeliveryRecord(updated);
   }
+}
+
+// ─── Failure Diagnostics ────────────────────────────────────────────────
+
+/**
+ * Build a safe, bounded error summary for the delivery row and the logs.
+ *
+ * The stored text is shown in the admin email log, so it must never contain a
+ * credential. SMTP error strings can echo the auth username, so any
+ * `user:password@host` style authority is redacted before it is persisted.
+ */
+function summarizeEmailError(error: unknown): string {
+  const raw = error instanceof Error ? error.message : 'Unknown error';
+  const withoutControlChars = raw.replace(/[\u0000-\u001f\u007f]/g, ' ').trim();
+  // Redact any `user:password@host` authority pair (SMTP errors can echo the
+  // auth username) down to `***@host`. The trailing `.+` is greedy so the
+  // match always ends at the last `@` before the host, never mid-credential.
+  const redacted = withoutControlChars
+    .replace(/[^\s:@/]+:[^\s:@/]+@[^\s:@/]+/g, '***')
+    .replace(/[^\s:@/]+:[^\s:@/]+(?=\s|$)/g, '***');
+  const trimmed = (redacted || 'Unknown error').slice(0, 500);
+  return trimmed;
+}
+
+type EmailLogLevel = 'info' | 'warn' | 'error';
+
+/**
+ * Structured, secret-free email logging. Records the outcome, the provider,
+ * and the event type - never the recipient address, subject line, or body.
+ */
+function logEmailEvent(level: EmailLogLevel, message: string, context: Record<string, unknown>) {
+  const payload = JSON.stringify({ at: new Date().toISOString(), message, ...context });
+  if (level === 'error') console.error(`[email] ${payload}`);
+  else if (level === 'warn') console.warn(`[email] ${payload}`);
+  else console.info(`[email] ${payload}`);
 }
 
 // ─── Delivery History ────────────────────────────────────────────────────

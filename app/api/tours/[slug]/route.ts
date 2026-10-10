@@ -1,3 +1,4 @@
+import { applyLinkedOfferDeals } from '@/lib/server/special-offers';
 import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
@@ -87,7 +88,7 @@ export async function GET(
     return NextResponse.json({ notFound: true }, { status: 404 });
   }
 
-  return NextResponse.json({ tour: { ...tour, gallery: readJsonText(tour.gallery) } });
+  return NextResponse.json({ tour: { ...(await applyLinkedOfferDeals([tour]))[0], gallery: readJsonText(tour.gallery) } });
 }
 
 export async function PUT(
@@ -167,7 +168,7 @@ export async function PUT(
     },
   });
 
-  return NextResponse.json({ tour });
+  return NextResponse.json({ tour: (await applyLinkedOfferDeals([tour]))[0] });
 }
 
 export async function DELETE(

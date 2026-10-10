@@ -15,12 +15,12 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ key: string }> },
 ) {
+  if (!isSameOriginRequest(request)) {
+    return NextResponse.json({ error: 'Invalid request origin.' }, { status: 403 });
+  }
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
-  }
-  if (!isSameOriginRequest(request)) {
-    return NextResponse.json({ error: 'Invalid request origin.' }, { status: 403 });
   }
 
   const { key } = await params;

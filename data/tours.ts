@@ -311,10 +311,6 @@ const nileCruises: Tour[] = [
         { category: '(1-18) Dec', price: 1495, note: 'Standard season', tiers: [{ label: 'Solo', price: 1495 }, { label: '2-2 PAX', price: 999 }, { label: '3-100 PAX', price: 935 }] },
         { category: '(19-31) Dec', price: 2250, note: 'Holiday peak', tiers: [{ label: 'Solo', price: 2250 }, { label: '2-2 PAX', price: 1485 }, { label: '3-100 PAX', price: 1415 }] },
       ],
-      reviews: [
-        { name: 'Sarah M.', date: '15 Jan 2026', stars: 5, text: 'Absolutely stunning cruise. The cabins were luxurious, the food was exceptional, and the guided tours were informative and well-paced.' },
-        { name: 'Ahmed K.', date: '8 Apr 2025', stars: 5, text: 'Best Nile cruise we have ever taken. The staff were attentive without being intrusive, and the temple visits were perfectly timed.' },
-      ],
     },
   },
   {
@@ -649,11 +645,6 @@ const featuredTours: Tour[] = [
         { category: 'Single supplement', price: 160, note: 'Solo traveler' },
         { category: 'Private group', price: 1450, note: 'Up to 10 guests', prefix: 'From ' },
       ],
-      reviews: [
-        { name: 'Sarah M.', date: 'January 2026', stars: 5, text: 'Perfectly organized from pickup to drop-off. The Nile cruise days were the highlight of our trip.' },
-        { name: 'James W.', date: 'December 2025', stars: 5, text: 'Knowledgeable guides and smooth transfers. Luxor at sunrise is something we will never forget.' },
-        { name: 'Familie Becker', date: 'November 2025', stars: 4, text: 'Great experience for the whole family. Hotels were comfortable and the itinerary was well paced.' },
-      ],
     },
   },
   { ...multiDay, slug: 'riding-in-the-new-year-in-egypt-and-jordan', categorySlugs: ['christmas-new-year-offers', 'pyramids-tours', 'cairo-city-breaks'], title: 'Riding in the New Year in Egypt and Jordan', location: 'Giza', price: 189, duration: '2 Days', image: tourImages[2],
@@ -879,17 +870,57 @@ for (const tour of tours) {
 
 export const findTour = (slug: string) => tourByRouteSlug.get(slug)
 
-export const getTourRating = (tour: Tour): number | null => {
-  const reviews = tour.detail?.reviews
-  if (!reviews?.length) return null
-  return reviews.reduce((sum, review) => sum + review.stars, 0) / reviews.length
+export const getDealOriginalPrice = (tour: Tour, now?: Date | number | string): number | undefined => {
+  // `tour.price` (and every tier rate) is the ORIGINAL list price. The
+  // strikethrough original is therefore the list price itself — never
+  // `price / (1 - p)`, which inflated a fake "was" price above list.
+  return getActiveDealPercent(tour, now) > 0 ? tour.price : undefined
 }
 
-export const getDealOriginalPrice = (tour: Tour): number | undefined => {
-  const percent = tour.deal?.percent ?? 0
-  if (!(percent > 0 && percent < 100)) return undefined
-  return Math.round(tour.price / (1 - percent / 100))
+/**
+ * Discount eligibility (single source of truth for every surface).
+ *
+ * A deal is a percentage off the ORIGINAL list prices (`tour.price` and
+ * the traveler-tier rates). It is active only when the percent is sane
+ * (0 < p < 100) and the end date — when present — has not passed. A
+ * date-only `endsAt` (YYYY-MM-DD, as produced by the admin date input)
+ * stays valid through the end of that day (UTC).
+ */
+export function getActiveDealPercent(tour: Tour, now?: Date | number | string): number {
+  const percent = tour.deal?.percent
+  if (typeof percent !== 'number' || !Number.isFinite(percent) || !(percent > 0) || !(percent < 100)) return 0
+  const endsAt = tour.deal?.endsAt
+  if (endsAt === undefined || endsAt === null || endsAt === '') return percent
+  if (typeof endsAt !== 'string') return 0
+  let deadline: number
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(endsAt.trim())
+  if (dateOnly) {
+    deadline = Date.UTC(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3])) + 86400000 - 1
+    if (Number.isNaN(deadline)) return 0
+  } else {
+    deadline = new Date(endsAt).getTime()
+    if (Number.isNaN(deadline)) return 0
+  }
+  const at = now === undefined ? Date.now() : new Date(now).getTime()
+  if (Number.isNaN(at)) return 0
+  return deadline >= at ? percent : 0
 }
+
+/** Round a USD amount to integer cents and back (kills float drift). */
+function roundUsd(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) return 0
+  return Math.round(value * 100) / 100
+}
+
+/** Apply an active deal percent to one ORIGINAL list amount. Identity when 0. */
+export function applyDealPercent(value: number, percent: number): number {
+  if (!(percent > 0) || !(percent < 100)) return value
+  return roundUsd((value * (100 - percent)) / 100)
+}
+
+/** Effective selling price: list price minus the active deal, if any. */
+export const getDealPrice = (tour: Tour, now?: Date | number | string): number =>
+  applyDealPercent(tour.price, getActiveDealPercent(tour, now))
 
 export const getDealDeadline = (tour: Tour): string | undefined => {
   const endsAt = tour.deal?.endsAt
@@ -943,9 +974,26 @@ export const getTierUnitPrice = (tour: Tour, headcount: number): number => getTr
 
 export const getChildUnitPrice = (tour: Tour, adultPrice: number): number => getLegacyChildUnitPrice(tour, adultPrice)
 
-export const getBookingTotal = (tour: Tour, adults: number, children: number, infants = 0): TravelerUnitPrices & { total: number } => {
+export type BookingPrices = TravelerUnitPrices & {
+  total: number
+  /** Original (pre-discount) traveler total in USD. Equals `total` when no deal is active. */
+  originalTotal: number
+  /** Savings from the active deal in USD (traveler units only; add-ons are never discounted). */
+  discount: number
+}
+
+export const getBookingTotal = (tour: Tour, adults: number, children: number, infants = 0, now?: Date | number | string): BookingPrices => {
   const prices = getTravelerUnitPrices(tour, Math.max(1, adults + children + infants))
-  return { ...prices, total: adults * prices.adult + children * prices.child + infants * prices.infant }
+  const percent = getActiveDealPercent(tour, now)
+  // The deal is a single percent off every traveler unit (tiers included).
+  // Add-ons are third-party costs and are never discounted; the booking
+  // service adds them after this total.
+  const adult = applyDealPercent(prices.adult, percent)
+  const child = applyDealPercent(prices.child, percent)
+  const infant = applyDealPercent(prices.infant, percent)
+  const originalTotal = roundUsd(adults * prices.adult + children * prices.child + infants * prices.infant)
+  const total = roundUsd(adults * adult + children * child + infants * infant)
+  return { adult, child, infant, total, originalTotal, discount: roundUsd(originalTotal - total) }
 }
 
 export const normalizeTourPricePeriods = (rows: readonly TourPriceRow[] | undefined, fallbackLabel: string): TourPriceRow[] => {
@@ -959,12 +1007,16 @@ export const normalizeTourPricePeriods = (rows: readonly TourPriceRow[] | undefi
   }]
 }
 
-export const getTourOffer = (tour: Tour, fallbackDeadline: string): TourOfferView => ({
-  badge: tour.deal && tour.deal.percent > 0 && tour.deal.percent < 100 ? `SAVE ${tour.deal.percent}%` : undefined,
-  deadline: getDealDeadline(tour) ?? fallbackDeadline,
-  originalPrice: getDealOriginalPrice(tour),
-  rating: getTourRating(tour) ?? undefined,
-})
+export const getTourOffer = (tour: Tour, fallbackDeadline: string, now?: Date | number | string): TourOfferView => {
+  // The badge is eligibility-gated: expired or malformed deals show
+  // nothing instead of advertising a discount that no longer applies.
+  const percent = getActiveDealPercent(tour, now)
+  return {
+    badge: percent > 0 ? `SAVE ${tour.deal?.percent}%` : undefined,
+    deadline: getDealDeadline(tour) ?? fallbackDeadline,
+    originalPrice: getDealOriginalPrice(tour, now),
+  }
+}
 
 // Backend integration point: the future deals endpoint returns DealFeedItem[]
 // (GET /api/deals -> [{ slug, percent, endsAt }]). Pass that feed through

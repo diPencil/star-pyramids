@@ -71,9 +71,11 @@ export async function POST(request: Request) {
     current && current.roles.includes('CUSTOMER') ? current.id : null;
 
   try {
-    const { booking, created } = await createBookingRecord(userId, draft);
+    const { booking, created, guestAccessUrl } = await createBookingRecord(userId, draft);
     await recordBookingAttempt(draft.contactEmail, ip);
-    return NextResponse.json(booking, { status: created ? 201 : 200 });
+    // `guestAccessUrl` is the private link minted for a guest checkout; it
+    // is null for account bookings, which keep their existing session flow.
+    return NextResponse.json({ ...booking, guestAccessUrl }, { status: created ? 201 : 200 });
   } catch (error) {
     await recordBookingAttempt(draft.contactEmail, ip);
     if (error instanceof Error) {

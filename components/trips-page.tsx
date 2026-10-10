@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowRight, LayoutGrid, List, MapPin, Search, SlidersHorizontal, Sparkles, X } from 'lucide-react'
-import { catalogTours, getToursByCategory, tourCategories } from '@/data/tours'
+import { catalogTours, getDealPrice, getToursByCategory, tourCategories } from '@/data/tours'
 import type { TourCategory } from '@/data/types'
 import { matchPriceBand, tourListingSorts, tourPriceBands, type TourListingSort } from '@/lib/query'
 import { Breadcrumb, HelpCTA, SiteShell, TourCard } from '@/components/site'
@@ -16,7 +16,7 @@ const categories = Object.keys(tourCategories) as TourCategory[]
 const durations = ['day', 'short', 'long'] as const
 type Duration = (typeof durations)[number]
 
-const minNilePrice = Math.min(...getToursByCategory('nile-cruises').map((tour) => tour.price))
+const minNilePrice = Math.min(...getToursByCategory('nile-cruises').map((tour) => getDealPrice(tour)))
 
 const baseCopy = {
   en: {
@@ -70,9 +70,9 @@ function durationMatches(value: string, filter: Duration) {
 
 function TripsContent() {
   const { currency, locale } = useLocale()
-  const liveCatalog = useDbTours(catalogTours)
+  const liveCatalog = useDbTours(catalogTours, { includeNew: true })
   const destinationOptions = [...new Set(liveCatalog.flatMap((tour) => tour.location.split(',').map((place) => place.trim())))].sort()
-  const nilePrices = liveCatalog.filter((tour) => tour.category === 'nile-cruises').map((tour) => tour.price)
+  const nilePrices = liveCatalog.filter((tour) => tour.category === 'nile-cruises').map((tour) => getDealPrice(tour))
   const liveMinNilePrice = nilePrices.length ? Math.min(...nilePrices) : minNilePrice
   const t = copy[locale]
   const router = useRouter()

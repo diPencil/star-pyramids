@@ -1,3 +1,4 @@
+import { applyLinkedOfferDeals } from '@/lib/server/special-offers';
 import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
@@ -56,7 +57,7 @@ export async function GET(request: Request) {
   });
   // LONGTEXT galleries decode to arrays at the boundary (same contract as
   // blogs/cars/offers). Raw JSON strings would reach clients as text.
-  return NextResponse.json({ tours: tours.map((tour) => ('gallery' in tour ? { ...tour, gallery: readJsonText(tour.gallery) } : tour)) });
+  return NextResponse.json({ tours: (await applyLinkedOfferDeals(tours)).map((tour) => ('gallery' in tour ? { ...tour, gallery: readJsonText(tour.gallery) } : tour)) });
 }
 
 export async function POST(request: Request) {

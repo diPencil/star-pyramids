@@ -2,6 +2,8 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
+import { ContentLanguageTabs, TranslatedInput, TranslatedTextarea } from '@/components/admin/content-language-tabs'
+import { type CatalogueTranslations } from '@/lib/catalogue-translations'
 import { useRouter } from 'next/navigation'
 import { ExternalLink, Plus, Trash2 } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
@@ -23,7 +25,7 @@ export default function DestinationEditorPage() {
   // renders loading/error here, never bootstrap rows as editor records.
   const { data: destinationData, loading: catalogueLoading, error: catalogueError, retry: retryCatalogue } = useDbDestinationsStatus()
   const liveDestinations = destinationData ?? []
-  const liveTours = useDbTours(oneDayBase)
+  const liveTours = useDbTours(oneDayBase, { includeNew: true })
   // Stable record identity: the init effect below re-runs only when the
   // edited record itself (not list identities) changes.
   const editing = useMemo(
@@ -31,13 +33,14 @@ export default function DestinationEditorPage() {
     [liveDestinations, editSlug],
   )
 
+  const [translations, setTranslations] = useState<CatalogueTranslations>({})
   const [title, setTitle] = useState('')
   const [nameAr, setNameAr] = useState('')
   const [slug, setSlug] = useState('')
   const [image, setImage] = useState('')
   const [copy, setCopy] = useState('')
   const [copyAr, setCopyAr] = useState('')
-  const [stay, setStay] = useState('2-3 days')
+  const [stay, setStay] = useState('')
   const [bestFor, setBestFor] = useState('')
   const [tourSlugs, setTourSlugs] = useState('')
   const [showInDestinations, setShowInDestinations] = useState(true)
@@ -59,6 +62,7 @@ export default function DestinationEditorPage() {
     if (catalogueLoading) return
     if (editSlug && liveDestinations.length && !editing) { setReady(true); return }
     if (editing) {
+      setTranslations(editing.translations ?? {})
       setTitle(editing.title)
       setNameAr(editing.nameAr ?? '')
       setSlug(editing.slug)
@@ -96,6 +100,7 @@ export default function DestinationEditorPage() {
     if (!/^[a-z0-9-]{1,80}$/.test(finalSlug)) { setError(ar ? 'الرابط غير صالح.' : 'Invalid slug.'); return }
     const parsedOrder = Number(order)
     const body = {
+      translations,
       title: title.trim(),
       slug: finalSlug,
       image: image.trim(),
@@ -107,11 +112,12 @@ export default function DestinationEditorPage() {
       isPublished: published ? undefined : false,
       displayOrder: order.trim() === '' || !Number.isFinite(parsedOrder) ? undefined : parsedOrder,
       detail: {
+        ...editing?.detail,
         heroImage: image.trim(),
         heroAlt: title.trim(),
         eyebrow: editing?.detail.eyebrow ?? 'Discover Egypt',
         intro: copy.trim() || title.trim(),
-        facts: [{ label: 'Suggested stay', value: stay.trim() || 'Flexible' }],
+        facts: editing?.detail.facts.length ? editing.detail.facts.map((fact, index) => index === 0 ? { ...fact, value: stay.trim() || 'Flexible' } : fact) : [{ label: 'Suggested stay', value: stay.trim() || 'Flexible' }],
         bestFor: lines(bestFor),
         experiences: editing?.detail.experiences ?? [],
         rhythm: editing?.detail.rhythm ?? [],
@@ -184,25 +190,29 @@ export default function DestinationEditorPage() {
       <Card title={<AdminText en="Destination not found" ar="الوجهة غير موجودة" />}><p style={{ color: 'var(--sp-muted)' }}><AdminText en="The requested destination does not exist." ar="الوجهة المطلوبة غير موجودة." /></p></Card>
     ) : <>
       <Card title={<AdminText en="Basic information" ar="البيانات الأساسية" />}>
+<ContentLanguageTabs translations={translations} setTranslations={setTranslations}>
         <div className="sp-form">
-          <div className="sp-form-2">
-            <label><AdminText en="Name (EN)" ar="الاسم (EN)" /><input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Siwa Oasis" /></label>
-            <label><AdminText en="Name (AR)" ar="الاسم (AR)" /><input value={nameAr} onChange={(e) => setNameAr(e.target.value)} placeholder="واحة سيوة" /></label>
+          <div className="sp-form">
+            <label><AdminText en="Name " ar="الاسم " /><TranslatedInput field="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Siwa Oasis" /></label>
+
           </div>
           <div className="sp-form-2">
             <label><AdminText en="Slug" ar="الرابط" /><input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="siwa-oasis" dir="ltr" readOnly={Boolean(editSlug)} /></label>
-            <label><AdminText en="Suggested stay" ar="مدة الإقامة المقترحة" /><input value={stay} onChange={(e) => setStay(e.target.value)} /></label>
+            <label><AdminText en="Suggested stay" ar="مدة الإقامة المقترحة" /><TranslatedInput field="stay" value={stay} onChange={(e) => setStay(e.target.value)} placeholder={ar ? 'مثال: 2-3 أيام' : 'e.g. 2-3 days'} /></label>
           </div>
         </div>
-      </Card>
+      </ContentLanguageTabs>
+</Card>
       <Card title={<AdminText en="Content" ar="المحتوى" />}>
+<ContentLanguageTabs translations={translations} setTranslations={setTranslations}>
         <div className="sp-form">
-          <label><AdminText en="Description (EN)" ar="الوصف (EN)" /><textarea rows={3} value={copy} onChange={(e) => setCopy(e.target.value)} /></label>
-          <label><AdminText en="Description (AR)" ar="الوصف (AR)" /><textarea rows={3} value={copyAr} onChange={(e) => setCopyAr(e.target.value)} /></label>
-          <label><AdminText en="Best for (one per line)" ar="مناسبة لـ (سطر لكل بند)" /><textarea rows={3} value={bestFor} onChange={(e) => setBestFor(e.target.value)} /></label>
+          <label><AdminText en="Description " ar="الوصف " /><TranslatedTextarea field="copy" rows={3} value={copy} onChange={(e) => setCopy(e.target.value)} /></label>
+
+          <label><AdminText en="Best for (one per line)" ar="مناسبة لـ (سطر لكل بند)" /><TranslatedTextarea field="bestFor" rows={3} value={bestFor} onChange={(e) => setBestFor(e.target.value)} /></label>
           <label><AdminText en="Linked tour slugs (comma separated)" ar="الرحلات المرتبطة (slugs مفصولة بفاصلة)" /><input value={tourSlugs} onChange={(e) => setTourSlugs(e.target.value)} placeholder="cairo-and-giza-pyramids" dir="ltr" /></label>
         </div>
-      </Card>
+      </ContentLanguageTabs>
+</Card>
       <Card title={<AdminText en="Media" ar="الوسائط" />} sub={<AdminText en="Cover image" ar="صورة الغلاف" />}>
         <ImageField value={image} onChange={setImage} />
       </Card>

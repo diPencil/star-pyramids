@@ -9,13 +9,17 @@ import type {
   AnalyticsRange,
   AnalyticsResponse,
   MoneyByCurrency,
-  RevenuePoint,
 } from '@/lib/analytics';
 
 import { db } from './db';
+import { revenueSeries } from '@/lib/revenue-periods';
+import {
+  AnalyticsValidationError,
+  parseAnalyticsRange,
+} from '@/lib/analytics-range';
 
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const MAX_RANGE_DAYS = 731;
+export { AnalyticsValidationError, parseAnalyticsRange };
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Payments that contribute collected money (net of refunds). */
@@ -31,47 +35,6 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const MONTH_LONG = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
-
-export class AnalyticsValidationError extends Error {
-  status = 400 as const;
-}
-
-function parseDay(value: string | null, name: string): Date {
-  if (!value || !DATE_PATTERN.test(value)) {
-    throw new AnalyticsValidationError(`Select a valid ${name} date (YYYY-MM-DD).`);
-  }
-  const date = new Date(`${value}T00:00:00.000Z`);
-  if (Number.isNaN(date.getTime())) {
-    throw new AnalyticsValidationError(`Select a valid ${name} date (YYYY-MM-DD).`);
-  }
-  return date;
-}
-
-/**
- * Strict range parsing for the analytics API. Defaults to the trailing
- * 90 days. Ranges are capped so bucketed series stay bounded.
- */
-export function parseAnalyticsRange(search: URLSearchParams): AnalyticsRange & { start: Date; endExclusive: Date } {
-  const today = new Date();
-  const todayKey = today.toISOString().slice(0, 10);
-  const defaultFrom = new Date(today.getTime() - 89 * DAY_MS).toISOString().slice(0, 10);
-  const fromKey = search.get('from') ?? defaultFrom;
-  const toKey = search.get('to') ?? todayKey;
-  const start = parseDay(fromKey, 'start');
-  const endDay = parseDay(toKey, 'end');
-  if (start.getTime() > endDay.getTime()) {
-    throw new AnalyticsValidationError('The start date must be on or before the end date.');
-  }
-  const days = Math.round((endDay.getTime() - start.getTime()) / DAY_MS) + 1;
-  if (days > MAX_RANGE_DAYS) {
-    throw new AnalyticsValidationError(`Date ranges are limited to ${MAX_RANGE_DAYS} days.`);
-  }
-  return { from: fromKey, to: toKey, start, endExclusive: new Date(endDay.getTime() + DAY_MS) };
-}
 
 /** Integer-cents helpers: money is summed in cents, never floats. */
 function toCents(value: unknown): number {
@@ -264,14 +227,9 @@ export async function getAnalytics(
     db.review.findMany({ where: { createdAt: inRange }, select: { status: true, rating: true } }),
     includeFinancial
       ? db.payment.findMany({
-          where: {
-            status: { in: [...COLLECTED_STATUSES] },
-            OR: [
-              { paidAt: { gte: new Date(Date.now() - 200 * DAY_MS) } },
-              { paidAt: null, createdAt: { gte: new Date(Date.now() - 200 * DAY_MS) } },
-            ],
-          },
-          select: { currency: true, amountPaid: true, amountRefunded: true, paidAt: true, createdAt: true },
+          // Include uncollected dates for coverage, but never their amounts
+          // or counts in the collected-revenue series.
+          select: { status: true, currency: true, amountPaid: true, amountRefunded: true, paidAt: true, createdAt: true },
         })
       : Promise.resolve([]),
   ]);
@@ -432,12 +390,20 @@ export async function getAnalytics(
       ? Math.round((publishedRatings.reduce((s, r) => s + r, 0) / publishedRatings.length) * 100) / 100
       : null;
 
-  const trendRows = toCollected(trendPayments);
+  const trendRows = toCollected(trendPayments.filter((row) => COLLECTED_STATUSES.some((status) => status === row.status))).map((row) => ({ at: (row.paidAt ?? row.createdAt).getTime(), cents: row.netCents }));
+  const trendStart = trendRows.length > 0
+    ? trendRows.reduce((at, row) => Math.min(at, row.at), trendRows[0].at)
+    : Date.now();
+
+  const currentYear = new Date().getUTCFullYear();
+  const trendStartYear = trendRows.length > 0 ? new Date(trendStart).getUTCFullYear() : currentYear;
 
   return {
     range: { from: range.from, to: range.to },
     generatedAt: new Date().toISOString(),
     financial: includeFinancial,
+    trendStartYear,
+    currentYear,
     kpis: {
       collected,
       collectedPayments: collectedRows.length,
@@ -454,9 +420,9 @@ export async function getAnalytics(
     tourSplit,
     tourSplitTotal: lines.length,
     trend: {
-      monthly: buildMonthlySeries(trendRows),
-      weekly: buildWeeklySeries(trendRows),
-      daily: buildDailySeries(trendRows),
+      monthly: includeFinancial ? revenueSeries(trendRows, 'months', Date.now(), trendStart) : [],
+      weekly: includeFinancial ? revenueSeries(trendRows, 'weeks', Date.now(), trendStart) : [],
+      daily: includeFinancial ? revenueSeries(trendRows, 'days', Date.now(), trendStart) : [],
     },
     markets,
     topTours,
@@ -475,80 +441,4 @@ export async function getAnalytics(
       customers: { total: customersTotal, newInRange: customersNew },
     },
   };
-}
-
-function bucketize(
-  rows: CollectedRow[],
-  buckets: Array<{ key: string; label: string; full: string; start: number; end: number }>,
-): RevenuePoint[] {
-  return buckets.map((bucket) => {
-    let revenueCents = 0;
-    let payments = 0;
-    for (const row of rows) {
-      const at = (row.paidAt ?? row.createdAt).getTime();
-      if (at >= bucket.start && at < bucket.end) {
-        revenueCents += row.netCents;
-        payments += 1;
-      }
-    }
-    return { label: bucket.label, full: bucket.full, revenue: centsToAmount(revenueCents), payments };
-  });
-}
-
-/** Trailing 6 calendar months including the current month. */
-function buildMonthlySeries(rows: CollectedRow[]): RevenuePoint[] {
-  const now = new Date();
-  const buckets: Array<{ key: string; label: string; full: string; start: number; end: number }> = [];
-  for (let back = 5; back >= 0; back -= 1) {
-    const first = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - back, 1));
-    const next = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 1));
-    buckets.push({
-      key: monthKey(first),
-      label: MONTH_SHORT[first.getUTCMonth()] ?? '',
-      full: `${MONTH_LONG[first.getUTCMonth()]} ${first.getUTCFullYear()}`,
-      start: first.getTime(),
-      end: next.getTime(),
-    });
-  }
-  return bucketize(rows, buckets);
-}
-
-/** Trailing 12 seven-day windows ending today. */
-function buildWeeklySeries(rows: CollectedRow[]): RevenuePoint[] {
-  const today = new Date();
-  const todayStart = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
-  const buckets: Array<{ key: string; label: string; full: string; start: number; end: number }> = [];
-  for (let back = 11; back >= 0; back -= 1) {
-    const end = todayStart - back * 7 * DAY_MS + 7 * DAY_MS;
-    const start = end - 7 * DAY_MS;
-    const labelDate = new Date(start);
-    const label = `${MONTH_SHORT[labelDate.getUTCMonth()]} ${labelDate.getUTCDate()}`;
-    buckets.push({
-      key: `w-${start}`,
-      label,
-      full: `Week of ${MONTH_LONG[labelDate.getUTCMonth()]} ${labelDate.getUTCDate()}, ${labelDate.getUTCFullYear()}`,
-      start,
-      end,
-    });
-  }
-  return bucketize(rows, buckets);
-}
-
-/** Trailing 30 days including today. */
-function buildDailySeries(rows: CollectedRow[]): RevenuePoint[] {
-  const today = new Date();
-  const todayStart = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
-  const buckets: Array<{ key: string; label: string; full: string; start: number; end: number }> = [];
-  for (let back = 29; back >= 0; back -= 1) {
-    const start = todayStart - back * DAY_MS;
-    const date = new Date(start);
-    buckets.push({
-      key: `d-${start}`,
-      label: `${date.getUTCDate()}`,
-      full: `${MONTH_LONG[date.getUTCMonth()]} ${date.getUTCDate()}`,
-      start,
-      end: start + DAY_MS,
-    });
-  }
-  return bucketize(rows, buckets);
 }

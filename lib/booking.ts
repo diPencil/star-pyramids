@@ -222,11 +222,13 @@ export type ResolvedCartLine = {
   tour: Tour | null
   /** True when the slug no longer resolves to canonical tour data. Never substitute another tour. */
   stale: boolean
-  /** Canonical traveler units for the stored headcount (USD base). */
+  /** Canonical traveler units for the stored headcount (USD base, deal already applied). */
   adultUnit: number
   childUnit: number
   infantUnit: number
   travelerTotal: number
+  /** Savings on this line from the active deal (USD base, cents-exact). */
+  discountTotal: number
   /** Stored add-on titles that match a priced canonical add-on. */
   pricedAddons: readonly string[]
   /** Stored add-on titles that are on-request, unknown, or unmatched. Preserved, never charged. */
@@ -255,6 +257,7 @@ export function resolveCartLine(item: CartItem): ResolvedCartLine {
     return {
       item, tour, stale: true,
       adultUnit: 0, childUnit: 0, infantUnit: 0, travelerTotal: 0,
+      discountTotal: 0,
       pricedAddons: [], onRequestAddons: item.addons, addonTotal: 0, canonicalTotal: 0,
     }
   }
@@ -275,7 +278,7 @@ export function resolveCartLine(item: CartItem): ResolvedCartLine {
   return {
     item, tour, stale: false,
     adultUnit: pricing.adult, childUnit: pricing.child, infantUnit: pricing.infant,
-    travelerTotal, pricedAddons, onRequestAddons, addonTotal,
+    travelerTotal, discountTotal: pricing.discount, pricedAddons, onRequestAddons, addonTotal,
     canonicalTotal: travelerTotal + addonTotal,
   }
 }
@@ -284,15 +287,24 @@ export type CartEstimate = {
   lines: ResolvedCartLine[]
   validLines: ResolvedCartLine[]
   staleLines: ResolvedCartLine[]
-  /** Frontend estimate across valid lines only (USD base). */
+  /** Frontend estimate across valid lines only (USD base, deal already applied). */
   subtotal: number
+  /** Total deal savings across valid lines (USD base, cents-exact). */
+  discount: number
 }
 
 export function estimateCart(items: readonly CartItem[]): CartEstimate {
   const lines = items.map(resolveCartLine)
   const validLines = lines.filter((line) => !line.stale)
   const staleLines = lines.filter((line) => line.stale)
-  return { lines, validLines, staleLines, subtotal: validLines.reduce((sum, line) => sum + line.canonicalTotal, 0) }
+  const round2 = (v: number) => Math.round(v * 100) / 100
+  return {
+    lines,
+    validLines,
+    staleLines,
+    subtotal: round2(validLines.reduce((sum, line) => sum + line.canonicalTotal, 0)),
+    discount: round2(validLines.reduce((sum, line) => sum + line.discountTotal, 0)),
+  }
 }
 
 export type ContactErrors = { name?: 'required'; email?: 'required' | 'invalid'; phone?: 'required' | 'invalid' }

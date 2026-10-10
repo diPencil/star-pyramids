@@ -6,7 +6,6 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminStats, AdminText, Avatar, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { formatSiteTime } from '@/components/locale'
-import { useInquiries } from '@/lib/admin-store'
 import { invalidateNotifications } from '@/lib/admin-notifications'
 import { cn } from '@/lib/utils'
 import { pickLocaleText } from '@/lib/locale-config'
@@ -72,7 +71,6 @@ export default function InboxPage() {
   const [sendError, setSendError] = useState('')
   const [query, setQuery] = useState('')
   const [mobileChatOpen, setMobileChatOpen] = useState(false)
-  const inquiries = useInquiries()
 
   // Composer ref for support tab
   const composerRef = useRef<HTMLTextAreaElement>(null)

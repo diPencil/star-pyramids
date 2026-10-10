@@ -38,6 +38,7 @@ import { useAdminNotifications, type AdminNotification } from '@/lib/admin-notif
 import { NotificationPanel as SharedNotificationPanel } from '@/components/notification-panel'
 import { Avatar } from './admin-ui'
 import { AdminBackButton } from './admin-back'
+import { readAdminProfile } from '@/lib/admin-store'
 
 function timeAgo(iso: string, ar: boolean): string {
   const then = new Date(iso).getTime()
@@ -159,6 +160,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const [userMenu, setUserMenu] = useState(false)
   const { user, loading: sessionLoading } = useCurrentUser()
   const adminNotifications = useAdminNotifications()
+  const [adminAvatar, setAdminAvatar] = useState('')
+  useEffect(() => {
+    const profile = readAdminProfile()
+    setAdminAvatar(profile.avatar)
+    window.addEventListener('sp-profile', () => setAdminAvatar(readAdminProfile().avatar))
+    return () => window.removeEventListener('sp-profile', () => setAdminAvatar(readAdminProfile().avatar))
+  }, [])
   const unreadCount = adminNotifications.unreadCount
   useEffect(() => {
     document.documentElement.classList.add('sp-admin-root')
@@ -288,7 +296,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="sp-side-user">
-          <Avatar name={user?.email?.split('@')[0] ?? 'Admin'} size={38} online />
+          <Avatar name={adminAvatar ? 'Admin' : (user?.email?.split('@')[0] ?? 'Admin')} size={38} online src={adminAvatar || undefined} />
           {!collapsed && user && (
             <div>
               <strong>{user.email.split('@')[0]}</strong>
@@ -371,7 +379,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 aria-label={ar ? 'قائمة الحساب' : 'Account menu'}
                 onClick={() => { setUserMenu((open) => !open); setNotificationsOpen(false) }}
               >
-                <Avatar name={user?.email?.split('@')[0] ?? 'Admin'} size={34} />
+                <Avatar name={adminAvatar ? 'Admin' : (user?.email?.split('@')[0] ?? 'Admin')} size={34} src={adminAvatar || undefined} />
                 <span>
                   <strong>{user?.email?.split('@')[0] ?? 'Admin'}</strong>
                   <small>{user?.roles?.join(', ') ?? ''}</small>

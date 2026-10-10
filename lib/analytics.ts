@@ -61,6 +61,11 @@ export interface AnalyticsKpis {
 }
 
 export interface RevenuePoint {
+  /** Calendar bucket boundaries, inclusive UTC dates. */
+  start: string;
+  end: string;
+  /** Calendar year, or ISO week year for weekly buckets. */
+  year: string;
   label: string;
   full: string;
   revenue: number;
@@ -77,13 +82,17 @@ export interface AnalyticsResponse {
    * dashboard must render a restricted state — never zeros as fact.
    */
   financial: boolean;
+  /** Year of the first collected payment (history start for trend). */
+  trendStartYear: number;
+  /** Current UTC year. */
+  currentYear: number;
   kpis: AnalyticsKpis;
   /** Booked counts per calendar month overlapping the range. */
   bookingMonthly: Array<{ month: string; booked: number }>;
   /** Sold lines per tour category (non-cancelled bookings in range); delta null means "New". */
   tourSplit: Array<{ label: string; value: number; delta: number | null }>;
   tourSplitTotal: number;
-  /** Real collected-revenue series for trailing windows. */
+  /** Complete collected-payment history, including empty calendar buckets. */
   trend: {
     monthly: RevenuePoint[];
     weekly: RevenuePoint[];
