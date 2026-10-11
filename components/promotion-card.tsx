@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { offerDeadline } from '@/lib/special-offers'
 import { useEffect, useState } from 'react'
 import { ArrowRight, Check, Star } from 'lucide-react'
 import { CardGallery } from '@/components/site'
@@ -34,6 +35,7 @@ type PromotionCardProps = {
   description?: string
   highlights?: readonly string[]
   price?: number
+  priceLabel?: string
   originalPrice?: number
   ctaLabel?: string
 }
@@ -44,7 +46,7 @@ function usePromotionCountdown(deadline?: string) {
   useEffect(() => {
     if (!deadline) return
     const calculate = () => {
-      const difference = Math.max(0, new Date(deadline).getTime() - Date.now())
+      const difference = Math.max(0, offerDeadline(deadline) - Date.now())
       return [
         Math.floor(difference / 86400000),
         Math.floor(difference / 3600000) % 24,
@@ -73,6 +75,7 @@ export function PromotionCard({
   description,
   highlights,
   price,
+  priceLabel,
   originalPrice,
   ctaLabel,
 }: PromotionCardProps) {
@@ -105,6 +108,7 @@ export function PromotionCard({
       {description && <p className="offer-card-copy">{description}</p>}
       {countdown && <div className="offer-countdown">{countdown.map((value, index) => <span key={resolvedCountdownLabels[index]}><b>{String(value).padStart(2, '0')}</b><small>{resolvedCountdownLabels[index]}</small></span>)}</div>}
       {highlights && <ul className="offer-card-highlights">{highlights.map((highlight) => <li key={highlight}><Check size={14}/>{highlight}</li>)}</ul>}
+      {typeof price === 'number' && priceLabel && <small>{priceLabel}</small>}
       {typeof price === 'number' && <strong>{typeof originalPrice === 'number' && originalPrice > price && <><del>{formatPrice(originalPrice, currency, locale)}</del>{' '}</>}{formatPrice(price, currency, locale)}</strong>}
       {ctaLabel && <Link className="offer-card-cta" href={href}>{ctaLabel}<ArrowRight size={15}/></Link>}
     </div>

@@ -16,7 +16,7 @@ const fields: Record<CatalogueKind, RegExp> = {
   destination: /^(title|copy|stay|bestFor)$/,
   category: /^(name|copy)$/,
   event: /^(title|category|copy|intro|location|venueName|address|city|organizerName|included\.\d+|excluded\.\d+|highlights\.\d+\.(title|description)|program\.\d+\.(day|title|description)|addOns\.\d+\.title)$/,
-  offer: /^(title|badge|copy|duration|highlights)$/,
+  offer: /^(title|badge|copy|duration|highlights|campaign\.(body|terms|ctaLabel|priceLabel))$/,
   blog: /^(title|category|excerpt)$/,
   car: /^(title|copy)$/,
 }
@@ -97,6 +97,8 @@ export function localizeCatalogue<T extends { slug: string } & TranslatedContent
       const array = result[name]
       if (!Array.isArray(array)) continue
       result[name] = array.map((entry: unknown, index: number) => index !== Number(rawIndex) ? entry : field && entry && typeof entry === 'object' ? { ...entry, [field]: text } : text)
+    } else if (kind === 'offer' && key.startsWith('campaign.')) {
+      result.campaign = { ...(result.campaign as Record<string, unknown>), [key.split('.')[1]]: text }
     } else result[key] = kind === 'offer' && key === 'highlights' ? lines(text) : text
   }
   return result as T

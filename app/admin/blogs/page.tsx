@@ -108,7 +108,7 @@ export default function BlogsPage() {
               <AdminIconAction icon={Pencil} label={ar ? `تعديل ${b.title}` : `Edit ${b.title}`} href={`/admin/blogs/new?slug=${encodeURIComponent(b.slug)}`} />
               <AdminIconAction icon={ExternalLink} label={ar ? `عرض ${b.title}` : `View ${b.title}`} href={`/blogs/${b.slug}`} />
               <button type="button" className="sp-icon-btn" onClick={() => void setPublished(b.slug, isHidden ? true : false)} aria-label={isHidden ? (ar ? `نشر ${b.title}` : `Publish ${b.title}`) : (ar ? `إخفاء ${b.title}` : `Hide ${b.title}`)} title={isHidden ? (ar ? 'نشر' : 'Publish') : (ar ? 'إخفاء' : 'Hide')}>{isHidden ? <Eye size={18} /> : <EyeOff size={18} />}</button>
-              <button type="button" className="sp-delete-btn" onClick={() => setDeleteSlug(b.slug)}><Trash2 size={14} /> <AdminText en="Delete" ar="حذف" /></button>
+              <AdminIconAction icon={Trash2} label={ar ? `حذف ${b.title}` : `Delete ${b.title}`} tone="danger" onClick={() => setDeleteSlug(b.slug)} />
             </AdminTableActions></td>
           </tr>
         })}</tbody>

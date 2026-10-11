@@ -1,0 +1,29 @@
+.campaign-detail{padding:36px 0 72px;color:var(--ink,#10234e)}
+.campaign-breadcrumb{display:flex;flex-wrap:wrap;gap:8px;font-size:13px;margin-bottom:24px;color:var(--muted,#737e90)}
+.campaign-breadcrumb a,.campaign-more{color:var(--blue,#214de0)}
+.campaign-badge{display:inline-block;width:fit-content;color:#ff9b18;background:#ff9b1814;border:1px solid #ff9b1838;border-radius:999px;padding:7px 12px;font-size:11px;font-weight:800;letter-spacing:.06em}
+.campaign-hero{display:grid;grid-template-columns:1fr 1fr;overflow:hidden;border-radius:24px;background:#10234e;color:white}
+.campaign-hero-copy{padding:48px;display:flex;align-items:flex-start;flex-direction:column;gap:20px;justify-content:center}
+.campaign-hero h1{font-size:clamp(30px,3.2vw,48px);line-height:1.12;margin:0;overflow-wrap:anywhere}
+.campaign-hero-copy>p{color:#d7ddeb;line-height:1.8;margin:0}
+.campaign-hero-media{min-height:400px;display:grid;place-items:center;background:#193564}
+.campaign-hero-media img{width:100%;height:100%;object-fit:cover}
+.campaign-detail-layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:52px;margin-top:48px;align-items:start}
+.campaign-detail-layout article>section{margin-bottom:36px}
+.campaign-detail h2{font-size:24px;line-height:1.3;margin:0 0 20px}
+.campaign-prose p{white-space:pre-line;line-height:1.9;color:#647086;overflow-wrap:anywhere}
+.campaign-highlights{list-style:none;padding:0;display:grid;gap:14px}
+.campaign-highlights li{display:flex;align-items:flex-start;gap:12px;line-height:1.6}.campaign-highlights svg{flex-shrink:0;color:#1c9d77;margin-top:3px}
+.campaign-gallery{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:36px}.campaign-gallery img{width:100%;height:230px;object-fit:cover;border-radius:16px}
+.campaign-booking{position:sticky;top:110px;border:1px solid #dfe3ec;border-radius:20px;padding:26px;display:flex;flex-direction:column;gap:20px;background:white}
+.campaign-booking h2{font-size:20px;margin:0}.campaign-booking p{font-size:13px;color:#737e90;margin:0}.campaign-booking .primary-btn{justify-content:center;white-space:normal;text-align:center}
+.campaign-price{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;font-size:13px}.campaign-price strong{font-size:26px;color:#ff9b18}.campaign-price del{opacity:.65}
+.campaign-more{display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px}
+.campaign-ad{position:relative;isolation:isolate;overflow:hidden;border-radius:16px;background:#10234e;color:white;min-width:0}
+.campaign-ad>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2}.campaign-ad:before{content:'';position:absolute;inset:0;background:linear-gradient(180deg,#10234e55,#10234ef5 72%);z-index:-1}
+.campaign-ad-content{padding:24px 18px;display:flex;align-items:flex-start;flex-direction:column;gap:16px}.campaign-ad h3{font-size:20px;line-height:1.25;margin:0;overflow-wrap:anywhere}.campaign-ad h3 a{color:inherit}.campaign-ad p{font-size:13px;line-height:1.65;margin:0;color:#e1e5ef}.campaign-ad .primary-btn{width:100%;justify-content:center;text-align:center;white-space:normal;font-size:12px;padding:12px;gap:8px}.campaign-ad .campaign-price strong{font-size:24px}
+.campaign-admin-fields{border:1px solid var(--sp-border,#dfe3ec);border-radius:14px;padding:20px;display:grid;gap:18px;min-width:0}.campaign-admin-fields legend{font-weight:700;padding:0 8px}.campaign-admin-fields label{display:grid;gap:8px}.campaign-admin-fields .sp-check{display:flex;align-items:center}.campaign-admin-fields fieldset{border:0;display:grid;gap:12px;min-width:0}.campaign-admin-fields small{color:var(--sp-muted,#737e90);line-height:1.6}
+@media(max-width:900px){.campaign-detail-layout{grid-template-columns:minmax(0,1fr) 280px;gap:24px}.campaign-hero-copy{padding:30px}}
+@media(max-width:680px){.campaign-hero,.campaign-detail-layout{grid-template-columns:1fr}.campaign-hero-media{min-height:0;height:260px;grid-row:1}.campaign-hero-copy{padding:26px}.campaign-detail-layout{margin-top:28px}.campaign-booking{position:static}.campaign-gallery img{height:150px}.campaign-detail{padding-top:20px}.campaign-breadcrumb{font-size:11px}}
+
+.campaign-empty{padding:24px;border:1px solid var(--border);border-radius:16px;color:var(--muted)}

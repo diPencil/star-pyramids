@@ -269,6 +269,8 @@ html[dir="rtl"] .sp-back-btn svg { transform: scaleX(-1); }
 .sp-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
 .sp-tabs button { border: 1px solid var(--sp-border); background: #fff; border-radius: 999px; min-height: 38px; padding: 0 16px; font-weight: 700; color: var(--sp-muted); cursor: pointer; }
 .sp-tabs button.active { background: var(--sp-blue-deep); border-color: var(--sp-blue-deep); color: #fff; }
+.sp-compact-filter-tabs { gap: 5px; }
+.sp-compact-filter-tabs button { min-height: 32px; padding: 0 11px; font-size: 12px; }
 .sp-steps { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
 .sp-steps button { flex: none; border: 1px solid var(--sp-border); background: #fff; min-height: 40px; padding: 0 16px; border-radius: 999px; font-weight: 700; color: var(--sp-muted); cursor: pointer; }
 .sp-steps button.active { background: var(--sp-blue); border-color: var(--sp-blue); color: #fff; }

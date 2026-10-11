@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
+@import '../components/campaigns.css';
 @custom-variant dark (&:is(.dark *));
 @theme inline { --color-background: var(--surface); --color-foreground: var(--text); --color-border: var(--border); --radius-lg: var(--radius-card); --radius-xl: var(--radius-large); }
 :root { color-scheme: light; --primary:#f7951d; --primary-hover:#e88410; --yellow:#ffc531; --blue:#1d4ed8; --text:#1d1f1f; --muted:#737983; --surface:#fff; --soft:#f7f7f7; --border:#dedede; --radius-xs:4px; --radius-sm:8px; --radius-md:16px; --radius-card:22px; --radius-large:32px; --page:1530px; --content:1450px; --page-gutter:48px; --public-sticky-header-height:65px; --public-sticky-content-gap:16px; --public-sticky-top:calc(var(--public-sticky-header-height) + var(--public-sticky-content-gap)); }
@@ -777,14 +778,24 @@ html[dir='rtl'] .auth-v2-divider{letter-spacing:0}
 .auth-v2-primary{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;min-height:57px;padding:0 22px;border:0;border-radius:999px;background:var(--blue);color:#fff;font:inherit;font-weight:800;cursor:pointer;transition:background .2s ease,transform .2s ease}
 .auth-v2-primary:hover{background:#173fad;transform:translateY(-1px)}
 .auth-v2-switch{margin:22px 0 0;text-align:center;color:var(--muted);font-size:13px}
+.auth-v2:not(.is-register) .auth-v2-card{width:min(100%,640px);margin-top:42px}
+.auth-v2:not(.is-register) .auth-v2-heading h1{max-width:610px;font-size:clamp(32px,3.2vw,44px);line-height:1.08}
+.auth-v2:not(.is-register) .auth-v2-heading p{font-size:15px;line-height:1.6}
+.auth-v2:not(.is-register) .auth-v2-notice{padding:9px 12px}
+.auth-v2:not(.is-register) .auth-v2-form{gap:14px}
+.auth-v2:not(.is-register) .auth-v2-field{gap:6px}
+.auth-v2:not(.is-register) .auth-v2-field>div{min-height:50px;padding-inline:16px;border-radius:999px}
+.auth-v2:not(.is-register) .auth-v2-field input,.auth-v2:not(.is-register) .auth-v2-field select{min-height:46px}
+.auth-v2:not(.is-register) .auth-v2-primary{min-height:50px}
+.auth-v2:not(.is-register) .auth-v2-switch{margin-top:16px}
 .auth-v2-success{display:grid;justify-items:center;gap:13px;padding:70px 20px;text-align:center}
 .auth-v2-success>span{display:grid;place-items:center;width:64px;height:64px;border-radius:50%;background:#e7f5ec;color:#178044}
 .auth-v2-success>small{color:var(--primary);font-weight:800;text-transform:uppercase}
 .auth-v2-success h1{max-width:590px;margin:0;font-size:clamp(32px,4vw,48px)}
 .auth-v2-success p{max-width:540px;margin:0;color:var(--muted);line-height:1.7}
 .auth-v2-success .auth-v2-primary{width:auto;margin-top:8px;padding-inline:28px}
-@media(max-width:980px){.auth-v2{grid-template-columns:1fr}.auth-v2-visual{position:relative;height:300px}.auth-v2-visual-content{padding:28px 5%}.auth-v2-visual-content>div{max-width:650px}.auth-v2-visual-content h2{font-size:34px}.auth-v2-visual-content p,.auth-v2-visual-content ul{display:none}.auth-v2-panel{padding-inline:5%}.auth-v2-card{margin-top:32px}.auth-v2.is-register .auth-v2-card{margin-top:24px}}
-@media(max-width:620px){.auth-v2-visual{height:220px}.auth-v2-visual-content{padding:20px 18px}.auth-v2-visual-content .brand-img{height:38px}.auth-v2-visual-content h2{font-size:27px}.auth-v2-panel{padding:18px 16px 46px}.auth-v2-card,.auth-v2.is-register .auth-v2-card{margin-top:26px}.auth-v2-heading h1{font-size:34px}.auth-v2-socials,.auth-v2-grid,.auth-v2-country-row{grid-template-columns:1fr}.auth-v2-socials button{justify-content:flex-start}.auth-v2-options{align-items:flex-start}.auth-v2-phone-field>div{min-width:0}.auth-v2-dial{font-size:11px}.auth-v2-top{min-height:38px}}
+@media(max-width:980px){.auth-v2{grid-template-columns:1fr}.auth-v2-visual{position:relative;height:300px}.auth-v2-visual-content{padding:28px 5%}.auth-v2-visual-content>div{max-width:650px}.auth-v2-visual-content h2{font-size:34px}.auth-v2-visual-content p,.auth-v2-visual-content ul{display:none}.auth-v2-panel{padding-inline:5%}.auth-v2-card{margin-top:32px}.auth-v2:not(.is-register) .auth-v2-card{margin-top:28px}.auth-v2.is-register .auth-v2-card{margin-top:24px}}
+@media(max-width:620px){.auth-v2-visual{height:220px}.auth-v2-visual-content{padding:20px 18px}.auth-v2-visual-content .brand-img{height:38px}.auth-v2-visual-content h2{font-size:27px}.auth-v2-panel{padding:18px 16px 46px}.auth-v2-card,.auth-v2.is-register .auth-v2-card{margin-top:26px}.auth-v2:not(.is-register) .auth-v2-card{margin-top:22px}.auth-v2-heading h1{font-size:34px}.auth-v2:not(.is-register) .auth-v2-heading h1{font-size:32px}.auth-v2-socials,.auth-v2-grid,.auth-v2-country-row{grid-template-columns:1fr}.auth-v2-socials button{justify-content:flex-start}.auth-v2-options{align-items:flex-start}.auth-v2-phone-field>div{min-width:0}.auth-v2-dial{font-size:11px}.auth-v2-top{min-height:38px}}
 @media(prefers-reduced-motion:reduce){.auth-v2-socials button,.auth-v2-primary{transition:none}}
 @media(max-width:760px){.location-map{height:240px}}
 .trust-strip-home{display:grid;grid-template-columns:220px minmax(0,1fr);gap:24px;align-items:center;padding-block:30px}

@@ -7,6 +7,8 @@ import { applyLinkedOfferDeals } from './special-offers';
 import "server-only";
 
 import { db } from "./db";
+import { readJsonText } from '@/lib/json-text';
+import { decodeTourJson } from '@/lib/tour-json';
 import type { Tour } from "@/data/types";
 import { isTourPublished } from "@/lib/tour-publish";
 
@@ -42,10 +44,11 @@ const asArray = (value: unknown): any[] =>
   Array.isArray(value) ? value : [];
 
 const asStringArray = (value: unknown): string[] =>
-  Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
+  Array.isArray(readJsonText(value)) ? (readJsonText(value) as unknown[]).filter((v): v is string => typeof v === "string") : [];
 
 /** Map a Prisma Tour row to the shared `Tour` domain shape. */
 export function toTour(row: DbTourRow): Tour {
+  row = decodeTourJson(row)
   return {
     slug: row.slug,
     aliases: asStringArray(row.aliases),

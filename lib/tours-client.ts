@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { decodeTourJson } from '@/lib/tour-json';
 import type { Tour } from '@/data/types';
 import { isTourPublished } from '@/lib/tour-publish';
 
@@ -9,6 +10,7 @@ const asStringArray = (value: unknown): string[] =>
 
 /** Map one `/api/tours?full=1` row to the shared `Tour` domain shape. */
 function toTour(row: Record<string, unknown>): Tour {
+  row = decodeTourJson(row)
   const priceRaw = row.price;
   const price =
     typeof priceRaw === 'number'

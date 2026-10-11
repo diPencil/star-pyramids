@@ -2,9 +2,10 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { CampaignPlacementSlot } from './offer-campaigns'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowRight, LayoutGrid, List, MapPin, Search, SlidersHorizontal, Sparkles, X } from 'lucide-react'
-import { catalogTours, getDealPrice, getToursByCategory, tourCategories } from '@/data/tours'
+import { ArrowRight, LayoutGrid, List, MapPin, Search, SlidersHorizontal, X } from 'lucide-react'
+import { catalogTours, tourCategories } from '@/data/tours'
 import type { TourCategory } from '@/data/types'
 import { matchPriceBand, tourListingSorts, tourPriceBands, type TourListingSort } from '@/lib/query'
 import { Breadcrumb, HelpCTA, SiteShell, TourCard } from '@/components/site'
@@ -16,7 +17,6 @@ const categories = Object.keys(tourCategories) as TourCategory[]
 const durations = ['day', 'short', 'long'] as const
 type Duration = (typeof durations)[number]
 
-const minNilePrice = Math.min(...getToursByCategory('nile-cruises').map((tour) => getDealPrice(tour)))
 
 const baseCopy = {
   en: {
@@ -72,8 +72,6 @@ function TripsContent() {
   const { currency, locale } = useLocale()
   const liveCatalog = useDbTours(catalogTours, { includeNew: true })
   const destinationOptions = [...new Set(liveCatalog.flatMap((tour) => tour.location.split(',').map((place) => place.trim())))].sort()
-  const nilePrices = liveCatalog.filter((tour) => tour.category === 'nile-cruises').map((tour) => getDealPrice(tour))
-  const liveMinNilePrice = nilePrices.length ? Math.min(...nilePrices) : minNilePrice
   const t = copy[locale]
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -150,13 +148,7 @@ function TripsContent() {
           <div className="trips-filter-group"><label className="trips-select-label" htmlFor="trips-destination">{t.destination}</label><div className="trips-select"><MapPin size={17}/><SharedSelect id="trips-destination" value={destination} onChange={(next) => update({ destination: next })} locale={locale} options={[{ value: '', label: t.anyDestination }, ...destinationOptions.map((place) => ({ value: place, label: place }))]} /></div></div>
           <div className="trips-filter-group"><label className="trips-select-label" htmlFor="trips-duration">{t.duration}</label><div className="trips-select"><SharedSelect id="trips-duration" value={duration} onChange={(next) => update({ duration: next })} locale={locale} options={[{ value: '', label: t.anyDuration }, ...durations.map((item, index) => ({ value: item, label: t.durationLabels[index] }))]} /></div></div>
           <div className="trips-filter-group"><label className="trips-select-label" htmlFor="trips-price">{t.price}</label><div className="trips-select"><SharedSelect id="trips-price" value={price} onChange={(next) => update({ price: next })} locale={locale} options={[{ value: '', label: t.anyPrice }, ...tourPriceBands.slice(1).map((band) => {const lo = formatPrice(200, currency, locale); const hi = formatPrice(400, currency, locale); const label = band.id === 'under-200' ? tx(locale, { en: `Under ${lo}`, es: `Menos de ${lo}`, it: `Meno di ${lo}`, ar: `أقل من ${lo}` }) : band.id === '200-400' ? `${lo} - ${hi}` : tx(locale, { en: `Over ${hi}`, es: `Más de ${hi}`, it: `Più di ${hi}`, ar: `أكثر من ${hi}` }); return { value: band.id, label }})]} /></div></div>
-          <div className="trips-promo">
-            <span className="trips-promo-badge"><Sparkles size={14}/>{tx(locale, { en: 'Explore the Nile', es: 'Explora el Nilo', it: 'Esplora il Nilo', ar: 'استكشف النيل' })}</span>
-            <h3>{tx(locale, { en: 'Nile journeys between Luxor and Aswan', es: 'Viajes por el Nilo entre Luxor y Asuán', it: 'Viaggi sul Nilo tra Luxor e Assuan', ar: 'رحلات نيلية بين الأقصر وأسوان' })}</h3>
-            <p>{tx(locale, { en: 'Compare routes and trip lengths to find your preferred journey.', es: 'Compara rutas y duraciones para encontrar tu viaje ideal.', it: 'Confronta itinerari e durate per trovare il tuo viaggio ideale.', ar: 'قارن المسارات والمدد المختلفة واختر الرحلة المناسبة لك.' })}</p>
-            <div className="trips-promo-price">{tx(locale, { en: 'Starting from', es: 'Desde', it: 'A partire da', ar: 'يبدأ من' })} <strong>{formatPrice(liveMinNilePrice, currency, locale)}</strong></div>
-            <Link className="trips-promo-btn" href="/egypt-tours/nile-cruises">{tx(locale, { en: 'Browse Nile Cruises', es: 'Ver cruceros por el Nilo', it: 'Sfoglia le crociere sul Nilo', ar: 'تصفّح رحلات النيل' })} <ArrowRight size={15}/></Link>
-          </div>
+          <CampaignPlacementSlot placement="trips-sidebar"/>
         </aside>
         <div className="trips-catalog">
           <div className="trips-toolbar"><div><strong role="status">{filtered.length} {t.results}</strong><span>{filtered.length ? `${t.showing} ${start + 1}-${Math.min(start + perPage, sorted.length)} ${t.of} ${sorted.length}` : ''}</span></div><div className="trips-toolbar-actions"><label>{t.sort}<SharedSelect value={sort} onChange={(next) => update({ sort: next })} locale={locale} options={tourListingSorts.map((item, index) => ({ value: item, label: t.sortLabels[index] }))} /></label><div className="trips-view" role="group" aria-label={tx(locale, { en: 'View mode', es: 'Modo de vista', it: 'Modalità di visualizzazione', ar: 'طريقة العرض' })}><button type="button" className={view === 'grid' ? 'active' : ''} onClick={() => setView('grid')} aria-label={t.grid} aria-pressed={view === 'grid'} title={t.grid}><LayoutGrid size={18}/></button><button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')} aria-label={t.list} aria-pressed={view === 'list'} title={t.list}><List size={18}/></button></div></div></div>

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { CarFront, Eye, EyeOff, Pencil } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
-import { AdminEmpty, AdminTableWrap, AdminText, Card, StatusPill } from '@/components/admin/admin-ui'
+import { AdminEmpty, AdminIconAction, AdminTableActions, AdminTableWrap, AdminText, Card, StatusPill } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { invalidateEventsCarsCache, useDbCarsStatus } from '@/lib/events-cars-client'
 import type { StaffCarRequest } from '@/lib/car-request'
@@ -167,7 +167,7 @@ export function VehicleDetailContent({ vehicleSlug }: { vehicleSlug: string }) {
                       {assigned && <span className="sp-pill is-reviewing"><AdminText en="Assigned" ar="مخصصة" /></span>}
                     </span>
                   </td>
-                  <td><Link className="sp-btn" href={`/admin/car-requests/${row.reference}`}><AdminText en="Open" ar="فتح" /></Link></td>
+                  <td><AdminTableActions><AdminIconAction icon={Eye} label={ar ? `فتح الطلب ${row.reference}` : `Open request ${row.reference}`} href={`/admin/car-requests/${row.reference}`} /></AdminTableActions></td>
                 </tr>
               )
             })}

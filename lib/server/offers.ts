@@ -1,3 +1,4 @@
+import { readCampaign } from '@/lib/marketing-campaigns'
 import { offerTourSelect, presentOffer } from './special-offers';
 // Shared server-only Offer repository — DB-authoritative catalogue.
 // `data/content.ts` remains the preserved bootstrap/reference source; all
@@ -38,6 +39,7 @@ const strArray = (v: unknown): string[] =>
 export function toOffer(row: DbOfferRow): Offer {
   const content = readJsonObject(row.content);
   return {
+    campaign: readCampaign(content.campaign),
     tourSlug: row.tourSlug ?? undefined,
     discountPercent: row.discountPercent ?? undefined,
     startsAt: row.startsAt?.toISOString(),

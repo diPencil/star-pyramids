@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
-import { ExternalLink, Eye, EyeOff, Link2, Pencil, Plus, Tags } from 'lucide-react'
+import { ExternalLink, Eye, EyeOff, Link2, Pencil, Plus, Tags, Trash2 } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableTools, AdminTableWrap, AdminText, Card, StatusPill } from '@/components/admin/admin-ui'
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
@@ -83,7 +83,7 @@ export default function MultiDayCategoriesPage() {
           <td><AdminTableActions>
             <AdminIconAction icon={Pencil} label={ar ? `تعديل ${category.name}` : `Edit ${category.name}`} href={`/admin/multi-day-categories/new?slug=${category.slug}`} />
             <AdminIconAction icon={ExternalLink} label={ar ? `عرض ${category.name}` : `View ${category.name}`} href={`/egypt-tours/multi-days-tours/${category.slug}`} />
-            {<button type="button" className="sp-delete-btn" onClick={() => removeCategory(category.slug)}><AdminText en="Delete" ar="حذف" /></button>}
+            <AdminIconAction icon={Trash2} label={ar ? `حذف ${category.name}` : `Delete ${category.name}`} tone="danger" onClick={() => void removeCategory(category.slug)} />
           </AdminTableActions></td>
         </tr>)}</tbody>
       </table></AdminTableWrap> : <AdminEmpty title={<AdminText en="No categories found" ar="لا توجد فئات" />} copy={<AdminText en="Try changing the search or filters." ar="جرب تغيير البحث أو الفلاتر." />} />}

@@ -1,5 +1,8 @@
 'use client'
 
+import { CampaignFields } from '@/components/admin/campaign-fields'
+import { readCampaign } from '@/lib/marketing-campaigns'
+
 import Link from 'next/link'
 import { Suspense, useEffect, useState } from 'react'
 import { ContentLanguageTabs, TranslatedInput, TranslatedTextarea } from '@/components/admin/content-language-tabs'
@@ -8,7 +11,6 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
-import { tours } from '@/data/tours'
 import { slugify } from '@/lib/admin-store'
 import { useDbOffers, invalidateOffersBlogsCache } from '@/lib/offers-blogs-client'
 import { useDbToursStatus, invalidateToursCache } from '@/lib/tours-client'
@@ -26,6 +28,7 @@ function OfferForm({ initial, editSlug }: { initial: Offer | null; editSlug: str
   const editing = Boolean(editSlug)
   const missing = editing && initial === null
 
+  const [campaign, setCampaign] = useState(readCampaign(initial?.campaign))
   const [mode, setMode] = useState<'existing' | 'new' | 'create'>('existing')
   const [tourSlug, setTourSlug] = useState(initial?.tourSlug ?? '')
   const [category, setCategory] = useState('all')
@@ -66,6 +69,8 @@ function OfferForm({ initial, editSlug }: { initial: Offer | null; editSlug: str
       const data = await res.json().catch(() => ({} as { error?: string }))
       throw new Error(data.error || 'Failed to save the offer.')
     }
+    const saved = await res.json() as { offer?: { slug?: string } }
+    if (!saved.offer?.slug) throw new Error('Invalid save response. Reload the offers list before retrying.')
   }
 
   const save = async () => {
@@ -83,6 +88,7 @@ function OfferForm({ initial, editSlug }: { initial: Offer | null; editSlug: str
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             translations,
+            ...(!initial?.tourSlug ? { campaign, startsAt: startsAt || null } : {}),
             ...(initial?.tourSlug ? { tourSlug, discountPercent: Number(percent), startsAt: startsAt || null } : {}),
             title: title.trim(),
             badge: badge.trim(),
@@ -103,6 +109,8 @@ function OfferForm({ initial, editSlug }: { initial: Offer | null; editSlug: str
           const data = await res.json().catch(() => ({} as { error?: string }))
           throw new Error(data.error || 'Failed to save the offer.')
         }
+        const saved = await res.json() as { offer?: { slug?: string } }
+        if (!saved.offer?.slug) throw new Error('Invalid save response. Reload the offers list before retrying.')
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to save the offer.')
         setSaving(false)
@@ -173,8 +181,10 @@ function OfferForm({ initial, editSlug }: { initial: Offer | null; editSlug: str
     try {
       await postOffer({
         slug: finalSlug,
+        campaign,
+        startsAt: startsAt || null,
         title: title.trim(),
-        image: image.trim() || tours[0]?.image || '',
+        image: image.trim(),
         gallery: gallery.split('\n').map((s) => s.trim()).filter(Boolean),
         badge: badge.trim() || 'Special Offer',
         copy: copy.trim() || title.trim(),
@@ -207,10 +217,10 @@ function OfferForm({ initial, editSlug }: { initial: Offer | null; editSlug: str
 
   return <>
     <PageHead eyebrow="Special Offers" title={editing ? 'Edit offer' : 'New offer'} titleAr={editing ? 'تعديل عرض' : 'عرض جديد'} sub={editing ? `Editing ${editSlug}` : 'Link a tour, create a complete tour, or publish a marketing campaign'} subAr={editing ? `تعديل ${editSlug}` : 'اربط رحلة موجودة أو انشر عرضا مستقلا'} backHref="/admin/offers" actions={<button type="button" className="sp-btn dark" onClick={save} disabled={saving || (!editing && mode === 'create')}><AdminText en={editing ? 'Save changes' : 'Publish offer'} ar={editing ? 'حفظ التعديلات' : 'نشر العرض'} /></button>} />
-    {!editing && <Card title={<AdminText en="Creation method" ar="طريقة الإنشاء" />} sub={<AdminText en="Linking a tour adds the discount badge on the website automatically" ar="ربط رحلة يضيف شارة الخصم عليها في الموقع تلقائيا" />}>
+    {!editing && <Card title={<AdminText en="Creation method" ar="طريقة الإنشاء" />} sub={<AdminText en="A published linked-tour offer appears automatically on the homepage and Special Offers page" ar="عرض الرحلة المرتبط والمنشور يظهر تلقائيا في الصفحة الرئيسية وصفحة العروض الخاصة" />}>
 <ContentLanguageTabs translations={translations} setTranslations={setTranslations}>
       <div className="sp-tabs" style={{ marginBottom: 16 }}>
-        <button type="button" className={mode === 'existing' ? 'active' : ''} onClick={() => setMode('existing')}><AdminText en="Link existing tour" ar="سحب رحلة موجودة" /></button>
+        <button type="button" className={mode === 'existing' ? 'active' : ''} onClick={() => setMode('existing')}><AdminText en="Link existing tour" ar="ربط رحلة موجودة" /></button>
         <button type="button" className={mode === 'new' ? 'active' : ''} onClick={() => setMode('new')}><AdminText en="Marketing campaign" ar="حملة تسويقية" /></button>
         <button type="button" className={mode === 'create' ? 'active' : ''} onClick={() => setMode('create')}><AdminText en="New tour with offer" ar="رحلة جديدة بعرض" /></button>
       </div>
@@ -250,6 +260,9 @@ function OfferForm({ initial, editSlug }: { initial: Offer | null; editSlug: str
             <label><AdminText en="Deadline" ar="الموعد النهائي" /><DateInput value={endsAt} onChange={(e) => setEndsAt(e.target.value)} /></label>
           </div>
           <ImageField value={image} onChange={setImage} />
+          <label><AdminText en="Gallery (one URL per line)" ar="المعرض (رابط في كل سطر)"/><textarea rows={3} value={gallery} onChange={e => setGallery(e.target.value)}/></label>
+          <label><AdminText en="Starts at (optional)" ar="يبدأ في (اختياري)"/><DateInput value={startsAt} onChange={e => setStartsAt(e.target.value)}/></label>
+          <CampaignFields value={campaign} onChange={setCampaign}/>
           <label><AdminText en="Highlights (one per line)" ar="النقاط البارزة (سطر لكل نقطة)" /><TranslatedTextarea field="highlights" rows={3} value={highlights} onChange={(e) => setHighlights(e.target.value)} /></label>
           <div className="sp-form-2">
             <label className="sp-check"><input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} /> <AdminText en="Published (visible on website)" ar="منشور (ظاهر على الموقع)" /></label>
@@ -281,7 +294,7 @@ function OfferForm({ initial, editSlug }: { initial: Offer | null; editSlug: str
         </div>
         </>}
         <label><AdminText en="Deadline" ar="الموعد النهائي" /><DateInput value={endsAt} onChange={(e) => setEndsAt(e.target.value)} /></label>
-        {!initial?.tourSlug && <><ImageField value={image} onChange={setImage} />
+        {!initial?.tourSlug && <><CampaignFields value={campaign} onChange={setCampaign}/><label><AdminText en="Starts at (optional)" ar="يبدأ في (اختياري)"/><DateInput value={startsAt} onChange={e => setStartsAt(e.target.value)}/></label><ImageField value={image} onChange={setImage} />
         <label><AdminText en="Gallery (one URL per line)" ar="المعرض (رابط في كل سطر)" /><textarea rows={3} value={gallery} onChange={(e) => setGallery(e.target.value)} placeholder="https://..." /></label>
         </>}
         <label><AdminText en="Highlights (one per line)" ar="النقاط البارزة (سطر لكل نقطة)" /><TranslatedTextarea field="highlights" rows={3} value={highlights} onChange={(e) => setHighlights(e.target.value)} /></label>
@@ -363,6 +376,7 @@ function normalizeOfferRow(row: Record<string, unknown>): Offer {
   const gallery = strArray(row.gallery ?? content.gallery)
   const highlights = strArray(row.highlights ?? content.highlights)
   return {
+    campaign: readCampaign(content.campaign),
     tourSlug: typeof row.tourSlug === 'string' ? row.tourSlug : undefined,
     discountPercent: typeof row.discountPercent === 'number' ? row.discountPercent : undefined,
     startsAt: typeof row.startsAt === 'string' ? row.startsAt : undefined,

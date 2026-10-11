@@ -132,7 +132,7 @@ export default function EventsPage() {
               <AdminIconAction icon={Pencil} label={ar ? `تعديل ${event.title}` : `Edit ${event.title}`} href={`/admin/events/new?slug=${encodeURIComponent(event.slug)}`} />
               <AdminIconAction icon={ExternalLink} label={ar ? `عرض ${event.title}` : `View ${event.title}`} href={`/events/${event.slug}`} />
               <button type="button" className="sp-icon-btn" onClick={() => void setPublished(event.slug, isHidden ? true : false)} aria-label={isHidden ? (ar ? `نشر ${event.title}` : `Publish ${event.title}`) : (ar ? `إخفاء ${event.title}` : `Hide ${event.title}`)} title={isHidden ? (ar ? 'نشر' : 'Publish') : (ar ? 'إخفاء' : 'Hide')}>{isHidden ? <Eye size={18} /> : <EyeOff size={18} />}</button>
-              {<button type="button" className="sp-delete-btn" onClick={() => setDeleteSlug(event.slug)}><Trash2 size={14} /> <AdminText en="Delete" ar="حذف" /></button>}
+              <AdminIconAction icon={Trash2} label={ar ? `حذف ${event.title}` : `Delete ${event.title}`} tone="danger" onClick={() => setDeleteSlug(event.slug)} />
             </AdminTableActions></td>
           </tr>
         })}</tbody>

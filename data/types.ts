@@ -341,6 +341,8 @@ export type Event = {
 }
 
 export type Offer = {
+  campaign?: import("@/lib/marketing-campaigns").CampaignContent
+  linkedTourPublished?: boolean
   tourSlug?: string
   discountPercent?: number
   startsAt?: string

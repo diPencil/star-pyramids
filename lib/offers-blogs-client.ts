@@ -1,5 +1,7 @@
 'use client';
 
+import { readCampaign } from '@/lib/marketing-campaigns'
+
 import { useEffect, useMemo, useState } from 'react';
 import { useCatalogueLanguage } from './use-catalogue-language';
 import { validateCatalogueTranslations } from './catalogue-translations';
@@ -13,6 +15,8 @@ function toOffer(row: Record<string, unknown>): Offer {
   const gallery = strArray(content.gallery);
   const highlights = strArray(content.highlights);
   return {
+    campaign: readCampaign(content.campaign),
+    linkedTourPublished: row.tourSlug ? (row.tour as { status?: string } | undefined)?.status === 'published' : undefined,
     tourSlug: typeof row.tourSlug === 'string' ? row.tourSlug : undefined,
     discountPercent: typeof row.discountPercent === 'number' ? row.discountPercent : undefined,
     startsAt: typeof row.startsAt === 'string' ? row.startsAt : undefined,

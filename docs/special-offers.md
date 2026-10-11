@@ -1,30 +1,36 @@
 # Special Offers
 
-## Data and workflow
+The `offers` table is the authoritative source for public offer cards and the admin list. The existing `/special-offers` hero and its surrounding sections are preserved. Fixed seasonal tour selections do not imply a discount or create offers. Existing manual `Tour.deal` values remain untouched and continue to apply to ordinary tour pricing.
 
-- Link existing tour: select a real database tour in any of the four categories, enter 1–90% discount and an end date, optionally schedule its start. One offer may link to each tour. Edit that offer to change its discount.
-- New tour with offer: use the existing complete Trip Builder, save the tour, then link it in Offers. There is no second, incomplete tour implementation.
-- Marketing campaign: preserves the existing standalone offer content and enquiry workflow. This is not a directly bookable tour.
-- Linked offers use a nullable unique `tourSlug` foreign key. The additive migration `20261010193000_link_special_offers_to_tours` preserves all existing offers without automatically linking them.
-- Offer saving and catalogue translations share the existing database transaction. Unique constraints prevent duplicate links. Staff permissions and same-origin mutation protection remain enforced.
-- Public lists exclude unpublished, scheduled and expired offers. Linked offers require a published tour, and open its real tour page. Legacy manual tour discounts remain supported without duplicating linked cards.
-- Live tour images, base price and duration supply linked cards. Booking validation loads the same authoritative discount resolver; traveller price tiers receive the discount once, while add-ons remain undiscounted.
-- The original `Tour.deal` is never rewritten by an offer mutation. Its parsed value travels separately as `manualDeal` so editing a tour cannot accidentally persist its projected offer discount. Hiding, expiring or deleting the offer restores the existing manual pricing policy.
-- Date-only deadlines cover the complete UTC calendar day. A start must not follow the inclusive end. Invalid JSON, null/array bodies, invalid dates/percentages and duplicate links receive JSON errors.
+## Tour offers
 
-## Verification on 2026-10-10
+Create one through **Link existing tour**. Select any of the four tour categories, choose a tour, enter a 1–90% discount and an end date. A start date is optional. The relationship is unique per tour. Cards use the current tour images, duration and base price. Booking calculations resolve the same active discount without overwriting the tour's manual deal. Hiding, expiring or deleting the offer stops its discount and restores the original/manual pricing.
 
-- Prisma validation passed; all 33 migrations applied, database schema current.
-- TypeScript passed with zero errors. Production build passed.
-- 61 targeted tests passed across offers, API security, booking API security and tour publication regression.
-- 16 real MySQL assertions passed in a transaction that was fully rolled back: linkage, authoritative price, reload, manual deal preservation, hide, expiry, deletion and unchanged existing offers. No booking was created and no email was sent.
-- Independent review found and verified the fix for the manual-deal overwrite issue.
-- Authenticated browser: the new creation paths and responsive form render; mobile viewport 390px has no horizontal overflow. Live catalogue loading is **not verified successfully**: it returns HTTP 500 on the currently running old server.
+**New tour with offer** opens Trip Builder. Save the complete tour, then return to Offers to link its discount. A marketing campaign is not a substitute for a bookable tour.
 
-## Remaining local runtime blocker
+## Marketing campaigns
 
-The existing Next.js process PID **520648** on port **3000** retains the old Prisma model. Its development log reports `Unknown argument tourSlug` and `Unknown field tour for include statement on model Offer`. Prisma generation fails with Windows EPERM renaming `query_engine-windows.dll.node`. Stopping this confirmed project process was denied by Windows. No unrelated process was stopped, and no replacement port was started.
+Campaigns are offers without `tourSlug`. Their existing media and copy are preserved. Extra configuration is stored in `Offer.content.campaign`; no schema migration or owner-data conversion is required.
 
-Owner action: open PowerShell as Administrator and run `Stop-Process -Id 520648`. After it stops, regenerate Prisma Client and restart the project on **3000 only**, then complete browser creation/edit/hide/expiry/booking verification. Do not treat the currently running server as a completed acceptance test.
+Editable fields: body, terms, CTA label and destination, price label, placements; existing title, badge, copy, image/gallery, highlights, optional price/original price/duration, publication dates and display order also apply. English, Spanish and Italian content tabs support campaign text. Links and placements are shared across translations. Empty translated text falls back to English.
 
-No commit or push performed. Existing database records and unrelated worktree changes preserved.
+Placements:
+
+- `offers`: `/special-offers` cards.
+- `home`: homepage **Special offers for you**.
+- `trips-sidebar`: the ad inside the `/trips` filters sidebar.
+- `blog-sidebar`: the ad in the blog guide sidebar; the editorial tour link remains intact.
+
+Each sidebar shows the first active matching campaign by display order, with title as the tie-breaker. Legacy campaigns default to `offers` only; other placements require an explicit admin choice. Empty placement lists are valid and leave the detail page accessible while published and within its dates. Linked tour offers appear in the offers catalogue and homepage, provided the tour is published.
+
+CTA destinations accept local paths or HTTPS URLs, reject executable schemes, protocol-relative links, backslashes, whitespace/control characters and embedded credentials. Empty destinations lead to the contact page with the offer slug. External destinations open a new tab with `noopener noreferrer`. Campaign body/terms are plain text, not executable HTML.
+
+The admin table includes **Type** and a type filter. Publication, scheduling and expiry are separate concepts: published counts include scheduled/expired records, while public cards include only currently active records. Date-only deadlines include the full UTC end date.
+
+## Verification
+
+`npx vitest run` covers API RBAC/origin protection, campaign persistence/partial updates, unsafe links, placements, translations, lifecycle and pricing. `npx tsc --noEmit` checks types; `npm run build` checks the production build.
+
+For a local database check, run `npx tsx scripts/verify-special-offers.ts` with `NODE_OPTIONS=--conditions=react-server`. It creates verification-only tour/campaign rows inside one transaction, verifies pricing, media/content preservation, placements, visibility and delete isolation, then deliberately rolls the transaction back. It compares complete tour, offer and catalogue-translation fingerprints before and after. It never commits test rows or alters existing records.
+
+Tour JSON boundaries decode MySQL LONGTEXT on public/admin reads and encode structured JSON on writes, preserving omitted update fields and explicit nulls. This keeps Trip Builder responses and booking traveller prices consistent.

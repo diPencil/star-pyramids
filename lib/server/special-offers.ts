@@ -1,3 +1,4 @@
+import { validateCampaign } from '../marketing-campaigns'
 import 'server-only'
 import type { Prisma } from '@prisma/client'
 import { db } from './db'
@@ -10,6 +11,12 @@ export async function offerBody(request: Request): Promise<Record<string, unknow
   let value: unknown
   try { value = await request.json() } catch { throw new OfferInputError('Invalid JSON body.') }
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new OfferInputError('Invalid JSON body.')
+  const input = value as Record<string, unknown>
+  for (const key of ['price', 'originalPrice', 'rating']) {
+    const number = input[key]
+    if (number != null && number !== '' && (typeof number !== 'number' || !Number.isFinite(number) || number < 0)) throw new OfferInputError(`Enter a valid ${key}.`)
+  }
+  if (input.displayOrder != null && input.displayOrder !== '' && (typeof input.displayOrder !== 'number' || !Number.isSafeInteger(input.displayOrder) || Math.abs(input.displayOrder) > 2147483647)) throw new OfferInputError('Enter a whole number for display order.')
   return value as Record<string, unknown>
 }
 export function offerError(error: unknown) {
@@ -57,4 +64,15 @@ export async function applyLinkedOfferDeals<T extends { slug: string; deal: unkn
     const deal = offer && isOfferActive(offer) && offer.discountPercent !== null ? { percent: offer.discountPercent, endsAt: offer.deadline } : readJsonText(row.deal)
     return { ...row, deal, manualDeal: readJsonText(row.deal) }
   })
+}
+
+export function campaignContent(input: Record<string, unknown>, existing: Record<string, unknown> = {}): Record<string, unknown> {
+  if (input.content !== undefined && (!input.content || typeof input.content !== 'object' || Array.isArray(input.content))) throw new OfferInputError('Invalid offer content.')
+  const content = { ...existing, ...(input.content as Record<string, unknown> | undefined) }
+  const campaign = input.campaign ?? (input.content as Record<string, unknown> | undefined)?.campaign
+  if (campaign !== undefined) {
+    try { content.campaign = validateCampaign(campaign) }
+    catch (error) { throw new OfferInputError(error instanceof Error ? error.message : 'Invalid campaign.') }
+  }
+  return content
 }

@@ -1,3 +1,4 @@
+import { decodeTourJson, encodeTourJson } from '@/lib/tour-json';
 import { applyLinkedOfferDeals } from '@/lib/server/special-offers';
 import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
@@ -57,7 +58,7 @@ export async function GET(request: Request) {
   });
   // LONGTEXT galleries decode to arrays at the boundary (same contract as
   // blogs/cars/offers). Raw JSON strings would reach clients as text.
-  return NextResponse.json({ tours: (await applyLinkedOfferDeals(tours)).map((tour) => ('gallery' in tour ? { ...tour, gallery: readJsonText(tour.gallery) } : tour)) });
+  return NextResponse.json({ tours: (await applyLinkedOfferDeals(tours)).map(decodeTourJson) });
 }
 
 export async function POST(request: Request) {
@@ -91,7 +92,7 @@ export async function POST(request: Request) {
   }
   const aliasOwner = await db.tour.findMany({ select: { slug: true, aliases: true } });
   const clash = aliasOwner.find(
-    (row) => Array.isArray(row.aliases) && (row.aliases as unknown[]).includes(data.slug),
+    (row) => Array.isArray(readJsonText(row.aliases)) && (readJsonText(row.aliases) as unknown[]).includes(data.slug),
   );
   if (clash) {
     return NextResponse.json(
@@ -101,7 +102,7 @@ export async function POST(request: Request) {
   }
 
   const tour = await db.tour.create({
-    data: {
+    data: encodeTourJson({
       slug: data.slug,
       aliases: data.aliases || [],
       title: data.title,
@@ -126,8 +127,8 @@ export async function POST(request: Request) {
       journeyVideos: data.journeyVideos || [],
       photoCredits: data.photoCredits || [],
       status: data.status || 'published',
-    },
+    }),
   });
 
-  return NextResponse.json({ tour }, { status: 201 });
+  return NextResponse.json({ tour: decodeTourJson((await applyLinkedOfferDeals([tour]))[0]) }, { status: 201 });
 }

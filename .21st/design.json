@@ -185,6 +185,17 @@
         "Never imply saving sends email",
         "Preserve English, Spanish, Italian and dormant Arabic RTL"
       ]
+    },
+    {
+      "area": "special-offers",
+      "direction": "Preserve catalogue hero; editable campaign detail and placements",
+      "summary": "Retain the existing Special Offers hero, trust, process and final CTA sections. Use the existing PromotionCard for actual Offer records and a navy/orange responsive campaign detail with real content. Campaign sidebar cards are controlled by stored placements and display order.",
+      "constraints": [
+        "Never advertise fixed seasonal tours as offers without Offer records",
+        "Preserve existing campaigns and manual tour deals",
+        "No automatic sidebar placement for legacy campaigns",
+        "Use configured copy, images, prices, terms and safe CTA links"
+      ]
     }
   ]
 }

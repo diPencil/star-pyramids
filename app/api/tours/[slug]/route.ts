@@ -1,3 +1,4 @@
+import { decodeTourJson, encodeTourJson } from '@/lib/tour-json';
 import { applyLinkedOfferDeals } from '@/lib/server/special-offers';
 import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
@@ -47,7 +48,7 @@ export async function GET(
   if (!tour) {
     // Alias resolution: find the canonical tour owning this alias.
     const candidates = await db.tour.findMany({ select: { slug: true, aliases: true } });
-    const canonical = candidates.find((r) => Array.isArray(r.aliases) && (r.aliases as unknown[]).includes(raw));
+    const canonical = candidates.find((r) => Array.isArray(readJsonText(r.aliases)) && (readJsonText(r.aliases) as unknown[]).includes(raw));
     if (canonical) {
       tour = await db.tour.findUnique({
         where: { slug: canonical.slug },
@@ -88,7 +89,7 @@ export async function GET(
     return NextResponse.json({ notFound: true }, { status: 404 });
   }
 
-  return NextResponse.json({ tour: { ...(await applyLinkedOfferDeals([tour]))[0], gallery: readJsonText(tour.gallery) } });
+  return NextResponse.json({ tour: decodeTourJson((await applyLinkedOfferDeals([tour]))[0]) });
 }
 
 export async function PUT(
@@ -128,7 +129,7 @@ export async function PUT(
     }
     const aliasRows = await db.tour.findMany({ select: { slug: true, aliases: true } });
     const aliasClash = aliasRows.find(
-      (row) => row.slug !== existing.slug && Array.isArray(row.aliases) && (row.aliases as unknown[]).includes(data.slug),
+      (row) => row.slug !== existing.slug && Array.isArray(readJsonText(row.aliases)) && (readJsonText(row.aliases) as unknown[]).includes(data.slug),
     );
     if (aliasClash) {
       return NextResponse.json(
@@ -140,7 +141,7 @@ export async function PUT(
 
   const tour = await db.tour.update({
     where: { slug: paramSlug },
-    data: {
+    data: encodeTourJson({
       slug: data.slug || existing.slug,
       aliases: data.aliases ?? existing.aliases,
       title: data.title,
@@ -165,10 +166,10 @@ export async function PUT(
       journeyVideos: data.journeyVideos ?? existing.journeyVideos,
       photoCredits: data.photoCredits ?? existing.photoCredits,
       status: data.status ?? existing.status,
-    },
+    }),
   });
 
-  return NextResponse.json({ tour: (await applyLinkedOfferDeals([tour]))[0] });
+  return NextResponse.json({ tour: decodeTourJson((await applyLinkedOfferDeals([tour]))[0]) });
 }
 
 export async function DELETE(

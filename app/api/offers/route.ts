@@ -1,5 +1,5 @@
 import { isOfferActive } from '@/lib/special-offers';
-import { linkedOfferFields, offerBody, offerError, offerTourSelect, presentOffer } from '@/lib/server/special-offers';
+import { campaignContent, linkedOfferFields, offerBody, offerError, offerTourSelect, presentOffer } from '@/lib/server/special-offers';
 import { catalogueTranslationResponse, saveWithCatalogueTranslations } from '@/lib/server/catalogue-translations';
 import { validateCatalogueTranslations } from '@/lib/catalogue-translations';
 import { NextResponse } from 'next/server';
@@ -112,9 +112,7 @@ export async function POST(request: Request) {
       originalPrice: numOrNull(data.originalPrice),
       isPublished: data.isPublished !== false,
       displayOrder: Number.isFinite(Number(data.displayOrder)) ? Number(data.displayOrder) : 999,
-      content: writeJsonText(data.content && typeof data.content === 'object' && !Array.isArray(data.content)
-        ? data.content
-        : { gallery, highlights, photoCredits }),
+      content: writeJsonText(campaignContent(data, { gallery, highlights, photoCredits })),
       ...linked,
     },
   }); });

@@ -1,5 +1,5 @@
 import { isOfferActive } from '@/lib/special-offers';
-import { linkedOfferFields, offerBody, offerError, offerTourSelect, presentOffer } from '@/lib/server/special-offers';
+import { campaignContent, linkedOfferFields, offerBody, offerError, offerTourSelect, presentOffer } from '@/lib/server/special-offers';
 import { catalogueTranslationResponse, saveWithCatalogueTranslations, deleteWithCatalogueTranslations } from '@/lib/server/catalogue-translations';
 import { validateCatalogueTranslations } from '@/lib/catalogue-translations';
 import { NextResponse } from 'next/server';
@@ -125,7 +125,7 @@ export async function PUT(
       originalPrice: data.originalPrice === undefined ? existing.originalPrice : numOrNull(data.originalPrice),
       isPublished: data.isPublished === undefined ? existing.isPublished : data.isPublished !== false,
       displayOrder: data.displayOrder === undefined || data.displayOrder === '' ? existing.displayOrder : (Number.isFinite(Number(data.displayOrder)) ? Number(data.displayOrder) : existing.displayOrder),
-      content: writeJsonText(data.content === undefined ? { ...existingContent, gallery, highlights, photoCredits } : (data.content ?? {})),
+      content: writeJsonText(campaignContent(data, { ...existingContent, gallery, highlights, photoCredits })),
       ...linked,
     },
   }); });

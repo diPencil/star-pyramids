@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
-import { ExternalLink, Link2, MapPinned, Pencil, Plus, Sparkles } from 'lucide-react'
+import { ExternalLink, Link2, MapPinned, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableTools, AdminTableWrap, AdminText, Card, StatusPill } from '@/components/admin/admin-ui'
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
@@ -76,7 +76,7 @@ export default function DestinationsPage() {
           <td><AdminTableActions>
             <AdminIconAction icon={Pencil} label={ar ? `تعديل ${d.title}` : `Edit ${d.title}`} href={`/admin/destinations/new?slug=${d.slug}`} />
             <AdminIconAction icon={ExternalLink} label={ar ? `عرض ${d.title}` : `View ${d.title}`} href={d.showInDestinations === false ? `/egypt-tours/one-day-tours/${d.slug}` : `/destinations/${d.slug}`} />
-            {<button type="button" className="sp-delete-btn" onClick={() => removeDestination(d.slug)}><AdminText en="Delete" ar="حذف" /></button>}
+            <AdminIconAction icon={Trash2} label={ar ? `حذف ${d.title}` : `Delete ${d.title}`} tone="danger" onClick={() => void removeDestination(d.slug)} />
           </AdminTableActions></td>
         </tr>)}</tbody>
       </table></AdminTableWrap> : <AdminEmpty title={<AdminText en="No destinations found" ar="لا توجد وجهات" />} copy={<AdminText en="Try changing the search or filters." ar="جرب تغيير البحث أو الفلاتر." />} />}
