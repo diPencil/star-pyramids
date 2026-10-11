@@ -7,6 +7,7 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableWrap, AdminText, Avatar, Card, StatusPill } from '@/components/admin/admin-ui'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { useAdminLocale } from '@/components/admin/admin-locale'
+import { useAdminCurrency } from '@/components/admin/admin-currency'
 import { mutateCustomerStatus, useDbCustomerDetail } from '@/lib/admin-customers-client'
 import { startImpersonation } from '@/lib/admin-store'
 
@@ -28,6 +29,11 @@ function formatMoney(value: number, currency: string): string {
 
 export function CustomerDetailContent({ customerKey }: { customerKey: string }) {
   const ar = useAdminLocale() === 'ar'
+  // Display-only conversion of server USD amounts, like the storefront.
+  const { formatUsd } = useAdminCurrency()
+  // Stored rows are USD; anything else keeps its honest suffix.
+  const fmtMoney = (value: number, currency: string): string =>
+    currency === 'USD' ? formatUsd(value) : formatMoney(value, currency)
   const key = decodeURIComponent(customerKey)
   const { data: customer, canManage, loading, error, retry, refresh } = useDbCustomerDetail(key)
   const [confirming, setConfirming] = useState<null | 'ACTIVE' | 'SUSPENDED'>(null)
@@ -88,7 +94,7 @@ export function CustomerDetailContent({ customerKey }: { customerKey: string }) 
     {successNote ? <p role="status" style={{ color: '#15803d', margin: '0 0 12px' }}>{successNote}</p> : null}
 
     <AdminStats items={[
-      { label: <AdminText en="Total spent" ar="إجمالي الإنفاق" />, value: `$${customer.totalSpent.toLocaleString('en-US')}`, note: <AdminText en="All bookings" ar="كل الحجوزات" />, icon: Users },
+      { label: <AdminText en="Total spent" ar="إجمالي الإنفاق" />, value: formatUsd(customer.totalSpent), note: <AdminText en="All bookings" ar="كل الحجوزات" />, icon: Users },
       { label: <AdminText en="Bookings" ar="الحجوزات" />, value: customer.bookingsCount, note: <AdminText en="Full history below" ar="السجل الكامل بالأسفل" />, icon: Users, tone: 'orange' },
       { label: <AdminText en="Requests" ar="الطلبات" />, value: requestsCount, note: <AdminText en="Trip, car and event" ar="رحلات وسيارات وفعاليات" />, icon: Users, tone: 'green' },
       { label: <AdminText en="Messages" ar="الرسائل" />, value: customer.conversations.length, note: <AdminText en="Support threads" ar="محادثات الدعم" />, icon: MessageCircle, tone: 'violet' },
@@ -97,7 +103,7 @@ export function CustomerDetailContent({ customerKey }: { customerKey: string }) 
     <div className="sp-grid-dash">
       <Card title={<AdminText en="Profile" ar="البيانات" />}>
         <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 14 }}>
-          <Avatar name={name} size={64} online={customer.status === 'ACTIVE'} />
+          <Avatar name={name} size={64} online={customer.status === 'ACTIVE'} src={customer.avatar ?? undefined} />
           <div><h3 style={{ margin: 0 }}>{name}</h3><small style={{ color: 'var(--sp-muted)' }} dir="ltr">{customer.email}</small><div style={{ marginTop: 6 }}><span className="sp-inline-meta"><Circle size={8} fill={status.color} color={status.color} />{ar ? status.ar : status.en}</span></div></div>
         </div>
         <div className="sp-detail-grid">
@@ -129,7 +135,7 @@ export function CustomerDetailContent({ customerKey }: { customerKey: string }) 
             <td><Link href={`/admin/bookings/${encodeURIComponent(booking.reference)}`}><strong dir="ltr">{booking.reference}</strong></Link><br /><small style={{ color: 'var(--sp-muted)' }}>{formatDate(booking.createdAt, ar)}</small></td>
             <td>{booking.items.map((item) => item.tourTitle).join(' · ') || '-'}</td>
             <td>{booking.items.reduce((sum, item) => sum + item.guests, 0)}</td>
-            <td>{formatMoney(booking.total, booking.currency)}</td>
+            <td>{fmtMoney(booking.total, booking.currency)}</td>
             <td>{booking.paymentStatus === 'PAID'
               ? <span className="sp-pill is-confirmed"><AdminText en="Paid" ar="مدفوع" /></span>
               : booking.paymentStatus === 'PENDING'
@@ -184,8 +190,8 @@ export function CustomerDetailContent({ customerKey }: { customerKey: string }) 
           <tr key={payment.reference}>
             <td><Link href={`/admin/payments/${encodeURIComponent(payment.reference)}`}><strong dir="ltr">{payment.reference}</strong></Link></td>
             <td><strong dir="ltr">{payment.bookingReference}</strong></td>
-            <td>{formatMoney(payment.amount, payment.currency)}</td>
-            <td>{formatMoney(payment.amountPaid, payment.currency)}</td>
+            <td>{fmtMoney(payment.amount, payment.currency)}</td>
+            <td>{fmtMoney(payment.amountPaid, payment.currency)}</td>
             <td>{payment.status}</td>
           </tr>
         ))}</tbody>

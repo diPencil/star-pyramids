@@ -95,7 +95,7 @@ export default function CustomersPage() {
             const suspended = customer.status === 'SUSPENDED'
             return <tr key={customer.publicId}>
               <td className="sp-row-number">{paging.from + index}</td>
-              <td><span className="sp-cust"><Avatar name={customer.displayName} size={34} online={customer.status === 'ACTIVE'} /><span><strong>{customer.displayName}</strong><small dir="ltr">{customer.email}</small></span></span></td>
+              <td><span className="sp-cust"><Avatar name={customer.displayName} size={34} online={customer.status === 'ACTIVE'} src={customer.avatar ?? undefined} /><span><strong>{customer.displayName}</strong><small dir="ltr">{customer.email}</small></span></span></td>
               <td>{customer.bookingsCount}</td>
               <td>{formatUsd(customer.totalSpent)}</td>
               <td><span className="sp-inline-meta"><Circle size={8} fill={meta.color} color={meta.color} />{ar ? meta.ar : meta.en}</span></td>

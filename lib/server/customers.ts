@@ -29,6 +29,7 @@ export interface CustomerListItem {
   username: string | null;
   countryCode: string | null;
   phone: string | null;
+  avatar: string | null;
   status: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
   emailVerifiedAt: Date | null;
   lastLoginAt: Date | null;
@@ -192,6 +193,7 @@ export async function createCustomer(
       username: user.username,
       countryCode: user.countryCode,
       phone: user.phone,
+      avatar: user.avatar,
       status: user.status,
       emailVerifiedAt: user.emailVerifiedAt,
       lastLoginAt: user.lastLoginAt,
@@ -304,6 +306,7 @@ export async function updateCustomerProfile(
         username: updated.username,
         countryCode: updated.countryCode,
         phone: updated.phone,
+        avatar: updated.avatar,
         status: updated.status,
         emailVerifiedAt: updated.emailVerifiedAt,
         lastLoginAt: updated.lastLoginAt,
@@ -337,6 +340,7 @@ const customerSelect = {
   username: true,
   countryCode: true,
   phone: true,
+  avatar: true,
   status: true,
   emailVerifiedAt: true,
   lastLoginAt: true,
@@ -362,6 +366,7 @@ export async function listCustomers(): Promise<CustomerListItem[]> {
     username: row.username,
     countryCode: row.countryCode,
     phone: row.phone,
+    avatar: row.avatar,
     status: row.status,
     emailVerifiedAt: row.emailVerifiedAt,
     lastLoginAt: row.lastLoginAt,
@@ -477,6 +482,7 @@ export async function getCustomerDetail(publicId: string): Promise<CustomerDetai
     username: user.username,
     countryCode: user.countryCode,
     phone: user.phone,
+    avatar: user.avatar,
     status: user.status,
     emailVerifiedAt: user.emailVerifiedAt,
     lastLoginAt: user.lastLoginAt,
@@ -597,6 +603,7 @@ export async function setCustomerStatus(
       username: updated.username,
       countryCode: updated.countryCode,
       phone: updated.phone,
+      avatar: updated.avatar,
       status: updated.status,
       emailVerifiedAt: updated.emailVerifiedAt,
       lastLoginAt: updated.lastLoginAt,

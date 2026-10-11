@@ -11,6 +11,7 @@ export type DirectoryCustomer = {
   username: string | null;
   countryCode: string | null;
   phone: string | null;
+  avatar: string | null;
   status: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
   emailVerifiedAt: string | null;
   lastLoginAt: string | null;
