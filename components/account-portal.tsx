@@ -89,9 +89,25 @@ async function apiBookingCancel(reference: string): Promise<Booking> {
     credentials: 'same-origin',
     body: JSON.stringify({ action: 'cancel' }),
   })
-  const data = (await res.json()) as Booking & { error?: string }
-  if (!res.ok) throw new Error(data.error || 'Could not cancel the booking.')
+  const data = (await res.json()) as Booking & { error?: string; code?: string }
+  if (!res.ok) {
+    // Preserve the machine code so callers can localize blocks
+    // (e.g. financial-review) instead of showing raw server English.
+    const err = new Error(data.error || 'Could not cancel the booking.')
+    if (data.code) (err as { code?: string }).code = data.code
+    throw err
+  }
   return data
+}
+
+/** Localized explanation for a financial-review cancellation block. */
+function financialReviewMessage(locale: Locale): string {
+  return tx(locale, {
+    en: 'This booking has a payment that needs review before it can be cancelled. Please contact support and we will help with the refund.',
+    es: 'Esta reserva tiene un pago que debe revisarse antes de cancelarla. Contáctanos y te ayudaremos con el reembolso.',
+    it: 'Questa prenotazione ha un pagamento da verificare prima della cancellazione. Contattaci e ti aiuteremo con il rimborso.',
+    ar: 'هذا الحجز مرتبط بمدفوعات تحتاج إلى مراجعة قبل الإلغاء. تواصل معنا وسنساعدك في الاسترداد.',
+  })
 }
 
 /**
@@ -706,7 +722,10 @@ function BookingDetailSection({ reference, autoPrint = false }: { reference: str
         apiBookingCancel(booking.reference)
           .then((saved) => setBooking(saved))
           .catch((err: unknown) => {
-            setActionError(err instanceof Error ? err.message : (tx(locale, { en: 'Could not cancel the booking.', es: 'No se pudo cancelar la reserva.', it: 'Impossibile cancellare la prenotazione.', ar: 'تعذر إلغاء الحجز.' })))
+            const code = (err as { code?: unknown } | null)?.code
+            setActionError(code === 'BOOKING_FINANCIAL_REVIEW'
+              ? financialReviewMessage(locale)
+              : (err instanceof Error ? err.message : (tx(locale, { en: 'Could not cancel the booking.', es: 'No se pudo cancelar la reserva.', it: 'Impossibile cancellare la prenotazione.', ar: 'تعذر إلغاء الحجز.' }))))
           })
       }}
       title={tx(locale, { en: 'Cancel this booking?', es: '¿Cancelar esta reserva?', it: 'Cancellare questa prenotazione?', ar: 'إلغاء هذا الحجز؟' })}
@@ -1838,7 +1857,7 @@ function ChangePasswordSection() {
         <label>{tx(locale, { en: 'Confirm new password', es: 'Confirma la contraseña nueva', it: 'Conferma la nuova password', ar: 'تأكيد كلمة المرور الجديدة' })}<span><input required type={showNew ? 'text' : 'password'} autoComplete="new-password" value={confirmPassword} onChange={(event) => { setConfirmPassword(event.target.value); setSubmitted(false); setError('') }} disabled={submitting} /></span>{confirmPassword && !matches && <span className="field-error" role="alert">{tx(locale, { en: 'Passwords do not match.', es: 'Las contraseñas no coinciden.', it: 'Le password non coincidono.', ar: 'كلمتا المرور غير متطابقتين.' })}</span>}</label>
       </div>
       <div className="customer-password-rules" aria-live="polite">
-        <span className={newPassword.length >= 6 && newPassword.length <= 8 ? 'valid' : ''}><Check size={14} />{tx(locale, { en: '6-8 characters', es: '6-8 caracteres', it: '6-8 caratteri', ar: '6-8 أحرف' })}</span>
+        <span className={newPassword.length >= 6 && newPassword.length <= 64 ? 'valid' : ''}><Check size={14} />{tx(locale, { en: '6-64 characters', es: '6-64 caracteres', it: '6-64 caratteri', ar: '6-64 حرفًا' })}</span>
         <span className={matches ? 'valid' : ''}><Check size={14} />{tx(locale, { en: 'Passwords match', es: 'Las contraseñas coinciden', it: 'Le password coincidono', ar: 'كلمتا المرور متطابقتان' })}</span>
       </div>
       {error && <p className="co-error" role="alert"><CircleAlert size={15} />{error}</p>}

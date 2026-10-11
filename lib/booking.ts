@@ -145,6 +145,39 @@ export function canTransitionBooking(from: BookingStatus, to: BookingStatus): bo
   return BOOKING_TRANSITIONS[from]?.includes(to) ?? false
 }
 
+/** Stable machine code for the financial-review cancellation block. */
+export const BOOKING_FINANCIAL_REVIEW_CODE = 'BOOKING_FINANCIAL_REVIEW'
+
+/**
+ * Financial exposure of a booking at cancellation time, computed from
+ * its payment rows (integer cents, server-side):
+ * - 'captured': settled money not yet returned (paid − refunded > 0).
+ *   Cancellation MUST be blocked for review — never auto-refunded.
+ * - 'inflight': pending/processing attempts only. Safe to cancel once
+ *   the attempts themselves are voided in the same transaction.
+ * - 'none': no payments, failed/cancelled attempts only, or fully
+ *   refunded (net zero). Normal cancellation applies.
+ */
+export type BookingCancelExposure = 'none' | 'captured' | 'inflight'
+
+export function bookingCancelExposure(
+  payments: readonly { status: string; amountPaidCents: number; amountRefundedCents: number }[],
+): BookingCancelExposure {
+  let inflight = false
+  for (const payment of payments) {
+    if (
+      payment.status === 'paid' ||
+      payment.status === 'partially_refunded' ||
+      payment.status === 'refunded'
+    ) {
+      if (payment.amountPaidCents - payment.amountRefundedCents > 0) return 'captured'
+    } else if (payment.status === 'pending' || payment.status === 'processing') {
+      inflight = true
+    }
+  }
+  return inflight ? 'inflight' : 'none'
+}
+
 /** Display strings are stored in English; UI maps known actions to Arabic. */
 export function labelForBookingTransition(from: BookingStatus, to: BookingStatus): string {
   switch (to) {

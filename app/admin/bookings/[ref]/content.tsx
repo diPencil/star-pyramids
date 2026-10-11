@@ -37,9 +37,22 @@ async function apiStaffMutate(reference: string, body: Record<string, unknown>):
     credentials: 'same-origin',
     body: JSON.stringify(body),
   })
-  const data = (await res.json()) as StaffBooking & { error?: string }
-  if (!res.ok) throw new Error(data.error || 'Could not update the booking.')
+  const data = (await res.json()) as StaffBooking & { error?: string; code?: string }
+  if (!res.ok) {
+    // Preserve the machine code so financial-review blocks render a
+    // localized explanation instead of raw server English.
+    const err = new Error(data.error || 'Could not update the booking.')
+    if (data.code) (err as { code?: string }).code = data.code
+    throw err
+  }
   return data
+}
+
+/** Localized explanation for a financial-review cancellation block. */
+function financialReviewBlockMessage(ar: boolean): string {
+  return ar
+    ? 'هذا الحجز مرتبط بمدفوعات محصلة أو معلقة. سوّ الاسترداد أولاً — تم حظر الإلغاء التلقائي لحماية سجل المدفوعات.'
+    : 'This booking has captured or in-flight payments. Settle the refund first — automatic cancellation is blocked to protect the payment history.'
 }
 
 export function BookingDetailContent({ reference }: { reference: string }) {
@@ -98,7 +111,10 @@ export function BookingDetailContent({ reference }: { reference: string }) {
     apiStaffMutate(item.reference, { status: to })
       .then((row) => { setItem(row); setPending(null) })
       .catch((error: unknown) => {
-        setActionError(error instanceof Error ? error.message : 'Could not update the booking.')
+        const code = (error as { code?: unknown } | null)?.code
+        setActionError(code === 'BOOKING_FINANCIAL_REVIEW'
+          ? financialReviewBlockMessage(ar)
+          : (error instanceof Error ? error.message : 'Could not update the booking.'))
         setPending(null)
       })
   }

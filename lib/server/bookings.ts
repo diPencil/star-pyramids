@@ -20,6 +20,8 @@ import {
 import { dayTourTerms, getBookingTotal, getTravelerUnitPrices } from '@/data/tours';
 import { findTourBySlug } from './tours';
 import {
+  BOOKING_FINANCIAL_REVIEW_CODE,
+  bookingCancelExposure,
   canTransitionBooking,
   isValidPreferredDate,
   labelForBookingTransition,
@@ -46,6 +48,83 @@ import {
 
 const REF_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const REF_ATTEMPTS = 5;
+
+/**
+ * Thrown when a booking cannot be cancelled without financial review:
+ * captured money is at stake and no verified refund exists. Routes map
+ * `code` to a localized explanation; the booking and every payment row
+ * are left exactly as they were. Re-exported for route error mapping.
+ */
+export class BookingFinancialReviewError extends Error {
+  readonly code = BOOKING_FINANCIAL_REVIEW_CODE;
+  constructor() {
+    super(
+      'This booking has captured or in-flight payments and needs financial review before it can be cancelled.',
+    );
+    this.name = 'BookingFinancialReviewError';
+  }
+}
+
+export { BOOKING_FINANCIAL_REVIEW_CODE };
+
+/** Prisma "record not found" from a conditional update (lost update race). */
+function isRecordConflict(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { code?: unknown }).code === 'P2025'
+  );
+}
+
+/**
+ * Financial safeguard shared by customer and staff cancellation. MUST
+ * run inside the booking-cancel transaction (same `tx` handle):
+ * - captured money (paid − refunded > 0) → throws, rolling the whole
+ *   cancellation back so status and payment history stay untouched;
+ * - pending/processing attempts only → voids them with audit events,
+ *   so no later webhook can settle money on a cancelled booking;
+ * - otherwise (unpaid, failed attempts, fully refunded) → no-op.
+ */
+async function assertCancellableMoney(
+  tx: Prisma.TransactionClient,
+  bookingId: string,
+  actorRole: 'customer' | 'staff',
+): Promise<void> {
+  const rows = await tx.payment.findMany({
+    where: { bookingId },
+    select: { id: true, status: true, amountPaid: true, amountRefunded: true },
+  });
+  const exposure = bookingCancelExposure(
+    rows.map((row) => ({
+      status: FROM_DB_PAYMENT_STATUS[row.status],
+      amountPaidCents: decimalToCents(row.amountPaid),
+      amountRefundedCents: decimalToCents(row.amountRefunded),
+    })),
+  );
+  if (exposure === 'captured') {
+    throw new BookingFinancialReviewError();
+  }
+  if (exposure === 'inflight') {
+    const now = new Date();
+    for (const row of rows) {
+      if (row.status !== 'PENDING' && row.status !== 'PROCESSING') continue;
+      await tx.payment.update({
+        where: { id: row.id },
+        data: {
+          status: 'CANCELLED',
+          cancelledAt: now,
+          events: {
+            create: {
+              actorRole,
+              action: 'Payment attempt cancelled with booking',
+              isInternal: true,
+            },
+          },
+        },
+      });
+    }
+  }
+}
 
 /**
  * Shown to guests above their private link so the one-off nature of the
@@ -649,21 +728,44 @@ export async function cancelCustomerBooking(
   });
   if (!existing || !existing.userId || existing.userId !== userId) return null;
   const current = FROM_DB_STATUS[existing.status];
+  if (current === 'cancelled') {
+    // Idempotent retry: already settled, return the current view with
+    // no new activity row and no state change.
+    const settled = await db.booking.findUnique({ where: { reference }, include: rowInclude });
+    if (settled && settled.userId === userId) return toCustomerView(settled);
+    return null;
+  }
   if (!canTransitionBooking(current, 'cancelled')) {
     throw new Error('This booking can no longer be cancelled.');
   }
-  const row = await db.$transaction(async (tx) => {
-    await tx.booking.update({
-      where: { id: existing.id },
-      data: {
-        status: 'CANCELLED',
-        activities: {
-          create: { actorRole: 'customer', action: labelForBookingTransition(current, 'cancelled') },
+  let row;
+  try {
+    row = await db.$transaction(async (tx) => {
+      // Conditional claim: only one concurrent cancellation wins.
+      await tx.booking.update({
+        where: { id: existing.id, status: { in: ['PENDING', 'CONFIRMED'] } },
+        data: {
+          status: 'CANCELLED',
+          activities: {
+            create: { actorRole: 'customer', action: labelForBookingTransition(current, 'cancelled') },
+          },
         },
-      },
+      });
+      await assertCancellableMoney(tx, existing.id, 'customer');
+      return tx.booking.findUnique({ where: { id: existing.id }, include: rowInclude });
     });
-    return tx.booking.findUnique({ where: { id: existing.id }, include: rowInclude });
-  });
+  } catch (error) {
+    if (isRecordConflict(error)) {
+      // A concurrent cancellation won the race: return the settled view
+      // instead of stacking a duplicate activity row and notification.
+      const reread = await db.booking.findUnique({ where: { reference }, include: rowInclude });
+      if (reread && reread.userId === userId && FROM_DB_STATUS[reread.status] === 'cancelled') {
+        return toCustomerView(reread);
+      }
+      throw new Error('This booking can no longer be cancelled.');
+    }
+    throw error;
+  }
   if (!row) return null;
   return toCustomerView(row);
 }
@@ -699,30 +801,63 @@ export async function transitionStaffBooking(
   });
   if (!existing) return null;
   const current = FROM_DB_STATUS[existing.status];
+  if (current === 'cancelled' && to === 'cancelled') {
+    // Idempotent retry: already settled, return the current view with
+    // no new activity row, no notification, and no email.
+    const settled = await db.booking.findUnique({ where: { reference }, include: rowInclude });
+    if (settled) return toStaffView(settled);
+    return null;
+  }
   if (!canTransitionBooking(current, to)) {
     throw new Error('This status change is not allowed.');
   }
   if (note.length > NOTE_MAX || hasControlChars(note)) {
     throw new Error('Notes must be 1,000 characters or fewer.');
   }
-  const row = await db.$transaction(async (tx) => {
-    await tx.booking.update({
-      where: { id: existing.id },
-      data: {
-        status: TO_DB_STATUS[to],
-        activities: {
-          create: {
-            actorRole: 'staff',
-            action: labelForBookingTransition(current, to),
-            note: note === '' ? null : note,
-            isInternal: note === '' ? false : internal,
+  // A duplicate concurrent cancellation resolves to the settled view
+  // without re-notifying the customer or stacking activity rows.
+  let alreadyCancelled = false;
+  let row;
+  try {
+    row = await db.$transaction(async (tx) => {
+      // Cancellations claim the row conditionally so concurrent requests
+      // cannot both write; the money guard runs in the same transaction.
+      await tx.booking.update({
+        where: to === 'cancelled'
+          ? { id: existing.id, status: { in: ['PENDING', 'CONFIRMED'] } }
+          : { id: existing.id },
+        data: {
+          status: TO_DB_STATUS[to],
+          activities: {
+            create: {
+              actorRole: 'staff',
+              action: labelForBookingTransition(current, to),
+              note: note === '' ? null : note,
+              isInternal: note === '' ? false : internal,
+            },
           },
         },
-      },
+      });
+      if (to === 'cancelled') {
+        await assertCancellableMoney(tx, existing.id, 'staff');
+      }
+      return tx.booking.findUnique({ where: { id: existing.id }, include: rowInclude });
     });
-    return tx.booking.findUnique({ where: { id: existing.id }, include: rowInclude });
-  });
+  } catch (error) {
+    if (to === 'cancelled' && isRecordConflict(error)) {
+      const reread = await db.booking.findUnique({ where: { reference }, include: rowInclude });
+      if (reread && FROM_DB_STATUS[reread.status] === 'cancelled') {
+        alreadyCancelled = true;
+        row = reread;
+      } else {
+        throw new Error('This status change is not allowed.');
+      }
+    } else {
+      throw error;
+    }
+  }
   if (!row) return null;
+  if (to === 'cancelled' && alreadyCancelled) return toStaffView(row);
   // Customer-visible status changes only. The transition guard above
   // rejects repeats, so each status notifies at most once. Internal
   // notes travel through addStaffBookingNote and never notify.

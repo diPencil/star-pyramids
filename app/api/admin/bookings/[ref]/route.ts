@@ -4,6 +4,7 @@ import { getCurrentUser, hasPermission } from '@/lib/server/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
 import {
+  BOOKING_FINANCIAL_REVIEW_CODE,
   addStaffBookingNote,
   getStaffBooking,
   transitionStaffBooking,
@@ -91,6 +92,12 @@ export async function PATCH(
     return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
   } catch (error) {
     if (error instanceof Error) {
+      // Financial-review blocks carry a stable machine code so staff UI
+      // can render a localized explanation (409 = state conflict).
+      const code = (error as { code?: unknown }).code;
+      if (code === BOOKING_FINANCIAL_REVIEW_CODE) {
+        return NextResponse.json({ error: error.message, code }, { status: 409 });
+      }
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
     throw error;

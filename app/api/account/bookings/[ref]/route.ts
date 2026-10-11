@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/server/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import {
+  BOOKING_FINANCIAL_REVIEW_CODE,
   cancelCustomerBooking,
   getCustomerBooking,
 } from '@/lib/server/bookings';
@@ -58,6 +59,12 @@ export async function PATCH(
     return NextResponse.json(booking);
   } catch (error) {
     if (error instanceof Error) {
+      // Financial-review blocks carry a stable machine code so clients
+      // can render a localized explanation (409 = state conflict).
+      const code = (error as { code?: unknown }).code;
+      if (code === BOOKING_FINANCIAL_REVIEW_CODE) {
+        return NextResponse.json({ error: error.message, code }, { status: 409 });
+      }
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
     throw error;
