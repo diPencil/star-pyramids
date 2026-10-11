@@ -10,7 +10,7 @@
 // webhooks and audited offline workflows.
 import 'server-only';
 
-import { randomInt } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 import { Prisma, PaymentStatus as DbStatus } from '@prisma/client';
 
 import { db } from './db';
@@ -365,6 +365,308 @@ export async function initiateCustomerPayment(
   throw lastError instanceof Error ? lastError : new Error('Could not initiate the payment. Please try again.');
 }
 
+/**
+ * Offline receipt methods a staff member may record. Closed allowlist:
+ * anything else is rejected — never stored, never converted.
+ */
+export const OFFLINE_PAYMENT_METHODS = ['bank_transfer', 'cash'] as const;
+export type OfflinePaymentMethod = (typeof OFFLINE_PAYMENT_METHODS)[number];
+
+const OFFLINE_METHOD_LABELS: Record<OfflinePaymentMethod, string> = {
+  bank_transfer: 'Bank transfer',
+  cash: 'Cash',
+};
+
+export interface RecordOfflinePaymentInput {
+  bookingReference: string;
+  /** Received amount in dollars (at most 2 decimals, above zero). */
+  amount: number;
+  /** Must be 'USD'. Foreign currency is rejected, never converted. */
+  currency: string;
+  method: string;
+  /** Bank/reference number (optional, 255 chars or fewer). */
+  referenceNote?: string;
+  /** Required idempotency key: repeats return the original receipt. */
+  idempotencyKey: string;
+}
+
+function hasControlChars(value: string): boolean {
+  // eslint-disable-next-line no-control-regex
+  return /[\u0000-\u001f\u007f]/.test(value);
+}
+
+/**
+ * Records an offline receipt (cash/bank transfer) as PAID by explicit,
+ * authorized staff confirmation — no gateway involved. Each receipt is
+ * its own Payment row (`provider: 'offline'`), so partial payments
+ * accumulate honestly in the booking summary and a partial receipt
+ * never fakes a full payment. Returns null for an unknown booking
+ * (route maps to 404); validation and state problems throw.
+ */
+export async function recordOfflinePayment(
+  input: RecordOfflinePaymentInput,
+): Promise<{ payment: StaffPayment; created: boolean } | null> {
+  const bookingReference =
+    typeof input.bookingReference === 'string' ? input.bookingReference.trim() : '';
+  if (!BOOKING_REF_PATTERN.test(bookingReference)) throw new Error('Select a valid booking.');
+  if (input.method !== 'bank_transfer' && input.method !== 'cash') {
+    throw new Error('Select a valid payment method.');
+  }
+  const method = input.method as OfflinePaymentMethod;
+  if (input.currency !== 'USD') {
+    throw new Error(
+      'Offline receipts are recorded in USD only. Convert the received amount before recording.',
+    );
+  }
+  if (typeof input.amount !== 'number' || !Number.isFinite(input.amount) || input.amount <= 0) {
+    throw new Error('Enter a valid received amount.');
+  }
+  if (Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 1e-6) {
+    throw new Error('Enter an amount with at most 2 decimals.');
+  }
+  const amountCents = Math.round(input.amount * 100);
+  const referenceNote =
+    typeof input.referenceNote === 'string' ? input.referenceNote.trim() : '';
+  if (referenceNote.length > 255 || hasControlChars(referenceNote)) {
+    throw new Error('Enter a valid reference note (255 characters or fewer).');
+  }
+  const idempotencyKey =
+    typeof input.idempotencyKey === 'string' ? input.idempotencyKey.trim() : '';
+  if (!KEY_PATTERN.test(idempotencyKey)) throw new Error('Invalid request.');
+
+  const booking = await db.booking.findUnique({
+    where: { reference: bookingReference },
+    select: { id: true, status: true, total: true },
+  });
+  if (!booking) return null;
+  if (booking.status !== 'PENDING' && booking.status !== 'CONFIRMED') {
+    throw new Error('Only pending or confirmed bookings can take payment.');
+  }
+
+  const replay = await db.payment.findUnique({
+    where: { idempotencyKey },
+    include: paymentInclude,
+  });
+  if (replay) return { payment: toStaffPaymentView(replay), created: false };
+
+  // Remaining balance from settled rows only, in integer cents.
+  const settled = await db.payment.findMany({
+    where: { bookingId: booking.id },
+    select: { status: true, amountPaid: true, amountRefunded: true },
+  });
+  const isSettled = (status: string) =>
+    status === 'PAID' || status === 'PARTIALLY_REFUNDED' || status === 'REFUNDED';
+  const paidCents = settled
+    .filter((p) => isSettled(p.status))
+    .reduce((sum, p) => sum + decimalToCents(p.amountPaid), 0);
+  const refundedCents = settled.reduce((sum, p) => sum + decimalToCents(p.amountRefunded), 0);
+  const remainingCents = decimalToCents(booking.total) - (paidCents - refundedCents);
+  if (remainingCents <= 0) throw new Error('This booking is already paid in full.');
+  if (amountCents > remainingCents) {
+    throw new Error('The received amount exceeds the remaining balance.');
+  }
+
+  // One receipt row per recording (`amount` keeps "amount due"
+  // semantics like initiation; `amountPaid` carries this receipt).
+  // P2002 on the key returns the concurrent winner, like initiation.
+  let receiptReference: string | null = null;
+  for (let attempt = 0; attempt < REF_ATTEMPTS; attempt += 1) {
+    const reference = mintReferenceCandidate();
+    try {
+      await db.payment.create({
+        data: {
+          reference,
+          bookingId: booking.id,
+          provider: 'offline',
+          status: 'PENDING',
+          currency: 'USD',
+          amount: centsToDecimal(decimalToCents(booking.total)),
+          amountPaid: centsToDecimal(0),
+          amountRefunded: centsToDecimal(0),
+          idempotencyKey,
+          events: {
+            create: {
+              actorRole: 'staff',
+              action: 'Offline payment recorded',
+              note:
+                `Offline ${OFFLINE_METHOD_LABELS[method]} receipt` +
+                (referenceNote ? `: ${referenceNote}` : ''),
+              isInternal: true,
+            },
+          },
+        },
+      });
+      receiptReference = reference;
+      break;
+    } catch (error) {
+      // Duck-typed P2002 (same convention as booking idempotency):
+      // a key race means another request won — return the winner.
+      const code =
+        typeof error === 'object' && error !== null
+          ? (error as { code?: unknown }).code
+          : undefined;
+      if (code === 'P2002') {
+        const winner = await db.payment.findUnique({
+          where: { idempotencyKey },
+          include: paymentInclude,
+        });
+        if (winner) return { payment: toStaffPaymentView(winner), created: false };
+        continue;
+      }
+      throw error;
+    }
+  }
+  if (!receiptReference) {
+    throw new Error('Could not record the payment. Please try again.');
+  }
+
+  const receiptNote =
+    `Offline ${OFFLINE_METHOD_LABELS[method]} receipt` +
+    (referenceNote ? `: ${referenceNote}` : '') +
+    ' — recorded by staff';
+  let paid: StaffPayment | null;
+  try {
+    paid = await transitionPayment(receiptReference, 'paid', {
+      actor: 'staff',
+      amountPaidCents: amountCents,
+      note: receiptNote,
+      internal: false,
+    });
+  } catch (error) {
+    if (error instanceof PaidOnCancelledBooking) {
+      // The booking cancelled mid-recording: void the orphan receipt so
+      // no PENDING row is left behind, then report clearly. Nothing was
+      // ever marked paid.
+      await transitionPayment(receiptReference, 'cancelled', {
+        actor: 'staff',
+        note: 'Voided: booking cancelled during offline recording.',
+        internal: true,
+      }).catch(() => undefined);
+      throw new Error(
+        'The booking was cancelled before the receipt could be applied. The pending record was voided; no money was marked paid.',
+      );
+    }
+    throw error;
+  }
+  if (!paid) throw new Error('Could not record the payment. Please try again.');
+
+  await notifyStaff({
+    type: 'admin_payment_recorded',
+    title: 'Offline payment recorded',
+    message: `Offline ${OFFLINE_METHOD_LABELS[method]} receipt ${paid.reference} for booking ${bookingReference} was marked paid.`,
+    href: `/admin/payments/${encodeURIComponent(paid.reference)}`,
+  });
+  return { payment: paid, created: true };
+}
+
+export interface RecordOfflineRefundInput {
+  paymentReference: string;
+  /** Refund amount in dollars (at most 2 decimals, above zero). */
+  amount: number;
+  method: string;
+  /** External bank/reference number (required, 255 chars or fewer). */
+  externalReference?: string;
+  /** Reason or internal note (optional, 1000 chars or fewer). */
+  note?: string;
+  /** Explicit staff confirmation that the money was actually returned. */
+  confirmReturned?: unknown;
+}
+
+/**
+ * Records an ACTUALLY COMPLETED offline refund against captured money.
+ * No transfer is initiated here — the money must already have been
+ * returned outside the website; this only records the fact, audited,
+ * by explicit staff confirmation. Partial refunds accumulate: each
+ * call adds to `amountRefunded`, and only a zero net balance makes a
+ * booking cancellable under the existing guard. Never fabricates.
+ */
+export async function recordOfflineRefund(
+  input: RecordOfflineRefundInput,
+): Promise<{ payment: StaffPayment; created: boolean }> {
+  const paymentReference =
+    typeof input.paymentReference === 'string' ? input.paymentReference.trim() : '';
+  if (!REF_PATTERN.test(paymentReference)) throw new Error('Select a valid payment.');
+  if (input.method !== 'bank_transfer' && input.method !== 'cash') {
+    throw new Error('Select a valid refund method.');
+  }
+  const method = input.method as OfflinePaymentMethod;
+  if (typeof input.amount !== 'number' || !Number.isFinite(input.amount) || input.amount <= 0) {
+    throw new Error('Enter a valid refund amount.');
+  }
+  if (Math.abs(input.amount * 100 - Math.round(input.amount * 100)) > 1e-6) {
+    throw new Error('Enter an amount with at most 2 decimals.');
+  }
+  const amountCents = Math.round(input.amount * 100);
+  const externalReference =
+    typeof input.externalReference === 'string' ? input.externalReference.trim() : '';
+  if (
+    externalReference === '' ||
+    externalReference.length > 255 ||
+    hasControlChars(externalReference)
+  ) {
+    throw new Error('Enter the external bank/reference number (255 characters or fewer).');
+  }
+  const note = typeof input.note === 'string' ? input.note.trim() : '';
+  if (note.length > 1000 || hasControlChars(note)) {
+    throw new Error('Enter a valid reason (1000 characters or fewer).');
+  }
+  if (input.confirmReturned !== true) {
+    throw new Error('Confirm that the money has actually been returned.');
+  }
+
+  const existing = await db.payment.findUnique({
+    where: { reference: paymentReference },
+    include: paymentInclude,
+  });
+  if (!existing) throw new Error('Payment not found.');
+
+  // Natural idempotency key, checked BEFORE balance math so a repeat
+  // submission of a settled refund returns instead of tripping the
+  // zero-balance guard: the same payment + amount + external reference
+  // is the same real-world refund. Two genuinely distinct refunds
+  // always differ in amount or reference.
+  const receiptNote =
+    `Offline ${OFFLINE_METHOD_LABELS[method]} refund ${externalReference}` +
+    (note ? ` — ${note}` : '') +
+    ' — return confirmed by staff';
+  const duplicate = existing.events.some(
+    (event) =>
+      (event.action === 'Payment refunded' || event.action === 'Payment partially refunded') &&
+      event.note === receiptNote,
+  );
+  if (duplicate) {
+    return { payment: toStaffPaymentView(existing), created: false };
+  }
+
+  const paidCents = decimalToCents(existing.amountPaid);
+  const refundedCents = decimalToCents(existing.amountRefunded);
+  const refundableCents = paidCents - refundedCents;
+  if (refundableCents <= 0) {
+    throw new Error('This payment has no captured money left to refund.');
+  }
+  if (amountCents > refundableCents) {
+    throw new Error('The refund amount exceeds the remaining refundable balance.');
+  }
+
+  const target: PaymentStatus =
+    refundedCents + amountCents >= paidCents ? 'refunded' : 'partially_refunded';
+  const updated = await transitionPayment(paymentReference, target, {
+    actor: 'staff',
+    amountRefundedCents: refundedCents + amountCents,
+    note: receiptNote,
+    internal: true,
+  });
+  if (!updated) throw new Error('Could not record the refund. Please try again.');
+
+  await notifyStaff({
+    type: 'admin_payment_refunded',
+    title: 'Offline refund recorded',
+    message: `Offline ${OFFLINE_METHOD_LABELS[method]} refund ${updated.reference} was recorded.`,
+    href: `/admin/payments/${encodeURIComponent(updated.reference)}`,
+  });
+  return { payment: updated, created: true };
+}
+
 export async function listCustomerPayments(userId: string): Promise<Payment[]> {
   const rows = await db.payment.findMany({
     where: { booking: { userId } },
@@ -477,10 +779,50 @@ export async function findPaymentByProviderId(
 }
 
 /**
+ * Thrown when a webhook redelivery collides on the persisted provider
+ * event identity: the money already moved, so the caller must
+ * acknowledge idempotently instead of transitioning again.
+ */
+export class DuplicateWebhookEvent extends Error {
+  readonly code = 'DUPLICATE_WEBHOOK_EVENT';
+  constructor(readonly providerEventId: string) {
+    super('Duplicate provider event: already applied.');
+    this.name = 'DuplicateWebhookEvent';
+  }
+}
+
+/**
+ * Thrown when a verified paid event targets a booking that is already
+ * cancelled. Settling would create paid-on-cancelled money, so the
+ * transition is refused and the caller must preserve the evidence
+ * (event id, references, amounts) for manual reconciliation.
+ */
+export class PaidOnCancelledBooking extends Error {
+  readonly code = 'PAID_ON_CANCELLED_BOOKING';
+  constructor(readonly paymentReference: string) {
+    super('Payment booking is already cancelled: paid settlement refused.');
+    this.name = 'PaidOnCancelledBooking';
+  }
+}
+
+/** Locking row read: current committed state, never a stale snapshot. */
+type LockedPaymentRow = { id: string; status: string; bookingId: string };
+
+/**
  * Single enforced applier for server-side payment transitions
  * (Phase 2F-B provider webhooks, audited offline workflows). NOT
  * reachable from any Phase 2F-A route: no browser input can change
  * payment status. Amounts are validated in integer cents.
+ *
+ * Concurrency contract (race safety):
+ * - the payment row is locked and re-read INSIDE the transaction;
+ *   the status predicate on the write is evaluated on locked state,
+ *   so concurrent transitions serialize instead of overwriting;
+ * - a `providerEventId` (webhooks) is claimed atomically with the
+ *   transition via its unique index: a redelivery collides (P2002)
+ *   and surfaces as DuplicateWebhookEvent — the claim row and the
+ *   money move commit together, never separately;
+ * - settling PAID on a cancelled booking is refused outright.
  */
 async function transitionPayment(
   reference: string,
@@ -494,46 +836,105 @@ async function transitionPayment(
     providerPaymentId?: string;
     failureCode?: string;
     failureMessage?: string;
+    providerEventId?: string;
   },
 ): Promise<StaffPayment | null> {
   const existing = await db.payment.findUnique({ where: { reference } });
   if (!existing) return null;
-  const current = FROM_DB_STATUS[existing.status];
-  if (!canTransitionPayment(current, to)) {
+  const preview = FROM_DB_STATUS[existing.status];
+  if (!canTransitionPayment(preview, to)) {
     throw new Error('This payment change is not allowed.');
   }
-  const amountPaidCents = options.amountPaidCents ?? decimalToCents(existing.amountPaid);
-  const amountRefundedCents = options.amountRefundedCents ?? decimalToCents(existing.amountRefunded);
-  if (amountPaidCents < 0 || amountRefundedCents < 0 || amountRefundedCents > amountPaidCents) {
-    throw new Error('Invalid payment amounts.');
-  }
   const now = new Date();
-  const row = await db.$transaction(async (tx) => {
-    await tx.payment.update({
-      where: { id: existing.id },
-      data: {
-        status: TO_DB_STATUS[to],
-        amountPaid: centsToDecimal(amountPaidCents),
-        amountRefunded: centsToDecimal(amountRefundedCents),
-        ...(options.providerPaymentId ? { providerPaymentId: options.providerPaymentId } : {}),
-        ...(options.failureCode ? { failureCode: options.failureCode.slice(0, 64) } : {}),
-        ...(options.failureMessage ? { failureMessage: options.failureMessage.slice(0, 255) } : {}),
-        ...(to === 'paid' ? { paidAt: now } : {}),
-        ...(to === 'failed' ? { failedAt: now } : {}),
-        ...(to === 'cancelled' ? { cancelledAt: now } : {}),
-        ...(to === 'refunded' || to === 'partially_refunded' ? { refundedAt: now } : {}),
-        events: {
-          create: {
-            actorRole: options.actor,
-            action: paymentTransitionAction(current, to),
-            note: options.note?.slice(0, 1000) || null,
-            isInternal: options.internal ?? true,
-          },
+  let row;
+  try {
+    row = await db.$transaction(async (tx) => {
+      // Lock the payment row and re-validate on locked (current)
+      // state: a concurrent transition that committed after the
+      // pre-read above cannot slip through.
+      const locked = await tx.$queryRaw<LockedPaymentRow[]>`
+        SELECT id, status, bookingId FROM payments WHERE reference = ${reference} FOR UPDATE`;
+      const currentRow = locked[0];
+      if (!currentRow) {
+        throw new Error('Payment not found.');
+      }
+      const current = FROM_DB_STATUS[currentRow.status as DbStatus];
+      if (!canTransitionPayment(current, to)) {
+        throw new Error('This payment change is not allowed.');
+      }
+      // Paid settlement on a cancelled booking is refused: lock the
+      // booking row too (same booking→payment lock order as the
+      // cancellation path, so the two can never deadlock) and check
+      // its current committed status.
+      if (to === 'paid') {
+        const lockedBooking = await tx.$queryRaw<{ status: string }[]>`
+          SELECT status FROM bookings WHERE id = ${currentRow.bookingId} FOR UPDATE`;
+        if (lockedBooking[0] && lockedBooking[0].status === 'CANCELLED') {
+          throw new PaidOnCancelledBooking(reference);
+        }
+      }
+      const amountPaidCents = options.amountPaidCents ?? decimalToCents(existing.amountPaid);
+      const amountRefundedCents = options.amountRefundedCents ?? decimalToCents(existing.amountRefunded);
+      if (amountPaidCents < 0 || amountRefundedCents < 0 || amountRefundedCents > amountPaidCents) {
+        throw new Error('Invalid payment amounts.');
+      }
+      // Conditional write on the locked status: even if locking were
+      // ever bypassed, a concurrently moved row matches zero rows
+      // instead of being overwritten. The audit event is a separate
+      // create in the same transaction so the money move and its
+      // evidence commit atomically — including the unique
+      // providerEventId claim that absorbs redeliveries.
+      const claimed = await tx.payment.updateMany({
+        where: { id: currentRow.id, status: currentRow.status as DbStatus },
+        data: {
+          status: TO_DB_STATUS[to],
+          amountPaid: centsToDecimal(amountPaidCents),
+          amountRefunded: centsToDecimal(amountRefundedCents),
+          ...(options.providerPaymentId ? { providerPaymentId: options.providerPaymentId } : {}),
+          ...(options.failureCode ? { failureCode: options.failureCode.slice(0, 64) } : {}),
+          ...(options.failureMessage ? { failureMessage: options.failureMessage.slice(0, 255) } : {}),
+          ...(to === 'paid' ? { paidAt: now } : {}),
+          ...(to === 'failed' ? { failedAt: now } : {}),
+          ...(to === 'cancelled' ? { cancelledAt: now } : {}),
+          ...(to === 'refunded' || to === 'partially_refunded' ? { refundedAt: now } : {}),
         },
-      },
+      });
+      if (claimed.count === 0) {
+        throw new Error('Payment changed concurrently; retry the webhook.');
+      }
+      // The audit event doubles as the idempotency claim: the unique
+      // providerEventId commits atomically with the money move, so a
+      // redelivered event collides (P2002 → DuplicateWebhookEvent)
+      // instead of double-applying. Parameterized raw SQL is
+      // deliberate — fully bound values, no string interpolation.
+      await tx.$executeRaw`
+        INSERT INTO payment_events
+          (id, paymentId, actorRole, action, note, isInternal, providerEventId)
+        VALUES (
+          ${randomUUID()},
+          ${currentRow.id},
+          ${options.actor},
+          ${paymentTransitionAction(current, to)},
+          ${options.note?.slice(0, 1000) || null},
+          ${options.internal ?? true},
+          ${options.providerEventId ?? null}
+        )`;
+      return tx.payment.findUnique({ where: { id: currentRow.id }, include: paymentInclude });
     });
-    return tx.payment.findUnique({ where: { id: existing.id }, include: paymentInclude });
-  });
+  } catch (error) {
+    // P2002 inside this transaction can only come from the unique
+    // providerEventId claim (the payment row itself is locked): the
+    // event already applied, so surface an idempotent duplicate.
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      (error as { code?: unknown }).code === 'P2002' &&
+      options.providerEventId
+    ) {
+      throw new DuplicateWebhookEvent(options.providerEventId);
+    }
+    throw error;
+  }
   if (!row) return null;
   // Customer email on meaningful money outcomes only (paid / failed /
   // refunded / partially refunded). Processing/cancelled/pending are

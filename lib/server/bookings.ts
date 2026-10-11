@@ -6,7 +6,7 @@
 import 'server-only';
 
 import { randomInt } from 'node:crypto';
-import { Prisma, BookingStatus as DbStatus } from '@prisma/client';
+import { Prisma, BookingStatus as DbStatus, PaymentStatus as DbPaymentStatus } from '@prisma/client';
 
 import { db } from './db';
 import { readJsonText, writeJsonText } from '../json-text';
@@ -79,10 +79,14 @@ function isRecordConflict(error: unknown): boolean {
 /**
  * Financial safeguard shared by customer and staff cancellation. MUST
  * run inside the booking-cancel transaction (same `tx` handle):
+ * - payment rows are locked and re-read (FOR UPDATE: current committed
+ *   state, never a stale snapshot) — same booking→payments lock order
+ *   as the settlement path, so the two can never deadlock;
  * - captured money (paid − refunded > 0) → throws, rolling the whole
  *   cancellation back so status and payment history stay untouched;
- * - pending/processing attempts only → voids them with audit events,
- *   so no later webhook can settle money on a cancelled booking;
+ * - pending/processing attempts only → voids them with conditional
+ *   writes (a settled row never matches, so a void can NEVER
+ *   overwrite PAID) plus one audit event each;
  * - otherwise (unpaid, failed attempts, fully refunded) → no-op.
  */
 async function assertCancellableMoney(
@@ -90,15 +94,14 @@ async function assertCancellableMoney(
   bookingId: string,
   actorRole: 'customer' | 'staff',
 ): Promise<void> {
-  const rows = await tx.payment.findMany({
-    where: { bookingId },
-    select: { id: true, status: true, amountPaid: true, amountRefunded: true },
-  });
+  const rows = await tx.$queryRaw<
+    Array<{ id: string; status: string; amountPaid: unknown; amountRefunded: unknown }>
+  >`SELECT id, status, amountPaid, amountRefunded FROM payments WHERE bookingId = ${bookingId} FOR UPDATE`;
   const exposure = bookingCancelExposure(
     rows.map((row) => ({
-      status: FROM_DB_PAYMENT_STATUS[row.status],
-      amountPaidCents: decimalToCents(row.amountPaid),
-      amountRefundedCents: decimalToCents(row.amountRefunded),
+      status: FROM_DB_PAYMENT_STATUS[row.status as DbPaymentStatus],
+      amountPaidCents: decimalToCents(row.amountPaid as Prisma.Decimal | number | string),
+      amountRefundedCents: decimalToCents(row.amountRefunded as Prisma.Decimal | number | string),
     })),
   );
   if (exposure === 'captured') {
@@ -108,18 +111,21 @@ async function assertCancellableMoney(
     const now = new Date();
     for (const row of rows) {
       if (row.status !== 'PENDING' && row.status !== 'PROCESSING') continue;
-      await tx.payment.update({
-        where: { id: row.id },
+      const voided = await tx.payment.updateMany({
+        where: { id: row.id, status: row.status as DbPaymentStatus },
+        data: { status: 'CANCELLED', cancelledAt: now },
+      });
+      if (voided.count === 0) {
+        // Unreachable while the rows above stay locked, but a void
+        // must never silently skip: fail retryable instead.
+        throw new Error('Payment changed concurrently; retry the cancellation.');
+      }
+      await tx.paymentEvent.create({
         data: {
-          status: 'CANCELLED',
-          cancelledAt: now,
-          events: {
-            create: {
-              actorRole,
-              action: 'Payment attempt cancelled with booking',
-              isInternal: true,
-            },
-          },
+          paymentId: row.id,
+          actorRole,
+          action: 'Payment attempt cancelled with booking',
+          isInternal: true,
         },
       });
     }

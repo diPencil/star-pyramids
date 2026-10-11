@@ -6,7 +6,12 @@ import 'server-only'
 
 import { getProviderAdapterOrThrow } from '@/lib/payments/providers/index'
 import { isSupportedProvider } from '@/lib/payments/providers'
-import { findPaymentByProviderId, transitionPayment } from '@/lib/server/payments'
+import {
+  DuplicateWebhookEvent,
+  findPaymentByProviderId,
+  PaidOnCancelledBooking,
+  transitionPayment,
+} from '@/lib/server/payments'
 import {
   checkWebhookMoney,
   mapProviderOutcomeToStatus,
@@ -370,6 +375,8 @@ export async function handleProviderWebhook(
   // 11. Apply the outcome via transitionPayment (atomic, validated).
   // Out-of-order events fail its transition guard and surface as a
   // retryable error so the provider redelivers after earlier events.
+  // The verified event id travels with the transition so the unique
+  // claim absorbs concurrent redeliveries inside the same commit.
   let paymentReference: string | undefined
   let outcomeType: string | undefined
   try {
@@ -380,6 +387,7 @@ export async function handleProviderWebhook(
       providerPaymentId,
       failureCode: outcome.type === 'failed' ? outcome.failureCode : undefined,
       failureMessage: outcome.type === 'failed' ? outcome.failureMessage : undefined,
+      providerEventId: verified.eventId,
     })
 
     if (payment) {
@@ -387,6 +395,50 @@ export async function handleProviderWebhook(
       outcomeType = targetStatus
     }
   } catch (error) {
+    // Concurrent redelivery already committed this exact event: resolve
+    // the settled record fresh and acknowledge idempotently — no second
+    // transition, no second audit row.
+    if (error instanceof DuplicateWebhookEvent) {
+      const settled = await findPaymentByProviderId(providerPaymentId)
+      await logPaymentWebhook({
+        provider: normalizedKey,
+        eventId: verified.eventId,
+        eventType: verified.eventType,
+        success: true,
+        paymentReference: settled?.reference ?? internal.reference,
+        durationMs: Date.now() - startTime,
+      })
+      return {
+        success: true,
+        paymentReference: settled?.reference ?? internal.reference,
+        providerEventId: verified.eventId,
+        outcome: targetStatus,
+      }
+    }
+    // Verified money for a cancelled booking: settling would corrupt
+    // the ledger, and retrying can never succeed. Acknowledge (no
+    // retry storm) with full evidence preserved for reconciliation.
+    if (error instanceof PaidOnCancelledBooking) {
+      await logPaymentWebhook({
+        provider: normalizedKey,
+        eventId: verified.eventId,
+        eventType: verified.eventType,
+        success: false,
+        paymentReference: internal.reference,
+        error:
+          `Paid settlement refused: booking is cancelled ` +
+          `(payment ${internal.reference}, provider ${providerPaymentId}, ` +
+          `${incomingPaidCents ?? internal.amountPaidCents} minor units). ` +
+          `Reconcile manually; do not auto-refund from this path.`,
+        durationMs: Date.now() - startTime,
+      })
+      return {
+        success: true,
+        paymentReference: internal.reference,
+        providerEventId: verified.eventId,
+        outcome: 'requires_review',
+      }
+    }
     const message = error instanceof Error ? error.message : 'Unknown transition error'
     await logPaymentWebhook({
       provider: normalizedKey,

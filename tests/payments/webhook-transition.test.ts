@@ -11,13 +11,32 @@ vi.mock('@/lib/server/logging', () => ({ logPaymentWebhook: vi.fn() }))
 vi.mock('@/lib/server/payments', () => ({
   transitionPayment: vi.fn(),
   findPaymentByProviderId: vi.fn(),
+  DuplicateWebhookEvent: class DuplicateWebhookEvent extends Error {
+    code = 'DUPLICATE_WEBHOOK_EVENT'
+    constructor(public providerEventId: string) {
+      super('Duplicate provider event: already applied.')
+      this.name = 'DuplicateWebhookEvent'
+    }
+  },
+  PaidOnCancelledBooking: class PaidOnCancelledBooking extends Error {
+    code = 'PAID_ON_CANCELLED_BOOKING'
+    constructor(public paymentReference: string) {
+      super('Payment booking is already cancelled: paid settlement refused.')
+      this.name = 'PaidOnCancelledBooking'
+    }
+  },
 }))
 vi.mock('@/lib/payments/providers/index', () => ({
   getProviderAdapterOrThrow: vi.fn(),
 }))
 
 import { handleProviderWebhook, WebhookError } from '@/lib/server/webhooks/handler'
-import { transitionPayment, findPaymentByProviderId } from '@/lib/server/payments'
+import {
+  DuplicateWebhookEvent,
+  PaidOnCancelledBooking,
+  transitionPayment,
+  findPaymentByProviderId,
+} from '@/lib/server/payments'
 import { getProviderAdapterOrThrow } from '@/lib/payments/providers/index'
 
 const nowSec = () => Math.floor(Date.now() / 1000)
@@ -197,6 +216,37 @@ describe('handleProviderWebhook transitions', () => {
       name: 'WebhookError',
       code: 'PROCESSING_FAILED',
       statusCode: 500,
+    })
+  })
+
+  it('acknowledges a raced duplicate via the persisted claim without re-mutating', async () => {
+    useAdapter({ type: 'paid', amountPaidCents: 10000, currency: 'USD', providerPaymentId: 'pi_1' })
+    vi.mocked(findPaymentByProviderId).mockResolvedValue({ ...PENDING_PAYMENT })
+    vi.mocked(transitionPayment).mockRejectedValue(new DuplicateWebhookEvent('evt-123'))
+
+    const result = await handleProviderWebhook('stripe', '{}', new Headers())
+
+    expect(result).toMatchObject({
+      success: true,
+      paymentReference: 'SP-PAY-ABC123',
+      providerEventId: 'evt_123',
+      outcome: 'paid',
+    })
+  })
+
+  it('preserves evidence and refuses paid settlement on a cancelled booking', async () => {
+    useAdapter({ type: 'paid', amountPaidCents: 10000, currency: 'USD', providerPaymentId: 'pi_1' })
+    vi.mocked(findPaymentByProviderId).mockResolvedValue({ ...PENDING_PAYMENT })
+    vi.mocked(transitionPayment).mockRejectedValue(new PaidOnCancelledBooking('SP-PAY-ABC123'))
+
+    const result = await handleProviderWebhook('stripe', '{}', new Headers())
+
+    // Acknowledged (no retry storm) but flagged for manual reconciliation.
+    expect(result).toMatchObject({
+      success: true,
+      paymentReference: 'SP-PAY-ABC123',
+      providerEventId: 'evt_123',
+      outcome: 'requires_review',
     })
   })
 

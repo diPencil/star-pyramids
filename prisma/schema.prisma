@@ -678,8 +678,15 @@ model PaymentEvent {
   isInternal Boolean  @default(false)
   createdAt  DateTime @default(now())
   payment    Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  /// Webhook deduplication identity (Phase 2F-B race safety). Set only
+  /// on provider-driven transitions; NULL everywhere else. MySQL unique
+  /// indexes admit multiple NULLs, so existing rows (all NULL) and
+  /// offline/manual transitions never conflict — only a redelivered
+  /// provider event collides, which is exactly the duplicate to absorb.
+  providerEventId String? @db.VarChar(128)
 
   @@index([paymentId, createdAt])
+  @@unique([providerEventId])
   @@map("payment_events")
 }
 

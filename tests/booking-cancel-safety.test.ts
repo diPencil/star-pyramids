@@ -68,7 +68,23 @@ const helpers = vi.hoisted(() => {
     },
   }
 
-  const paymentApi = {
+  const paymentApi: Record<string, any> = {
+    updateMany: async (args: { where: { id?: string; status?: string | { in: string[] } }; data: any }) => {
+      const rows = store.payments.filter((p) => {
+        if (args.where.id !== undefined && p.id !== args.where.id) return false
+        const predicate = args.where.status
+        if (typeof predicate === 'string') return p.status === predicate
+        if (predicate && typeof predicate === 'object' && 'in' in predicate) {
+          return (predicate as { in: string[] }).in.includes(p.status)
+        }
+        return true
+      })
+      for (const row of rows) {
+        if (args.data.status) row.status = args.data.status
+        if (args.data.cancelledAt) row.cancelledAt = args.data.cancelledAt
+      }
+      return { count: rows.length }
+    },
     findMany: async (args: { where: { bookingId?: string; status?: { in: string[] } }; select?: any }) => {
       let rows = store.payments.filter((p) => (args.where.bookingId ? p.bookingId === args.where.bookingId : true))
       if (args.where.status?.in) rows = rows.filter((p) => args.where.status.in.includes(p.status))
@@ -89,9 +105,34 @@ const helpers = vi.hoisted(() => {
     },
   }
 
-  const fakeDb = {
+  const fakeDb: Record<string, any> = {
     booking: bookingApi,
     payment: paymentApi,
+    paymentEvent: {
+      create: async (args: { data: any }) => {
+        const row = store.payments.find((p) => p.id === args.data.paymentId)
+        const event = { ...args.data, id: `ev-${Math.random().toString(36).slice(2)}`, createdAt: new Date() }
+        if (row) {
+          row.events = row.events ?? []
+          row.events.push(event)
+        }
+        return event
+      },
+    },
+    // Locked-read stand-in: returns current committed rows (the lock
+    // itself is a DB concern; the mock store is single-threaded).
+    $queryRaw: async (strings: TemplateStringsArray, ...values: any[]) => {
+      const sql = strings.join('?')
+      if (sql.includes('FROM payments')) {
+        const bookingId = values[0]
+        return structuredClone(
+          store.payments
+            .filter((p) => p.bookingId === bookingId)
+            .map((p) => ({ id: p.id, status: p.status, amountPaid: p.amountPaid, amountRefunded: p.amountRefunded })),
+        )
+      }
+      return []
+    },
     $transaction: async (fn: (tx: unknown) => Promise<unknown>) => {
       const snap = snapshot()
       try {
