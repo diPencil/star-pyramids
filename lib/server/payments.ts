@@ -432,6 +432,50 @@ export async function getStaffPayment(reference: string): Promise<StaffPayment |
   return toStaffPaymentView(row);
 }
 
+export type PaymentMoneySnapshot = {
+  reference: string;
+  status: PaymentStatus;
+  amountCents: number;
+  amountPaidCents: number;
+  amountRefundedCents: number;
+  currency: string;
+};
+
+/**
+ * Resolves the internal payment record for a verified provider
+ * identifier. Provider webhooks reference OUR record by THEIR id
+ * (`providerPaymentId`, unique) — never by our `reference` — so the
+ * handler must resolve through this lookup before transitioning.
+ * Returns null when no record carries the identifier (unknown payment).
+ */
+export async function findPaymentByProviderId(
+  providerPaymentId: string,
+): Promise<PaymentMoneySnapshot | null> {
+  if (typeof providerPaymentId !== 'string') return null;
+  const trimmed = providerPaymentId.trim();
+  if (!trimmed || trimmed.length > 128) return null;
+  const row = await db.payment.findUnique({
+    where: { providerPaymentId: trimmed },
+    select: {
+      reference: true,
+      status: true,
+      amount: true,
+      amountPaid: true,
+      amountRefunded: true,
+      currency: true,
+    },
+  });
+  if (!row) return null;
+  return {
+    reference: row.reference,
+    status: FROM_DB_STATUS[row.status],
+    amountCents: decimalToCents(row.amount),
+    amountPaidCents: decimalToCents(row.amountPaid),
+    amountRefundedCents: decimalToCents(row.amountRefunded),
+    currency: row.currency,
+  };
+}
+
 /**
  * Single enforced applier for server-side payment transitions
  * (Phase 2F-B provider webhooks, audited offline workflows). NOT

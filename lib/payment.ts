@@ -109,6 +109,116 @@ export function canTransitionPayment(from: PaymentStatus, to: PaymentStatus): bo
   return PAYMENT_TRANSITIONS[from]?.includes(to) ?? false
 }
 
+/**
+ * Maps a verified provider callback outcome to an internal payment
+ * status. Only explicitly recognized outcomes produce a status:
+ * anything else is 'unknown' and MUST be acknowledged without
+ * mutation — never interpreted as cancellation.
+ *
+ * Refunds split on the settled amount: a refund covering the full
+ * payment amount is 'refunded', anything less is
+ * 'partially_refunded'. A missing refund amount defaults to the full
+ * payment amount.
+ */
+export function mapProviderOutcomeToStatus(
+  outcomeType: string,
+  amountRefundedCents: number | undefined,
+  paymentAmountCents: number,
+): PaymentStatus | 'ignored' | 'unknown' {
+  if (outcomeType === 'ignored') return 'ignored'
+  if (outcomeType === 'paid') return 'paid'
+  if (outcomeType === 'failed') return 'failed'
+  if (outcomeType === 'refunded') {
+    const refunded = amountRefundedCents ?? paymentAmountCents
+    return refunded >= paymentAmountCents && paymentAmountCents > 0 ? 'refunded' : 'partially_refunded'
+  }
+  return 'unknown'
+}
+
+/** Integer minor-unit guard: finite integers at or above zero only. */
+function isValidMinorUnits(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0
+}
+
+export type WebhookMoneyCheck = { ok: true } | { ok: false; reason: string }
+
+/**
+ * Fail-closed money validation for money-moving webhook outcomes.
+ * Every comparison runs in integer minor units against the
+ * authoritative STORED payment — never client-displayed totals:
+ * - 'paid' requires the exact settled amount when `requireExactAmount`
+ *   is on (under/over-payments are rejected, never marked PAID);
+ * - 'refunded' requires a present, well-formed refund amount when
+ *   `requireExactAmount` is on — any non-negative value is accepted
+ *   here so legitimate partial refunds pass (the transition guard
+ *   separately enforces refunded ≤ paid);
+ * - 'failed' moves no money and carries no amount requirement;
+ * - when `requireCurrency` is on, 'paid'/'refunded' outcomes must
+ *   carry the stored currency (case-insensitive); 'failed' is exempt.
+ * Reasons are safe metadata only (no payloads, no secrets).
+ */
+export function checkWebhookMoney(input: {
+  outcomeType: string
+  amountPaidCents?: unknown
+  amountRefundedCents?: unknown
+  outcomeCurrency?: unknown
+  storedAmountCents: number
+  storedCurrency: string
+  requireExactAmount: boolean
+  requireCurrency: boolean
+}): WebhookMoneyCheck {
+  const {
+    outcomeType,
+    amountPaidCents,
+    amountRefundedCents,
+    outcomeCurrency,
+    storedAmountCents,
+    storedCurrency,
+    requireExactAmount,
+    requireCurrency,
+  } = input
+
+  const checkCurrency = (): WebhookMoneyCheck => {
+    if (!requireCurrency) return { ok: true }
+    if (typeof outcomeCurrency !== 'string' || outcomeCurrency.trim() === '') {
+      return { ok: false, reason: 'currency missing' }
+    }
+    if (outcomeCurrency.trim().toUpperCase() !== storedCurrency.trim().toUpperCase()) {
+      return { ok: false, reason: 'currency mismatch' }
+    }
+    return { ok: true }
+  }
+
+  if (outcomeType === 'paid') {
+    if (requireExactAmount) {
+      if (amountPaidCents === undefined || amountPaidCents === null) {
+        return { ok: false, reason: 'paid amount missing' }
+      }
+      if (!isValidMinorUnits(amountPaidCents)) {
+        return { ok: false, reason: 'paid amount malformed' }
+      }
+      if (amountPaidCents !== storedAmountCents) {
+        return { ok: false, reason: 'paid amount mismatch' }
+      }
+    }
+    return checkCurrency()
+  }
+
+  if (outcomeType === 'refunded') {
+    if (requireExactAmount) {
+      if (amountRefundedCents === undefined || amountRefundedCents === null) {
+        return { ok: false, reason: 'refund amount missing' }
+      }
+      if (!isValidMinorUnits(amountRefundedCents)) {
+        return { ok: false, reason: 'refund amount malformed' }
+      }
+    }
+    return checkCurrency()
+  }
+
+  return { ok: true }
+}
+
 /** Active attempt states: at most one per booking (idempotent initiation). */
 export const ACTIVE_PAYMENT_STATUSES: readonly PaymentStatus[] = ['pending', 'processing']
 
@@ -177,9 +287,9 @@ export type PaymentHandoff = {
 
 /** Result of an inbound provider callback after signature verification. */
 export type ProviderCallbackOutcome =
-  | { type: 'paid'; amountPaidCents: number; providerPaymentId: string; metadata?: Record<string, string> }
-  | { type: 'failed'; failureCode: string; failureMessage: string; providerPaymentId: string }
-  | { type: 'refunded'; amountRefundedCents: number; providerPaymentId: string }
+  | { type: 'paid'; amountPaidCents: number; currency?: string; providerPaymentId: string; metadata?: Record<string, string> }
+  | { type: 'failed'; failureCode: string; failureMessage: string; providerPaymentId: string; currency?: string }
+  | { type: 'refunded'; amountRefundedCents: number; currency?: string; providerPaymentId: string }
   | { type: 'ignored'; reason: string }
 
 export interface PaymentProviderAdapter {
