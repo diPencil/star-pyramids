@@ -5,6 +5,7 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Avatar, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { countries, defaultCountry } from '@/data/countries'
+import { saveAdminProfile } from '@/lib/admin-store'
 import { ImageField } from '@/components/admin/image-field'
 import { CountrySelect } from '@/components/country-select'
 import { InternationalPhoneInput } from '@/components/international-phone-input'
@@ -96,6 +97,9 @@ export default function ProfilePage() {
           email: email.trim(),
           countryCode,
           phone,
+          // Persist the avatar URL (link or uploaded /media URL) with the
+          // profile. Legacy data URLs keep the dedicated avatar endpoint.
+          ...(!avatar.startsWith('data:') ? { avatar } : {}),
           ...(password ? { password, confirmPassword } : {}),
         }),
       })
@@ -120,6 +124,10 @@ export default function ProfilePage() {
       setRoles(updated.roles ?? [])
       setPassword('')
       setConfirmPassword('')
+      // The server avatar is the source of truth: reflect it in the
+      // preview and mirror it to the shell (topbar + sidebar) at once.
+      setAvatar(updated.avatar ?? '')
+      saveAdminProfile({ avatar: updated.avatar ?? '' })
 
       // Save avatar separately if it's a data URL (uploaded file)
       if (avatar && avatar.startsWith('data:')) {
@@ -129,9 +137,12 @@ export default function ProfilePage() {
           credentials: 'same-origin',
           body: JSON.stringify({ avatar, isAdmin: true }),
         })
-        const avatarData = await avatarResponse.json().catch(() => ({}))
+        const avatarData = await avatarResponse.json().catch(() => ({})) as { user?: AuthenticatedUser; error?: string }
         if (!avatarResponse.ok) {
           console.error('Avatar upload failed:', avatarData.error)
+        } else if (avatarData.user) {
+          setAvatar(avatarData.user.avatar ?? '')
+          saveAdminProfile({ avatar: avatarData.user.avatar ?? '' })
         }
       }
 

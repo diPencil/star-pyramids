@@ -12,7 +12,6 @@ import {
   Compass,
   CreditCard,
   ExternalLink,
-  Globe2,
   LayoutDashboard,
   LogOut,
   Mail,
@@ -38,6 +37,7 @@ import { useAdminNotifications, type AdminNotification } from '@/lib/admin-notif
 import { NotificationPanel as SharedNotificationPanel } from '@/components/notification-panel'
 import { Avatar } from './admin-ui'
 import { AdminBackButton } from './admin-back'
+import { LanguageToggle } from '@/components/language-selector'
 import { readAdminProfile } from '@/lib/admin-store'
 
 function timeAgo(iso: string, ar: boolean): string {
@@ -221,6 +221,16 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   }
 
   const ar = locale === 'ar'
+  // Identity display: real staff name inline with the username, never the
+  // raw email prefix. Avatar prefers the server account photo and falls
+  // back to the local admin profile mirror only until it is saved.
+  const emailPrefix = user?.email?.split('@')[0] ?? 'Admin'
+  const fullName = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim()
+  const userName = user?.username?.trim() || ''
+  const displayName = fullName || userName || emailPrefix
+  const chipSub = userName ? `@${userName}` : ''
+  const sideSub = userName ? `@${userName}` : (user?.email ?? '')
+  const shellAvatar = user?.avatar || adminAvatar || undefined
   // Until the session (roles + permissions) resolves, no real navigation
   // item is rendered — only neutral placeholders. This guarantees an
   // unauthorized link is never visible, even for a frame.
@@ -295,12 +305,12 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
 
-        <div className="sp-side-user">
-          <Avatar name={adminAvatar ? 'Admin' : (user?.email?.split('@')[0] ?? 'Admin')} size={38} online src={adminAvatar || undefined} />
+        <div className="sp-side-user" title={user?.email ?? undefined}>
+          <Avatar name={displayName} size={38} online src={shellAvatar} />
           {!collapsed && user && (
             <div>
-              <strong>{user.email.split('@')[0]}</strong>
-              <small>{user.email}</small>
+              <strong>{displayName}</strong>
+              <small>{sideSub}</small>
             </div>
           )}
         </div>
@@ -343,11 +353,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </div>}
           </div>
           <div className="sp-top-actions">
-            <button className="language" onClick={() => setLanguageOpen(true)} aria-label="Open language and currency">
-              <Globe2 size={18} />
-              <span className="language-label-full">{(locale === 'ar' ? 'AR' : 'EN') + ' - ' + currency}</span>
-              <span className="language-label-compact">{locale === 'ar' ? 'AR' : 'EN'}</span>
-            </button>
+            <LanguageToggle label={(locale === 'ar' ? 'AR' : 'EN') + ' - ' + currency} onOpen={() => setLanguageOpen(true)} />
             <Link
               className="sp-icon-btn"
               href="/"
@@ -379,10 +385,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 aria-label={ar ? 'قائمة الحساب' : 'Account menu'}
                 onClick={() => { setUserMenu((open) => !open); setNotificationsOpen(false) }}
               >
-                <Avatar name={adminAvatar ? 'Admin' : (user?.email?.split('@')[0] ?? 'Admin')} size={34} src={adminAvatar || undefined} />
+                <Avatar name={displayName} size={34} src={shellAvatar} />
                 <span>
-                  <strong>{user?.email?.split('@')[0] ?? 'Admin'}</strong>
-                  <small>{user?.roles?.join(', ') ?? ''}</small>
+                  <strong>{displayName}</strong>
+                  <small>{chipSub}</small>
                 </span>
                 <ChevronDown size={15} />
               </button>

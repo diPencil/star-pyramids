@@ -26,7 +26,7 @@
 .sp-nav-link em { margin-inline-start: auto; min-width: 22px; height: 22px; padding: 0 6px; display: grid; place-items: center; border-radius: 999px; background: rgba(255,255,255,.22); font-size: 11px; font-style: normal; font-weight: 800; }
 .sp-nav-link.active em { background: rgba(0,0,0,.2); }
 .sp-side-user { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 14px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.14); min-width: 0; }
-.sp-side-user div { min-width: 0; display: grid; }
+.sp-side-user div { min-width: 0; display: grid; text-align: start; }
 .sp-side-user strong { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sp-side-user small { color: #bcd0f7; font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sp-admin.is-collapsed .sp-side-user { justify-content: center; }
@@ -54,7 +54,7 @@
 .sp-user-menu b { font-size: 13px; }
 .sp-user-menu small { color: var(--sp-muted); font-size: 11px; }
 .sp-admin.is-rtl .sp-user-chip { padding: 5px 5px 5px 12px; }
-.sp-user-chip span { display: grid; line-height: 1.25; }
+.sp-user-chip span { display: grid; line-height: 1.25; text-align: start; }
 .sp-user-chip strong { font-size: 13px; }
 .sp-user-chip small { color: var(--sp-muted); font-size: 11px; }
 .sp-content { padding: 26px; display: grid; gap: 20px; align-content: start; max-width: 1460px; width: 100%; margin-inline: auto; }
