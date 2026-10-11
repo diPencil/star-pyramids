@@ -38,6 +38,7 @@ import { NotificationPanel as SharedNotificationPanel } from '@/components/notif
 import { Avatar } from './admin-ui'
 import { AdminBackButton } from './admin-back'
 import { LanguageToggle } from '@/components/language-selector'
+import { ENABLED_LOCALES, LOCALE_LABELS, LOCALE_REGIONS, LOCALE_SHORT_LABELS, sanitizeLocale, type EnabledLocale } from '@/lib/locale-config'
 import { readAdminProfile } from '@/lib/admin-store'
 
 function timeAgo(iso: string, ar: boolean): string {
@@ -153,6 +154,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [locale, setLocale] = useState<'en' | 'ar'>('en')
+  // Storefront locale shared with the website (EN/ES/IT). The admin UI
+  // itself renders English (Arabic only for legacy stored sessions).
+  const [siteLocale, setSiteLocale] = useState<EnabledLocale>('en')
   const [currency, setCurrency] = useState<'USD' | 'EUR' | 'EGP'>('USD')
   const [languageOpen, setLanguageOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -174,6 +178,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     if (c === '1') setCollapsed(true)
     const l = window.localStorage.getItem('star-locale')
     if (l === 'ar' || l === 'en') setLocale(l)
+    setSiteLocale(sanitizeLocale(l))
     const cur = window.localStorage.getItem('star-currency')
     if (cur === 'USD' || cur === 'EUR' || cur === 'EGP') setCurrency(cur)
     return () => {
@@ -187,9 +192,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     window.dispatchEvent(new Event('sp-admin-locale'))
   }, [locale])
 
-  const changeLocale = useCallback((next: 'en' | 'ar') => {
+  const changeLocale = useCallback((next: EnabledLocale) => {
     window.localStorage.setItem('star-locale', next)
-    setLocale(next)
+    setSiteLocale(next)
+    setLocale('en')
   }, [])
 
   const changeCurrency = useCallback((next: 'USD' | 'EUR' | 'EGP') => {
@@ -353,7 +359,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </div>}
           </div>
           <div className="sp-top-actions">
-            <LanguageToggle label={(locale === 'ar' ? 'AR' : 'EN') + ' - ' + currency} onOpen={() => setLanguageOpen(true)} />
+            <LanguageToggle label={LOCALE_SHORT_LABELS[siteLocale] + ' - ' + currency} onOpen={() => setLanguageOpen(true)} />
             <Link
               className="sp-icon-btn"
               href="/"
@@ -405,7 +411,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       </div>
       {languageOpen && (
         <AdminLanguageModal
-          locale={locale}
+          activeLocale={siteLocale}
+          ar={ar}
           currency={currency}
           onClose={() => setLanguageOpen(false)}
           onSelect={changeLocale}
@@ -422,21 +429,25 @@ const adminCopy = {
 } as const
 
 function AdminLanguageModal({
-  locale,
+  activeLocale,
+  ar,
   currency,
   onClose,
   onSelect,
   onCurrency,
 }: {
-  locale: 'en' | 'ar'
+  activeLocale: EnabledLocale
+  ar: boolean
   currency: 'USD' | 'EUR' | 'EGP'
   onClose: () => void
-  onSelect: (locale: 'en' | 'ar') => void
+  onSelect: (locale: EnabledLocale) => void
   onCurrency: (currency: 'USD' | 'EUR' | 'EGP') => void
 }) {
-  const copy = adminCopy[locale]
+  const copy = adminCopy[ar ? 'ar' : 'en']
   const currencies = [['US Dollar', '$ USD', 'USD'], ['Euro', '€ EUR', 'EUR'], ['Egyptian Pound', '£ EGP', 'EGP']] as const
-  const regions = [['United States', 'English', 'en'], ['Egypt', 'العربية', 'ar'], ['France', 'Français', null], ['Germany', 'Deutsch', null], ['Italy', 'Italiano', null], ['Portugal', 'Português', null], ['Spain', 'Español', null], ['China', '中文', null]] as const
+  // Same region list as the storefront modal: driven by the shared locale
+  // config, so both modals stay identical by construction.
+  const regions = ENABLED_LOCALES.map((value) => [LOCALE_REGIONS[value], LOCALE_LABELS[value], value] as const)
   return (
     <div className="language-backdrop" role="presentation" onMouseDown={onClose}>
       <div className="language-modal" role="dialog" aria-modal="true" aria-labelledby="language-title" onMouseDown={(event) => event.stopPropagation()}>
@@ -454,12 +465,8 @@ function AdminLanguageModal({
         </div>
         <h3>{copy.regTitle}</h3>
         <div className="language-options region-options">
-          {regions.map(([region, language, value]) => value === null ? (
-            <button key={region} type="button" disabled aria-disabled="true" title={copy.comingSoon}>
-              <span>{region}</span><strong>{language}</strong><em className="lang-soon">{copy.soon}</em>
-            </button>
-          ) : (
-            <button key={region} type="button" className={value === locale ? 'selected' : ''} onClick={() => { onSelect(value); onClose() }} aria-pressed={value === locale}>
+          {regions.map(([region, language, value]) => (
+            <button key={region} type="button" className={value === activeLocale ? 'selected' : ''} onClick={() => { onSelect(value); onClose() }} aria-pressed={value === activeLocale}>
               <span>{region}</span><strong>{language}</strong>
             </button>
           ))}
