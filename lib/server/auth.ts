@@ -6,7 +6,7 @@ import 'server-only';
 import { SetupTokenType } from '@prisma/client';
 
 import { db } from './db';
-import { getSession, touchSession } from './session';
+import { getSession } from './session';
 import { resolvePermissionKeys, toPublicUser, type PublicUser } from './users';
 
 export type { PublicUser };
@@ -99,7 +99,8 @@ export async function getCurrentUser(): Promise<PublicUser | null> {
     },
   });
   if (!row || row.status !== 'ACTIVE') return null;
-  await touchSession(session.id);
+  // Rolling renewal already happened inside getSession (DB row + cookie
+  // together); no second touch here to avoid a duplicate write per read.
   return toPublicUser(row, await resolvePermissionKeys(row.id));
 }
 

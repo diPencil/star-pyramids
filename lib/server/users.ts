@@ -7,6 +7,7 @@ import { Prisma, type UserStatus } from '@prisma/client';
 import { db } from './db';
 import { hashPassword } from '../core/password';
 import {
+  isValidAvatarUrl,
   isValidEmail,
   isValidPersonName,
   normalizeEmail,
@@ -178,6 +179,10 @@ export async function updateCustomerIdentity(
   userId: string,
   input: Pick<CustomerRegistrationInput, 'firstName' | 'lastName' | 'username' | 'countryCode' | 'phone'> & { avatar?: string },
 ): Promise<PublicUser> {
+  const avatar = (input.avatar ?? '').trim();
+  if (!isValidAvatarUrl(avatar)) {
+    throw new Error('Enter a valid avatar URL or upload an image.');
+  }
   const row = await db.user.update({
     where: { id: userId },
     data: {
@@ -186,7 +191,7 @@ export async function updateCustomerIdentity(
       username: normalizeUsername(input.username),
       countryCode: input.countryCode.trim().toUpperCase(),
       phone: normalizePhone(input.phone),
-      avatar: input.avatar?.trim() || null,
+      avatar: avatar || null,
     },
     select: publicSelect,
   });
@@ -215,6 +220,10 @@ export async function updateAdminProfile(
   input: AdminProfileInput,
 ): Promise<PublicUser> {
   const email = input.email.trim();
+  const avatar = (input.avatar ?? '').trim();
+  if (!isValidAvatarUrl(avatar)) {
+    throw new Error('Enter a valid avatar URL or upload an image.');
+  }
   const row = await db.user.update({
     where: { id: userId },
     data: {
@@ -225,7 +234,7 @@ export async function updateAdminProfile(
       emailNormalized: normalizeEmail(email),
       countryCode: input.countryCode.trim().toUpperCase(),
       phone: normalizePhone(input.phone),
-      avatar: input.avatar?.trim() || null,
+      avatar: avatar || null,
       ...(input.password
         ? { passwordHash: await hashPassword(input.password) }
         : {}),
@@ -385,7 +394,7 @@ async function ensureSuperAdminQuorum(
 
 export interface InviteStaffInput {
   email: string;
-  /** Admin-set initial password (same 6-8 policy as everywhere else). */
+  /** Admin-set initial password (same 6-64 policy as everywhere else). */
   password: string;
   firstName?: string;
   lastName?: string;

@@ -58,7 +58,7 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
-  // Enforce the same password policy: 6-8 characters inclusive.
+  // Enforce the same password policy: 6-64 characters inclusive.
   const passwordError = validatePasswordStrength(password);
   if (passwordError) {
     return NextResponse.json({ error: passwordError }, { status: 400 });

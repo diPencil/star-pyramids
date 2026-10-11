@@ -63,12 +63,29 @@ export async function getSession(): Promise<SessionRecord | null> {
     where: { tokenHash: hashToken(token) },
     select: { id: true, userId: true, expiresAt: true },
   });
+  // Revoked (missing) rows stay invalid — renewal never resurrects them.
   if (!row) return null;
   if (row.expiresAt.getTime() <= Date.now()) {
     await db.session.delete({ where: { id: row.id } }).catch(() => undefined);
     return null;
   }
-  return row;
+  // Rolling renewal: extend the DB row AND the browser cookie together
+  // on every valid read so the two can never drift apart (previously
+  // only the row moved and active users were dropped at day 30).
+  // Best-effort: a renewal failure never invalidates a valid read.
+  const renewedAt = new Date(Date.now() + SESSION_TTL_MS);
+  await db.session
+    .update({
+      where: { id: row.id },
+      data: { lastSeenAt: new Date(), expiresAt: renewedAt },
+    })
+    .catch(() => undefined);
+  try {
+    jar.set(SESSION_COOKIE_NAME, token, sessionCookieOptions(Math.floor(SESSION_TTL_MS / 1000)));
+  } catch {
+    // Read-only cookie context: the read stays valid without renewal.
+  }
+  return { ...row, expiresAt: renewedAt };
 }
 
 export async function touchSession(id: string): Promise<void> {

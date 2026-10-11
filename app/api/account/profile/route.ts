@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { NextResponse } from 'next/server';
 
 import {
+  isValidAvatarUrl,
   isValidCountryCode,
   isValidPersonName,
   isValidPhone,
@@ -54,6 +55,9 @@ export async function PATCH(request: Request) {
   }
   if (!isValidCountryCode(countryCode) || !isValidPhone(phone)) {
     return NextResponse.json({ error: 'Enter a valid country and mobile number.' }, { status: 400 });
+  }
+  if (!isValidAvatarUrl(avatar)) {
+    return NextResponse.json({ error: 'Enter a valid avatar URL or upload an image.' }, { status: 400 });
   }
 
   try {

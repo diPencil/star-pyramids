@@ -64,7 +64,7 @@ function AuthField({ label, icon, children, className = '' }: { label: string; i
 function PasswordField({ label, name, autoComplete }: { label: string; name: string; autoComplete: string }) {
   const { locale } = useLocale()
   const [show, setShow] = useState(false)
-  return <AuthField label={label} icon={<LockKeyhole size={18} />}><input required name={name} minLength={6} maxLength={8} type={show ? 'text' : 'password'} autoComplete={autoComplete} placeholder={tx(locale, { en: '6-8 characters', es: '6-8 caracteres', it: '6-8 caratteri', ar: '٦-٨ أحرف' })} /><button type="button" onClick={() => setShow((value) => !value)} aria-label={show ? tx(locale, { en: 'Hide password', es: 'Ocultar contraseña', it: 'Nascondi password', ar: 'إخفاء كلمة المرور' }) : tx(locale, { en: 'Show password', es: 'Mostrar contraseña', it: 'Mostra password', ar: 'إظهار كلمة المرور' })}>{show ? <EyeOff size={18} /> : <Eye size={18} />}</button></AuthField>
+  return <AuthField label={label} icon={<LockKeyhole size={18} />}><input required name={name} minLength={6} maxLength={64} type={show ? 'text' : 'password'} autoComplete={autoComplete} placeholder={tx(locale, { en: '6-64 characters', es: '6-64 caracteres', it: '6-64 caratteri', ar: '٦-٦٤ حرف' })} /><button type="button" onClick={() => setShow((value) => !value)} aria-label={show ? tx(locale, { en: 'Hide password', es: 'Ocultar contraseña', it: 'Nascondi password', ar: 'إخفاء كلمة المرور' }) : tx(locale, { en: 'Show password', es: 'Mostrar contraseña', it: 'Mostra password', ar: 'إظهار كلمة المرور' })}>{show ? <EyeOff size={18} /> : <Eye size={18} />}</button></AuthField>
 }
 
 function SocialButtons({ onSelect }: { onSelect: (provider: SocialProvider) => void }) {
@@ -134,7 +134,7 @@ function LoginForm() {
             <input required name="username" type="text" autoComplete="username" placeholder={tx(locale, { en: 'you@example.com or username', es: 'you@example.com o nombre de usuario', it: 'you@example.com o nome utente', ar: 'you@example.com أو اسم المستخدم' })} value={identifier} onChange={(e) => setIdentifier(e.target.value)} />
           </AuthField>
           <AuthField label={tx(locale, { en: 'Password', es: 'Contraseña', it: 'Password', ar: 'كلمة المرور' })} icon={<LockKeyhole size={18} />}>
-            <input required name="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" placeholder={tx(locale, { en: '6-8 characters', es: '6-8 caracteres', it: '6-8 caratteri', ar: '٦-٨ أحرف' })} value={password} onChange={(e) => setPassword(e.target.value)} />
+            <input required name="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" placeholder={tx(locale, { en: '6-64 characters', es: '6-64 caracteres', it: '6-64 caratteri', ar: '٦-٦٤ حرف' })} value={password} onChange={(e) => setPassword(e.target.value)} />
             <button type="button" onClick={() => setShowPassword((v) => !v)} aria-label={showPassword ? tx(locale, { en: 'Hide password', es: 'Ocultar contraseña', it: 'Nascondi password', ar: 'إخفاء كلمة المرور' }) : tx(locale, { en: 'Show password', es: 'Mostrar contraseña', it: 'Mostra password', ar: 'إظهار كلمة المرور' })}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
           </AuthField>
           <p className="auth-v2-switch">

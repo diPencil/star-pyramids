@@ -49,14 +49,10 @@ export async function POST(request: Request) {
   const result = await validateCredentials(identifier, password);
   if ('failure' in result) {
     await recordLoginAttempt(identifier, ipAddress, false);
-    const status = result.failure === 'invalid-credentials' ? 401 : 403;
-    const message =
-      result.failure === 'suspended'
-        ? 'Account is suspended.'
-        : result.failure === 'pending'
-          ? 'Account is pending activation.'
-          : 'Invalid email, username or password.';
-    return NextResponse.json({ error: message }, { status });
+    // One generic response for every failure kind: the status/message
+    // must not reveal whether the account exists, is suspended, or is
+    // pending. Rate limiting and attempt logging above are unchanged.
+    return NextResponse.json({ error: 'Invalid email, username or password.' }, { status: 401 });
   }
 
   await recordLoginAttempt(identifier, ipAddress, true);

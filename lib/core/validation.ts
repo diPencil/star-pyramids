@@ -25,7 +25,7 @@ const COUNTRY_CODE_PATTERN = /^[A-Z]{2}$/;
 const PHONE_PATTERN = /^\+?[0-9 ()-]{6,18}$/;
 
 export const MIN_PASSWORD_LENGTH = 6;
-export const MAX_PASSWORD_LENGTH = 8;
+export const MAX_PASSWORD_LENGTH = 64;
 
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -48,6 +48,25 @@ export function validatePasswordStrength(password: string): string | null {
 
 export function isValidUsername(username: string): boolean {
   return USERNAME_PATTERN.test(username.trim());
+}
+
+/**
+ * Server-side avatar allowlist (mirrors POST /api/avatar): empty
+ * (clearing), https/http URLs, stored /media paths, or legacy
+ * data:image payloads — each capped so oversized values can never
+ * reach the 500-char column. Anything else (javascript:, data:text,
+ * ftp:, bare paths) is rejected. Renderers only ever place avatars
+ * in <img src>, but untrusted schemes are refused at the trust
+ * boundary regardless.
+ */
+export function isValidAvatarUrl(value: string): boolean {
+  const text = value.trim();
+  if (text === '') return true;
+  if (text.length > 2000) return false;
+  if (/^\/media\/\d{4}\/\d{2}\/[0-9a-f]{32}\.(?:jpg|png|webp|gif)$/i.test(text)) return true;
+  if (/^https?:\/\/.+/i.test(text)) return true;
+  if (/^data:image\//i.test(text)) return true;
+  return false;
 }
 
 export function normalizeUsername(username: string): string {

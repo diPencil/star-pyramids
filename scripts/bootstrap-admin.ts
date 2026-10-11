@@ -34,7 +34,7 @@ function argValue(flag: string): string | undefined {
   return value && !value.startsWith('--') ? value : undefined;
 }
 
-const PASSWORD_PROMPT = 'Bootstrap admin password (6-8 chars): ';
+const PASSWORD_PROMPT = 'Bootstrap admin password (6-64 chars): ';
 
 // Secure interactive prompt: typed characters are masked with `*` and the
 // password never appears on screen. Uses stdin raw mode (supported by

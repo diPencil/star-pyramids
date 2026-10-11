@@ -224,7 +224,7 @@ export default function UsersPage() {
     const lastError = validateName(inviteLast, 'lastName', 'Last name', 'اسم العائلة')
     if (lastError) errors.lastName = lastError
     if (!EMAIL_PATTERN.test(inviteEmail.trim())) errors.email = ar ? 'أدخل بريدًا إلكترونيًا صالحًا.' : 'Enter a valid email address.'
-    if (invitePassword.length < 6 || invitePassword.length > 8) errors.password = ar ? 'كلمة المرور من 6 إلى 8 أحرف.' : 'Password must be 6-8 characters.'
+    if (invitePassword.length < 6 || invitePassword.length > 64) errors.password = ar ? 'كلمة المرور من 6 إلى 64 حرفًا.' : 'Password must be 6-64 characters.'
     setInviteErrors(errors)
     if (Object.keys(errors).length > 0) return
     setInviteSaving(true)
@@ -487,7 +487,7 @@ export default function UsersPage() {
         {(inviteErrors.firstName || inviteErrors.lastName) && <p role="alert" style={{ color: '#b91c1c' }}>{inviteErrors.firstName ?? inviteErrors.lastName}</p>}
         <label><AdminText en="Email" ar="البريد الإلكتروني" /><input dir="ltr" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="member@starpyramids.com" /></label>
         {inviteErrors.email && <p role="alert" style={{ color: '#b91c1c' }}>{inviteErrors.email}</p>}
-        <label><AdminText en="Initial password" ar="كلمة المرور الأولية" /><span className="sp-password-field"><input dir="ltr" type={inviteShowPassword ? 'text' : 'password'} autoComplete="new-password" value={invitePassword} onChange={(e) => setInvitePassword(e.target.value)} placeholder="••••••" /><button type="button" className="sp-password-toggle" onClick={() => setInviteShowPassword((show) => !show)} aria-label={inviteShowPassword ? (ar ? 'إخفاء كلمة المرور' : 'Hide password') : (ar ? 'إظهار كلمة المرور' : 'Show password')} aria-pressed={inviteShowPassword}>{inviteShowPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></span><small><AdminText en="6-8 characters. Share it securely - it is never shown again." ar="من 6 إلى 8 أحرف. شاركها بشكل آمن - لن تظهر مرة أخرى." /></small></label>
+        <label><AdminText en="Initial password" ar="كلمة المرور الأولية" /><span className="sp-password-field"><input dir="ltr" type={inviteShowPassword ? 'text' : 'password'} autoComplete="new-password" value={invitePassword} onChange={(e) => setInvitePassword(e.target.value)} placeholder="••••••" /><button type="button" className="sp-password-toggle" onClick={() => setInviteShowPassword((show) => !show)} aria-label={inviteShowPassword ? (ar ? 'إخفاء كلمة المرور' : 'Hide password') : (ar ? 'إظهار كلمة المرور' : 'Show password')} aria-pressed={inviteShowPassword}>{inviteShowPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></span><small><AdminText en="6-64 characters. Share it securely - it is never shown again." ar="من 6 إلى 64 حرفًا. شاركها بشكل آمن - لن تظهر مرة أخرى." /></small></label>
         {inviteErrors.password && <p role="alert" style={{ color: '#b91c1c' }}>{inviteErrors.password}</p>}
         <label><AdminText en="Role" ar="الدور" /><SharedSelect value={inviteRole} onChange={setInviteRole} locale={ar ? 'ar' : 'en'} popupWidth="trigger" options={grantableRoles.map((key) => ({ value: key, label: roleLabel(roleByKey.get(key), key, ar) }))} /></label>
         {inviteServerError ? <p role="alert" style={{ color: '#b91c1c' }}>{inviteServerError}</p> : null}

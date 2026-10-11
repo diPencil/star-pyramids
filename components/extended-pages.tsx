@@ -1573,7 +1573,7 @@ function ResetPasswordContent() {
           </div>
           <span className="eyebrow">{tx(locale, { en: 'Account recovery', es: 'Recuperación de la cuenta', it: 'Recupero account', ar: 'استعادة الحساب' })}</span>
           <h1>{tx(locale, { en: 'Create new password', es: 'Crear nueva contraseña', it: 'Crea nuova password', ar: 'إنشاء كلمة مرور جديدة' })}</h1>
-          <p>{tx(locale, { en: 'Enter your new password below. It must be 6-8 characters.', es: 'Introduce tu nueva contraseña a continuación. Debe tener 6-8 caracteres.', it: 'Inserisci la tua nuova password qui sotto. Deve essere di 6-8 caratteri.', ar: 'أدخل كلمة المرور الجديدة أدناه. يجب أن تكون 6-8 أحرف.' })}</p>
+          <p>{tx(locale, { en: 'Enter your new password below. It must be 6-64 characters.', es: 'Introduce tu nueva contraseña a continuación. Debe tener 6-64 caracteres.', it: 'Inserisci la tua nuova password qui sotto. Deve essere di 6-64 caratteri.', ar: 'أدخل كلمة المرور الجديدة أدناه. يجب أن تكون 6-64 حرفًا.' })}</p>
           <form className="contact-form" onSubmit={handleSubmit}>
             {error && <p className="co-error" role="alert"><CircleAlert size={15} />{error}</p>}
             <label>
@@ -1616,7 +1616,7 @@ function ResetPasswordContent() {
               {confirmPassword && !matches && <span className="field-error" role="alert">{tx(locale, { en: 'Passwords do not match.', es: 'Las contraseñas no coinciden.', it: 'Le password non coincidono.', ar: 'كلمتا المرور غير متطابقتين.' })}</span>}
             </label>
             <div className="customer-password-rules" aria-live="polite">
-              <span className={password.length >= 6 && password.length <= 8 ? 'valid' : ''}><Check size={14} />{tx(locale, { en: '6-8 characters', es: '6-8 caracteres', it: '6-8 caratteri', ar: '6-8 أحرف' })}</span>
+              <span className={password.length >= 6 && password.length <= 64 ? 'valid' : ''}><Check size={14} />{tx(locale, { en: '6-64 characters', es: '6-64 caracteres', it: '6-64 caratteri', ar: '6-64 حرفًا' })}</span>
               <span className={matches ? 'valid' : ''}><Check size={14} />{tx(locale, { en: 'Passwords match', es: 'Las contraseñas coinciden', it: 'Le password coincidono', ar: 'كلمتا المرور متطابقتان' })}</span>
             </div>
             <button className="primary-btn" type="submit" disabled={submitting || Boolean(passwordError) || !matches}>
