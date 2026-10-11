@@ -7,6 +7,7 @@ import { Popover } from '@base-ui/react/popover'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminIconAction, AdminText, Avatar, Card, Delta, StatusPill } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
+import { useAdminCurrency } from '@/components/admin/admin-currency'
 import { RevenueTrend } from '@/components/admin/revenue-trend'
 import { DateInput } from '@/components/date-input'
 import { addDays, toISO, todayYMD } from '@/lib/date-calendar'
@@ -26,9 +27,10 @@ function defaultRange(): { from: string; to: string } {
   return { from: toISO(addDays(today, -89)), to: toISO(today) }
 }
 
-function fmtMoney(amount: number, currency: string): string {
+/** Fallback display for non-USD analytics rows (server stores USD today). */
+function fmtForeignMoney(amount: number, currency: string): string {
   const grouped = amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
-  return currency === 'USD' ? `$${grouped}` : `${grouped} ${currency}`
+  return `${grouped} ${currency}`
 }
 
 function primaryMoney(rows: Array<{ currency: string; amount: number }>): { amount: number; currency: string } {
@@ -95,6 +97,12 @@ function Donut({ split, total }: { split: Array<{ label: string; value: number; 
 
 export default function DashboardPage() {
   const ar = useAdminLocale() === 'ar'
+  // Display-only conversion of server USD amounts, like the storefront.
+  const { formatUsd } = useAdminCurrency()
+  // Analytics rows carry their own currency; USD rows convert to the
+  // selected display currency, anything else keeps its honest suffix.
+  const fmtMoney = (amount: number, currency: string): string =>
+    currency === 'USD' ? formatUsd(amount) : fmtForeignMoney(amount, currency)
   const [range, setRange] = useState(defaultRange)
   const [data, setData] = useState<AnalyticsResponse | null>(null)
   const [loading, setLoading] = useState(true)
@@ -444,7 +452,7 @@ export default function DashboardPage() {
                     <small><span dir="ltr">{b.id}</span>{' · '}{b.date}</small>
                   </span>
                   <span className="sp-book-side">
-                    <b>${b.total.toLocaleString('en-US')}</b>
+                    <b>{formatUsd(b.total)}</b>
                     <StatusPill status={b.status} />
                   </span>
                   <AdminIconAction icon={Eye} label={ar ? `عرض الحجز ${b.id}` : `View booking ${b.id}`} href={`/admin/bookings/${encodeURIComponent(b.id)}`} />

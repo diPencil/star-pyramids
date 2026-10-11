@@ -7,6 +7,7 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableTools, AdminTableWrap, AdminText, Card, StatusPill } from '@/components/admin/admin-ui'
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 import { useAdminLocale } from '@/components/admin/admin-locale'
+import { useAdminCurrency } from '@/components/admin/admin-currency'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
 import { invalidateToursCache } from '@/lib/tours-client'
 import { isTourPublished } from '@/lib/tour-publish'
@@ -25,6 +26,8 @@ type TripRow = {
 
 export default function TripsPage() {
   const ar = useAdminLocale() === 'ar'
+  // Display-only conversion of catalogue USD prices, like the storefront.
+  const { formatUsd } = useAdminCurrency()
   const [cat, setCat] = useState<'all' | 'one-day-tours' | 'multi-days-tours' | 'nile-cruises' | 'shore-excursions'>('all')
   const [q, setQ] = useState('')
   const [tours, setTours] = useState<TripRow[]>([])
@@ -114,7 +117,7 @@ export default function TripsPage() {
       ]} />
       <Card title={<AdminText en="All trips" ar="كل الرحلات" />} sub={<AdminText en={`${rows.length} records match the current view`} ar={`${rows.length} سجل يطابق العرض الحالي`} />}>
         <AdminTableTools query={q} onQueryChange={setQ} placeholder={ar ? 'ابحث بعنوان الرحلة أو الموقع...' : 'Search trip title or location...'}>
-          <div className="sp-tabs">
+          <div className="sp-tabs sp-compact-filter-tabs">
           {['all', 'one-day-tours', 'multi-days-tours', 'nile-cruises', 'shore-excursions'].map((c) => (
             <button key={c} type="button" className={cat === c ? 'active' : ''} onClick={() => setCat(c as typeof cat)}>
               {ar ? ({'all': 'الكل', 'one-day-tours': 'رحلات اليوم الواحد', 'multi-days-tours': 'رحلات متعددة الأيام', 'nile-cruises': 'رحلات النيل', 'shore-excursions': 'رحلات الشواطئ'}[c] ?? c) : ({'all': 'All', 'one-day-tours': 'One day tours', 'multi-days-tours': 'Multi days tours', 'nile-cruises': 'Nile cruises', 'shore-excursions': 'Shore excursions'}[c] ?? c)}
@@ -137,7 +140,7 @@ export default function TripsPage() {
                 <td><strong>{t.title}</strong><br /><small style={{ color: 'var(--sp-muted)' }}>{t.duration}</small></td>
                 <td>{ar ? ({'all': 'الكل', 'one-day-tours': 'رحلات اليوم الواحد', 'multi-days-tours': 'رحلات متعددة الأيام', 'nile-cruises': 'رحلات النيل', 'shore-excursions': 'رحلات الشواطئ'}[t.category] ?? t.category) : ({'all': 'All', 'one-day-tours': 'One day tours', 'multi-days-tours': 'Multi days tours', 'nile-cruises': 'Nile cruises', 'shore-excursions': 'Shore excursions'}[t.category] ?? t.category)}</td>
                 <td>{t.location}</td>
-                <td>${String(t.price)}</td>
+                <td>{formatUsd(Number(t.price) || 0)}</td>
                 <td><StatusPill status={isTourPublished(t) ? 'published' : 'hidden'} /></td>
                 <td><AdminTableActions>
                   <AdminIconAction icon={Pencil} label={ar ? `تعديل ${t.title}` : `Edit ${t.title}`} href={`/admin/trips/builder?slug=${t.slug}`} />

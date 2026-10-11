@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, FileText } from 'lucide-react'
 import { Card } from './admin-ui'
 import { AdminText } from './admin-ui'
 import { useAdminLocale } from './admin-locale'
+import { useAdminCurrency } from './admin-currency'
 import { SharedSelect } from '@/components/shared-select'
 import type { RevenuePoint } from '@/lib/analytics'
 import { revenueRange } from '@/lib/revenue-periods'
@@ -21,7 +22,7 @@ const W = 720
 const H = 250
 const PAD = { l: 52, r: 48, t: 14, b: 40 }
 
-const compact = (v: number) => (v >= 1000 ? `$${Math.round(v / 1000)}k` : `$${v}`)
+
 
 const DAY = 86400000
 const SYSTEM_START_YEAR = 2020
@@ -98,6 +99,9 @@ export function RevenueTrend({
   currentYear: number
 }) {
   const ar = useAdminLocale() === 'ar'
+  // Display-only conversion of server USD amounts, like the storefront.
+  const { formatUsd, formatUsdCompact } = useAdminCurrency()
+  const compact = (v: number) => formatUsdCompact(v)
   const [scope, setScope] = useState<Scope>('months')
 
   const dataMap = useMemo(() => ({ months: monthly, weeks: weekly, days: daily }), [monthly, weekly, daily])
@@ -251,7 +255,7 @@ export function RevenueTrend({
       <div className="sp-legend-pills">
         <span className="sp-legend-pill"><i style={{ background: '#f7951d' }} /><AdminText en={`Revenue · ${compact(total)}`} ar={`الإيرادات · ${compact(total)}`} /></span>
         <span className="sp-legend-pill"><i style={{ background: '#163a96' }} /><AdminText en={`Payments · ${payments.toLocaleString('en-US')}`} ar={`المدفوعات · ${payments.toLocaleString('en-US')}`} /></span>
-        <span className="sp-legend-pill"><i style={{ background: '#9aa3b2' }} /><AdminText en={`Average payment · $${avg.toLocaleString('en-US')}`} ar={`متوسط الدفعة · $${avg.toLocaleString('en-US')}`} /></span>
+        <span className="sp-legend-pill"><i style={{ background: '#9aa3b2' }} /><AdminText en={`Average payment · ${formatUsd(avg)}`} ar={`متوسط الدفعة · ${formatUsd(avg)}`} /></span>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} className="sp-trend-svg" role="img" aria-label={ar ? 'رسم اتجاه الإيرادات' : 'Revenue trend chart'}>
         {ticks.map((t) => (

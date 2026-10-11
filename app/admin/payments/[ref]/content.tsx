@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Card, StatusPill } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
+import { useAdminCurrency } from '@/components/admin/admin-currency'
 import { paymentActivityLabel, paymentStatusLabel, type StaffPayment } from '@/lib/payment'
 
 async function apiStaffPaymentDetail(reference: string): Promise<StaffPayment> {
@@ -16,6 +17,8 @@ async function apiStaffPaymentDetail(reference: string): Promise<StaffPayment> {
 
 export function PaymentDetailContent({ reference }: { reference: string }) {
   const ar = useAdminLocale() === 'ar'
+  // Display-only conversion of server USD amounts, like the storefront.
+  const { formatUsd } = useAdminCurrency()
   const [item, setItem] = useState<StaffPayment | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -63,8 +66,8 @@ export function PaymentDetailContent({ reference }: { reference: string }) {
         eyebrow="Orders"
         title={item.reference}
         titleAr={item.reference}
-        sub={`${paymentStatusLabel(item.status, ar)} · $${item.amount.toLocaleString('en-US')} USD`}
-        subAr={`${paymentStatusLabel(item.status, ar)} · $${item.amount.toLocaleString('en-US')} USD`}
+        sub={`${paymentStatusLabel(item.status, ar)} · ${formatUsd(item.amount)}`}
+        subAr={`${paymentStatusLabel(item.status, ar)} · ${formatUsd(item.amount)}`}
         backHref="/admin/payments"
       />
       <div className="evr-detail-grid">
@@ -74,9 +77,9 @@ export function PaymentDetailContent({ reference }: { reference: string }) {
               <div><dt><AdminText en="Reference" ar="المرجع" /></dt><dd><code dir="ltr">{item.reference}</code></dd></div>
               <div><dt><AdminText en="Status" ar="الحالة" /></dt><dd><StatusPill status={item.status} /> <span>{paymentStatusLabel(item.status, ar)}</span></dd></div>
               <div><dt><AdminText en="Booking" ar="الحجز" /></dt><dd><Link href={`/admin/bookings/${encodeURIComponent(item.bookingReference)}`}><code dir="ltr">{item.bookingReference}</code></Link></dd></div>
-              <div><dt><AdminText en="Amount due" ar="المبلغ المستحق" /></dt><dd><strong>${item.amount.toLocaleString('en-US')} USD</strong></dd></div>
-              <div><dt><AdminText en="Amount paid" ar="المدفوع" /></dt><dd>${item.amountPaid.toLocaleString('en-US')} USD</dd></div>
-              <div><dt><AdminText en="Amount refunded" ar="المسترد" /></dt><dd>${item.amountRefunded.toLocaleString('en-US')} USD</dd></div>
+              <div><dt><AdminText en="Amount due" ar="المبلغ المستحق" /></dt><dd><strong>{formatUsd(item.amount)}</strong></dd></div>
+              <div><dt><AdminText en="Amount paid" ar="المدفوع" /></dt><dd>{formatUsd(item.amountPaid)}</dd></div>
+              <div><dt><AdminText en="Amount refunded" ar="المسترد" /></dt><dd>{formatUsd(item.amountRefunded)}</dd></div>
               <div><dt><AdminText en="Provider" ar="المزود" /></dt><dd><span>{item.provider === 'pending' ? (ar ? 'بانتظار الربط (بدون بوابة بعد)' : 'Awaiting handoff (no gateway yet)') : item.provider}</span></dd></div>
               {item.providerPaymentId && <div><dt><AdminText en="Provider reference" ar="مرجع المزود" /></dt><dd><code dir="ltr">{item.providerPaymentId}</code></dd></div>}
               {item.failureCode && <div><dt><AdminText en="Failure" ar="سبب الفشل" /></dt><dd>{item.failureCode}{item.failureMessage ? ` - ${item.failureMessage}` : ''}</dd></div>}

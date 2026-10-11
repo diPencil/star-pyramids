@@ -201,6 +201,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const changeCurrency = useCallback((next: 'USD' | 'EUR' | 'EGP') => {
     window.localStorage.setItem('star-currency', next)
     setCurrency(next)
+    // Same-tab pages (dashboard, payments, bookings…) listen for this and
+    // re-render converted amounts instantly, like the storefront does.
+    window.dispatchEvent(new Event('sp-currency'))
   }, [])
 
   useEffect(() => {

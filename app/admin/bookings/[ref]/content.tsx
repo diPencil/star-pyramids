@@ -7,6 +7,7 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Card } from '@/components/admin/admin-ui'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { useAdminLocale } from '@/components/admin/admin-locale'
+import { useAdminCurrency } from '@/components/admin/admin-currency'
 import { bookingActivityLabel, bookingPaymentStatusLabel, bookingStatusLabel, canTransitionBooking, type BookingStatus, type StaffBooking } from '@/lib/booking'
 
 const ACTIONS: { from: BookingStatus[]; to: BookingStatus; tone: 'primary' | 'danger' }[] = [
@@ -43,6 +44,8 @@ async function apiStaffMutate(reference: string, body: Record<string, unknown>):
 
 export function BookingDetailContent({ reference }: { reference: string }) {
   const ar = useAdminLocale() === 'ar'
+  // Display-only conversion of server USD amounts, like the storefront.
+  const { formatUsd } = useAdminCurrency()
   const [item, setItem] = useState<StaffBooking | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -130,15 +133,15 @@ export function BookingDetailContent({ reference }: { reference: string }) {
               <div><dt><AdminText en="Status" ar="الحالة" /></dt><dd><span className={`sp-status is-${item.status}`}>{bookingStatusLabel(item.status, ar)}</span></dd></div>
               <div><dt><AdminText en="Payment" ar="الدفع" /></dt><dd>{bookingPaymentStatusLabel(item.paymentStatus, ar)}</dd></div>
               {item.paymentSummary && item.paymentSummary.latestReference && (
-                <div><dt><AdminText en="Payment record" ar="سجل الدفع" /></dt><dd><Link href={`/admin/payments/${encodeURIComponent(item.paymentSummary.latestReference)}`}><code dir="ltr">{item.paymentSummary.latestReference}</code></Link><small style={{ color: 'var(--sp-muted)' }}>${item.paymentSummary.paidTotal.toLocaleString('en-US')} paid · {item.paymentSummary.payments} attempt{item.paymentSummary.payments === 1 ? '' : 's'}</small></dd></div>
+                <div><dt><AdminText en="Payment record" ar="سجل الدفع" /></dt><dd><Link href={`/admin/payments/${encodeURIComponent(item.paymentSummary.latestReference)}`}><code dir="ltr">{item.paymentSummary.latestReference}</code></Link><small style={{ color: 'var(--sp-muted)' }}>{formatUsd(item.paymentSummary.paidTotal)} paid · {item.paymentSummary.payments} attempt{item.paymentSummary.payments === 1 ? '' : 's'}</small></dd></div>
               )}
               {item.paymentSummary && !item.paymentSummary.latestReference && (
                 <div><dt><AdminText en="Payment record" ar="سجل الدفع" /></dt><dd><small style={{ color: 'var(--sp-muted)' }}>{ar ? 'لا يوجد سجل دفع - غير مدفوع' : 'No payment record - unpaid'}</small></dd></div>
               )}
               <div><dt><AdminText en="Guests" ar="الضيوف" /></dt><dd><Users size={14} />{guests}</dd></div>
-              <div><dt><AdminText en="Subtotal" ar="المجموع الفرعي" /></dt><dd>${item.subtotal.toLocaleString('en-US')}</dd></div>
-              {item.discount > 0 && <div><dt><AdminText en="Deal savings" ar="توفير العروض" /></dt><dd>−${item.discount.toLocaleString('en-US')}</dd></div>}
-              <div><dt><AdminText en="Total" ar="الإجمالي" /></dt><dd><strong>${item.total.toLocaleString('en-US')} USD</strong></dd></div>
+              <div><dt><AdminText en="Subtotal" ar="المجموع الفرعي" /></dt><dd>{formatUsd(item.subtotal)}</dd></div>
+              {item.discount > 0 && <div><dt><AdminText en="Deal savings" ar="توفير العروض" /></dt><dd>−{formatUsd(item.discount)}</dd></div>}
+              <div><dt><AdminText en="Total" ar="الإجمالي" /></dt><dd><strong>{formatUsd(item.total)}</strong></dd></div>
               <div><dt><AdminText en="Submitted" ar="أُرسل" /></dt><dd>{fmtDateTime(item.createdAt)}</dd></div>
               <div><dt><AdminText en="Last updated" ar="آخر تحديث" /></dt><dd>{fmtDateTime(item.updatedAt)}</dd></div>
               {item.account && <div><dt><AdminText en="Account" ar="الحساب" /></dt><dd>{item.account.name} <small style={{ color: 'var(--sp-muted)' }} dir="ltr">{item.account.email}</small></dd></div>}
@@ -151,8 +154,8 @@ export function BookingDetailContent({ reference }: { reference: string }) {
                 <Link href={`/egypt-tours/${line.tourSlug}`} className="evr-event-title">{line.title}</Link>
                 <p><CalendarDays size={14} />{line.date || (ar ? 'التاريخ مفتوح' : 'Open date')}</p>
                 <p><MapPin size={14} />{line.adults} {ar ? 'بالغين' : 'adults'}{line.children > 0 && ` · ${line.children} ${ar ? 'أطفال' : 'children'}`}{line.infants > 0 && ` · ${line.infants} ${ar ? 'رضع' : 'infants'}`}</p>
-                <p><small dir="ltr">${line.adultUnit} per adult{line.children > 0 && ` · $${line.childUnit} per child`}{line.addons.length > 0 && ` · ${line.addons.join(', ')} (+$${line.addonTotal})`}</small></p>
-                <p><strong>${line.total.toLocaleString('en-US')}</strong></p>
+                <p><small dir="ltr">{formatUsd(line.adultUnit)} per adult{line.children > 0 && ` · ${formatUsd(line.childUnit)} per child`}{line.addons.length > 0 && ` · ${line.addons.join(', ')} (+${formatUsd(line.addonTotal)})`}</small></p>
+                <p><strong>{formatUsd(line.total)}</strong></p>
               </div>
             ))}
           </Card>

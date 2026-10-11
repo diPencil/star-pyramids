@@ -7,6 +7,7 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableTools, AdminTableWrap, AdminText, Avatar, Card, StatusPill } from '@/components/admin/admin-ui'
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 import { useAdminLocale } from '@/components/admin/admin-locale'
+import { useAdminCurrency } from '@/components/admin/admin-currency'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
 import { PAYMENT_STATUSES, paymentStatusLabel, type PaymentStatus, type StaffPayment } from '@/lib/payment'
 
@@ -47,6 +48,8 @@ function toRow(payment: StaffPayment): Row {
  */
 export default function PaymentsPage() {
   const ar = useAdminLocale() === 'ar'
+  // Display-only conversion of server USD amounts, like the storefront.
+  const { formatUsd } = useAdminCurrency()
   const [payments, setPayments] = useState<StaffPayment[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -94,12 +97,12 @@ export default function PaymentsPage() {
       <AdminStats items={[
         { label: <AdminText en="All payments" ar="كل المدفوعات" />, value: loading ? '…' : rows.length, note: <AdminText en="Stored payment records" ar="سجلات الدفع المحفوظة" />, icon: CreditCard },
         { label: <AdminText en="Awaiting provider" ar="بانتظار المزود" />, value: loading ? '…' : rows.filter((row) => row.status === 'pending' || row.status === 'processing').length, note: <AdminText en="Pending handoff" ar="بانتظار التحويل" />, icon: Clock3, tone: 'orange' },
-        { label: <AdminText en="Collected" ar="المحصّل" />, value: loading ? '…' : `$${collected.toLocaleString('en-US')}`, note: <AdminText en="Server-recorded USD" ar="بالدولار المسجل من الخادم" />, icon: CircleDollarSign, tone: 'green' },
+        { label: <AdminText en="Collected" ar="المحصّل" />, value: loading ? '…' : formatUsd(collected), note: <AdminText en="Converted from server USD" ar="محولة من الدولار المسجل في الخادم" />, icon: CircleDollarSign, tone: 'green' },
         { label: <AdminText en="Records" ar="السجلات" />, value: loading ? '…' : rows.length, note: <AdminText en="Immutable history" ar="سجل غير قابل للتعديل" />, icon: ReceiptText, tone: 'violet' },
       ]} />
       <Card title={<AdminText en="All payments" ar="كل المدفوعات" />} sub={<AdminText en={`${visible.length} of ${rows.length} payments shown`} ar={`عرض ${visible.length} من ${rows.length} مدفوعات`} />}>
         <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث بمرجع دفع أو حجز أو عميل...' : 'Search payment, booking or customer...'}>
-          <div className="sp-tabs">
+          <div className="sp-tabs sp-compact-filter-tabs">
             {statusTabs.map((status) => <button key={status.id} type="button" className={filter === status.id ? 'active' : ''} onClick={() => setFilter(status.id as 'all' | PaymentStatus)}>{ar ? status.ar : status.en}</button>)}
           </div>
         </AdminTableTools>
@@ -114,7 +117,7 @@ export default function PaymentsPage() {
                   <td><span className="sp-cust"><Avatar name={b.customer} src="" size={32} /><span><strong dir="ltr">{b.reference}</strong><small>{paymentStatusLabel(b.status, ar)}</small></span></span></td>
                   <td><Link href={`/admin/bookings/${encodeURIComponent(b.booking)}`}>{b.booking}</Link></td>
                   <td>{b.customer}</td>
-                  <td>${b.amount.toLocaleString('en-US')}</td>
+                  <td>{formatUsd(b.amount)}</td>
                   <td><StatusPill status={b.status} /></td>
                   <td>{b.createdAt}</td>
                   <td><AdminTableActions>

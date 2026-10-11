@@ -6,6 +6,7 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableTools, AdminTableWrap, AdminText, Avatar, Card } from '@/components/admin/admin-ui'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { useAdminLocale } from '@/components/admin/admin-locale'
+import { useAdminCurrency } from '@/components/admin/admin-currency'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
 import { SharedSelect } from '@/components/shared-select'
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
@@ -19,6 +20,8 @@ const accountStatusMeta: Record<DirectoryCustomer['status'], { en: string; ar: s
 
 export default function CustomersPage() {
   const ar = useAdminLocale() === 'ar'
+  // Display-only conversion of server USD amounts, like the storefront.
+  const { formatUsd } = useAdminCurrency()
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<'all' | DirectoryCustomer['status']>('all')
   const [actionError, setActionError] = useState('')
@@ -74,7 +77,7 @@ export default function CustomersPage() {
       { label: <AdminText en="Customers" ar="العملاء" />, value: liveCustomers.length, note: <AdminText en="Registered accounts" ar="حسابات مسجلة" />, icon: Users },
       { label: <AdminText en="Bookings" ar="الحجوزات" />, value: bookingsCount, note: <AdminText en="Across all customers" ar="عبر كل العملاء" />, icon: ShoppingBag, tone: 'orange' },
       { label: <AdminText en="Confirmed customers" ar="عملاء مؤكدون" />, value: liveCustomers.filter((customer) => customer.confirmedSpent > 0).length, note: <AdminText en="With confirmed spend" ar="بإنفاق مؤكد" />, icon: CheckCircle2, tone: 'green' },
-      { label: <AdminText en="Confirmed value" ar="قيمة المؤكد" />, value: `$${confirmedValue.toLocaleString('en-US')}`, note: <AdminText en="Confirmed bookings total" ar="إجمالي الحجوزات المؤكدة" />, icon: CircleDollarSign, tone: 'violet' },
+      { label: <AdminText en="Confirmed value" ar="قيمة المؤكد" />, value: formatUsd(confirmedValue), note: <AdminText en="Confirmed bookings total" ar="إجمالي الحجوزات المؤكدة" />, icon: CircleDollarSign, tone: 'violet' },
     ]} />
     <Card title={<AdminText en="Customer directory" ar="دليل العملاء" />} sub={<AdminText en={`${rows.length} of ${liveCustomers.length} customers shown`} ar={`عرض ${rows.length} من ${liveCustomers.length} عملاء`} />}>
       <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث بعميل أو بريد أو هاتف...' : 'Search customer, email or phone...'}>
@@ -94,7 +97,7 @@ export default function CustomersPage() {
               <td className="sp-row-number">{paging.from + index}</td>
               <td><span className="sp-cust"><Avatar name={customer.displayName} size={34} online={customer.status === 'ACTIVE'} /><span><strong>{customer.displayName}</strong><small dir="ltr">{customer.email}</small></span></span></td>
               <td>{customer.bookingsCount}</td>
-              <td>${customer.totalSpent.toLocaleString('en-US')}</td>
+              <td>{formatUsd(customer.totalSpent)}</td>
               <td><span className="sp-inline-meta"><Circle size={8} fill={meta.color} color={meta.color} />{ar ? meta.ar : meta.en}</span></td>
               <td><AdminTableActions>
                 <AdminIconAction icon={Eye} label={ar ? `عرض ${customer.displayName}` : `View ${customer.displayName}`} href={`/admin/customers/${encodeURIComponent(customer.publicId)}`} />

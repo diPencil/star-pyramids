@@ -7,6 +7,7 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableTools, AdminTableWrap, AdminText, Avatar, Card, StatusPill } from '@/components/admin/admin-ui'
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 import { useAdminLocale } from '@/components/admin/admin-locale'
+import { useAdminCurrency } from '@/components/admin/admin-currency'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
 import { SharedSelect } from '@/components/shared-select'
 import { type BookingStatus, type StaffBooking } from '@/lib/booking'
@@ -54,6 +55,8 @@ function toRow(booking: StaffBooking): Row {
  */
 export default function BookingsPage() {
   const ar = useAdminLocale() === 'ar'
+  // Display-only conversion of server USD amounts, like the storefront.
+  const { formatUsd } = useAdminCurrency()
   const [bookings, setBookings] = useState<StaffBooking[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -121,11 +124,11 @@ export default function BookingsPage() {
         { label: <AdminText en="All bookings" ar="كل الحجوزات" />, value: loading ? '…' : rows.length, note: <AdminText en="Stored bookings" ar="الحجوزات المحفوظة" />, icon: ShoppingCart },
         { label: <AdminText en="Needs follow-up" ar="تحتاج متابعة" />, value: loading ? '…' : rows.filter((row) => row.status === 'pending').length, note: <AdminText en="Pending confirmation" ar="بانتظار التأكيد" />, icon: CalendarClock, tone: 'orange' },
         { label: <AdminText en="Confirmed" ar="المؤكدة" />, value: loading ? '…' : rows.filter((row) => row.status === 'confirmed').length, note: <AdminText en="Ready for operations" ar="جاهزة للتشغيل" />, icon: CheckCircle2, tone: 'green' },
-        { label: <AdminText en="Collected from confirmed bookings" ar="المحصل من الحجوزات المؤكدة" />, value: loading ? '…' : `$${confirmedRevenue.toLocaleString('en-US')}`, note: <AdminText en="Server-calculated USD" ar="بالدولار المحسوب من الخادم" />, icon: CircleDollarSign, tone: 'violet' },
+        { label: <AdminText en="Collected from confirmed bookings" ar="المحصل من الحجوزات المؤكدة" />, value: loading ? '…' : formatUsd(confirmedRevenue), note: <AdminText en="Converted from server USD" ar="محولة من الدولار المحسوب في الخادم" />, icon: CircleDollarSign, tone: 'violet' },
       ]} />
       <Card title={<AdminText en="All bookings" ar="كل الحجوزات" />} sub={<AdminText en={`${visible.length} of ${rows.length} bookings shown`} ar={`عرض ${visible.length} من ${rows.length} حجوزات`} />}>
         <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث بحجز أو عميل أو رحلة...' : 'Search booking, customer or tour...'}>
-          <div className="sp-tabs">
+          <div className="sp-tabs sp-compact-filter-tabs">
             {statusTabs.map((status) => <button key={status.id} type="button" className={filter === status.id ? 'active' : ''} onClick={() => setFilter(status.id)}>{ar ? status.ar : status.en}</button>)}
           </div>
         </AdminTableTools>
@@ -141,7 +144,7 @@ export default function BookingsPage() {
                   <td><Link href={`/admin/bookings/${encodeURIComponent(b.reference)}`}>{b.tour}</Link></td>
                   <td>{b.date}</td>
                   <td>{b.guests}</td>
-                  <td>${b.total.toLocaleString('en-US')}</td>
+                  <td>{formatUsd(b.total)}</td>
                   <td><StatusPill status={b.status} /></td>
                   <td><AdminTableActions>
                     <AdminIconAction icon={Eye} label={ar ? `عرض الحجز ${b.reference}` : `View booking ${b.reference}`} href={`/admin/bookings/${encodeURIComponent(b.reference)}`} />
