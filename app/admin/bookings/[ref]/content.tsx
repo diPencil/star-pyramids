@@ -8,6 +8,8 @@ import { AdminText, Card } from '@/components/admin/admin-ui'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { useAdminCurrency } from '@/components/admin/admin-currency'
+import { useCurrentUser } from '@/lib/use-current-user'
+import { SharedSelect } from '@/components/shared-select'
 import { bookingActivityLabel, bookingPaymentStatusLabel, bookingStatusLabel, canTransitionBooking, type BookingStatus, type StaffBooking } from '@/lib/booking'
 
 const ACTIONS: { from: BookingStatus[]; to: BookingStatus; tone: 'primary' | 'danger' }[] = [
@@ -59,6 +61,8 @@ export function BookingDetailContent({ reference }: { reference: string }) {
   const ar = useAdminLocale() === 'ar'
   // Display-only conversion of server USD amounts, like the storefront.
   const { formatUsd } = useAdminCurrency()
+  const { user } = useCurrentUser()
+  const canRecordPayment = user?.permissions?.includes('payments.edit') ?? false
   const [item, setItem] = useState<StaffBooking | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -105,6 +109,54 @@ export function BookingDetailContent({ reference }: { reference: string }) {
   const available = ACTIONS.filter((a) => a.from.includes(item.status))
   const fmtDateTime = (iso: string) => new Date(iso).toLocaleString(ar ? 'ar-EG' : 'en-US')
   const guests = item.lines.reduce((sum, line) => sum + line.adults + line.children + line.infants, 0)
+
+  const [recordOpen, setRecordOpen] = useState(false)
+  const [recAmount, setRecAmount] = useState('')
+  const [recMethod, setRecMethod] = useState('bank_transfer')
+  const [recNote, setRecNote] = useState('')
+  const [recKey, setRecKey] = useState('')
+  const [recSaving, setRecSaving] = useState(false)
+
+  const openRecord = () => {
+    setRecAmount('')
+    setRecMethod('bank_transfer')
+    setRecNote('')
+    setRecKey(typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`)
+    setActionError('')
+    setRecordOpen(true)
+  }
+
+  const submitRecord = () => {
+    if (!item || recSaving) return
+    setActionError('')
+    setRecSaving(true)
+    fetch('/api/admin/payments/record', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        bookingReference: item.reference,
+        amount: Number(recAmount),
+        currency: 'USD',
+        method: recMethod,
+        referenceNote: recNote,
+        idempotencyKey: recKey,
+      }),
+    })
+      .then(async (res) => {
+        const data = (await res.json().catch(() => ({}))) as { error?: string }
+        if (!res.ok) throw new Error(typeof data.error === 'string' && data.error ? data.error : 'Could not record the payment.')
+        return apiStaffDetail(item.reference)
+      })
+      .then((row) => {
+        setItem(row)
+        setRecordOpen(false)
+      })
+      .catch((error: unknown) => {
+        setActionError(error instanceof Error ? error.message : 'Could not record the payment.')
+      })
+      .finally(() => setRecSaving(false))
+  }
 
   const runTransition = (to: BookingStatus) => {
     setActionError('')
@@ -193,6 +245,11 @@ export function BookingDetailContent({ reference }: { reference: string }) {
                       <AdminText en={actionCopy[a.to].en} ar={actionCopy[a.to].ar} />
                     </button>
                   ))}
+                  {canRecordPayment && (item.status === 'pending' || item.status === 'confirmed') && (
+                    <button type="button" className="sp-btn" onClick={openRecord}>
+                      <AdminText en="Record payment" ar="تسجيل دفعة" />
+                    </button>
+                  )}
                 </div>
               ) : (
                 <p className="evr-manage-hint"><AdminText en="No further transitions. Completed and cancelled bookings are terminal." ar="لا توجد انتقالات أخرى. الحجوزات المكتملة والملغاة نهائية." /></p>
@@ -249,6 +306,39 @@ export function BookingDetailContent({ reference }: { reference: string }) {
         cancelLabel={<AdminText en="Keep" ar="تراجع" />}
         tone={pending === 'cancelled' ? 'danger' : 'primary'}
       />
+      <AdminConfirmDialog
+        open={recordOpen}
+        onClose={() => { if (!recSaving) setRecordOpen(false) }}
+        onConfirm={submitRecord}
+        title={<AdminText en="Record offline payment" ar="تسجيل دفعة نقدية" />}
+        description={<AdminText
+          en={`Remaining balance ${formatUsd(Math.max(0, item.total - (item.paymentSummary?.paidTotal ?? 0)))} · stored in USD, no conversion applied.`}
+          ar={`الرصيد المتبقي ${formatUsd(Math.max(0, item.total - (item.paymentSummary?.paidTotal ?? 0)))} · يُحفظ بالدولار دون تحويل.`}
+        />}
+        confirmLabel={<AdminText en={recSaving ? 'Recording…' : 'Record as paid'} ar={recSaving ? 'جارٍ التسجيل…' : 'تسجيل كمدفوع'} />}
+        cancelLabel={<AdminText en="Cancel" ar="إلغاء" />}
+        tone="primary"
+        canConfirm={!recSaving && Number(recAmount) > 0}
+      >
+        <div className="sp-form">
+          <label><AdminText en="Received amount (USD)" ar="المبلغ المستلم (دولار)" /><input
+            type="number" min="0" step="0.01" dir="ltr" value={recAmount}
+            onChange={(e) => setRecAmount(e.target.value)} placeholder="0.00"
+          /></label>
+          <label><AdminText en="Method" ar="الطريقة" /><SharedSelect
+            value={recMethod} onChange={setRecMethod} locale={ar ? 'ar' : 'en'}
+            label={ar ? 'طريقة الدفع' : 'Payment method'}
+            options={[
+              { value: 'bank_transfer', label: ar ? 'تحويل بنكي' : 'Bank transfer' },
+              { value: 'cash', label: ar ? 'نقدي' : 'Cash' },
+            ]}
+          /></label>
+          <label><AdminText en="Bank / receipt reference (optional)" ar="مرجع البنك / الإيصال (اختياري)" /><input
+            type="text" dir="ltr" value={recNote} maxLength={255}
+            onChange={(e) => setRecNote(e.target.value)} placeholder="REF-…"
+          /></label>
+        </div>
+      </AdminConfirmDialog>
     </>
   )
 }

@@ -63,6 +63,8 @@ export type NotificationType =
   | 'admin_car_request_submitted'
   | 'admin_event_request_submitted'
   | 'admin_payment_initiated'
+  | 'admin_payment_recorded'
+  | 'admin_payment_refunded'
   | 'support_message_received'
   | 'admin_support_message_received'
   | 'admin_enquiry_received';
