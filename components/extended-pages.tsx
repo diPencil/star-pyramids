@@ -1322,7 +1322,7 @@ function OffersPageContent() {
 
       <section id="current-offers" className="offers-current container">
         <header className="offers-section-head">
-          <div><span className="eyebrow">{tx(locale, { en: 'Current opportunities', es: 'Oportunidades actuales', it: 'Opportunità attuali', ar: 'فرص حالية' })}</span><h2>{tx(locale, { en: 'Choose the value that fits your journey.', es: 'Elige el valor que encaje con tu viaje.', it: 'Scegli il valore adatto al tuo viaggio.', ar: 'اختر القيمة المناسبة لرحلتك.' })}</h2></div>
+          <div><span className="eyebrow">{tx(locale, { en: 'Current opportunities', es: 'Oportunidades actuales', it: 'Opportunità attuali', ar: 'فرص حالية' })}</span>{featured ? <h2>{tx(locale, { en: 'Choose the value that fits your journey.', es: 'Elige el valor que encaje con tu viaje.', it: 'Scegli il valore adatto al tuo viaggio.', ar: 'اختر القيمة المناسبة لرحلتك.' })}</h2> : <h1>{tx(locale, { en: 'Choose the value that fits your journey.', es: 'Elige el valor que encaje con tu viaje.', it: 'Scegli il valore adatto al tuo viaggio.', ar: 'اختر القيمة المناسبة لرحلتك.' })}</h1>}</div>
           <p>{tx(locale, { en: 'Every offer can be shaped around your dates, group, and preferred pace. Ask our team for the exact inclusions before you commit.', es: 'Cada oferta puede adaptarse a tus fechas, tu grupo y tu ritmo. Pregunta a nuestro equipo por las inclusiones exactas antes de decidirte.', it: 'Ogni offerta può essere modellata su date, gruppo e ritmo. Chiedi al nostro team le inclusioni esatte prima di impegnarti.', ar: 'كل عرض يمكن تشكيله حول مواعيدك ومجموعتك وإيقاعك المفضل. اسأل فريقنا عن المشمول الدقيق قبل الحجز.' })}</p>
         </header>
 
