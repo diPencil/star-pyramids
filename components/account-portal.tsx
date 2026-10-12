@@ -10,7 +10,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import {
   ArrowRight, ArrowLeft, Ban, Bell, CalendarDays, CarFront, Check, CheckCircle2, ChevronDown, ChevronRight, Compass,
-  CircleAlert, CircleDollarSign, Clock3, CreditCard, ExternalLink, Globe2, Heart, HelpCircle,
+  CircleAlert, CircleDollarSign, Clock3, ExternalLink, Globe2, Heart, HelpCircle,
   CheckCheck, Download, Eye, EyeOff, FileText, FlaskConical, ImagePlus, KeyRound, Laptop, LayoutDashboard, LockKeyhole, LogOut, Mail, Menu,
   MessageCircle, PackageCheck, Pencil, Plus, ReceiptText, Search, Send,
   Settings2, ShieldCheck, ShoppingBag, ShoppingCart, Star, Ticket, Trash2, UserRound,
@@ -20,7 +20,8 @@ import { formatPrice, LocaleProvider, tx, useLocale, type Locale } from '@/compo
 import { catalogTours, findTour } from '@/data/tours'
 import { countries, defaultCountry } from '@/data/countries'
 import { localizeTourDuration, localizeTourLocation } from '@/lib/tour-format'
-import { estimateCart, isValidPreferredDate, bookingActivityLabel, bookingPaymentStatusLabel, bookingStatusLabel, type Booking, type BookingStatus } from '@/lib/booking'
+import { estimateCart, isValidPreferredDate, bookingActivityLabel, bookingStatusLabel, type Booking, type BookingStatus } from '@/lib/booking'
+import { documentTypeLabel, formatDocumentIssuedAt, guestDocumentPdfUrl, ownerDocumentPdfUrl, type DocumentListItem } from '@/lib/documents'
 import { paymentActivityLabel, paymentStatusLabel, type Payment } from '@/lib/payment'
 import { useCart } from '@/lib/cart'
 import { useInquiries, useBrandSettings, readImpersonation, stopImpersonation, type ImpersonatedCustomer } from '@/lib/admin-store'
@@ -46,6 +47,7 @@ import { InternationalPhoneInput } from '@/components/international-phone-input'
 import { SharedSelect } from '@/components/shared-select'
 import { WhatsAppGlyph } from '@/components/whatsapp-chat'
 import { BookingPrintDocument } from '@/components/booking-print-document'
+import { BookingPaymentPanel, PaymentInstructions, PaymentProofForm, bookingMoney, bookingPaymentLabel } from '@/components/booking-payment'
 import { LanguageModal } from '@/components/language-selector'
 import { ENABLED_LOCALES, LOCALE_LABELS, LOCALE_SHORT_LABELS, type EnabledLocale } from '@/lib/locale-config'
 import { useAuthenticatedUser } from '@/components/authenticated-user'
@@ -343,7 +345,7 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
           <button type="button" onClick={() => stopImpersonation()}><LogOut size={15} />{tx(locale, { en: 'Exit preview', es: 'Salir de la vista previa', it: 'Esci dall’anteprima', ar: 'إنهاء المعاينة' })}</button>
         </div>}
         <section className="customer-account-main">
-        <p className="customer-demo-notice" role="note"><FlaskConical size={16} /><span><strong>{tx(locale, { en: 'Account connected', es: 'Cuenta conectada', it: 'Account collegato', ar: 'الحساب متصل' })}</strong>{tx(locale, { en: 'Your identity, profile, sign-in, bookings, payments, trip requests, car requests, event requests, notifications, and messages are database-backed. Online card payment opens here once a provider is connected.', ar: 'هويتك وملفك الشخصي وتسجيل الدخول والحجوزات والمدفوعات وطلبات الرحلات وطلبات السيارات وطلبات الفعاليات والإشعارات والرسائل مدعومة بقاعدة البيانات. ستظهر بوابة الدفع الإلكتروني هنا عند ربط مزود.' })}</span></p>
+        <p className="customer-demo-notice" role="note"><FlaskConical size={16} /><span><strong>{tx(locale, { en: 'Account connected', es: 'Cuenta conectada', it: 'Account collegato', ar: 'الحساب متصل' })}</strong>{tx(locale, { en: 'Your identity, profile, sign-in, bookings, payments, trip requests, car requests, event requests, notifications, and messages are database-backed. Payments are offline only (bank transfer or cash) — no charge is ever made online.', es: 'Tu identidad, perfil, inicio de sesión, reservas, pagos, solicitudes y mensajes están respaldados por la base de datos. Los pagos son solo offline (transferencia o efectivo): nunca se cobra nada en línea.', it: 'Identità, profilo, accesso, prenotazioni, pagamenti, richieste e messaggi sono salvati nel database. I pagamenti sono solo offline (bonifico o contanti): nessun addebito online.', ar: 'هويتك وملفك الشخصي وتسجيل الدخول والحجوزات والمدفوعات والطلبات والرسائل محفوظة في قاعدة البيانات. الدفع مباشر فقط (تحويل بنكي أو نقدي) — لا يتم خصم أي مبلغ عبر الإنترنت أبدًا.' })}</span></p>
         <header className="customer-account-head">
           <div><span>{tx(locale, { en: 'STAR PYRAMIDS account', es: 'Cuenta de STAR PYRAMIDS', it: 'Account STAR PYRAMIDS', ar: 'حساب STAR PYRAMIDS' })}</span><h1>{tx(locale, heading)}</h1><p>{tx(locale, { en: heading.subEn, es: heading.subEs, it: heading.subIt, ar: heading.subAr })}</p></div>
           <div className="customer-account-head-actions">{headLeading}<Link href="/trips" className="account-icon-action"><Search size={17} />{tx(locale, { en: 'Explore trips', es: 'Explorar viajes', it: 'Esplora i viaggi', ar: 'استكشف الرحلات' })}</Link><Link href="/contact" className="account-icon-action primary"><HelpCircle size={17} />{tx(locale, { en: 'Get help', es: 'Obtener ayuda', it: 'Richiedi assistenza', ar: 'اطلب مساعدة' })}</Link></div>
@@ -431,8 +433,14 @@ function displayPaymentMethod(booking: Booking, locale: Locale): string {
   return tx(locale, { en: 'To be arranged', es: 'Por acordar', it: 'Da concordare', ar: 'سيتم الترتيب' })
 }
 
+/**
+ * Honest offline payment state (Phase 3): derived from the
+ * server-calculated payment summary — never from client input, never
+ * from a customer proof submission. Booking lifecycle state stays in
+ * `BookingStatus`; the two are never mixed.
+ */
 function displayPaymentStatus(booking: Booking, locale: Locale): string {
-  return bookingPaymentStatusLabel(booking.paymentStatus, locale)
+  return bookingPaymentLabel(booking, locale)
 }
 
 function BookingCard({ booking }: { booking: Booking }) {
@@ -563,6 +571,65 @@ function MiniTour({ tour }: { tour: (typeof catalogTours)[number] }) {
  * Cancel runs against the same API and is server-enforced. Staff-only
  * notes never reach this UI — the customer serializer excludes them.
  */
+/**
+ * Issued-documents section shared by the customer booking page and the
+ * private guest booking page (Phase C).
+ *
+ * Read-only: lists the booking's issued documents with per-document PDF
+ * download links. The caller supplies the list endpoint and the PDF link
+ * builder for its actor — the owner session route for customers, the
+ * token-protected route for guests. No issuance controls live here, and
+ * the token itself never appears in document content, only in the guest
+ * PDF URLs the browser requests (same pattern as the guest booking and
+ * proof endpoints). The section stays hidden until documents exist.
+ */
+function BookingDocumentsSection({ listUrl, pdfUrlFor, omitCredentials = false }: {
+  listUrl: string
+  pdfUrlFor: (documentId: string) => string
+  omitCredentials?: boolean
+}) {
+  const { locale, currency } = useLocale()
+  const [docs, setDocs] = useState<DocumentListItem[] | null>(null)
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(listUrl, { credentials: omitCredentials ? 'omit' : 'same-origin' })
+      .then(async (res) => {
+        const data = (await res.json().catch(() => ({}))) as { documents?: DocumentListItem[] }
+        if (!res.ok || !Array.isArray(data.documents)) throw new Error('Could not load the documents.')
+        if (!cancelled) setDocs(data.documents)
+      })
+      .catch(() => { if (!cancelled) setFailed(true) })
+    return () => { cancelled = true }
+  }, [listUrl])
+
+  if (docs === null && !failed) return null
+  if (docs !== null && docs.length === 0 && !failed) return null
+
+  return (
+    <section className="customer-account-block">
+      <header><div><span>{tx(locale, { en: 'Official records', es: 'Registros oficiales', it: 'Documenti ufficiali', ar: 'سجلات رسمية' })}</span><h2>{tx(locale, { en: 'Documents', es: 'Documentos', it: 'Documenti', ar: 'المستندات' })}</h2></div></header>
+      {failed || docs === null ? (
+        <p role="alert" className="form-error">{tx(locale, { en: 'Could not load the documents.', es: 'No se pudieron cargar los documentos.', it: 'Impossibile caricare i documenti.', ar: 'تعذر تحميل المستندات.' })}</p>
+      ) : (
+        <>
+          <p className="customer-booking-meta"><span>{tx(locale, { en: 'Official documents issued for this booking. Select a document to download its PDF.', es: 'Documentos oficiales emitidos para esta reserva. Selecciona un documento para descargar su PDF.', it: 'Documenti ufficiali emessi per questa prenotazione. Seleziona un documento per scaricare il PDF.', ar: 'مستندات رسمية صادرة لهذا الحجز. اختر مستندًا لتنزيل نسخته.' })}</span></p>
+          {(docs ?? []).map((doc) => (
+            <div key={doc.id} className="customer-detail-grid">
+              <div><small>{tx(locale, { en: 'Type', es: 'Tipo', it: 'Tipo', ar: 'النوع' })}</small><strong><FileText size={14} /> {documentTypeLabel(doc.type, locale)}</strong></div>
+              <div><small>{tx(locale, { en: 'Number', es: 'Número', it: 'Numero', ar: 'الرقم' })}</small><strong><code dir="ltr">{doc.number}</code></strong></div>
+              <div><small>{tx(locale, { en: 'Issued', es: 'Emitido', it: 'Emesso', ar: 'تاريخ الإصدار' })}</small><strong>{formatDocumentIssuedAt(doc.issuedAt, locale)}</strong></div>
+              <div><small>{tx(locale, { en: 'Amount', es: 'Importe', it: 'Importo', ar: 'المبلغ' })}</small><strong>{formatPrice(doc.amountCents / 100, 'USD', locale)}</strong></div>
+              <div className="full"><small>{tx(locale, { en: 'PDF', es: 'PDF', it: 'PDF', ar: 'PDF' })}</small><strong><a className="account-icon-action" href={pdfUrlFor(doc.id)}><Download size={17} />{tx(locale, { en: 'Download PDF', es: 'Descargar PDF', it: 'Scarica PDF', ar: 'تنزيل PDF' })}</a></strong></div>
+            </div>
+          ))}
+        </>
+      )}
+    </section>
+  )
+}
+
 function BookingDetailSection({ reference, autoPrint = false }: { reference: string; autoPrint?: boolean }) {
   const { locale, currency } = useLocale()
 
@@ -573,8 +640,6 @@ function BookingDetailSection({ reference, autoPrint = false }: { reference: str
   const [loadError, setLoadError] = useState('')
   const [cancelling, setCancelling] = useState(false)
   const [actionError, setActionError] = useState('')
-  const [paying, setPaying] = useState(false)
-  const [payInfo, setPayInfo] = useState('')
 
   useEffect(() => {
     // Staff preview shows the impersonated demo record; real customers
@@ -616,26 +681,18 @@ function BookingDetailSection({ reference, autoPrint = false }: { reference: str
   const travelers = booking.lines.reduce((sum, line) => sum + line.adults + line.children + line.infants, 0)
   const linesTotal = booking.lines.reduce((sum, line) => sum + line.total, 0)
   const canCancel = !impersonated && (booking.status === 'pending' || booking.status === 'confirmed')
-  // Pay now is offered only when the booking can still take money and
-  // no payment attempt is currently active. Initiation records a real
-  // PENDING payment — it never charges and never marks anything paid.
-  const payState = booking.paymentSummary?.state ?? 'unpaid'
-  const canPay = !impersonated && (booking.status === 'pending' || booking.status === 'confirmed') && (payState === 'unpaid' || payState === 'failed')
-  const startPayment = () => {
-    if (paying) return
-    setPaying(true)
-    setActionError('')
-    setPayInfo('')
-    apiPaymentInitiate(booking.reference)
-      .then(() => apiBookingDetail(booking.reference))
-      .then((saved) => {
-        setBooking(saved)
-        setPayInfo(tx(locale, { en: `Payment attempt recorded as pending (${saved.paymentSummary?.latestReference ?? 'see Payments'}). Online payment opens here once a provider is connected - nothing has been charged.`, ar: `تم تسجيل محاولة الدفع كمعلقة (${saved.paymentSummary?.latestReference ?? 'انظر المدفوعات'}). ستظهر بوابة الدفع هنا عند ربط مزود - لم يتم خصم أي مبلغ.` }))
-      })
-      .catch((err: unknown) => {
-        setActionError(err instanceof Error ? err.message : (tx(locale, { en: 'Could not initiate the payment.', ar: 'تعذر بدء الدفع.' })))
-      })
-      .finally(() => setPaying(false))
+  // Offline-only payments (Phase 3.1): the legacy online initiation
+  // button is gone from customer UI — it implied a gateway that does
+  // not exist. Customers pay offline (see the instructions below)
+  // and optionally submit a reference for staff review. The initiation
+  // API and all stored payment history are preserved untouched.
+  // Offline proof submission: offered while the booking can still take
+  // money and a balance remains. Reference-only — never a file, never
+  // a payment record.
+  const { remaining } = bookingMoney(booking)
+  const canSubmitProof = !impersonated && (booking.status === 'pending' || booking.status === 'confirmed') && remaining > 0
+  const refreshBooking = () => {
+    apiBookingDetail(booking.reference).then((row) => setBooking(row)).catch(() => undefined)
   }
   const createdOn = displayBookingDate(booking, locale)
   const steps = [
@@ -651,18 +708,28 @@ function BookingDetailSection({ reference, autoPrint = false }: { reference: str
       <div className="customer-detail-grid">
         <div><small>{tx(locale, { en: 'Travel date', es: 'Fecha del viaje', it: 'Data del viaggio', ar: 'تاريخ السفر' })}</small><strong>{booking.lines[0]?.date || createdOn}</strong></div>
         <div><small>{tx(locale, { en: 'Travelers', es: 'Viajeros', it: 'Viaggiatori', ar: 'المسافرون' })}</small><strong>{travelers}</strong></div>
-        <div><small>{tx(locale, { en: 'Payment status', es: 'Estado del pago', it: 'Stato del pagamento', ar: 'حالة الدفع' })}</small><strong>{displayPaymentMethod(booking, locale)}</strong></div>
+        <div><small>{tx(locale, { en: 'Payment method', es: 'Método de pago', it: 'Metodo di pagamento', ar: 'طريقة الدفع' })}</small><strong>{displayPaymentMethod(booking, locale)}</strong></div>
         <div><small>{tx(locale, { en: 'Payment status', es: 'Estado del pago', it: 'Stato del pagamento', ar: 'حالة الدفع' })}</small><strong>{displayPaymentStatus(booking, locale)}{booking.paymentSummary?.latestReference ? (<> · <Link href={'/account/payments/detail?ref=' + encodeURIComponent(booking.paymentSummary.latestReference)}>{booking.paymentSummary.latestReference}</Link></>) : ''}</strong></div>
       </div>
-      {payInfo && <p role="status" className="form-note">{payInfo}</p>}
       {actionError && <p role="alert" className="form-error">{actionError}</p>}
       <div className="customer-detail-actions">
-        {canPay && <button type="button" className="account-icon-action primary" disabled={paying} onClick={startPayment}><CreditCard size={17} />{paying ? (tx(locale, { en: 'Starting payment…', ar: 'جارٍ بدء الدفع…' })) : (tx(locale, { en: 'Pay now', ar: 'ادفع الآن' }))}</button>}
+        {canSubmitProof && <a href="#sp-payment-instructions" className="account-icon-action primary"><WalletCards size={17} />{tx(locale, { en: 'How to pay', es: 'Cómo pagar', it: 'Come pagare', ar: 'كيفية الدفع' })}</a>}
         <Link href="/account/messages" className="account-icon-action" onClick={() => saveMessageDraft({ reference: booking.reference, title: booking.lines[0]?.title ?? '' })}><MessageCircle size={17} />{tx(locale, { en: 'Ask about booking', es: 'Preguntar por la reserva', it: 'Chiedi info sulla prenotazione', ar: 'اسأل عن الحجز' })}</Link>
         <button type="button" className="account-icon-action" onClick={() => window.print()}><ReceiptText size={17} />{tx(locale, { en: 'Print booking', es: 'Imprimir la reserva', it: 'Stampa la prenotazione', ar: 'طباعة الحجز' })}</button>
         {canCancel && <button type="button" className="account-icon-action danger" onClick={() => setCancelling(true)}><X size={17} />{tx(locale, { en: 'Request cancellation', es: 'Solicitar cancelación', it: 'Richiedi cancellazione', ar: 'طلب الإلغاء' })}</button>}
       </div>
     </section>
+
+    {!impersonated && (
+      <BookingDocumentsSection
+        listUrl={`/api/account/bookings/${encodeURIComponent(reference)}/documents`}
+        pdfUrlFor={(id) => ownerDocumentPdfUrl(reference, id)}
+      />
+    )}
+
+    <BookingPaymentPanel booking={booking} />
+    <PaymentInstructions layout="section" />
+    {canSubmitProof && <PaymentProofForm bookingReference={booking.reference} onSubmitted={refreshBooking} />}
 
     <section className="customer-account-block">
       <header><div><span>{booking.lines.length} {tx(locale, { en: 'items', es: 'elementos', it: 'voci', ar: 'بنود' })}</span><h2>{tx(locale, { en: 'Trip details', es: 'Detalles del viaje', it: 'Dettagli del viaggio', ar: 'تفاصيل الرحلات' })}</h2></div></header>
@@ -811,10 +878,18 @@ function GuestBookingSection({ token, autoPrint = false }: { token: string; auto
   const travelers = booking.lines.reduce((sum, line) => sum + line.adults + line.children + line.infants, 0)
   const linesTotal = booking.lines.reduce((sum, line) => sum + line.total, 0)
   const createdOn = displayBookingDate(booking, locale)
+  // Offline proof submission (Phase 3): token-authorized, reference-only
+  // — the token never gains cancel/pay powers; this appends one
+  // harmless activity row for staff review, never money.
+  const { remaining } = bookingMoney(booking)
+  const canSubmitProof = (booking.status === 'pending' || booking.status === 'confirmed') && remaining > 0
+  const refreshBooking = () => {
+    apiGuestBooking(token).then((row) => setBooking(row)).catch(() => undefined)
+  }
   const steps = [
     { done: true, label: tx(locale, { en: 'Received', es: 'Recibida', it: 'Ricevuta', ar: 'تم الاستلام' }), date: createdOn },
     { done: booking.status !== 'pending', label: tx(locale, { en: 'Confirmation', es: 'Confirmación', it: 'Conferma', ar: 'التأكيد' }), date: booking.status !== 'pending' ? createdOn : '-' },
-    { done: booking.status === 'completed', label: tx(locale, { en: 'Trip completed', es: 'Viaje completado', it: 'Viaggio completato', ar: 'اكتمال الرحلة' }), date: booking.status === 'completed' ? createdOn : '-' },
+    { done: booking.status === 'completed', label: tx(locale, { en: 'Trip completed', es: 'Viaje completado', it: 'Viaggio completado', ar: 'اكتمال الرحلة' }), date: booking.status === 'completed' ? createdOn : '-' },
     ...(booking.status === 'cancelled' ? [{ done: true, label: tx(locale, { en: 'Cancelled', es: 'Cancelada', it: 'Cancellata', ar: 'ملغي' }), date: '-' }] : []),
   ]
 
@@ -832,6 +907,16 @@ function GuestBookingSection({ token, autoPrint = false }: { token: string; auto
         <Link href="/contact" className="account-icon-action"><MessageCircle size={17} />{tx(locale, { en: 'Contact our team', es: 'Contacta con nuestro equipo', it: 'Contatta il nostro team', ar: 'تواصل مع فريقنا' })}</Link>
       </div>
     </section>
+
+    <BookingDocumentsSection
+      listUrl={`/api/bookings/access/${encodeURIComponent(token)}/documents`}
+      pdfUrlFor={(id) => guestDocumentPdfUrl(token, id)}
+      omitCredentials
+    />
+
+    <BookingPaymentPanel booking={booking} />
+    <PaymentInstructions layout="section" />
+    {canSubmitProof && <PaymentProofForm bookingReference={booking.reference} guestToken={token} onSubmitted={refreshBooking} />}
 
     <section className="customer-account-block">
       <header><div><span>{booking.lines.length} {tx(locale, { en: 'items', es: 'elementos', it: 'voci', ar: 'بنود' })}</span><h2>{tx(locale, { en: 'Trip details', es: 'Detalles del viaje', it: 'Dettagli del viaggio', ar: 'تفاصيل الرحلات' })}</h2></div></header>
@@ -1355,23 +1440,12 @@ async function apiPaymentList(): Promise<Payment[]> {
   return data.payments
 }
 
-async function apiPaymentInitiate(bookingReference: string): Promise<Payment> {
-  const res = await fetch('/api/account/payments', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    credentials: 'same-origin',
-    body: JSON.stringify({ bookingReference }),
-  })
-  const data = (await res.json()) as Payment & { error?: string }
-  if (!res.ok) throw new Error(data.error || 'Could not initiate the payment.')
-  return data
-}
-
 /**
- * Customer payments (Phase 2F-A). Real database-backed payment
- * records from `/api/account/payments` — never booking-derived
- * previews. Initiation creates a PENDING record awaiting provider
- * handoff; no gateway exists yet, so no card form is ever shown.
+ * Customer payments (Phase 3.1: offline only). Real database-backed
+ * payment records from `/api/account/payments` — never booking-derived
+ * previews. Only verified money appears here: pending rows are legacy
+ * online-intent placeholders, never charges. Customers pay offline via
+ * their booking's payment instructions; this screen never initiates.
  */
 function PaymentsSection() {
   const { locale, currency } = useLocale()
@@ -1419,7 +1493,7 @@ function PaymentsSection() {
             </span></td>
           </tr>
         ))}</tbody>
-      </table></div><CustomerPagination page={paging.page} pageCount={paging.pageCount} onPage={paging.setPage} pageSize={paging.pageSize} onPageSize={paging.setPageSize} from={paging.from} to={paging.to} total={paging.total} /></> : <EmptyState Icon={ReceiptText} title={payments.length ? (tx(locale, { en: 'No records in this view', es: 'Sin registros en esta vista', it: 'Nessuna registrazione in questa vista', ar: 'لا توجد سجلات في هذه الحالة' })) : (tx(locale, { en: 'No payment records yet', es: 'Aún no hay registros de pago', it: 'Ancora nessuna registrazione di pagamento', ar: 'لا توجد مدفوعات بعد' }))} copy={payments.length ? (tx(locale, { en: 'Try a different status from the filter above.', es: 'Prueba con otro estado del filtro.', it: 'Prova un altro stato dal filtro qui sopra.', ar: 'جرب حالة مختلفة من الفلتر بالأعلى.' })) : (tx(locale, { en: 'Payment attempts will appear here once you start one from a booking.', es: 'Los intentos de pago aparecerán aquí cuando inicies uno desde una reserva.', it: 'I tentativi di pagamento appariranno qui dopo averne avviato uno da una prenotazione.', ar: 'ستظهر محاولات الدفع هنا بمجرد بدء واحدة من الحجز.' }))} href="/account/bookings" action={tx(locale, { en: 'View my bookings', es: 'Ver mis reservas', it: 'Vedi le mie prenotazioni', ar: 'عرض حجوزاتي' })} />}</section></>
+      </table></div><CustomerPagination page={paging.page} pageCount={paging.pageCount} onPage={paging.setPage} pageSize={paging.pageSize} onPageSize={paging.setPageSize} from={paging.from} to={paging.to} total={paging.total} /></> : <EmptyState Icon={ReceiptText} title={payments.length ? (tx(locale, { en: 'No records in this view', es: 'Sin registros en esta vista', it: 'Nessuna registrazione in questa vista', ar: 'لا توجد سجلات في هذه الحالة' })) : (tx(locale, { en: 'No payment records yet', es: 'Aún no hay registros de pago', it: 'Ancora nessuna registrazione di pagamento', ar: 'لا توجد مدفوعات بعد' }))} copy={payments.length ? (tx(locale, { en: 'Try a different status from the filter above.', es: 'Prueba con otro estado del filtro.', it: 'Prova un altro stato dal filtro qui sopra.', ar: 'جرب حالة مختلفة من الفلتر بالأعلى.' })) : (tx(locale, { en: 'Verified payments appear here. To pay, open your booking and follow the offline payment instructions.', es: 'Los pagos verificados aparecen aquí. Para pagar, abre tu reserva y sigue las instrucciones de pago offline.', it: 'I pagamenti verificati appaiono qui. Per pagare, apri la tua prenotazione e segui le istruzioni di pagamento offline.', ar: 'تظهر المدفوعات المؤكدة هنا. للدفع، افتح حجزك واتبع تعليمات الدفع المباشر.' }))} href="/account/bookings" action={tx(locale, { en: 'View my bookings', es: 'Ver mis reservas', it: 'Vedi le mie prenotazioni', ar: 'عرض حجوزاتي' })} />}</section></>
 }
 
 async function apiPaymentDetail(reference: string): Promise<Payment> {
@@ -1460,43 +1534,43 @@ function PaymentDetailSection({ reference }: { reference: string }) {
   }, [reference])
 
   if (loading) {
-    return <div className="customer-inline-empty" role="status"><Clock3 size={20} /><span><strong>{tx(locale, { en: 'Loading payment…', ar: 'جارٍ تحميل الدفع…' })}</strong></span></div>
+    return <div className="customer-inline-empty" role="status"><Clock3 size={20} /><span><strong>{tx(locale, { en: 'Loading payment…', es: 'Cargando el pago…', it: 'Caricamento pagamento…', ar: 'جارٍ تحميل الدفع…' })}</strong></span></div>
   }
 
   if (!payment) {
-    return <EmptyState Icon={ReceiptText} title={tx(locale, { en: 'Payment not found', ar: 'الدفع غير موجود' })} copy={loadError || (tx(locale, { en: 'It may belong to a different account.', ar: 'ربما يتبع حسابًا مختلفًا.' }))} href="/account/payments" action={tx(locale, { en: 'Back to payments', ar: 'عودة للمدفوعات' })} />
+    return <EmptyState Icon={ReceiptText} title={tx(locale, { en: 'Payment not found', es: 'Pago no encontrado', it: 'Pagamento non trovato', ar: 'الدفع غير موجود' })} copy={loadError || (tx(locale, { en: 'It may belong to a different account.', es: 'Es posible que pertenezca a otra cuenta.', it: 'Potrebbe appartenere a un altro account.', ar: 'ربما يتبع حسابًا مختلفًا.' }))} href="/account/payments" action={tx(locale, { en: 'Back to payments', es: 'Volver a los pagos', it: 'Torna ai pagamenti', ar: 'عودة للمدفوعات' })} />
   }
 
-  const fmtDateTime = (iso: string | null) => (iso ? new Date(iso).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-US') : '-')
+  const fmtDateTime = (iso: string | null) => (iso ? new Date(iso).toLocaleString(locale === 'ar' ? 'ar-EG' : locale === 'es' ? 'es-ES' : locale === 'it' ? 'it-IT' : 'en-US') : '-')
   const isPending = payment.status === 'pending' || payment.status === 'processing'
 
   return <>
     <section className="customer-account-block">
-      <header><div><span>{payment.reference}</span><h2>{tx(locale, { en: 'Payment details', ar: 'تفاصيل الدفع' })}</h2></div><span className={`customer-payment-state ${payment.status}`}>{paymentStatusLabel(payment.status, locale)}</span></header>
+      <header><div><span>{payment.reference}</span><h2>{tx(locale, { en: 'Payment details', es: 'Detalles del pago', it: 'Dettagli pagamento', ar: 'تفاصيل الدفع' })}</h2></div><span className={`customer-payment-state ${payment.status}`}>{paymentStatusLabel(payment.status, locale)}</span></header>
       <div className="customer-detail-grid">
-        <div><small>{tx(locale, { en: 'Amount due', ar: 'المبلغ المستحق' })}</small><strong>{formatPrice(payment.amount, currency, locale)}</strong></div>
-        <div><small>{tx(locale, { en: 'Amount paid', ar: 'المدفوع' })}</small><strong>{formatPrice(payment.amountPaid, currency, locale)}</strong></div>
-        <div><small>{tx(locale, { en: 'Payment status', ar: 'حالة الدفع' })}</small><strong>{paymentStatusLabel(payment.status, locale)}</strong></div>
-        <div><small>{tx(locale, { en: 'Related booking', ar: 'الحجز المرتبط' })}</small><strong><Link href={'/account/bookings/detail?ref=' + encodeURIComponent(payment.bookingReference)}>{payment.bookingReference}</Link></strong></div>
-        <div><small>{tx(locale, { en: 'Initiated', ar: 'تاريخ الإنشاء' })}</small><strong>{fmtDateTime(payment.initiatedAt)}</strong></div>
-        {payment.amountRefunded > 0 && <div><small>{tx(locale, { en: 'Amount refunded', ar: 'المسترد' })}</small><strong>{formatPrice(payment.amountRefunded, currency, locale)}</strong></div>}
-        {payment.paidAt && <div><small>{tx(locale, { en: 'Paid on', ar: 'تاريخ الدفع' })}</small><strong>{fmtDateTime(payment.paidAt)}</strong></div>}
-        {payment.failedAt && <div><small>{tx(locale, { en: 'Failed on', ar: 'تاريخ الفشل' })}</small><strong>{fmtDateTime(payment.failedAt)}</strong></div>}
-        {payment.cancelledAt && <div><small>{tx(locale, { en: 'Cancelled on', ar: 'تاريخ الإلغاء' })}</small><strong>{fmtDateTime(payment.cancelledAt)}</strong></div>}
-        {payment.refundedAt && <div><small>{tx(locale, { en: 'Refunded on', ar: 'تاريخ الاسترداد' })}</small><strong>{fmtDateTime(payment.refundedAt)}</strong></div>}
-        <div><small>{tx(locale, { en: 'Payment provider', ar: 'مزود الدفع' })}</small><strong>{payment.provider === 'pending' ? (tx(locale, { en: 'Online payment - coming soon', ar: 'الدفع الإلكتروني - قريبًا' })) : payment.provider}{payment.providerPaymentId ? ` · ${payment.providerPaymentId}` : ''}</strong></div>
+        <div><small>{tx(locale, { en: 'Amount due', es: 'Importe adeudado', it: 'Importo dovuto', ar: 'المبلغ المستحق' })}</small><strong>{formatPrice(payment.amount, currency, locale)}</strong></div>
+        <div><small>{tx(locale, { en: 'Amount paid', es: 'Importe pagado', it: 'Importo pagato', ar: 'المدفوع' })}</small><strong>{formatPrice(payment.amountPaid, currency, locale)}</strong></div>
+        <div><small>{tx(locale, { en: 'Payment status', es: 'Estado del pago', it: 'Stato del pagamento', ar: 'حالة الدفع' })}</small><strong>{paymentStatusLabel(payment.status, locale)}</strong></div>
+        <div><small>{tx(locale, { en: 'Related booking', es: 'Reserva relacionada', it: 'Prenotazione collegata', ar: 'الحجز المرتبط' })}</small><strong><Link href={'/account/bookings/detail?ref=' + encodeURIComponent(payment.bookingReference)}>{payment.bookingReference}</Link></strong></div>
+        <div><small>{tx(locale, { en: 'Initiated', es: 'Iniciado', it: 'Avviato', ar: 'تاريخ الإنشاء' })}</small><strong>{fmtDateTime(payment.initiatedAt)}</strong></div>
+        {payment.amountRefunded > 0 && <div><small>{tx(locale, { en: 'Amount refunded', es: 'Importe reembolsado', it: 'Importo rimborsato', ar: 'المسترد' })}</small><strong>{formatPrice(payment.amountRefunded, currency, locale)}</strong></div>}
+        {payment.paidAt && <div><small>{tx(locale, { en: 'Paid on', es: 'Pagado el', it: 'Pagato il', ar: 'تاريخ الدفع' })}</small><strong>{fmtDateTime(payment.paidAt)}</strong></div>}
+        {payment.failedAt && <div><small>{tx(locale, { en: 'Failed on', es: 'Fallido el', it: 'Fallito il', ar: 'تاريخ الفشل' })}</small><strong>{fmtDateTime(payment.failedAt)}</strong></div>}
+        {payment.cancelledAt && <div><small>{tx(locale, { en: 'Cancelled on', es: 'Cancelado el', it: 'Annullato il', ar: 'تاريخ الإلغاء' })}</small><strong>{fmtDateTime(payment.cancelledAt)}</strong></div>}
+        {payment.refundedAt && <div><small>{tx(locale, { en: 'Refunded on', es: 'Reembolsado el', it: 'Rimborsato il', ar: 'تاريخ الاسترداد' })}</small><strong>{fmtDateTime(payment.refundedAt)}</strong></div>}
+        <div><small>{tx(locale, { en: 'Payment provider', es: 'Proveedor de pago', it: 'Fornitore di pagamento', ar: 'مزود الدفع' })}</small><strong>{payment.provider === 'offline' ? (tx(locale, { en: 'Offline (bank transfer or cash)', es: 'Offline (transferencia o efectivo)', it: 'Offline (bonifico o contanti)', ar: 'مباشر (تحويل بنكي أو نقدي)' })) : payment.provider === 'pending' ? (tx(locale, { en: 'No payment made yet', es: 'Aún no se ha realizado ningún pago', it: 'Nessun pagamento ancora effettuato', ar: 'لم يتم أي دفع بعد' })) : payment.provider}{payment.providerPaymentId ? ` · ${payment.providerPaymentId}` : ''}</strong></div>
       </div>
-      {isPending && <p role="status" className="form-note">{tx(locale, { en: `This payment is pending: ${formatPrice(payment.amount, currency, locale)} is awaiting payment. Nothing has been charged - the online provider handoff is not connected yet.`, ar: `هذا الدفع معلق: مبلغ ${formatPrice(payment.amount, currency, locale)} بانتظار الدفع. لم يتم خصم أي مبلغ - ربط مزود الدفع الإلكتروني غير متاح بعد.` })}</p>}
+      {isPending && <p role="status" className="form-note">{tx(locale, { en: `This record is pending: ${formatPrice(payment.amount, currency, locale)} is awaiting offline payment. Nothing has been charged online — pay by bank transfer or cash following your booking's payment instructions.`, es: `Este registro está pendiente: ${formatPrice(payment.amount, currency, locale)} aguarda el pago offline. No se ha cobrado nada en línea: paga por transferencia o en efectivo siguiendo las instrucciones de pago de tu reserva.`, it: `Questa registrazione è in sospeso: ${formatPrice(payment.amount, currency, locale)} è in attesa del pagamento offline. Nessun addebito online: paga con bonifico o contanti seguendo le istruzioni di pagamento della prenotazione.`, ar: `هذا السجل معلق: مبلغ ${formatPrice(payment.amount, currency, locale)} بانتظار الدفع المباشر. لم يتم خصم أي مبلغ عبر الإنترنت — ادفع بتحويل بنكي أو نقدًا وفق تعليمات الدفع في حجزك.` })}</p>}
       <div className="customer-detail-actions">
-        <Link href={'/account/bookings/detail?ref=' + encodeURIComponent(payment.bookingReference)} className="account-icon-action"><Eye size={16} />{tx(locale, { en: 'View related booking', ar: 'عرض الحجز المرتبط' })}</Link>
-        <Link href="/account/payments" className="account-icon-action"><ArrowLeft size={16} />{tx(locale, { en: 'Back to payments', ar: 'عودة للمدفوعات' })}</Link>
+        <Link href={'/account/bookings/detail?ref=' + encodeURIComponent(payment.bookingReference)} className="account-icon-action"><Eye size={16} />{tx(locale, { en: 'View related booking', es: 'Ver la reserva relacionada', it: 'Vedi la prenotazione collegata', ar: 'عرض الحجز المرتبط' })}</Link>
+        <Link href="/account/payments" className="account-icon-action"><ArrowLeft size={16} />{tx(locale, { en: 'Back to payments', es: 'Volver a los pagos', it: 'Torna ai pagamenti', ar: 'عودة للمدفوعات' })}</Link>
       </div>
     </section>
 
     {payment.events.length > 0 && (
-      <section className="customer-activity" aria-label={tx(locale, { en: 'Payment activity', ar: 'سجل الدفع' })}>
-        <h3>{tx(locale, { en: 'Activity', ar: 'السجل' })}</h3>
-        <ul>{payment.events.map((e, i) => <li key={`${e.at}-${i}`}><span>{new Date(e.at).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-US')}</span><strong>{paymentActivityLabel(e.action, locale)}</strong>{e.note && <small>{e.note}</small>}</li>)}</ul>
+      <section className="customer-activity" aria-label={tx(locale, { en: 'Payment activity', es: 'Actividad del pago', it: 'Attività pagamento', ar: 'سجل الدفع' })}>
+        <h3>{tx(locale, { en: 'Activity', es: 'Actividad', it: 'Attività', ar: 'السجل' })}</h3>
+        <ul>{payment.events.map((e, i) => <li key={`${e.at}-${i}`}><span>{new Date(e.at).toLocaleString(locale === 'ar' ? 'ar-EG' : locale === 'es' ? 'es-ES' : locale === 'it' ? 'it-IT' : 'en-US')}</span><strong>{paymentActivityLabel(e.action, locale)}</strong>{e.note && <small>{e.note}</small>}</li>)}</ul>
       </section>
     )}
   </>

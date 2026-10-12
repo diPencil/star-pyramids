@@ -41,6 +41,13 @@ export const PUBLIC_SETTING_KEYS = [
   'contact.mapUrl',
   'contact.copyrightEn',
   'contact.copyrightAr',
+  // Company legal identity for future numbered documents (Phase A).
+  // Optional by design: empty/absent means "not provided" and documents
+  // omit the value. Never defaulted to a fabricated legal name, number,
+  // or tax registration.
+  'company.legalEntityName',
+  'company.registrationNumber',
+  'company.taxNumber',
   // Localization / currency defaults (rates live in FxRate)
   'app.defaultLocale',
   'app.defaultCurrency',
@@ -286,6 +293,19 @@ export function validateSettingsPatch(input: {
       case 'contact.copyrightEn':
       case 'contact.copyrightAr':
         if (bounded(1, 500, 'Enter footer copyright text (1-500 characters).')) clean[key] = trimmed;
+        break;
+      case 'company.legalEntityName':
+      case 'company.registrationNumber':
+      case 'company.taxNumber':
+        // Optional issuer/legal fields for future documents. An empty
+        // value is stored as-is and means "not provided" — it is never
+        // replaced with a default, and no tax rate or VAT rule is
+        // represented anywhere in settings.
+        if (value.length > 160 || hasControlChars(value)) {
+          fail('Legal information must be 160 characters or fewer.');
+          break;
+        }
+        clean[key] = trimmed;
         break;
       case 'app.defaultLocale':
         // Dormant Arabic/RTL must never become publicly enabled here.

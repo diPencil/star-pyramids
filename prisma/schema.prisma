@@ -477,6 +477,7 @@ model Booking {
   user           User?                @relation(fields: [userId], references: [id])
   payments       Payment[]
   accessTokens   BookingAccessToken[]
+  documents      BookingDocument[]
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
@@ -626,6 +627,7 @@ model Payment {
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
   events            PaymentEvent[]
+  documents         BookingDocument[]
   booking           Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@index([bookingId, createdAt])
@@ -685,6 +687,15 @@ model PaymentEvent {
   /// provider event collides, which is exactly the duplicate to absorb.
   providerEventId String? @db.VarChar(128)
 
+  /// Phase D: per-refund evidence for commercial refund notes. Written
+  /// only by completed offline refunds going forward (the amount, method
+  /// and external reference of THIS event); NULL on every older row, so
+  /// historical refunds without per-event data stay ineligible for notes
+  /// instead of being reinterpreted.
+  amountCents       Int?
+  method            String? @db.VarChar(32)
+  externalReference String? @db.VarChar(255)
+
   @@index([paymentId, createdAt])
   @@unique([providerEventId])
   @@map("payment_events")
@@ -702,6 +713,82 @@ model PaymentAttempt {
   @@index([email, createdAt])
   @@index([ipAddress, createdAt])
   @@map("payment_attempts")
+}
+
+/// Phase A: booking documents foundation. One row per ISSUED document
+/// with a globally unique number living in its own namespace — booking
+/// references (`SP-BK-*`) and payment references (`SP-PAY-*`) are never
+/// renumbered or reused here. `number` format: `<PREFIX>-<year>-<seq>`
+/// (e.g. `SP-RCPT-2026-000001`), allocated by transactional increments
+/// of `document_sequences`. `type` is the honest document kind; the
+/// print-only BookingPrintDocument is NOT a row — this table exists for
+/// future numbered issuance only, and nothing issues rows automatically
+/// (no webhook, email, or transition path calls it yet).
+///
+/// Money: `amountCents` is an immutable integer-cent snapshot in USD
+/// (the accounting currency) taken from verified Payment rows or the
+/// booking total at issuance; `currency` is always USD. There is no tax,
+/// VAT, or invoice-total modeling until legal configuration exists.
+/// `paymentId` links money documents (receipt) to the exact verified
+/// Payment row; booking-level documents leave it NULL. Proof
+/// submissions are activities, never payments, and never grant a
+/// receipt. `idempotencyKey` is caller-supplied per logical document
+/// (e.g. `receipt:SP-PAY-ABC123`) — a retry returns the original row
+/// with its original number instead of minting a second document.
+model BookingDocument {
+  id             String              @id @default(cuid())
+  number         String              @unique @db.VarChar(32)
+  type           BookingDocumentType
+  bookingId      String
+  paymentId      String?
+  amountCents    Int
+  currency       String              @default("USD") @db.Char(3)
+  idempotencyKey String?             @unique @db.VarChar(120)
+  issuedAt       DateTime            @default(now())
+  createdAt      DateTime            @default(now())
+  booking        Booking             @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  payment        Payment?            @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  /// Phase D: opaque voucher-verification token (raw, unguessable).
+  /// Set only on BOOKING_VOUCHER rows at issuance. The QR code encodes
+  /// the verification URL carrying it, so voucher PDFs stay verifiable
+  /// at any later download. MySQL unique indexes admit multiple NULLs,
+  /// so non-voucher rows are unaffected.
+  verificationToken String? @unique @db.VarChar(64)
+
+  /// Phase D: refund-note snapshot, anchored to exactly one persisted
+  /// refund event (`payment_events.id`). All NULL except on REFUND_NOTE
+  /// rows; frozen at issuance and never updated afterwards.
+  refundEventId           String?   @db.VarChar(64)
+  refundAmountCents       Int?
+  refundMethod            String?   @db.VarChar(32)
+  refundExternalReference String?   @db.VarChar(255)
+  refundDate              DateTime?
+
+  /// Phase D: frozen invoice service lines (JSON array of title, travel
+  /// date, traveler counts, unit prices, line total and add-ons),
+  /// snapshotted from the booking items at issuance. Set only on
+  /// INVOICE rows; the invoice renders from this snapshot so later
+  /// item changes can never move historical invoice values.
+  lineSnapshot String? @db.LongText
+
+  @@index([bookingId, type])
+  @@index([paymentId])
+  @@map("booking_documents")
+}
+
+/// Collision-safe document-number counters. One row per
+/// `<TYPE>:<year>` key; issuance does `UPDATE lastValue = lastValue + 1`
+/// inside the issuing transaction (the UPDATE takes the row lock, so
+/// concurrent issuances serialize) and formats the bumped value into the
+/// document number. Counters are infrastructure, never money — no
+/// booking or payment row is ever rewritten by them.
+model DocumentSequence {
+  key       String   @id @db.VarChar(64)
+  lastValue Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@map("document_sequences")
 }
 
 /// Phase 2G: customer saved trips (favorites). One row per saved
@@ -1157,6 +1244,21 @@ enum PaymentStatus {
   CANCELLED
   REFUNDED
   PARTIALLY_REFUNDED
+}
+
+/// Phase A document kinds. Request/Confirmation/Receipt are issuable
+/// today through the documents service; INVOICE, REFUND_NOTE and
+/// BOOKING_VOUCHER exist as named types only and stay blocked until
+/// their business rules and legal configuration are defined. Documents
+/// are issued explicitly — never automatically by booking, payment, or
+/// webhook transitions.
+enum BookingDocumentType {
+  BOOKING_REQUEST
+  BOOKING_CONFIRMATION
+  PAYMENT_RECEIPT
+  INVOICE
+  REFUND_NOTE
+  BOOKING_VOUCHER
 }
 
 /// Phase 2I: internal STAR PYRAMIDS support conversations (customer ↔

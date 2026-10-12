@@ -94,6 +94,12 @@ export type Booking = {
   notes: string
   lines: BookingLine[]
   activity: BookingActivity[]
+  /**
+   * Customer payment-proof submissions for this booking (reference-only,
+   * awaiting or acknowledged by staff). Never a payment record: verified
+   * money stays in `paymentSummary` only.
+   */
+  paymentProofs?: PaymentProofView[]
 }
 
 /** Linked registered account info (staff views only, never customer-facing). */
@@ -101,6 +107,81 @@ export type BookingAccount = {
   email: string
   name: string
 } | null
+
+/**
+ * Customer payment-proof submission (Phase 3: offline payments, no
+ * gateway). Reference-only: the customer submits a bank/cash reference
+ * for staff review. A submission NEVER marks money paid — staff record
+ * actual receipts separately through the audited offline workflow.
+ * Stored on the existing BookingActivity timeline (no new table, no
+ * file uploads: the media architecture serves public URLs only, so
+ * proofs must never carry files or public links).
+ */
+export type PaymentProofView = {
+  /** Customer-supplied payment reference (bank ref / receipt number). */
+  reference: string
+  /** Offline method the customer used, when declared. */
+  method: 'bank_transfer' | 'cash' | null
+  /** ISO submission time (server clock). */
+  submittedAt: string
+  /** True once authorized staff acknowledged the submission. */
+  reviewed: boolean
+}
+
+/** Stored English action for a customer payment-proof submission. */
+export const PAYMENT_PROOF_SUBMITTED_ACTION = 'Payment proof submitted'
+
+/** Stored English action for a staff proof-review acknowledgement. */
+export const PAYMENT_PROOF_REVIEWED_ACTION = 'Payment proof reviewed'
+
+/**
+ * Derive the proof list from activity rows (customer-safe fields only).
+ * A proof is pending while no later staff review references the same
+ * customer reference. Pure: no I/O, safe for client and server.
+ */
+export function derivePaymentProofs(
+  activities: readonly { action: string; note?: string; at: string }[],
+): PaymentProofView[] {
+  const reviewed = new Set<string>()
+  for (const entry of activities) {
+    if (entry.action !== PAYMENT_PROOF_REVIEWED_ACTION || !entry.note) continue
+    reviewed.add(entry.note.trim().toLowerCase())
+  }
+  const proofs: PaymentProofView[] = []
+  const seen = new Set<string>()
+  for (const entry of activities) {
+    if (entry.action !== PAYMENT_PROOF_SUBMITTED_ACTION) continue
+    const parsed = parsePaymentProofNote(entry.note ?? '')
+    const key = parsed.reference.toLowerCase()
+    if (!parsed.reference || seen.has(key)) continue
+    seen.add(key)
+    proofs.push({
+      reference: parsed.reference,
+      method: parsed.method,
+      submittedAt: entry.at,
+      reviewed: reviewed.has(key),
+    })
+  }
+  return proofs.sort((a, b) => (a.submittedAt < b.submittedAt ? -1 : 1))
+}
+
+/** Compose the stored activity note for a proof (English, machine-parseable). */
+export function formatPaymentProofNote(reference: string, method: 'bank_transfer' | 'cash' | null): string {
+  const label = method === 'bank_transfer' ? 'Bank transfer' : method === 'cash' ? 'Cash' : null
+  return label ? `${label} reference: ${reference}` : reference
+}
+
+/** Parse a stored proof note back into method + reference. */
+export function parsePaymentProofNote(note: string): { reference: string; method: 'bank_transfer' | 'cash' | null } {
+  const match = /^(Bank transfer|Cash) reference:\s*(.+)$/.exec(note.trim())
+  if (match) {
+    return {
+      reference: match[2].trim().slice(0, 128),
+      method: match[1] === 'Bank transfer' ? 'bank_transfer' : 'cash',
+    }
+  }
+  return { reference: note.trim().slice(0, 128), method: null }
+}
 
 export type StaffBooking = Booking & {
   account: BookingAccount
@@ -216,6 +297,8 @@ export function bookingActivityLabel(action: string, ar: boolean | Locale): stri
     'Booking completed': { es: 'Reserva completada', it: 'Prenotazione completata', ar: 'اكتمل الحجز' },
     'Booking cancelled': { es: 'Reserva cancelada', it: 'Prenotazione annullata', ar: 'تم إلغاء الحجز' },
     'Booking request cancelled': { es: 'Solicitud de reserva cancelada', it: 'Richiesta di prenotazione annullata', ar: 'تم إلغاء طلب الحجز' },
+    'Payment proof submitted': { es: 'Comprobante de pago enviado', it: 'Prova di pagamento inviata', ar: 'تم إرسال إثبات الدفع' },
+    'Payment proof reviewed': { es: 'Comprobante de pago revisado', it: 'Prova di pagamento verificata', ar: 'تمت مراجعة إثبات الدفع' },
     'Internal note added': { es: 'Nota interna añadida', it: 'Nota interna aggiunta', ar: 'أضيفت ملاحظة داخلية' },
   }
   const entry = map[action]

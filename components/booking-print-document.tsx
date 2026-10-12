@@ -1,6 +1,7 @@
 'use client'
 
 import { formatPrice, tx, useLocale } from './locale'
+import { bookingMoney, bookingPaymentLabel } from './booking-payment'
 import type { Booking } from '@/lib/booking'
 
 /**
@@ -15,13 +16,19 @@ import type { Booking } from '@/lib/booking'
  * Honest title semantics:
  * - PENDING (any payment state)            → "Booking Request"
  * - CONFIRMED/COMPLETED but UNPAID         → "Booking Confirmation"
- * - PAID (future payment phase only)       → "Payment Receipt"
- * "Receipt" is never used for an unpaid booking.
+ * - Fully paid (verified money ≥ total)    → "Payment Receipt"
+ * "Receipt" is never used for an unpaid or partially paid booking.
+ * The payment line uses the server-calculated summary (awaiting /
+ * partial / full / refunded); proof submissions never move it.
  */
 export function BookingPrintDocument({ booking }: { booking: Booking }) {
   const { locale } = useLocale()
 
-  const paid = booking.paymentStatus === 'paid'
+  // "Receipt" only for a fully paid booking (verified money covers the
+  // total). Partial payments keep the confirmation/request title so the
+  // document never overstates what was received.
+  const { paid: verifiedPaid, remaining } = bookingMoney(booking)
+  const paid = remaining <= 0 && booking.total > 0
   const confirmed = booking.status === 'confirmed' || booking.status === 'completed'
   const title = paid
     ? tx(locale, { en: 'Payment Receipt', es: 'Recibo de pago', it: 'Ricevuta di pagamento', ar: 'إيصال دفع' })
@@ -36,11 +43,9 @@ export function BookingPrintDocument({ booking }: { booking: Booking }) {
       : booking.status === 'completed'
         ? tx(locale, { en: 'Completed', es: 'Completada', it: 'Completata', ar: 'مكتمل' })
         : tx(locale, { en: 'Cancelled', es: 'Cancelada', it: 'Annullata', ar: 'ملغي' })
-  const paymentLabel = paid
-    ? tx(locale, { en: 'Paid', es: 'Pagado', it: 'Pagato', ar: 'مدفوع' })
-    : booking.paymentStatus === 'refunded'
-      ? tx(locale, { en: 'Refunded', es: 'Reembolsado', it: 'Rimborsato', ar: 'مسترد' })
-      : tx(locale, { en: 'Unpaid', es: 'Pendiente de pago', it: 'Non pagato', ar: 'غير مدفوع' })
+  // Server-calculated payment state (awaiting / partial / full /
+  // refunded). Proof submissions never influence this label.
+  const paymentLabel = bookingPaymentLabel(booking, locale)
 
   const money = (usd: number) => `USD ${formatPrice(usd, 'USD', locale)}`
   const dateLocale = locale === 'ar' ? 'ar-EG' : locale === 'es' ? 'es-ES' : locale === 'it' ? 'it-IT' : 'en-GB'
@@ -94,6 +99,9 @@ export function BookingPrintDocument({ booking }: { booking: Booking }) {
           <div><dt>{tx(locale, { en: 'Subtotal', es: 'Subtotal', it: 'Subtotale', ar: 'المجموع الفرعي' })}</dt><dd dir="ltr">{money(booking.subtotal)}</dd></div>
           {booking.discount > 0 && <div><dt>{tx(locale, { en: 'Discount', es: 'Descuento', it: 'Sconto', ar: 'الخصم' })}</dt><dd dir="ltr">−{money(booking.discount)}</dd></div>}
           <div className="grand"><dt>{tx(locale, { en: 'Grand Total', es: 'Total', it: 'Totale', ar: 'الإجمالي' })}</dt><dd dir="ltr">{money(booking.total)}</dd></div>
+          {(booking.paymentSummary?.payments ?? 0) > 0 && <div><dt>{tx(locale, { en: 'Verified paid', es: 'Pagado verificado', it: 'Pagato verificato', ar: 'المدفوع المؤكد' })}</dt><dd dir="ltr">{money(verifiedPaid)}</dd></div>}
+          {(booking.paymentSummary?.refundedTotal ?? 0) > 0 && <div><dt>{tx(locale, { en: 'Refunded', es: 'Reembolsado', it: 'Rimborsato', ar: 'المسترد' })}</dt><dd dir="ltr">{money(booking.paymentSummary?.refundedTotal ?? 0)}</dd></div>}
+          {(booking.paymentSummary?.payments ?? 0) > 0 && <div><dt>{tx(locale, { en: 'Remaining balance', es: 'Saldo pendiente', it: 'Saldo residuo', ar: 'الرصيد المتبقي' })}</dt><dd dir="ltr">{money(remaining)}</dd></div>}
         </dl>
       </section>
 

@@ -29,6 +29,10 @@ const nextConfig = {
       },
     ],
   },
+  // pdfkit (booking PDF documents) resolves its font data files with
+  // dynamic requires that webpack cannot bundle; keep it as a plain
+  // Node runtime dependency of the route handlers.
+  serverExternalPackages: ['pdfkit'],
   // Experimental: optimize package imports
   experimental: {
     optimizePackageImports: ['lucide-react', '@base-ui/react'],

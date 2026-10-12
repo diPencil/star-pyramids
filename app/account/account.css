@@ -69,7 +69,7 @@ html[dir='rtl'] .customer-account-side nav a>svg:last-child,html[dir='rtl'] .cus
 .customer-timeline li>span{flex:none;width:18px;height:18px;margin-top:2px;border-radius:50%;border:2px solid #c6cfe2;background:#fff}
 .customer-timeline li.done>span{border-color:#13a463;background:#13a463}
 .customer-timeline li div{display:grid;gap:2px}
-.customer-timeline strong{font-size:13.5px}
+.customer-timeline strong{font-size:13.5px;overflow-wrap:anywhere}
 .customer-timeline small{color:#667283;font-size:12px}
 @media(max-width:560px){.customer-detail-grid{grid-template-columns:1fr}}
 @media print{.customer-account-side,.customer-dashboard-topbar,.customer-detail-actions{display:none!important}.customer-dashboard-main{margin:0!important}.customer-account{padding:0!important}}

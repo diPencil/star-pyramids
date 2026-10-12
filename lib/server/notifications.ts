@@ -27,6 +27,7 @@ const NOTIFICATION_TYPES = new Set([
   'payment_paid',
   'payment_failed',
   'payment_refunded',
+  'payment_proof_submitted',
   'trip_request_submitted',
   'trip_request_update',
   'car_request_submitted',
@@ -38,6 +39,9 @@ const NOTIFICATION_TYPES = new Set([
   'admin_car_request_submitted',
   'admin_event_request_submitted',
   'admin_payment_initiated',
+  'admin_payment_recorded',
+  'admin_payment_refunded',
+  'admin_payment_proof_submitted',
   'support_message_received',
   'admin_support_message_received',
   'admin_enquiry_received',
@@ -52,6 +56,7 @@ export type NotificationType =
   | 'payment_paid'
   | 'payment_failed'
   | 'payment_refunded'
+  | 'payment_proof_submitted'
   | 'trip_request_submitted'
   | 'trip_request_update'
   | 'car_request_submitted'
@@ -65,6 +70,7 @@ export type NotificationType =
   | 'admin_payment_initiated'
   | 'admin_payment_recorded'
   | 'admin_payment_refunded'
+  | 'admin_payment_proof_submitted'
   | 'support_message_received'
   | 'admin_support_message_received'
   | 'admin_enquiry_received';

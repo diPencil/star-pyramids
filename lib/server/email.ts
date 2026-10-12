@@ -192,6 +192,7 @@ export type EmailEventType =
   | 'payment_paid'
   | 'payment_failed'
   | 'payment_refunded'
+  | 'payment_proof_received'
   | 'trip_request_submitted'
   | 'trip_request_update'
   | 'car_request_submitted'
@@ -206,6 +207,7 @@ export type EmailEventType =
   | 'admin_car_request_submitted'
   | 'admin_event_request_submitted'
   | 'admin_payment_initiated'
+  | 'admin_payment_proof_submitted'
   | 'admin_support_message_received'
   | 'password_reset';
 
@@ -330,6 +332,16 @@ const TEMPLATES: Record<EmailEventType, EmailTemplateDefinition> = {
     subject: 'Payment initiated - {{reference}}',
     bodyHtml: '<h2>Payment initiated</h2><p>Payment <strong>{{reference}}</strong> for booking {{bookingReference}} is pending. No charge completed.</p><p><a href="{{detailUrl}}" class="btn">View payment</a></p>',
     bodyText: 'Payment initiated\n\nPayment {{reference}} for booking {{bookingReference}} is pending. No charge completed.\n\nView payment: {{detailUrl}}',
+  },
+  payment_proof_received: {
+    subject: 'Payment proof received - {{bookingReference}}',
+    bodyHtml: '<h2>Payment proof received</h2><p>Hi {{name}},</p><p>We received your payment reference <strong>{{proofReference}}</strong> for booking {{bookingReference}}. Our team will review it — this email does not confirm payment. We will notify you once our team verifies the receipt.</p><p><a href="{{detailUrl}}" class="btn">View booking</a></p>',
+    bodyText: 'Payment proof received\n\nHi {{name}},\n\nWe received your payment reference {{proofReference}} for booking {{bookingReference}}. Our team will review it — this email does not confirm payment. We will notify you once our team verifies the receipt.\n\nView booking: {{detailUrl}}',
+  },
+  admin_payment_proof_submitted: {
+    subject: 'Payment proof submitted - {{bookingReference}}',
+    bodyHtml: '<h2>Payment proof submitted</h2><p>Booking <strong>{{bookingReference}}</strong> has a new payment reference <strong>{{proofReference}}</strong> awaiting review. Verify it, then record any actually received money as an offline receipt — the submission itself marks nothing paid.</p><p><a href="{{detailUrl}}" class="btn">Review booking</a></p>',
+    bodyText: 'Payment proof submitted\n\nBooking {{bookingReference}} has a new payment reference {{proofReference}} awaiting review. Verify it, then record any actually received money as an offline receipt — the submission itself marks nothing paid.\n\nReview booking: {{detailUrl}}',
   },
   admin_support_message_received: {
     subject: 'New support message - {{reference}}',

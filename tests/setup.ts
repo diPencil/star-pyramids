@@ -10,9 +10,11 @@ vi.mock('next/headers', () => ({
   cookies: () => ({ get: () => undefined, set: () => {}, delete: () => {} }),
 }))
 
-// Mock @prisma/client for decimal handling
+// Mock @prisma/client for decimal handling. The Prisma namespace keeps
+// every actual runtime helper (join, sql, enums, errors) — only Decimal
+// is swapped, so raw-SQL paths under test behave like production.
 vi.mock('@prisma/client', async () => {
-  const actual = await vi.importActual('@prisma/client')
+  const actual = await vi.importActual<typeof import('@prisma/client')>('@prisma/client')
   return {
     ...actual,
     Decimal: class Decimal {
@@ -26,6 +28,7 @@ vi.mock('@prisma/client', async () => {
       static isDecimal(obj: any) { return obj instanceof Decimal }
     },
     Prisma: {
+      ...actual.Prisma,
       Decimal: class Decimal {
         constructor(public value: string | number) {}
         toString() { return this.value.toString() }

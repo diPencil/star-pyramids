@@ -61,7 +61,7 @@ export { FROM_DB_STATUS as FROM_DB_PAYMENT_STATUS };
 
 const KEY_PATTERN = /^[A-Za-z0-9-]{8,64}$/;
 const REF_PATTERN = /^SP-PAY-[A-Z0-9]{6}$/;
-const BOOKING_REF_PATTERN = /^(SP-BK-[A-Z0-9]{6}|SP-[A-Z0-9]{10})$/;
+export const BOOKING_REF_PATTERN = /^(SP-BK-[A-Z0-9]{6}|SP-[A-Z0-9]{10})$/;
 
 /** Integer-cents helpers: persisted money is computed in cents and
  *  stored as DECIMAL — never float arithmetic. */
@@ -177,7 +177,7 @@ export function deriveBookingPaymentSummary(
   const refundedTotal = payments.reduce((sum, p) => sum + p.amountRefundedCents, 0);
   const latest = ordered[0];
   if (!latest) {
-    return { state: 'unpaid', payments: 0, paidTotal: 0, latestReference: null };
+    return { state: 'unpaid', payments: 0, paidTotal: 0, refundedTotal: 0, latestReference: null };
   }
   let state: BookingPaymentSummary['state'] = 'pending';
   if (paidTotal >= bookingTotalCents && bookingTotalCents > 0) {
@@ -193,6 +193,7 @@ export function deriveBookingPaymentSummary(
     state,
     payments: payments.length,
     paidTotal: dollars(paidTotal),
+    refundedTotal: dollars(refundedTotal),
     latestReference: latest.reference,
   };
 }
@@ -655,6 +656,11 @@ export async function recordOfflineRefund(
     amountRefundedCents: refundedCents + amountCents,
     note: receiptNote,
     internal: true,
+    // Phase D: this event alone identifies the refund (amount, method,
+    // external reference), so a commercial refund note can anchor to it.
+    eventAmountCents: amountCents,
+    eventMethod: method,
+    eventExternalReference: externalReference,
   });
   if (!updated) throw new Error('Could not record the refund. Please try again.');
 
@@ -837,6 +843,16 @@ async function transitionPayment(
     failureCode?: string;
     failureMessage?: string;
     providerEventId?: string;
+    /**
+     * Phase D per-event evidence. Written only by completed offline
+     * refunds (the amount, method and external reference of THIS
+     * event); every other transition leaves these NULL. Historical
+     * refund events therefore carry no per-event data and stay
+     * ineligible for refund notes.
+     */
+    eventAmountCents?: number;
+    eventMethod?: string;
+    eventExternalReference?: string;
   },
 ): Promise<StaffPayment | null> {
   const existing = await db.payment.findUnique({ where: { reference } });
@@ -909,7 +925,7 @@ async function transitionPayment(
       // deliberate — fully bound values, no string interpolation.
       await tx.$executeRaw`
         INSERT INTO payment_events
-          (id, paymentId, actorRole, action, note, isInternal, providerEventId)
+          (id, paymentId, actorRole, action, note, isInternal, providerEventId, amountCents, method, externalReference)
         VALUES (
           ${randomUUID()},
           ${currentRow.id},
@@ -917,7 +933,10 @@ async function transitionPayment(
           ${paymentTransitionAction(current, to)},
           ${options.note?.slice(0, 1000) || null},
           ${options.internal ?? true},
-          ${options.providerEventId ?? null}
+          ${options.providerEventId ?? null},
+          ${options.eventAmountCents ?? null},
+          ${options.eventMethod?.slice(0, 32) ?? null},
+          ${options.eventExternalReference?.slice(0, 255) ?? null}
         )`;
       return tx.payment.findUnique({ where: { id: currentRow.id }, include: paymentInclude });
     });

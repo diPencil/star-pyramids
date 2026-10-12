@@ -85,6 +85,12 @@ export type BookingPaymentSummary = {
   state: 'unpaid' | 'pending' | 'processing' | 'paid' | 'failed' | 'refunded' | 'partially_refunded'
   payments: number
   paidTotal: number
+  /**
+   * Verified refunded total (USD base dollars, server-computed from real
+   * Payment rows). Present so customer/admin UIs can render paid,
+   * refunded and remaining amounts without trusting client input.
+   */
+  refundedTotal: number
   latestReference: string | null
 }
 
@@ -221,6 +227,40 @@ export function checkWebhookMoney(input: {
 
 /** Active attempt states: at most one per booking (idempotent initiation). */
 export const ACTIVE_PAYMENT_STATUSES: readonly PaymentStatus[] = ['pending', 'processing']
+
+/**
+ * Customer-facing offline payment state for one booking (Phase 3: no
+ * gateway, money moves only through staff-verified offline receipts).
+ *
+ * This is DISPLAY mapping over server-calculated amounts only — never
+ * financial truth from client input. Booking lifecycle state (request
+ * received / confirmed / completed / cancelled) stays separate in
+ * `bookingStatusLabel`; the two are never mixed. A payment is labelled
+ * paid/refunded only from verified Payment rows, never from a customer
+ * proof submission.
+ */
+export function bookingOfflinePaymentLabel(
+  input: { state: BookingPaymentSummary['state']; paidTotal: number; refundedTotal: number; total: number },
+  ar: boolean | Locale,
+): string {
+  const locale = localeFromAr(ar)
+  const paid = input.paidTotal
+  const refunded = input.refundedTotal
+  const net = paid - refunded
+  if (input.state === 'refunded' || (paid > 0 && refunded >= paid)) {
+    return pickLocaleText(locale, { en: 'Fully refunded', es: 'Reembolsado en su totalidad', it: 'Rimborsato integralmente', ar: 'مسترد بالكامل' })
+  }
+  if (input.state === 'partially_refunded' || refunded > 0) {
+    return pickLocaleText(locale, { en: 'Partially refunded', es: 'Reembolsado parcialmente', it: 'Rimborsato parzialmente', ar: 'مسترد جزئيًا' })
+  }
+  if (input.total > 0 && paid >= input.total) {
+    return pickLocaleText(locale, { en: 'Fully paid', es: 'Pagado en su totalidad', it: 'Pagato integralmente', ar: 'مدفوع بالكامل' })
+  }
+  if (net > 0) {
+    return pickLocaleText(locale, { en: 'Partially paid', es: 'Pagado parcialmente', it: 'Pagato parzialmente', ar: 'مدفوع جزئيًا' })
+  }
+  return pickLocaleText(locale, { en: 'Awaiting payment', es: 'Pago pendiente', it: 'In attesa di pagamento', ar: 'بانتظار الدفع' })
+}
 
 /** Display strings are stored in English; UI maps them per locale. */
 export function paymentStatusLabel(status: PaymentStatus, ar: boolean | Locale): string {

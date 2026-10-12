@@ -11,6 +11,7 @@ import {
   type Booking, type BookingContact, type ContactErrors,
 } from '@/lib/booking'
 import { InternationalPhoneInput } from './international-phone-input'
+import { PaymentInstructions } from './booking-payment'
 
 const IDEMPOTENCY_KEY_STORAGE = 'sp-checkout-key'
 
@@ -145,6 +146,7 @@ export function CheckoutPage() {
         <div className="req-summary-rows">
           <div><span>{tx(locale, { en: 'Booking total', es: 'Total de la reserva', it: 'Totale prenotazione', ar: 'إجمالي الحجز' })}</span><strong>{formatPrice(placed.total, currency, locale)}</strong></div>
         </div>
+        <PaymentInstructions layout="note" />
         <p>{placed.guestAccessUrl
           ? tx(locale, { en: 'We rechecked your tour prices and confirmed the total. This private link is the only way to open this booking — we have emailed it to you too, and each new email replaces it.', es: 'Hemos revisado los precios de tus tours y confirmado el total. Este enlace privado es la única forma de abrir esta reserva: también te lo hemos enviado por correo y cada correo nuevo lo sustituye.', it: 'Abbiamo ricontrollato i prezzi dei tuoi tour e confermato il totale. Questo link privato è l’unico modo per aprire la prenotazione: te l’abbiamo inviato per email e ogni nuova email lo sostituisce.', ar: 'راجعنا أسعار رحلاتك وأكدنا الإجمالي. هذا الرابط الخاص هو الطريقة الوحيدة لفتح الحجز — وقد أرسلناه إليك بالبريد أيضًا، وكل رسالة جديدة تستبدله.' })
           : placed.linked

@@ -9,12 +9,14 @@ import {
   getStaffBooking,
   transitionStaffBooking,
 } from '@/lib/server/bookings';
+import { acknowledgePaymentProof } from '@/lib/server/payment-proofs';
 import { BOOKING_STATUSES, type BookingStatus } from '@/lib/booking';
 
 type StaffPatchBody = {
   status?: unknown;
   note?: unknown;
   internal?: unknown;
+  proofReference?: unknown;
 };
 
 /** Staff booking detail (full projection incl. internal notes). */
@@ -73,6 +75,17 @@ export async function PATCH(
       .catch(() => undefined);
 
   try {
+    // Staff acknowledgement of a customer payment-proof submission.
+    // Appends a review marker only — never money, never status. Real
+    // receipts stay on the separate audited offline-payment action.
+    if (typeof body.proofReference === 'string') {
+      const reviewed = await acknowledgePaymentProof(reference, body.proofReference);
+      if (!reviewed) return NextResponse.json({ error: 'Booking not found.' }, { status: 404 });
+      await audit('booking.proof_reviewed', { proofReference: reviewed.reference });
+      const booking = await getStaffBooking(reference);
+      if (!booking) return NextResponse.json({ error: 'Booking not found.' }, { status: 404 });
+      return NextResponse.json(booking);
+    }
     if (typeof body.status === 'string') {
       const to = body.status as BookingStatus;
       if (!(BOOKING_STATUSES as readonly string[]).includes(to)) {

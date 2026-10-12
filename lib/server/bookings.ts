@@ -23,6 +23,7 @@ import {
   BOOKING_FINANCIAL_REVIEW_CODE,
   bookingCancelExposure,
   canTransitionBooking,
+  derivePaymentProofs,
   isValidPreferredDate,
   labelForBookingTransition,
   type Booking,
@@ -506,6 +507,14 @@ export function toCustomerView(row: BookingRow): Booking {
   );
   const paymentStatus: BookingPaymentStatus =
     summary.state === 'paid' ? 'paid' : summary.state === 'refunded' ? 'refunded' : storedPayment;
+  // Customer-visible proofs only: internal staff rows never reach
+  // customer responses, and review rows carry the customer's own
+  // reference, so the timeline stays honest without leaking anything.
+  const paymentProofs = derivePaymentProofs(
+    row.activities
+      .filter((a) => !a.isInternal)
+      .map((a) => ({ action: a.action, note: a.note ?? '', at: a.createdAt.toISOString() })),
+  );
   return {
     reference: row.reference,
     createdAt: row.createdAt.toISOString(),
@@ -513,6 +522,7 @@ export function toCustomerView(row: BookingRow): Booking {
     status: FROM_DB_STATUS[row.status],
     paymentStatus,
     paymentSummary: summary,
+    paymentProofs,
     subtotal: dollars(decimalToCents(row.subtotal)),
     discount: dollars(decimalToCents(row.discount)),
     total: dollars(decimalToCents(row.total)),
@@ -535,6 +545,11 @@ export function toStaffView(row: BookingRow): StaffBooking {
     ...base,
     activity: toActivityViews(row.activities, true),
     account: row.user ? { email: row.user.email, name: accountName(row) } : null,
+    // Staff see every proof against the full timeline (including
+    // internal rows), so the pending-review indicator is complete.
+    paymentProofs: derivePaymentProofs(
+      row.activities.map((a) => ({ action: a.action, note: a.note ?? '', at: a.createdAt.toISOString() })),
+    ),
   };
 }
 
