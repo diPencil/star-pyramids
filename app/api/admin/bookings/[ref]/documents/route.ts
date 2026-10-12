@@ -37,6 +37,7 @@ const FAILURE_STATUS: Record<IssueBookingDocumentFailure, number> = {
   'duplicate-invoice': 409,
   'duplicate-voucher': 409,
   'voucher-not-eligible': 409,
+  'invoice-not-eligible': 409,
 };
 
 const FAILURE_MESSAGE: Record<IssueBookingDocumentFailure, string> = {
@@ -55,6 +56,7 @@ const FAILURE_MESSAGE: Record<IssueBookingDocumentFailure, string> = {
   'duplicate-invoice': 'An invoice was already issued for this booking.',
   'duplicate-voucher': 'A voucher was already issued for this booking.',
   'voucher-not-eligible': 'Vouchers need a confirmed booking.',
+  'invoice-not-eligible': 'Invoices cannot be issued for cancelled bookings.',
 };
 
 /**

@@ -377,11 +377,9 @@ export async function loadBookingDocumentPdfModel(
     notice:
       view.type === 'BOOKING_REQUEST'
         ? 'This document confirms receipt of your booking request. It is not a final booking confirmation or payment receipt.'
-        : view.type === 'INVOICE'
-          ? 'This is a commercial invoice. No VAT is charged.'
-          : view.type === 'BOOKING_VOUCHER'
-            ? 'Present this voucher to our team on the service day. Scan the QR code to verify its validity.'
-            : null,
+        : view.type === 'BOOKING_VOUCHER'
+          ? 'Present this voucher to our team on the service day. Scan the QR code to verify its validity.'
+          : null,
     hideLegalRows:
       view.type === 'INVOICE' || view.type === 'BOOKING_VOUCHER' || view.type === 'REFUND_NOTE',
   };

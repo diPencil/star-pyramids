@@ -146,7 +146,8 @@ export type IssueBookingDocumentFailure =
   | 'duplicate-refund-note'
   | 'duplicate-invoice'
   | 'duplicate-voucher'
-  | 'voucher-not-eligible';
+  | 'voucher-not-eligible'
+  | 'invoice-not-eligible';
 
 export type IssueBookingDocumentResult =
   | { ok: true; created: boolean; document: BookingDocumentView }
@@ -622,6 +623,11 @@ export async function issueBookingDocument(
       // cancelled bookings are never voucher-eligible. Cancellation
       // after issuance is caught live at verification time.
       return { ok: false, error: 'voucher-not-eligible' };
+    }
+    if (type === 'INVOICE' && booking.status === 'CANCELLED') {
+      // A cancelled booking never receives a NEW invoice. Invoices
+      // issued before cancellation are preserved untouched.
+      return { ok: false, error: 'invoice-not-eligible' };
     }
     if (type === 'INVOICE' && (await hasBookingDocumentOfType(booking.id, 'INVOICE'))) {
       return { ok: false, error: 'duplicate-invoice' };

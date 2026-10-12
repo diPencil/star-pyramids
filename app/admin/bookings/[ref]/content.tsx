@@ -114,6 +114,10 @@ function issueFailureMessage(code: string | undefined, serverMessage: string, ar
       return ar
         ? 'سبق إصدار قسيمة لهذا الحجز.'
         : 'A voucher was already issued for this booking.'
+    case 'invoice-not-eligible':
+      return ar
+        ? 'لا يمكن إصدار فاتورة جديدة لحجوزات ملغاة — الفواتير الصادرة قبل الإلغاء محفوظة.'
+        : 'Invoices cannot be issued for cancelled bookings — invoices issued before cancellation stay on record.'
     default:
       return serverMessage
   }
@@ -637,9 +641,11 @@ export function BookingDetailContent({ reference }: { reference: string }) {
           {issueType === 'BOOKING_CONFIRMATION' && item.status !== 'confirmed' && item.status !== 'completed' && (
             <p className="evr-manage-hint" role="status"><AdminText en="Confirmations need a confirmed booking — confirm it first, then issue." ar="التأكيد يتطلب حجزًا مؤكدًا — أكّد الحجز أولًا ثم أصدر." /></p>
           )}
-          {issueType === 'INVOICE' && (
+          {issueType === 'INVOICE' && (item.status === 'cancelled' ? (
+            <p className="evr-manage-hint" role="status"><AdminText en="Invoices cannot be issued for cancelled bookings — invoices issued before cancellation stay on record." ar="لا يمكن إصدار فاتورة جديدة لحجوزات ملغاة — الفواتير الصادرة قبل الإلغاء محفوظة." /></p>
+          ) : (
             <p className="evr-manage-hint" role="status"><AdminText en="Commercial invoice for the frozen booking total. May be issued before any payment; the balance updates as money is recorded. One invoice per booking." ar="فاتورة تجارية بإجمالي الحجز الثابت. يمكن إصدارها قبل أي دفعة؛ ويتحدث الرصيد مع تسجيل المدفوعات. فاتورة واحدة لكل حجز." /></p>
-          )}
+          ))}
           {issueType === 'BOOKING_VOUCHER' && (item.status === 'confirmed' || item.status === 'completed' ? (
             <p className="evr-manage-hint" role="status"><AdminText en="Premium travel voucher with a verification QR. Carries no prices and never proves payment. One voucher per booking." ar="قسيمة سفر مميزة برمز تحقق. لا تحمل أسعارًا ولا تثبت الدفع أبدًا. قسيمة واحدة لكل حجز." /></p>
           ) : (

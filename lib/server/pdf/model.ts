@@ -179,7 +179,7 @@ export interface PdfDocumentModel {
   voucher: PdfVoucherDetails | null;
   /** Set only for REFUND_NOTE. Replaces `booking.summary`. */
   refundNote: PdfRefundDetails | null;
-  /** Honesty notice shown on the document (booking requests only). */
+    /** Honesty notice shown on the document (booking requests and vouchers). */
   notice: string | null;
   /**
    * Phase D documents never show registration/tax/legal rows, even when

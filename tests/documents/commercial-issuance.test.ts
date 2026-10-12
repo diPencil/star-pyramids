@@ -1,9 +1,10 @@
 // Phase D: commercial document issuance tests (real database).
 //
 // Covers the three completed document types at the service layer:
-// - INVOICE issues for unpaid / partially paid / fully paid (and
-//   cancelled) bookings with a frozen total snapshot; exactly one per
-//   booking; snapshots survive later booking-total changes;
+// - INVOICE issues for unpaid / partially paid / fully paid bookings
+//   with a frozen total snapshot; exactly one per booking; cancelled
+//   bookings are refused; snapshots survive later booking-total
+//   changes;
 // - BOOKING_VOUCHER issues only for confirmed/completed bookings with
 //   a stored opaque verification token; pending and cancelled bookings
 //   are refused; exactly one per booking;
@@ -88,7 +89,7 @@ describe.runIf(reachable)('commercial invoice issuance (real database)', () => {
     }
   });
 
-  it('issues across partial and full payment states and on cancelled bookings', async () => {
+  it('issues across partial and full payment states and refuses cancelled bookings', async () => {
     const partial = await createProbeBooking({ tag: 'inv-partial' });
     const full = await createProbeBooking({ tag: 'inv-full' });
     const cancelled = await createProbeBooking({ tag: 'inv-cancelled', status: 'CANCELLED' });
@@ -110,12 +111,16 @@ describe.runIf(reachable)('commercial invoice issuance (real database)', () => {
       });
       expect(fullInvoice.ok).toBe(true);
 
+      // A cancelled booking never receives a NEW invoice.
       const cancelledInvoice = await issueBookingDocument({
         type: 'INVOICE',
         bookingReference: cancelled.reference,
         idempotencyKey: `inv-cancelled-${Date.now()}`,
       });
-      expect(cancelledInvoice.ok).toBe(true);
+      expect(cancelledInvoice.ok).toBe(false);
+      if (cancelledInvoice.ok) throw new Error('unreachable');
+      expect(cancelledInvoice.error).toBe('invoice-not-eligible');
+      expect(await db.bookingDocument.count({ where: { bookingId: cancelled.id } })).toBe(0);
     } finally {
       await cleanupProbe(
         [partial.id, full.id, cancelled.id],
