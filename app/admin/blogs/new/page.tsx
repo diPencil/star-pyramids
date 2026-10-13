@@ -10,7 +10,9 @@ import { useAdminLocale } from '@/components/admin/admin-locale'
 import { slugify } from '@/lib/admin-store'
 import { invalidateOffersBlogsCache, useDbBlogs } from '@/lib/offers-blogs-client'
 import { ImageField } from '@/components/admin/image-field'
+import { BlogEditorialForm } from '@/components/admin/blog-editorial-form'
 import type { Blog } from '@/data/types'
+import { BlogEditorialInputError, emptyBlogEditorial, validateBlogEditorial } from '@/lib/blog-editorial'
 
 const cleanSlugInput = (value: string) =>
   value.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').replace(/-+/g, '-').slice(0, 80)
@@ -31,7 +33,8 @@ function BlogForm({ initial, editSlug }: { initial: Blog | null; editSlug: strin
   const [date, setDate] = useState(initial?.date ?? '')
   const [image, setImage] = useState(initial?.image ?? '')
   const [excerpt, setExcerpt] = useState(initial?.excerpt ?? '')
-  const [published, setPublished] = useState(initial?.isPublished !== false)
+  const [editorial, setEditorial] = useState(initial?.editorial ?? emptyBlogEditorial())
+  const [published, setPublished] = useState(initial ? initial.isPublished !== false : false)
   const [displayOrder, setDisplayOrder] = useState(initial?.displayOrder != null ? String(initial.displayOrder) : '')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -43,6 +46,13 @@ function BlogForm({ initial, editSlug }: { initial: Blog | null; editSlug: strin
     if (!category.trim()) { setError(ar ? 'اكتب تصنيف المقال.' : 'Enter the story category.'); return }
     if (!date.trim()) { setError(ar ? 'اكتب تاريخ المقال.' : 'Enter the story date.'); return }
     if (!excerpt.trim()) { setError(ar ? 'اكتب مقتطف المقال.' : 'Enter the story excerpt.'); return }
+    let cleanEditorial
+    try {
+      cleanEditorial = validateBlogEditorial(editorial, { publishable: published })
+    } catch (validationError) {
+      setError(validationError instanceof BlogEditorialInputError ? validationError.message : (ar ? 'راجع محتوى المقال.' : 'Check the article content.'))
+      return
+    }
     const finalSlug = editing ? editSlug : cleanSlugInput(slugTouched ? slug : slugify(title)) || slugify(title || 'story')
     if (!/^[a-z0-9-]{1,80}$/.test(finalSlug)) {
       setError(ar ? 'المعرف (slug) يجب أن يكون أحرفًا إنجليزية صغيرة وأرقامًا وشرطات.' : 'Slug must be lowercase letters, numbers and dashes.')
@@ -70,6 +80,7 @@ function BlogForm({ initial, editSlug }: { initial: Blog | null; editSlug: strin
           category: category.trim(),
           date: date.trim(),
           excerpt: excerpt.trim(),
+          editorial: cleanEditorial,
           isPublished: published,
           ...(displayOrder.trim() ? { displayOrder: Number(displayOrder) } : {}),
         }),
@@ -106,10 +117,10 @@ function BlogForm({ initial, editSlug }: { initial: Blog | null; editSlug: strin
       sub={editing ? `Editing ${editSlug}` : 'Published to the journal and homepage'}
       subAr={editing ? `تعديل ${editSlug}` : 'ينشر في المجلة والرئيسية'}
       backHref="/admin/blogs"
-      actions={<button type="button" className="sp-btn dark" onClick={save} disabled={saving}><AdminText en={editing ? 'Save changes' : 'Publish story'} ar={editing ? 'حفظ التعديلات' : 'نشر المقال'} /></button>}
+      actions={<button type="button" className="sp-btn dark" onClick={save} disabled={saving}><AdminText en={editing ? 'Save changes' : (published ? 'Publish story' : 'Save draft')} ar={editing ? 'حفظ التعديلات' : (published ? 'نشر المقال' : 'حفظ مسودة')} /></button>}
     />
-    <Card title={<AdminText en="Story details" ar="بيانات المقال" />}>
-<ContentLanguageTabs translations={translations} setTranslations={setTranslations}>
+    <ContentLanguageTabs translations={translations} setTranslations={setTranslations}>
+    <Card title={<AdminText en="Story details" ar="بيانات المقال" />} sub={<AdminText en="Card information, publishing and ordering. The full article builder follows below." ar="بيانات الكارت والنشر والترتيب، ثم منشئ المقال الكامل بالأسفل." />}>
       <div className="sp-form">
         <div className="sp-form-2">
           <label><AdminText en="Title" ar="العنوان" /><TranslatedInput field="title" value={title} onChange={(e) => { setTitle(e.target.value); if (!slugTouched && !editing) setSlug(slugify(e.target.value)) }} /></label>
@@ -128,10 +139,11 @@ function BlogForm({ initial, editSlug }: { initial: Blog | null; editSlug: strin
       </div>
       {error && <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>}
       <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-        <button type="button" className="sp-btn primary" onClick={save} disabled={saving}><AdminText en={editing ? 'Save changes' : 'Publish story'} ar={editing ? 'حفظ التعديلات' : 'نشر المقال'} /></button>
+        <button type="button" className="sp-btn primary" onClick={save} disabled={saving}><AdminText en={editing ? 'Save changes' : (published ? 'Publish story' : 'Save draft')} ar={editing ? 'حفظ التعديلات' : (published ? 'نشر المقال' : 'حفظ مسودة')} /></button>
       </div>
-    </ContentLanguageTabs>
 </Card>
+    <BlogEditorialForm value={editorial} onChange={setEditorial} />
+    </ContentLanguageTabs>
   </>
 }
 
@@ -168,7 +180,7 @@ function BlogFormLoader() {
     setLoadError(null)
     // Single source of truth: the DB record. Base-first snapshots would
     // leave admin-created slugs unresolvable and risk stale form state.
-    fetch(`/api/blogs/${encodeURIComponent(editSlug)}`, { credentials: 'same-origin' })
+    fetch(`/api/blogs/${encodeURIComponent(editSlug)}?admin=1`, { credentials: 'same-origin' })
       .then(async (res) => {
         if (cancelled) return
         if (!res.ok) {

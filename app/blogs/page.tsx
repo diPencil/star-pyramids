@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { BlogsPage } from '@/components/extended-pages'
 import { getSiteUrl, getHreflangEntries } from '@/lib/seo'
+import { getPublishedDbBlogs } from '@/lib/server/blogs'
 
 export async function generateMetadata(): Promise<Metadata> {
   const siteUrl = await getSiteUrl()
@@ -13,4 +14,6 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-export default BlogsPage
+export default async function Page() {
+  return <BlogsPage initialBlogs={await getPublishedDbBlogs()} />
+}

@@ -240,6 +240,24 @@ export type BlogGuideSection = {
   reverse?: boolean
 }
 
+export type BlogEditorial = {
+  heroImage?: string
+  heroAlt?: string
+  readTime?: string
+  heroDescription?: string
+  facts?: readonly { icon: string; label: string; value: string }[]
+  sidebarLinks?: readonly { href: string; label: string }[]
+  sidebarAction?: { label: string; heading: string; tourSlug: string }
+  sections?: readonly BlogGuideSection[]
+  tips?: readonly BlogGuideTip[]
+  quote?: string
+  checklistEyebrow?: string
+  checklistHeading?: string
+  checklist?: readonly { title: string; detail: string }[]
+  wideImage?: { src: string; alt: string; caption?: string }
+  cta?: { eyebrow: string; heading: string; copy: string; tourSlug?: string; tourLabel?: string; customLabel?: string }
+}
+
 export type Blog = {
   translations?: CatalogueTranslations
   title: string
@@ -252,21 +270,7 @@ export type Blog = {
   isPublished?: boolean
   /** Admin-controlled ordering. Defaults to source order. */
   displayOrder?: number
-  editorial?: {
-    heroImage?: string
-    heroAlt?: string
-    readTime?: string
-    heroDescription?: string
-    facts?: readonly { icon: string; label: string; value: string }[]
-    sidebarLinks?: readonly { href: string; label: string }[]
-    sidebarAction?: { label: string; heading: string; tourSlug: string }
-    sections?: readonly BlogGuideSection[]
-    tips?: readonly BlogGuideTip[]
-    quote?: string
-    checklist?: readonly { title: string; detail: string }[]
-    wideImage?: { src: string; alt: string; caption?: string }
-    cta?: { eyebrow: string; heading: string; copy: string; tourSlug?: string; tourLabel?: string; customLabel?: string }
-  }
+  editorial?: BlogEditorial
 }
 
 export type EventPricingType = 'free' | 'paid' | 'request'

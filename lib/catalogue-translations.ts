@@ -17,7 +17,7 @@ const fields: Record<CatalogueKind, RegExp> = {
   category: /^(name|copy)$/,
   event: /^(title|category|copy|intro|location|venueName|address|city|organizerName|included\.\d+|excluded\.\d+|highlights\.\d+\.(title|description)|program\.\d+\.(day|title|description)|addOns\.\d+\.title)$/,
   offer: /^(title|badge|copy|duration|highlights|campaign\.(body|terms|ctaLabel|priceLabel))$/,
-  blog: /^(title|category|excerpt)$/,
+  blog: /^(title|category|excerpt|editorial\.(heroAlt|readTime|heroDescription|quote|checklistEyebrow|checklistHeading|facts\.\d+\.(label|value)|sidebarLinks\.\d+\.label|sidebarAction\.(label|heading)|sections\.\d+\.(eyebrow|heading|lede|copy\.\d+|list\.\d+|image\.(alt|caption))|tips\.\d+\.(title|copy)|checklist\.\d+\.(title|detail)|wideImage\.(alt|caption)|cta\.(eyebrow|heading|copy|tourLabel|customLabel)))$/,
   car: /^(title|copy)$/,
 }
 
@@ -46,12 +46,34 @@ export function removeTranslationRow(value: CatalogueTranslations, prefix: strin
     for (const [key, text] of Object.entries(entries ?? {})) {
       if (!key.startsWith(`${prefix}.`)) { next[key] = text; continue }
       const parts = key.split('.')
-      const position = Number(parts[1])
+      const positionIndex = prefix.split('.').length
+      const position = Number(parts[positionIndex])
       if (position === index) continue
-      if (position > index) parts[1] = String(position - 1)
+      if (position > index) parts[positionIndex] = String(position - 1)
       next[parts.join('.')] = text
     }
     result[locale as Locale] = next
+  }
+  return result
+}
+
+/** Move one repeatable item while keeping every locale aligned with English. */
+export function moveTranslationRow(value: CatalogueTranslations, prefix: string, from: number, to: number): CatalogueTranslations {
+  if (from === to) return value
+  const positionIndex = prefix.split('.').length
+  const result: CatalogueTranslations = {}
+  for (const [locale, entries] of Object.entries(value)) {
+    const next: Record<string, string> = {}
+    for (const [key, text] of Object.entries(entries ?? {})) {
+      if (!key.startsWith(`${prefix}.`)) { next[key] = text; continue }
+      const parts = key.split('.')
+      const position = Number(parts[positionIndex])
+      if (position === from) parts[positionIndex] = String(to)
+      else if (from < to && position > from && position <= to) parts[positionIndex] = String(position - 1)
+      else if (from > to && position >= to && position < from) parts[positionIndex] = String(position + 1)
+      next[parts.join('.')] = text
+    }
+    if (Object.keys(next).length) result[locale as Locale] = next
   }
   return result
 }
@@ -99,6 +121,26 @@ export function localizeCatalogue<T extends { slug: string } & TranslatedContent
       result[name] = array.map((entry: unknown, index: number) => index !== Number(rawIndex) ? entry : field && entry && typeof entry === 'object' ? { ...entry, [field]: text } : text)
     } else if (kind === 'offer' && key.startsWith('campaign.')) {
       result.campaign = { ...(result.campaign as Record<string, unknown>), [key.split('.')[1]]: text }
+    } else if (kind === 'blog' && key.startsWith('editorial.')) {
+      const editorial = JSON.parse(JSON.stringify(result.editorial ?? {})) as Record<string, unknown>
+      const parts = key.split('.').slice(1)
+      let target: Record<string, unknown> | unknown[] = editorial
+      for (let index = 0; index < parts.length - 1; index += 1) {
+        const part = parts[index]
+        const nextPart = parts[index + 1]
+        const keyPart = Array.isArray(target) ? Number(part) : part
+        const current = target[keyPart as keyof typeof target]
+        if (current && typeof current === 'object') target = current as Record<string, unknown> | unknown[]
+        else {
+          const created = /^\d+$/.test(nextPart) ? [] : {}
+          ;(target as Record<string, unknown>)[String(keyPart)] = created
+          target = created
+        }
+      }
+      const last = parts[parts.length - 1]
+      if (Array.isArray(target)) target[Number(last)] = text
+      else target[last] = text
+      result.editorial = editorial
     } else result[key] = kind === 'offer' && key === 'highlights' ? lines(text) : text
   }
   return result as T

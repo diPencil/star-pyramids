@@ -1,9 +1,10 @@
-// Deterministic bootstrap importer — authoritative source is the runtime
-// `blogs` export from data/content.ts. No text scraping, no
-// fabricated records. Upsert by slug; reruns are idempotent.
+// One-time, idempotent legacy importer. It creates missing static stories and
+// fills a missing editorial payload, but never overwrites content already
+// managed from the admin dashboard.
 import { PrismaClient } from "@prisma/client";
 import { blogs } from "../data/content";
 import type { Blog } from "../data/types";
+import { readJsonObject } from "../lib/json-text";
 
 const db = new PrismaClient();
 
@@ -28,27 +29,34 @@ function blogToData(item: Blog, index: number) {
 }
 
 async function main() {
+  const apply = process.argv.includes('--apply');
   console.log(`\n=== Importing blogs from runtime catalogue ===`);
+  console.log(apply ? 'Mode: APPLY' : 'Mode: DRY RUN (pass --apply to write)');
   console.log(`Source blogs: ${blogs.length}`);
 
   let created = 0;
-  let updated = 0;
+  let enriched = 0;
+  let skipped = 0;
   for (let i = 0; i < blogs.length; i++) {
     const item = blogs[i];
     const data = blogToData(item, i);
     const existing = await db.blog.findUnique({ where: { slug: item.slug } });
     if (existing) {
-      await db.blog.update({ where: { slug: item.slug }, data });
-      updated++;
+      const content = readJsonObject(existing.content);
+      if (!content.editorial && item.editorial) {
+        if (apply) await db.blog.update({ where: { slug: item.slug }, data: { content: JSON.stringify({ ...content, editorial: item.editorial }) } });
+        enriched++;
+      } else skipped++;
     } else {
-      await db.blog.create({ data });
+      if (apply) await db.blog.create({ data: { ...data, content: JSON.stringify(data.content) } });
       created++;
     }
   }
 
   const totalInDb = await db.blog.count();
   console.log(`Created: ${created}`);
-  console.log(`Updated: ${updated}`);
+  console.log(`Editorial payloads filled: ${enriched}`);
+  console.log(`Already managed / skipped: ${skipped}`);
   console.log(`Total blogs in DB: ${totalInDb}`);
 
   await db.$disconnect();

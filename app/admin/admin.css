@@ -659,7 +659,22 @@ html.sp-admin-root::-webkit-scrollbar-thumb:hover { background: var(--sp-orange)
 .sp-form .sp-icon-list-actions .sp-icon-btn svg{width:15px;height:15px}
 .sp-form input[type="checkbox"]:focus-visible{outline:3px solid rgba(247,149,29,.35);outline-offset:2px}
 .sp-form .sp-check-row input:focus-visible{outline:3px solid rgba(247,149,29,.35);outline-offset:2px}
+.sp-builder-languages{display:grid;gap:16px}
+.sp-blog-block-head{display:grid!important;grid-template-columns:32px minmax(0,1fr) auto!important;align-items:center;gap:10px}
+.sp-blog-block-head>span{display:grid;place-items:center;width:32px;height:32px;border-radius:8px;background:#eaf0ff;color:var(--sp-blue);font-size:11px;font-weight:900}
+.sp-blog-block-head>strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--sp-blue-deep);font-size:13px}
+.sp-blog-block-actions{display:flex;align-items:center;gap:6px}
+.sp-repeat-card>.sp-blog-block-head .sp-blog-block-actions button{display:grid;place-items:center;width:34px;height:34px;min-height:34px;padding:0;border:1px solid var(--sp-border);border-radius:9px;background:#fff;color:var(--sp-blue-deep);cursor:pointer}
+.sp-repeat-card>.sp-blog-block-head .sp-blog-block-actions button:hover{border-color:#b7c7ec;background:#eef3ff;color:var(--sp-blue)}
+.sp-repeat-card>.sp-blog-block-head .sp-blog-block-actions button.danger{border-color:#fecaca;color:#be123c}
+.sp-repeat-card>.sp-blog-block-head .sp-blog-block-actions button.danger:hover{background:#fff1f2}
+.sp-repeat-card>.sp-blog-block-head .sp-blog-block-actions button:disabled{opacity:.35;cursor:not-allowed}
+.sp-repeat-card>.sp-blog-block-head .sp-blog-block-actions svg{width:16px;height:16px}
+.sp-blog-inline-row{display:grid;grid-template-columns:minmax(0,1fr) 40px;align-items:end;gap:9px}
+.sp-blog-inline-row>.sp-icon-btn{margin-bottom:1px}
+.sp-form-divider{width:100%;height:1px;margin:4px 0;border:0;background:var(--sp-border)}
 @media (max-width: 860px){.sp-check-grid{grid-template-columns:1fr}.sp-form .sp-check-row{width:100%}}
+@media (max-width:560px){.sp-blog-block-head{grid-template-columns:28px minmax(0,1fr)!important}.sp-blog-block-actions{grid-column:1/-1;justify-content:flex-end}.sp-blog-inline-row{grid-template-columns:minmax(0,1fr) 40px}}
 
 /* Event request detail: compact overview + customer + management + timeline. */
 .evr-detail-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(300px,.85fr);gap:16px;align-items:start;margin-bottom:16px}

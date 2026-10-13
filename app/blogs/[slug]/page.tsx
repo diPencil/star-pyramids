@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { BlogDetailPage } from '@/components/extended-pages'
-import { findBlogBySlug, listBlogSlugs } from '@/lib/server/blogs'
+import { findBlogBySlug, getPublishedDbBlogs, listBlogSlugs } from '@/lib/server/blogs'
 import { generateBlogPostingJsonLd, generateBreadcrumbJsonLd, renderJsonLd } from '@/lib/structured-data'
 import { getSiteUrl, getHreflangEntries } from '@/lib/seo'
 
@@ -42,7 +42,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function Page({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  const blog = await findBlogBySlug(slug)
+  const [blog, publishedBlogs] = await Promise.all([findBlogBySlug(slug), getPublishedDbBlogs()])
   if (!blog) notFound()
 
   const siteUrl = await getSiteUrl()
@@ -57,7 +57,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
     <>
       {renderJsonLd(blogJsonLd)}
       {renderJsonLd(breadcrumbJsonLd)}
-      <BlogDetailPage slug={slug} />
+      <BlogDetailPage slug={slug} initialBlogs={publishedBlogs} />
     </>
   )
 }

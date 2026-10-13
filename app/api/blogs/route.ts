@@ -5,6 +5,7 @@ import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
 import { getCurrentUser, hasPermission } from '@/lib/server/auth';
 import { readJsonObject, writeJsonText } from '@/lib/json-text';
+import { BlogEditorialInputError, validateBlogEditorial } from '@/lib/blog-editorial';
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -13,9 +14,16 @@ const cleanText = (v: unknown, max: number): string | null => {
   return v.trim().slice(0, max);
 };
 
-export async function GET() {
-  // Public: list all stories (read-only, no auth required)
+export async function GET(request: Request) {
+  const adminList = new URL(request.url).searchParams.get('admin') === '1';
+  if (adminList) {
+    const user = await getCurrentUser();
+    if (!user) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+    if (!hasPermission(user, 'blogs.view')) return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
+  }
+  // Public callers receive published stories only. Drafts are admin-only.
   const blogs = await db.blog.findMany({
+    ...(adminList ? {} : { where: { isPublished: true } }),
     orderBy: [{ displayOrder: 'asc' }, { title: 'asc' }],
   });
   return NextResponse.json(await catalogueTranslationResponse('blog', { blogs: blogs.map((blog) => ({ ...blog, content: readJsonObject(blog.content) })) }));
@@ -64,10 +72,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Slug must be unique.' }, { status: 409 });
   }
 
-  const editorial =
-    data.editorial && typeof data.editorial === 'object' && !Array.isArray(data.editorial)
-      ? data.editorial
-      : (data.content as Record<string, unknown> | undefined)?.editorial ?? null;
+  const published = data.isPublished !== false;
+  let editorial;
+  try {
+    editorial = validateBlogEditorial(
+      data.editorial ?? (data.content as Record<string, unknown> | undefined)?.editorial,
+      { publishable: published },
+    );
+  } catch (error) {
+    if (error instanceof BlogEditorialInputError) return NextResponse.json({ error: error.message }, { status: 400 });
+    throw error;
+  }
+  const incomingContent = data.content && typeof data.content === 'object' && !Array.isArray(data.content)
+    ? data.content as Record<string, unknown>
+    : {};
 
   const blog = await saveWithCatalogueTranslations('blog', data.translations, undefined, (tx) => tx.blog.create({
     data: {
@@ -77,11 +95,9 @@ export async function POST(request: Request) {
       category: data.category.trim().slice(0, 120),
       date: data.date.trim().slice(0, 120),
       excerpt: data.excerpt.trim().slice(0, 2000),
-      isPublished: data.isPublished !== false,
+      isPublished: published,
       displayOrder: Number.isFinite(Number(data.displayOrder)) ? Number(data.displayOrder) : 999,
-      content: writeJsonText(data.content && typeof data.content === 'object' && !Array.isArray(data.content)
-        ? data.content
-        : { editorial }),
+      content: writeJsonText({ ...incomingContent, editorial }),
     },
   }));
 

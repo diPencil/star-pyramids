@@ -173,6 +173,11 @@ const blogsCache = createCache<Blog>('/api/blogs', 'blogs', (row) => {
   return item.slug ? item : null;
 }, 'blogs');
 
+const adminBlogsCache = createCache<Blog>('/api/blogs?admin=1', 'blogs', (row) => {
+  const item = toBlog(row);
+  return item.slug ? item : null;
+}, 'admin blogs');
+
 /**
  * Drop cached DB lists so the next read refetches. Call after any
  * successful POST/PUT/DELETE so admin + public views stay truthful.
@@ -180,6 +185,7 @@ const blogsCache = createCache<Blog>('/api/blogs', 'blogs', (row) => {
 export function invalidateOffersBlogsCache() {
   offersCache.invalidate();
   blogsCache.invalidate();
+  adminBlogsCache.invalidate();
 }
 
 /**
@@ -212,5 +218,5 @@ export function useDbOffersStatus(): DbListStatus<Offer> {
  * as `useDbOffersStatus`.
  */
 export function useDbBlogsStatus(): DbListStatus<Blog> {
-  return blogsCache.useStatus();
+  return adminBlogsCache.useStatus();
 }

@@ -9,6 +9,7 @@ import "server-only";
 import { db } from "./db";
 import { readJsonObject } from '../json-text';
 import type { Blog } from "@/data/types";
+import { attachCatalogueTranslations } from './catalogue-translations';
 
 type DbBlogRow = {
   slug: string;
@@ -42,18 +43,19 @@ export function toBlog(row: DbBlogRow): Blog {
 /** All stories in admin order (hidden included for admin use). */
 export async function listBlogs(): Promise<Blog[]> {
   const rows = await db.blog.findMany({ orderBy: [{ displayOrder: "asc" }, { title: "asc" }] });
-  return rows.map((r) => toBlog(r as unknown as DbBlogRow));
+  return attachCatalogueTranslations('blog', rows.map((r) => toBlog(r as unknown as DbBlogRow)));
 }
 
 /** Canonical slugs only. */
 export async function listBlogSlugs(): Promise<string[]> {
-  const rows = await db.blog.findMany({ select: { slug: true } });
+  const rows = await db.blog.findMany({ where: { isPublished: true }, select: { slug: true } });
   return rows.map((r) => r.slug);
 }
 
 export async function findBlogBySlug(slug: string): Promise<Blog | null> {
-  const row = await db.blog.findUnique({ where: { slug } });
-  return row ? toBlog(row as unknown as DbBlogRow) : null;
+  const row = await db.blog.findFirst({ where: { slug, isPublished: true } });
+  if (!row) return null;
+  return (await attachCatalogueTranslations('blog', [toBlog(row as unknown as DbBlogRow)]))[0] ?? null;
 }
 
 /** Public discovery: published stories only. */
@@ -62,5 +64,5 @@ export async function getPublishedDbBlogs(): Promise<Blog[]> {
     where: { isPublished: true },
     orderBy: [{ displayOrder: "asc" }, { title: "asc" }],
   });
-  return rows.map((r) => toBlog(r as unknown as DbBlogRow));
+  return attachCatalogueTranslations('blog', rows.map((r) => toBlog(r as unknown as DbBlogRow)));
 }

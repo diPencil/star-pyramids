@@ -788,7 +788,7 @@ export function DestinationDetailPage({ slug }: { slug: string }) {
   </SiteShell>
 }
 
-export function BlogsPage() { return <SiteShell><BlogsPageContent /></SiteShell> }
+export function BlogsPage({ initialBlogs }: { initialBlogs: Blog[] }) { return <SiteShell><BlogsPageContent initialBlogs={initialBlogs} /></SiteShell> }
 
 function BlogMagazineCard({ item }: { item: Blog }) {
   const { locale } = useLocale()
@@ -816,10 +816,10 @@ function BlogMagazineCard({ item }: { item: Blog }) {
   </article>
 }
 
-function BlogsPageContent() {
+function BlogsPageContent({ initialBlogs }: { initialBlogs: Blog[] }) {
   const { locale } = useLocale()
   const ar = locale === 'ar'
-  const liveBlogs = useDbBlogs(blogs).filter((blog) => blog.isPublished !== false)
+  const liveBlogs = useDbBlogs(initialBlogs).filter((blog) => blog.isPublished !== false)
   const featured = liveBlogs[0]
   const categories = new Set(liveBlogs.map((blog) => blog.category)).size
   if (!featured) return null
@@ -874,7 +874,7 @@ function GuideSection({ section, tips }: { section: { id: string; number: string
   if (section.id === 'essentials' && tips && tips.length) {
     return <section id={section.id} className="guide-essentials">
       <div className="guide-heading"><span className="guide-section-number">{section.number}</span><div><span className="eyebrow">{section.eyebrow}</span><h2>{section.heading}</h2></div></div>
-      <div className="guide-tip-grid">{tips.map((tip) => <GuideTipCard key={tip.title} {...tip} />)}</div>
+      <div id="tips" className="guide-tip-grid">{tips.map((tip) => <GuideTipCard key={tip.title} {...tip} />)}</div>
     </section>
   }
   if (hasImage && hasCopy) {
@@ -897,11 +897,11 @@ function GuideSection({ section, tips }: { section: { id: string; number: string
   </section>
 }
 
-export function BlogEditorialPage({ item }: { item: Blog }) {
+export function BlogEditorialPage({ item, allBlogs }: { item: Blog; allBlogs: Blog[] }) {
   const editorial = item.editorial!
   const { currency, locale } = useLocale()
   const adAr = locale === 'ar'
-  const related = useDbBlogs(blogs).filter((blog) => blog.isPublished !== false && blog.slug !== item.slug).slice(0, 3)
+  const related = allBlogs.filter((blog) => blog.isPublished !== false && blog.slug !== item.slug).slice(0, 3)
   // VIP card context comes from the story's own editorial configuration.
   // The lookup base is built from the configured slug itself (it may point
   // at a featured-only tour outside the curated catalogue subsets), so the
@@ -912,6 +912,7 @@ export function BlogEditorialPage({ item }: { item: Blog }) {
   const vipTour = vipTourSlug ? useDbTours(vipTourBase, { includeNew: true }).find((tour) => tour.slug === vipTourSlug) : undefined
   const heroImage = editorial.heroImage || item.image
   const heroAlt = editorial.heroAlt || item.title
+  const checklistAnchor = !editorial.tips?.length && editorial.sidebarLinks?.some((link) => link.href === '#tips') ? 'tips' : 'checklist'
   const [activeSection, setActiveSection] = useState<string>('')
 
   useEffect(() => {
@@ -966,8 +967,10 @@ export function BlogEditorialPage({ item }: { item: Blog }) {
 
           {editorial.quote && <blockquote className="guide-quote"><span aria-hidden="true">{'\u201C'}</span><p>{editorial.quote}</p></blockquote>}
 
-          {editorial.checklist && editorial.checklist.length > 0 && <section className="guide-checklist">
-            <div><span className="guide-section-number">{String((editorial.sections?.length || 0) + 1).padStart(2, '0')}</span><span className="eyebrow">{tx(locale, { en: 'Before you go', es: 'Antes de viajar', it: 'Prima di partire', ar: 'قبل السفر' })}</span><h2>{tx(locale, { en: 'Your trip, simplified', es: 'Tu viaje, simplificado', it: 'Il tuo viaggio, semplificato', ar: 'رحلتك ببساطة' })}</h2></div>
+          {editorial.wideImage && <figure className="guide-wide-image"><img src={editorial.wideImage.src} alt={editorial.wideImage.alt} loading="lazy"/>{editorial.wideImage.caption && <figcaption>{editorial.wideImage.caption}</figcaption>}</figure>}
+
+          {editorial.checklist && editorial.checklist.length > 0 && <section id={checklistAnchor} className="guide-checklist">
+            <div><span className="guide-section-number">{String((editorial.sections?.length || 0) + 1).padStart(2, '0')}</span><span className="eyebrow">{editorial.checklistEyebrow || tx(locale, { en: 'Before you go', es: 'Antes de viajar', it: 'Prima di partire', ar: 'قبل السفر' })}</span><h2>{editorial.checklistHeading || tx(locale, { en: 'Your trip, simplified', es: 'Tu viaje, simplificado', it: 'Il tuo viaggio, semplificato', ar: 'رحلتك ببساطة' })}</h2></div>
             <ul>{editorial.checklist.map((item, i) => <li key={i}><Check size={17}/><span><strong>{item.title}</strong>{item.detail}</span></li>)}</ul>
           </section>}
         </article>
@@ -992,14 +995,15 @@ export function BlogEditorialPage({ item }: { item: Blog }) {
   </SiteShell>
 }
 
-export function BlogDetailPage({ slug }: { slug: string }) {
-  const item = useDbBlogs(blogs).find((blog) => blog.slug === slug)
+export function BlogDetailPage({ slug, initialBlogs }: { slug: string; initialBlogs: Blog[] }) {
+  const liveBlogs = useDbBlogs(initialBlogs)
+  const item = liveBlogs.find((blog) => blog.slug === slug)
   const { locale } = useLocale()
   const ar = locale === 'ar'
   if (!item) return <DetailNotFound title={tx(locale, { en: 'Story not found', es: 'Historia no encontrada', it: 'Storia non trovata', ar: 'القصة غير موجودة' })} copy={tx(locale, { en: 'The story you were looking for has taken a different route.', es: 'La historia que buscabas ha tomado otro camino.', it: 'La storia che cercavi ha preso un\'altra strada.', ar: 'القصة التي تبحث عنها سلكت طريقًا آخر.' })} backHref="/blogs" backLabel={tx(locale, { en: 'Read all stories', es: 'Lee todas las historias', it: 'Leggi tutte le storie', ar: 'اقرأ كل القصص' })}/>
   if (item.isPublished === false) return <SiteShell><main className="container section"><div className="account-empty blog-hidden-card" role="status"><span className="blog-hidden-ic" aria-hidden="true"><EyeOff size={22} /></span><h1>{tx(locale, { en: 'This story is currently unavailable', es: 'Esta historia no está disponible ahora mismo', it: 'Questa storia non è al momento disponibile', ar: 'هذا المقال غير متاح حاليًا' })}</h1><p>{tx(locale, { en: 'Browse our other published stories and travel guides.', es: 'Descubre nuestras otras historias publicadas y guías de viaje.', it: 'Scopri le nostre altre storie pubblicate e guide di viaggio.', ar: 'تصفح مقالاتنا المنشورة وأدلة السفر الأخرى.' })}</p><Link href="/blogs" className="primary-btn">{tx(locale, { en: 'Read all stories', es: 'Lee todas las historias', it: 'Leggi tutte le storie', ar: 'اقرأ كل القصص' })}</Link></div></main></SiteShell>
-  if (item.editorial) return <BlogEditorialPage item={item}/>
-  return <SiteShell><Breadcrumb items={[tx(locale, { en: 'Blogs', es: 'Blog', it: 'Blog', ar: 'المدونة' }),item.title]}/><main className="article-page container"><div className="article-header"><span className="eyebrow">{item.category}, {item.date}</span><h1>{item.title}</h1><p>{item.excerpt}</p></div><img className="article-cover" src={item.image} alt={item.title}/><div className="article-body"><p>Egypt rewards travelers who look a little closer. The great landmarks are only the beginning; the real rhythm of a journey appears in the streets, the meals, the conversations, and the quiet spaces between one stop and the next.</p><h2>Make room for the unexpected</h2><p>Leave space in your itinerary for a second cup of tea, a local market, and the kind of discovery that never appears in a checklist. Our team can help you find that balance.</p><blockquote>Travel slowly enough to notice what makes a place itself.</blockquote><Link href="/make-your-trip" className="primary-btn">{tx(locale, { en: 'Use this inspiration', es: 'Usa esta inspiración', it: 'Usa questa ispirazione', ar: 'استلهم لرحلتك' })} <ArrowRight size={16}/></Link></div></main></SiteShell>
+  if (item.editorial) return <BlogEditorialPage item={item} allBlogs={liveBlogs}/>
+  return <SiteShell><Breadcrumb items={[tx(locale, { en: 'Blogs', es: 'Blog', it: 'Blog', ar: 'المدونة' }),item.title]}/><main className="article-page container"><div className="article-header"><span className="eyebrow">{item.category}, {item.date}</span><h1>{item.title}</h1><p>{item.excerpt}</p></div>{item.image && <img className="article-cover" src={item.image} alt={item.title}/>}<div className="article-body"><p>{item.excerpt}</p><Link href="/blogs" className="primary-btn">{tx(locale, { en: 'Read all stories', es: 'Lee todas las historias', it: 'Leggi tutte le storie', ar: 'اقرأ كل القصص' })} <ArrowRight size={16}/></Link></div></main></SiteShell>
 }
 
 /** Legacy aliases now backed by the structured helpers in `@/lib/events`. */

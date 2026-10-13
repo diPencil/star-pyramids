@@ -5,6 +5,7 @@ import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
 import { getCurrentUser, hasPermission } from '@/lib/server/auth';
 import { readJsonObject, writeJsonText } from '@/lib/json-text';
+import { BlogEditorialInputError, validateBlogEditorial } from '@/lib/blog-editorial';
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -23,6 +24,14 @@ export async function GET(
 
   if (!blog) {
     return NextResponse.json({ notFound: true }, { status: 404 });
+  }
+
+  const adminRead = new URL(request.url).searchParams.get('admin') === '1';
+  if (!blog.isPublished) {
+    if (!adminRead) return NextResponse.json({ notFound: true }, { status: 404 });
+    const user = await getCurrentUser();
+    if (!user) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+    if (!hasPermission(user, 'blogs.view')) return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
   }
 
   return NextResponse.json(await catalogueTranslationResponse('blog', { blog: { ...blog, content: readJsonObject(blog.content) } }));
@@ -69,14 +78,22 @@ export async function PUT(
     }
   }
 
-  // Preserve the rich editorial payload unless the editor sends a replacement.
+  // Preserve every unrelated content key while replacing only the validated
+  // editorial payload managed by the article builder.
   const existingContent = readJsonObject(existing.content);
-  const nextContent =
-    data.content === undefined
-      ? data.editorial === undefined
-        ? existing.content
-        : { ...existingContent, editorial: data.editorial }
-      : (data.content ?? {});
+  const nextPublished = data.isPublished === undefined ? existing.isPublished : data.isPublished !== false;
+  const incomingContent = data.content && typeof data.content === 'object' && !Array.isArray(data.content)
+    ? data.content as Record<string, unknown>
+    : null;
+  const editorialInput = data.editorial !== undefined ? data.editorial : incomingContent?.editorial;
+  let nextContent = incomingContent ? { ...existingContent, ...incomingContent } : { ...existingContent };
+  try {
+    if (editorialInput !== undefined) nextContent.editorial = validateBlogEditorial(editorialInput, { publishable: nextPublished });
+    else if (nextPublished) nextContent.editorial = validateBlogEditorial(existingContent.editorial, { publishable: true });
+  } catch (error) {
+    if (error instanceof BlogEditorialInputError) return NextResponse.json({ error: error.message }, { status: 400 });
+    throw error;
+  }
 
   const blog = await saveWithCatalogueTranslations('blog', data.translations, existing.slug, (tx) => tx.blog.update({
     where: { slug: paramSlug },
@@ -87,7 +104,7 @@ export async function PUT(
       category: typeof data.category === 'string' && data.category.trim() ? data.category.trim().slice(0, 120) : existing.category,
       date: typeof data.date === 'string' && data.date.trim() ? data.date.trim().slice(0, 120) : existing.date,
       excerpt: typeof data.excerpt === 'string' && data.excerpt.trim() ? data.excerpt.trim().slice(0, 2000) : existing.excerpt,
-      isPublished: data.isPublished === undefined ? existing.isPublished : data.isPublished !== false,
+      isPublished: nextPublished,
       displayOrder: data.displayOrder === undefined || data.displayOrder === '' ? existing.displayOrder : (Number.isFinite(Number(data.displayOrder)) ? Number(data.displayOrder) : existing.displayOrder),
       content: writeJsonText(nextContent),
     },
