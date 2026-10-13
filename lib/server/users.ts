@@ -107,6 +107,14 @@ export async function findUserByEmail(
   });
 }
 
+export async function findPublicUserByPublicId(publicId: string): Promise<PublicUser | null> {
+  const row = await db.user.findUnique({
+    where: { publicId },
+    select: publicSelect,
+  });
+  return row ? toPublicUser(row) : null;
+}
+
 export async function createUser(input: {
   email: string;
   password: string;

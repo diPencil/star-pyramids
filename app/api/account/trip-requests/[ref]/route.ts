@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser } from '@/lib/server/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
+import { getAccountReadUser, getAccountWriteUser } from '@/lib/server/staff-preview';
 import {
   cancelCustomerTripRequest,
   getCustomerTripRequest,
@@ -9,13 +9,6 @@ import {
   updateCustomerTripRequest,
   validateTripDraft,
 } from '@/lib/server/trip-requests';
-
-async function requireCustomer() {
-  const current = await getCurrentUser();
-  if (!current) return null;
-  if (!current.roles.includes('CUSTOMER')) return null;
-  return current;
-}
 
 function refOf(ctx: { params: Promise<{ ref: string }> }): Promise<string> {
   return ctx.params.then((p) => p.ref);
@@ -26,7 +19,7 @@ export async function GET(
   _request: Request,
   ctx: { params: Promise<{ ref: string }> },
 ) {
-  const current = await requireCustomer();
+  const current = await getAccountReadUser();
   if (!current) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
   const reference = decodeURIComponent(await refOf(ctx));
   const item = await getCustomerTripRequest(current.id, reference);
@@ -51,7 +44,7 @@ export async function PATCH(
   if (!isSameOriginRequest(request)) {
     return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
   }
-  const current = await requireCustomer();
+  const current = await getAccountWriteUser();
   if (!current) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
   const reference = decodeURIComponent(await refOf(ctx));
 

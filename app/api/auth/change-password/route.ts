@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 
 import {
   changePassword,
-  getCurrentUser,
 } from '@/lib/server/auth';
 import { getSession } from '@/lib/server/session';
 import { isSameOriginRequest } from '@/lib/server/csrf';
@@ -15,6 +14,7 @@ import {
   MIN_PASSWORD_LENGTH,
   MAX_PASSWORD_LENGTH,
 } from '@/lib/core/validation';
+import { getAccountWriteUser } from '@/lib/server/staff-preview';
 
 function requestIp(request: Request): string {
   return (
@@ -27,12 +27,9 @@ export async function PATCH(request: Request) {
   if (!isSameOriginRequest(request)) {
     return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
   }
-  const currentUser = await getCurrentUser();
+  const currentUser = await getAccountWriteUser();
   if (!currentUser) {
     return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
-  }
-  if (!currentUser.roles.includes('CUSTOMER')) {
-    return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
   }
 
   let body: unknown;

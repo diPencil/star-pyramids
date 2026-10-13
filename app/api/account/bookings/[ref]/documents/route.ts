@@ -1,15 +1,8 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser } from '@/lib/server/auth';
 import { db } from '@/lib/server/db';
 import { listBookingDocuments, toDocumentListItem } from '@/lib/server/documents';
-
-async function requireCustomer() {
-  const current = await getCurrentUser();
-  if (!current) return null;
-  if (!current.roles.includes('CUSTOMER')) return null;
-  return current;
-}
+import { getAccountReadUser } from '@/lib/server/staff-preview';
 
 /**
  * Owner-only document list for one booking (Phase C).
@@ -23,7 +16,7 @@ export async function GET(
   _request: Request,
   ctx: { params: Promise<{ ref: string }> },
 ) {
-  const current = await requireCustomer();
+  const current = await getAccountReadUser();
   if (!current) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
   const reference = decodeURIComponent((await ctx.params).ref);
   const booking = await db.booking.findUnique({

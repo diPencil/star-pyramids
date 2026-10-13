@@ -47,23 +47,47 @@ export function readImpersonation(): ImpersonatedCustomer | null {
   }
 }
 
-export function startImpersonation(customer: { publicId: string; name: string; email?: string; avatar?: string }) {
+export function setImpersonationMarker(customer: { publicId: string; name: string; email?: string; avatar?: string }) {
   try {
     window.localStorage.setItem(IMPERSONATE_KEY, JSON.stringify({ ...customer, at: new Date().toISOString() }))
     window.dispatchEvent(new Event('sp-impersonate'))
   } catch {
     // Impersonation unavailable without storage access.
   }
-  window.open('/account', '_blank', 'noopener')
 }
 
-export function stopImpersonation() {
+export async function startImpersonation(customer: { publicId: string; name: string; email?: string; avatar?: string }) {
+  const previewWindow = window.open('about:blank', '_blank')
+  if (previewWindow) previewWindow.opener = null
+  try {
+    const response = await fetch('/api/admin/customer-preview', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ publicId: customer.publicId }),
+    })
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null
+    if (!response.ok) throw new Error(payload?.error || 'Could not open customer preview.')
+    setImpersonationMarker(customer)
+    if (previewWindow) previewWindow.location.replace('/account')
+    else window.location.assign('/account')
+  } catch (error) {
+    previewWindow?.close()
+    throw error
+  }
+}
+
+export async function stopImpersonation() {
   try {
     window.localStorage.removeItem(IMPERSONATE_KEY)
     window.dispatchEvent(new Event('sp-impersonate'))
   } catch {
     // Nothing stored to clear.
   }
+  await fetch('/api/admin/customer-preview', {
+    method: 'DELETE',
+    credentials: 'same-origin',
+  }).catch(() => undefined)
 }
 
 export type InquiryChannel = 'whatsapp' | 'email'

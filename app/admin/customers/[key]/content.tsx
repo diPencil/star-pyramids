@@ -35,9 +35,10 @@ export function CustomerDetailContent({ customerKey }: { customerKey: string }) 
   const fmtMoney = (value: number, currency: string): string =>
     currency === 'USD' ? formatUsd(value) : formatMoney(value, currency)
   const key = decodeURIComponent(customerKey)
-  const { data: customer, canManage, loading, error, retry, refresh } = useDbCustomerDetail(key)
+  const { data: customer, canPreview, canManage, loading, error, retry, refresh } = useDbCustomerDetail(key)
   const [confirming, setConfirming] = useState<null | 'ACTIVE' | 'SUSPENDED'>(null)
   const [saving, setSaving] = useState(false)
+  const [openingPreview, setOpeningPreview] = useState(false)
   const [serverError, setServerError] = useState('')
   const [successNote, setSuccessNote] = useState('')
 
@@ -56,6 +57,19 @@ export function CustomerDetailContent({ customerKey }: { customerKey: string }) 
       setServerError(err instanceof Error ? err.message : (ar ? 'تعذر تحديث الحالة.' : 'Could not update status.'))
     } finally {
       setSaving(false)
+    }
+  }
+
+  const openCustomerPreview = async () => {
+    if (!customer) return
+    setOpeningPreview(true)
+    setServerError('')
+    try {
+      await startImpersonation({ publicId: key, name, email: customer.email, avatar: customer.avatar ?? undefined })
+    } catch (error) {
+      setServerError(error instanceof Error ? error.message : (ar ? 'تعذر فتح معاينة العميل.' : 'Could not open customer preview.'))
+    } finally {
+      setOpeningPreview(false)
     }
   }
 
@@ -88,10 +102,11 @@ export function CustomerDetailContent({ customerKey }: { customerKey: string }) 
       backHref="/admin/customers"
       actions={<>
         {canManage ? <Link className="sp-btn" href={`/admin/customers/${encodeURIComponent(key)}/edit`}><Pencil size={15} /> <AdminText en="Edit" ar="تعديل" /></Link> : null}
-        {canManage ? <button type="button" className="sp-btn dark" onClick={() => startImpersonation({ publicId: key, name, email: customer.email })}><Eye size={15} /> <AdminText en="View as customer" ar="عرض كعميل" /></button> : null}
+        {canPreview ? <button type="button" className="sp-btn dark" disabled={openingPreview} onClick={() => void openCustomerPreview()}><Eye size={15} /> <AdminText en={openingPreview ? 'Opening…' : 'View as customer'} ar={openingPreview ? 'جارٍ الفتح…' : 'عرض كعميل'} /></button> : null}
       </>}
     />
     {successNote ? <p role="status" style={{ color: '#15803d', margin: '0 0 12px' }}>{successNote}</p> : null}
+    {serverError && !confirming ? <p role="alert" style={{ color: '#b91c1c', margin: '0 0 12px' }}>{serverError}</p> : null}
 
     <AdminStats items={[
       { label: <AdminText en="Total spent" ar="إجمالي الإنفاق" />, value: formatUsd(customer.totalSpent), note: <AdminText en="All bookings" ar="كل الحجوزات" />, icon: Users },

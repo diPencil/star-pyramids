@@ -1,26 +1,19 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser } from '@/lib/server/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
+import { getAccountReadUser, getAccountWriteUser } from '@/lib/server/staff-preview';
 import {
   BOOKING_FINANCIAL_REVIEW_CODE,
   cancelCustomerBooking,
   getCustomerBooking,
 } from '@/lib/server/bookings';
 
-async function requireCustomer() {
-  const current = await getCurrentUser();
-  if (!current) return null;
-  if (!current.roles.includes('CUSTOMER')) return null;
-  return current;
-}
-
 /** Owner-only booking detail (customer-safe projection). */
 export async function GET(
   _request: Request,
   ctx: { params: Promise<{ ref: string }> },
 ) {
-  const current = await requireCustomer();
+  const current = await getAccountReadUser();
   if (!current) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
   const reference = decodeURIComponent((await ctx.params).ref);
   const booking = await getCustomerBooking(current.id, reference);
@@ -39,7 +32,7 @@ export async function PATCH(
   if (!isSameOriginRequest(request)) {
     return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
   }
-  const current = await requireCustomer();
+  const current = await getAccountWriteUser();
   if (!current) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
   const reference = decodeURIComponent((await ctx.params).ref);
 

@@ -7,6 +7,7 @@ import {
   storeUploadedImage,
 } from '@/lib/server/media';
 import { toClientUser, updateUserAvatar } from '@/lib/server/users';
+import { getStaffPreviewCustomer } from '@/lib/server/staff-preview';
 
 export const runtime = 'nodejs';
 
@@ -30,6 +31,9 @@ export async function POST(request: Request) {
   }
   const current = await getCurrentUser();
   if (!current) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+  if (await getStaffPreviewCustomer(current)) {
+    return NextResponse.json({ error: 'Profile changes are disabled during customer preview.' }, { status: 403 });
+  }
 
   const contentType = request.headers.get('content-type') ?? '';
 
@@ -112,6 +116,9 @@ export async function DELETE(request: Request) {
   }
   const current = await getCurrentUser();
   if (!current) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+  if (await getStaffPreviewCustomer(current)) {
+    return NextResponse.json({ error: 'Profile changes are disabled during customer preview.' }, { status: 403 });
+  }
 
   try {
     const user = await updateUserAvatar(current.id, null);

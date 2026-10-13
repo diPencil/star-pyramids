@@ -30,7 +30,6 @@ import { useDbTours } from '@/lib/tours-client'
 import { cars } from '@/data/content'
 import { carActivityLabel, carRequestStatusLabel, fleetVehicleTitle, type CarRequest, type CarRequestStatus } from '@/lib/car-request'
 import { usePagination } from '@/components/admin/admin-pagination'
-import { useStaffPreviewBookings } from '@/lib/staff-preview-client'
 import {
   saveCustomerProfile, useCustomerFavorites,
   useCustomerProfile, type CustomerProfile,
@@ -145,13 +144,8 @@ export function useCustomerBookings() {
 }
 
 export function useVisibleBookings() {
-  const impersonated = useImpersonated()
   const { bookings } = useCustomerBookings()
-  const preview = useStaffPreviewBookings(impersonated?.publicId ?? null)
-  return useMemo(() => {
-    if (!impersonated) return bookings
-    return preview.bookings
-  }, [impersonated, bookings, preview.bookings])
+  return bookings
 }
 
 export function useVisibleInquiries() {
@@ -283,6 +277,13 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
       router.refresh()
     }
   }
+  const exitPreview = async () => {
+    if (loggingOut) return
+    setLoggingOut(true)
+    await stopImpersonation()
+    router.replace('/admin')
+    router.refresh()
+  }
 
   return <div className={`customer-dashboard section-${section} ${mobileOpen ? 'menu-open' : ''}`}>
     <button type="button" className="customer-dashboard-scrim" aria-label={tx(locale, { en: 'Close menu', es: 'Cerrar el menú', it: 'Chiudi il menu', ar: 'إغلاق القائمة' })} onClick={() => setMobileOpen(false)} />
@@ -306,7 +307,7 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
           <div><strong>{tx(locale, { en: 'Trip cart', es: 'Cesta de viajes', it: 'Carrello viaggi', ar: 'سلة الرحلات' })}</strong><small>{cart.lines ? (locale === 'es' ? `${cart.lines} viajes en espera` : locale === 'it' ? `${cart.lines} viaggi in attesa` : locale === 'ar' ? `${cart.lines} رحلات بانتظارك` : `${cart.lines} trip${cart.lines === 1 ? '' : 's'} waiting`) : (tx(locale, { en: 'Start by adding a trip', es: 'Empieza añadiendo un viaje', it: 'Inizia aggiungendo un viaggio', ar: 'ابدأ بإضافة رحلة' }))}</small></div>
           <Link href="/cart" aria-label={tx(locale, { en: 'Open cart', es: 'Abrir la cesta', it: 'Apri il carrello', ar: 'فتح السلة' })}><ChevronRight size={17} /></Link>
         </div>
-        <button type="button" className="customer-signout" onClick={logout} disabled={loggingOut}><LogOut size={17} />{loggingOut ? (tx(locale, { en: 'Signing out...', es: 'Cerrando sesión…', it: 'Disconnessione…', ar: 'جارٍ الخروج...' })) : (tx(locale, { en: 'Sign out', es: 'Cerrar sesión', it: 'Esci', ar: 'تسجيل الخروج' }))}</button>
+        <button type="button" className="customer-signout" onClick={impersonated ? exitPreview : logout} disabled={loggingOut}><LogOut size={17} />{impersonated ? tx(locale, { en: 'Exit preview', es: 'Salir de la vista previa', it: 'Esci dall’anteprima', ar: 'إنهاء المعاينة' }) : loggingOut ? (tx(locale, { en: 'Signing out...', es: 'Cerrando sesión…', it: 'Disconnessione…', ar: 'جارٍ الخروج...' })) : (tx(locale, { en: 'Sign out', es: 'Cerrar sesión', it: 'Esci', ar: 'تسجيل الخروج' }))}</button>
     </aside>
 
     <div className="customer-dashboard-main">
@@ -330,7 +331,7 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
           </div>
           <div className="customer-top-popover customer-user-popover">
             <button type="button" className="customer-top-user" onClick={() => { setUserOpen((open) => !open); setNotificationsOpen(false) }} aria-expanded={userOpen}><CustomerAvatar avatar={profile.avatar} initials={initials} className="customer-top-avatar" name={displayFullName} /><div><strong>{displayFullName}</strong><small>{tx(locale, { en: 'Traveler', es: 'Viajero', it: 'Viaggiatore', ar: 'مسافر' })}</small></div><ChevronDown size={15} /></button>
-            {userOpen && <div className="customer-user-menu"><Link href="/account/profile" onClick={() => setUserOpen(false)}><UserRound size={16} />{tx(locale, { en: 'Profile', es: 'Perfil', it: 'Profilo', ar: 'الملف الشخصي' })}</Link><Link href="/account/settings" onClick={() => setUserOpen(false)}><Settings2 size={16} />{tx(locale, { en: 'Settings', es: 'Ajustes', it: 'Impostazioni', ar: 'الإعدادات' })}</Link><button type="button" onClick={logout} disabled={loggingOut}><LogOut size={16} />{tx(locale, { en: 'Sign out', es: 'Cerrar sesión', it: 'Esci', ar: 'تسجيل الخروج' })}</button></div>}
+            {userOpen && <div className="customer-user-menu"><Link href="/account/profile" onClick={() => setUserOpen(false)}><UserRound size={16} />{tx(locale, { en: 'Profile', es: 'Perfil', it: 'Profilo', ar: 'الملف الشخصي' })}</Link><Link href="/account/settings" onClick={() => setUserOpen(false)}><Settings2 size={16} />{tx(locale, { en: 'Settings', es: 'Ajustes', it: 'Impostazioni', ar: 'الإعدادات' })}</Link><button type="button" onClick={impersonated ? exitPreview : logout} disabled={loggingOut}><LogOut size={16} />{impersonated ? tx(locale, { en: 'Exit preview', es: 'Salir de la vista previa', it: 'Esci dall’anteprima', ar: 'إنهاء المعاينة' }) : tx(locale, { en: 'Sign out', es: 'Cerrar sesión', it: 'Esci', ar: 'تسجيل الخروج' })}</button></div>}
           </div>
           {notificationsOpen && <NotificationPanel onClose={() => setNotificationsOpen(false)} />}
         </div>
@@ -342,7 +343,7 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
             <strong>{tx(locale, { en: 'Staff preview', es: 'Vista previa del personal', it: 'Anteprima staff', ar: 'معاينة الموظفين' })}</strong>
             <span>{tx(locale, { en: 'Viewing as', es: 'Viendo como', it: 'Visualizzazione come', ar: 'تشاهد الحساب باسم' })} <b>{impersonated.name}</b></span>
           </div>
-          <button type="button" onClick={() => stopImpersonation()}><LogOut size={15} />{tx(locale, { en: 'Exit preview', es: 'Salir de la vista previa', it: 'Esci dall’anteprima', ar: 'إنهاء المعاينة' })}</button>
+          <button type="button" onClick={() => void exitPreview()} disabled={loggingOut}><LogOut size={15} />{tx(locale, { en: 'Exit preview', es: 'Salir de la vista previa', it: 'Esci dall’anteprima', ar: 'إنهاء المعاينة' })}</button>
         </div>}
         <section className="customer-account-main">
         <p className="customer-demo-notice" role="note"><FlaskConical size={16} /><span><strong>{tx(locale, { en: 'Account connected', es: 'Cuenta conectada', it: 'Account collegato', ar: 'الحساب متصل' })}</strong>{tx(locale, { en: 'Your identity, profile, sign-in, bookings, payments, trip requests, car requests, event requests, notifications, and messages are database-backed. Payments are offline only (bank transfer or cash) — no charge is ever made online.', es: 'Tu identidad, perfil, inicio de sesión, reservas, pagos, solicitudes y mensajes están respaldados por la base de datos. Los pagos son solo offline (transferencia o efectivo): nunca se cobra nada en línea.', it: 'Identità, profilo, accesso, prenotazioni, pagamenti, richieste e messaggi sono salvati nel database. I pagamenti sono solo offline (bonifico o contanti): nessun addebito online.', ar: 'هويتك وملفك الشخصي وتسجيل الدخول والحجوزات والمدفوعات والطلبات والرسائل محفوظة في قاعدة البيانات. الدفع مباشر فقط (تحويل بنكي أو نقدي) — لا يتم خصم أي مبلغ عبر الإنترنت أبدًا.' })}</span></p>
@@ -634,7 +635,6 @@ function BookingDetailSection({ reference, autoPrint = false }: { reference: str
   const { locale, currency } = useLocale()
 
   const impersonated = useImpersonated()
-  const previewList = useVisibleBookings()
   const [booking, setBooking] = useState<Booking | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -642,13 +642,6 @@ function BookingDetailSection({ reference, autoPrint = false }: { reference: str
   const [actionError, setActionError] = useState('')
 
   useEffect(() => {
-    // Staff preview shows the impersonated demo record; real customers
-    // load their own database-backed booking.
-    if (impersonated) {
-      setBooking(previewList.find((item) => item.reference === reference) ?? null)
-      setLoading(false)
-      return
-    }
     let cancelled = false
     setLoading(true)
     setLoadError('')
@@ -661,7 +654,7 @@ function BookingDetailSection({ reference, autoPrint = false }: { reference: str
         }
       })
     return () => { cancelled = true }
-  }, [reference, impersonated, previewList])
+  }, [reference])
 
   useEffect(() => {
     if (autoPrint && booking) {
@@ -997,17 +990,15 @@ function BookingTableRow({ booking, index }: { booking: Booking; index: number }
 function BookingsSection() {
   const { locale } = useLocale()
 
-  const impersonated = useImpersonated()
   const { bookings: mine, loading, error } = useCustomerBookings()
-  const preview = useVisibleBookings()
-  const bookings = impersonated ? preview : mine
+  const bookings = mine
   const [filter, setFilter] = useState<'all' | BookingStatus>('all')
   const visible = filter === 'all' ? bookings : bookings.filter((booking) => booking.status === filter)
   const paging = usePagination(visible)
-  if (!impersonated && loading) {
+  if (loading) {
     return <section className="customer-account-block customer-full-block"><div className="customer-empty" role="status"><h3>{tx(locale, { en: 'Loading your bookings…', es: 'Cargando tus reservas…', it: 'Caricamento prenotazioni…', ar: 'جارٍ تحميل حجوزاتك…' })}</h3></div></section>
   }
-  if (!impersonated && error && !bookings.length) {
+  if (error && !bookings.length) {
     return <section className="customer-account-block customer-full-block"><div className="customer-empty"><h3>{tx(locale, { en: 'Could not load bookings', es: 'No se pudieron cargar las reservas', it: 'Impossibile caricare le prenotazioni', ar: 'تعذر تحميل الحجوزات' })}</h3><p>{error}</p></div></section>
   }
   return <section className="customer-account-block customer-full-block"><div className="customer-filterbar"><div role="tablist" aria-label={tx(locale, { en: 'Filter bookings', es: 'Filtrar reservas', it: 'Filtra prenotazioni', ar: 'فلترة الحجوزات' })}>{(['all', 'pending', 'confirmed', 'completed', 'cancelled'] as const).map((status) => <button type="button" key={status} className={filter === status ? 'active' : ''} onClick={() => setFilter(status)}>{status === 'all' ? (tx(locale, { en: 'All', es: 'Todos', it: 'Tutti', ar: 'الكل' })) : tx(locale, bookingStatusCopy[status])}</button>)}</div><Link href="/trips"><Plus size={16} />{tx(locale, { en: 'Book a trip', es: 'Reservar un viaje', it: 'Prenota un viaggio', ar: 'حجز رحلة' })}</Link></div>{visible.length ? <><div className="customer-table-wrap"><table className="customer-table"><thead><tr><th>#</th><th>{tx(locale, { en: 'Trip', es: 'Viaje', it: 'Viaggio', ar: 'الرحلة' })}</th><th>{tx(locale, { en: 'Date', es: 'Fecha', it: 'Data', ar: 'التاريخ' })}</th><th>{tx(locale, { en: 'Travelers', es: 'Viajeros', it: 'Viaggiatori', ar: 'المسافرون' })}</th><th>{tx(locale, { en: 'Total', es: 'Total', it: 'Totale', ar: 'الإجمالي' })}</th><th>{tx(locale, { en: 'Status', es: 'Estado', it: 'Stato', ar: 'الحالة' })}</th><th></th></tr></thead><tbody>{paging.pageRows.map((booking, index) => <BookingTableRow key={booking.reference} booking={booking} index={paging.from + index} />)}</tbody></table></div><CustomerPagination page={paging.page} pageCount={paging.pageCount} onPage={paging.setPage} pageSize={paging.pageSize} onPageSize={paging.setPageSize} from={paging.from} to={paging.to} total={paging.total} /></> : <EmptyState Icon={ShoppingBag} title={tx(locale, { en: 'No bookings in this view', es: 'Sin reservas en esta vista', it: 'Nessuna prenotazione in questa vista', ar: 'لا توجد حجوزات في هذه الحالة' })} copy={tx(locale, { en: 'Any booking created at checkout will appear here automatically.', es: 'Cualquier reserva creada al finalizar la compra aparecerá aquí automáticamente.', it: 'Qualsiasi prenotazione creata al checkout apparirà qui automaticamente.', ar: 'أي حجز تنشئه من صفحة الدفع سيظهر هنا تلقائيًا.' })} href="/trips" action={tx(locale, { en: 'Browse trips', es: 'Explorar viajes', it: 'Sfoglia i viaggi', ar: 'تصفح الرحلات' })} />}</section>

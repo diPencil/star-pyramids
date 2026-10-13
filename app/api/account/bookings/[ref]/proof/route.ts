@@ -1,19 +1,12 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser } from '@/lib/server/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
+import { getAccountWriteUser } from '@/lib/server/staff-preview';
 import {
   ProofRateLimitError,
   submitCustomerPaymentProof,
   validateProofInput,
 } from '@/lib/server/payment-proofs';
-
-async function requireCustomer() {
-  const current = await getCurrentUser();
-  if (!current) return null;
-  if (!current.roles.includes('CUSTOMER')) return null;
-  return current;
-}
 
 /**
  * Owner-only payment-proof submission (reference-only, offline review).
@@ -31,7 +24,7 @@ export async function POST(
   if (!isSameOriginRequest(request)) {
     return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
   }
-  const current = await requireCustomer();
+  const current = await getAccountWriteUser();
   if (!current) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
   const reference = decodeURIComponent((await ctx.params).ref);
 

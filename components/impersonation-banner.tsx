@@ -47,7 +47,7 @@ export function ImpersonationBanner() {
           {!preview.loading && !preview.error && preview.bookings.length === 0 && <> · {tx(locale, { en: 'no bookings yet', es: 'aún sin reservas', it: 'nessuna prenotazione', ar: 'لا توجد حجوزات بعد' })}</>}
         </span>
       </div>
-      <button type="button" onClick={() => { stopImpersonation(); setImpersonated(null) }}>
+      <button type="button" onClick={() => { void stopImpersonation(); setImpersonated(null) }}>
         <LogOut size={15} />{tx(locale, { en: 'Exit preview', es: 'Salir de la vista previa', it: "Esci dall'anteprima", ar: 'إنهاء المعاينة' })}
       </button>
     </div>

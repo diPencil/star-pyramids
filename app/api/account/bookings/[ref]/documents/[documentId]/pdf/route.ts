@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser } from '@/lib/server/auth';
 import { buildBookingDocumentPdf, documentPdfResponse, publicBaseUrl } from '@/lib/server/document-pdf';
+import { getAccountReadUser } from '@/lib/server/staff-preview';
 
 // Private document bytes — evaluated per request, never cached.
 export const dynamic = 'force-dynamic';
@@ -17,7 +17,7 @@ export async function GET(
   request: Request,
   ctx: { params: Promise<{ ref: string; documentId: string }> },
 ) {
-  const current = await getCurrentUser();
+  const current = await getAccountReadUser();
   if (!current) {
     return NextResponse.json(
       { error: 'Unauthorized.' },

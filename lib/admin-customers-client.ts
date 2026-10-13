@@ -102,6 +102,7 @@ export function useDbCustomersStatus(): CustomersDirectoryStatus {
 
 export type CustomerDetailStatus = {
   data: CustomerDetail | null;
+  canPreview: boolean;
   canManage: boolean;
   loading: boolean;
   error: string | null;
@@ -111,6 +112,7 @@ export type CustomerDetailStatus = {
 
 export function useDbCustomerDetail(publicId: string): CustomerDetailStatus {
   const [data, setData] = useState<CustomerDetail | null>(null);
+  const [canPreview, setCanPreview] = useState(false);
   const [canManage, setCanManage] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -138,11 +140,13 @@ export function useDbCustomerDetail(publicId: string): CustomerDetailStatus {
         }
         const payload = (await res.json()) as {
           customer?: unknown;
-          viewer?: { permissions?: unknown };
+          viewer?: { roles?: unknown; permissions?: unknown };
         };
         if (cancelled) return;
         setData((payload.customer ?? null) as CustomerDetail | null);
         const perms = Array.isArray(payload.viewer?.permissions) ? (payload.viewer.permissions as string[]) : [];
+        const roles = Array.isArray(payload.viewer?.roles) ? (payload.viewer.roles as string[]) : [];
+        setCanPreview(roles.includes('SUPER_ADMIN') || perms.includes('customers.view'));
         setCanManage(perms.includes('customers.edit'));
         setLoading(false);
       } catch (err) {
@@ -159,7 +163,7 @@ export function useDbCustomerDetail(publicId: string): CustomerDetailStatus {
   const retry = useCallback(() => setNonce((n) => n + 1), []);
   const refresh = useCallback(() => setNonce((n) => n + 1), []);
 
-  return { data, canManage, loading, error, retry, refresh };
+  return { data, canPreview, canManage, loading, error, retry, refresh };
 }
 
 export async function mutateCustomerStatus(publicId: string, status: 'ACTIVE' | 'SUSPENDED'): Promise<DirectoryCustomer> {

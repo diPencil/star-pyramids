@@ -8,8 +8,8 @@ import {
   isValidPhone,
   isValidUsername,
 } from '@/lib/core/validation';
-import { getCurrentUser } from '@/lib/server/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
+import { getAccountWriteUser } from '@/lib/server/staff-preview';
 import { toClientUser, updateCustomerIdentity } from '@/lib/server/users';
 
 type ProfileBody = {
@@ -29,11 +29,8 @@ export async function PATCH(request: Request) {
   if (!isSameOriginRequest(request)) {
     return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
   }
-  const current = await getCurrentUser();
+  const current = await getAccountWriteUser();
   if (!current) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
-  if (!current.roles.includes('CUSTOMER')) {
-    return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
-  }
 
   let body: ProfileBody;
   try {

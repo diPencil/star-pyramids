@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser } from '@/lib/server/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
+import { getAccountReadUser, getAccountWriteUser } from '@/lib/server/staff-preview';
 import {
   countUnreadNotifications,
   listNotifications,
@@ -9,16 +9,9 @@ import {
   markNotificationRead,
 } from '@/lib/server/notifications';
 
-async function requireCustomer() {
-  const current = await getCurrentUser();
-  if (!current) return null;
-  if (!current.roles.includes('CUSTOMER')) return null;
-  return current;
-}
-
 /** Owner-only notification list (newest first) with the unread count. */
 export async function GET() {
-  const current = await requireCustomer();
+  const current = await getAccountReadUser();
   if (!current) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
   const [notifications, unreadCount] = await Promise.all([
     listNotifications(current.id),
@@ -36,7 +29,7 @@ export async function PATCH(request: Request) {
   if (!isSameOriginRequest(request)) {
     return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
   }
-  const current = await requireCustomer();
+  const current = await getAccountWriteUser();
   if (!current) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
 
   let body: unknown;
