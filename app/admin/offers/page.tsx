@@ -3,7 +3,7 @@
 import { isOfferActive, offerHref } from '@/lib/special-offers'
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
-import { BadgePercent, ExternalLink, Eye, EyeOff, Pencil, Plus, Tags, Ticket, Trash2 } from 'lucide-react'
+import { ExternalLink, Eye, EyeOff, Megaphone, Pencil, Plus, Tags, Ticket, Trash2 } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableTools, AdminTableWrap, AdminText, Card } from '@/components/admin/admin-ui'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
@@ -13,6 +13,7 @@ import { useAdminCurrency } from '@/components/admin/admin-currency'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
 import { SharedSelect } from '@/components/shared-select'
 import { invalidateOffersBlogsCache, useDbOffersStatus } from '@/lib/offers-blogs-client'
+import { isPromoBar } from '@/lib/marketing-campaigns'
 
 export default function OffersPage() {
   const ar = useAdminLocale() === 'ar'
@@ -72,7 +73,7 @@ export default function OffersPage() {
 
   const badges = useMemo(() => [...new Set(liveOffers.map((offer) => offer.badge))], [liveOffers])
   const rows = useMemo(() => liveOffers
-    .filter((offer) => kind === 'all' || (kind === 'tour' ? Boolean(offer.tourSlug) : !offer.tourSlug))
+    .filter((offer) => kind === 'all' || (kind === 'tour' ? Boolean(offer.tourSlug) : kind === 'bars' ? isPromoBar(offer) : !offer.tourSlug))
     .filter((offer) => badge === 'all' || offer.badge === badge)
     .filter((offer) => visibility === 'all' || (visibility === 'hidden' ? offer.isPublished === false : offer.isPublished !== false))
     .filter((offer) => `${offer.title} ${offer.copy} ${offer.badge}`.toLowerCase().includes(query.trim().toLowerCase())), [liveOffers, badge, query, visibility, kind])
@@ -90,14 +91,14 @@ export default function OffersPage() {
   return <>
     <PageHead eyebrow="Content" title="Special Offers" titleAr="العروض الخاصة" sub="Discounts, campaign labels and linked journeys" subAr="الخصومات وشارات الحملات والرحلات المرتبطة" actions={<Link className="sp-btn primary" href="/admin/offers/new"><Plus size={17} /> <AdminText en="New offer" ar="عرض جديد" /></Link>} />
     <AdminStats items={[
-      { label: <AdminText en="All offers" ar="كل العروض" />, value: liveOffers.length, note: <AdminText en="DB-backed catalogue" ar="كتالوج قاعدة البيانات" />, icon: Ticket },
-      { label: <AdminText en="Marketing campaigns" ar="الحملات التسويقية" />, value: liveOffers.filter(o => !o.tourSlug).length, note: <AdminText en="Standalone travel campaigns" ar="حملات سفر مستقلة" />, icon: Tags, tone: 'orange' },
-      { label: <AdminText en="Published" ar="المنشورة" />, value: publishedCount, note: <AdminText en="Publication enabled; dates still apply" ar="النشر مفعّل مع مراعاة مواعيد العرض" />, icon: BadgePercent, tone: 'violet' },
-      { label: <AdminText en="Hidden" ar="المخفية" />, value: hiddenCount, note: <AdminText en="Admin only" ar="للإدارة فقط" />, icon: EyeOff, tone: 'orange' },
+      { label: <AdminText en="Tour offers" ar="عروض الرحلات" />, value: liveOffers.filter((o) => Boolean(o.tourSlug)).length, note: <AdminText en="Linked journeys" ar="رحلات مرتبطة" />, icon: Ticket },
+      { label: <AdminText en="Marketing campaigns" ar="الحملات التسويقية" />, value: liveOffers.filter((o) => !o.tourSlug && !isPromoBar(o)).length, note: <AdminText en="Standalone travel campaigns" ar="حملات سفر مستقلة" />, icon: Tags, tone: 'orange' },
+      { label: <AdminText en="Promotional bars" ar="الأشرطة الترويجية" />, value: liveOffers.filter((o) => isPromoBar(o)).length, note: <AdminText en="Top and footer bars" ar="الشريطان العلوي والفوتر" />, icon: Megaphone, tone: 'violet' },
+      { label: <AdminText en="Visibility" ar="الظهور" />, value: <span className="sp-stat-split"><span>{publishedCount}</span><i aria-hidden="true" /><span>{hiddenCount}</span></span>, note: <AdminText en="Published / Hidden" ar="منشورة / مخفية" />, icon: Eye, tone: 'green' },
     ]} />
     <Card title={<AdminText en="All offers" ar="كل العروض" />} sub={<AdminText en={`${rows.length} of ${liveOffers.length} offers shown`} ar={`عرض ${rows.length} من ${liveOffers.length} عروض`} />}>
       <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث بعنوان العرض أو الحملة...' : 'Search offer title or campaign...'}>
-        <SharedSelect value={kind} onChange={setKind} locale={ar ? 'ar' : 'en'} label="Offer type" options={[{ value: 'all', label: ar ? 'كل الأنواع' : 'All types' }, { value: 'tour', label: ar ? 'عرض رحلة' : 'Tour offer' }, { value: 'campaign', label: ar ? 'حملة تسويقية' : 'Marketing campaign' }]}/>
+        <SharedSelect value={kind} onChange={setKind} locale={ar ? 'ar' : 'en'} label="Offer type" options={[{ value: 'all', label: ar ? 'كل الأنواع' : 'All types' }, { value: 'tour', label: ar ? 'عرض رحلة' : 'Tour offer' }, { value: 'campaign', label: ar ? 'حملة تسويقية' : 'Marketing campaign' }, { value: 'bars', label: ar ? 'شريط ترويجي' : 'Promotional bar' }]}/>
         <SharedSelect value={badge} onChange={setBadge} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حسب الشارة' : 'Filter by campaign label'} popupWidth="trigger" options={[{ value: 'all', label: ar ? 'كل الشارات' : 'All labels' }, ...badges.map((item) => ({ value: item, label: item }))]} />
         <SharedSelect value={visibility} onChange={(next) => setVisibility(next as typeof visibility)} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حسب الظهور' : 'Filter by visibility'} options={[{ value: 'all', label: ar ? 'الكل' : 'All' }, { value: 'published', label: ar ? 'المنشورة' : 'Published' }, { value: 'hidden', label: ar ? 'المخفية' : 'Hidden' }]} />
       </AdminTableTools>
@@ -112,7 +113,7 @@ export default function OffersPage() {
           const statusLabel = isHidden ? (ar ? 'مخفية' : 'Hidden') : scheduled ? (ar ? 'مجدولة' : 'Scheduled') : !isOfferActive(offer) ? (ar ? 'منتهية' : 'Expired') : (ar ? 'نشطة' : 'Active')
           return <tr key={offer.slug}>
             <td className="sp-row-number">{paging.from + index}</td>
-            <td><strong>{offer.title}</strong><br /><small style={{ color: 'var(--sp-muted)' }}>{offer.copy.slice(0, 70)}...</small></td><td>{offer.tourSlug ? <AdminText en="Tour offer" ar="عرض رحلة"/> : <AdminText en="Marketing campaign" ar="حملة تسويقية"/>}</td><td>{offer.badge}</td><td>{offer.price != null ? formatUsd(offer.price) : <AdminText en="Not set" ar="غير محدد" />}</td><td>{offer.highlights?.length ?? 0}</td><td><span className={`sp-status is-${isHidden ? 'cancelled' : 'confirmed'}`}>{statusLabel}</span></td>
+            <td><strong>{offer.title}</strong><br /><small style={{ color: 'var(--sp-muted)' }}>{offer.copy.slice(0, 70)}...</small></td><td>{offer.tourSlug ? <AdminText en="Tour offer" ar="عرض رحلة"/> : isPromoBar(offer) ? <AdminText en="Promotional bar" ar="شريط ترويجي"/> : <AdminText en="Marketing campaign" ar="حملة تسويقية"/>}</td><td>{offer.badge}</td><td>{offer.price != null ? formatUsd(offer.price) : <AdminText en="Not set" ar="غير محدد" />}</td><td>{offer.highlights?.length ?? 0}</td><td><span className={`sp-status is-${isHidden ? 'cancelled' : 'confirmed'}`}>{statusLabel}</span></td>
             <td><AdminTableActions>
               <AdminIconAction icon={Pencil} label={ar ? `تعديل ${offer.title}` : `Edit ${offer.title}`} href={`/admin/offers/new?slug=${encodeURIComponent(offer.slug)}`} />
               <AdminIconAction icon={ExternalLink} label={ar ? `عرض ${offer.title}` : `View ${offer.title}`} href={offerHref(offer)} />

@@ -1,6 +1,7 @@
 'use client';
 
 import { ENABLED_LOCALES, sanitizeLocale } from './locale-config';
+import { readAccessStrip, type AccessStripOverride } from './access-strip';
 import type { SocialLink } from './admin-store';
 
 /**
@@ -20,6 +21,7 @@ let localization: { defaultLanguage?: string; timezone?: string } | null = null;
 let seoTitle: string | null = null;
 let promoText: string | null = null;
 let promo2Text: string | null = null;
+let accessStrip: AccessStripOverride | null = null;
 
 function isValidTimezone(tz: string): boolean {
   if (!tz) return false;
@@ -61,6 +63,7 @@ type RawSettings = {
   rates?: { eur?: unknown; egp?: unknown };
   seo?: { title?: unknown };
   promo?: { text?: unknown; text2?: unknown };
+  accessStrip?: unknown;
 };
 
 const BRAND_FIELDS = [
@@ -140,6 +143,10 @@ function applySettings(data: { settings?: unknown }): void {
     promo2Text = promo2Raw;
     window.dispatchEvent(new Event('sp-promo2'));
   }
+  // The access-strip snapshot is always present (null when unconfigured),
+  // so assign unconditionally: null restores the built-in defaults.
+  accessStrip = readAccessStrip(raw.accessStrip ?? null);
+  window.dispatchEvent(new Event('sp-access'));
 }
 
 export function getDbBrand(): Record<string, string> | null {
@@ -168,6 +175,10 @@ export function getDbPromoText(): string | null {
 
 export function getDbPromo2Text(): string | null {
   return promo2Text;
+}
+
+export function getDbAccessStrip(): AccessStripOverride | null {
+  return accessStrip;
 }
 
 /** Fire-once fetch of the public settings snapshot. Safe to call on every mount. */

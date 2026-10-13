@@ -40,7 +40,7 @@ type PromotionCardProps = {
   ctaLabel?: string
 }
 
-function usePromotionCountdown(deadline?: string) {
+export function usePromotionCountdown(deadline?: string) {
   const [parts, setParts] = useState<number[] | null>(null)
 
   useEffect(() => {

@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { COMPANY_ADDRESS, COMPANY_EMAIL, COMPANY_MAP_URL, COMPANY_PHONE_DISPLAY } from '@/data/company'
-import { ensureStorefrontSettings, getDbBrand, getDbPromoText, getDbSeoTitle, getDbSocial } from './storefront-settings'
+import { ensureStorefrontSettings, getDbAccessStrip, getDbBrand, getDbPromoText, getDbSeoTitle, getDbSocial } from './storefront-settings'
+import type { AccessStripOverride } from './access-strip'
 
 // Slug helper used by catalogue forms. It is no longer prefixed with the
 // former local-override 'custom-' marker, which is gone with the store.
@@ -338,4 +339,21 @@ export function usePromoText(): string {
     return () => window.removeEventListener('sp-promo', sync)
   }, [])
   return text
+}
+
+/** Footer accessibility strip override (null = built-in defaults). */
+export function readAccessStrip(): AccessStripOverride | null {
+  return getDbAccessStrip()
+}
+
+export function useAccessStrip(): AccessStripOverride | null {
+  const [strip, setStrip] = useState<AccessStripOverride | null>(null)
+  useEffect(() => {
+    ensureStorefrontSettings()
+    const sync = () => setStrip(readAccessStrip())
+    sync()
+    window.addEventListener('sp-access', sync)
+    return () => window.removeEventListener('sp-access', sync)
+  }, [])
+  return strip
 }

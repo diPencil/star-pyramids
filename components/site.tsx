@@ -6,11 +6,15 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useRef, useState, type MouseEvent as CardMouseEvent } from 'react'
 import { ChevronDown, Globe2, Heart, Menu, Search, Share2, ShoppingCart, X, ArrowRight, ArrowUp, Check, MapPin, Clock3, Users, CarFront, Mail, Phone, Star, Sun, Ship, Anchor, Package, Ticket, BadgePercent, Accessibility, BadgeCheck, Gift, Bell, Sparkles, UserRound, LayoutDashboard } from 'lucide-react'
 import { blogs, cars, destinations, events, faqs, offers, siteImages, policies, findBlog, findCar, findDestination, findEvent, findOffer } from '@/data/content'
-import { assignableOneDayTours, getCruiseTypeBySlug, getMultiDayToursForCategory, getOneDayToursForDestination, getPublishedMultiDayCategories, getPublishedOneDayDestinations, getToursByCategory, multiDayCategories, seasonalTours, tourCategories, tourImages } from '@/data/tours'
+import { assignableOneDayTours, catalogTours, getCruiseTypeBySlug, getMultiDayToursForCategory, getOneDayToursForDestination, getPublishedMultiDayCategories, getPublishedOneDayDestinations, getToursByCategory, multiDayCategories, seasonalTours, tourCategories, tourImages } from '@/data/tours'
 import { matchPriceBand, parseTourListingQuery, tourListingSorts, tourPriceBands, type TourListingQuery } from '@/lib/query'
 import { localizeTourDuration, localizeTourLocation } from '@/lib/tour-format'
 import { COMPANY_ADDRESS, phoneHref, whatsappHref } from '@/data/company'
 import { useBrandSettings } from '@/lib/admin-store'
+import { useDbOffers } from '@/lib/offers-blogs-client'
+import { campaignCtaHref, placedOffers, readCampaign, toTopBarSlides } from '@/lib/marketing-campaigns'
+import { BarIcons } from './promo-bar-icons'
+import { DEFAULT_ACCESS_ICON } from '@/lib/promo-bar-defaults'
 import { useDbCategories, useDbDestinations } from '@/lib/catalogue-client'
 import { useDbTours } from '@/lib/tours-client'
 import { useCart } from '@/lib/cart'
@@ -366,9 +370,23 @@ export function Header() {
   const activeNav = useActiveNav(pathname)
   const { locale, setLocale, currency, setCurrency } = useLocale()
   const { lines: cartLines } = useCart()
+  const dbOffers = useDbOffers(offers)
+  const dbTours = useDbTours(catalogTours, { includeNew: true })
   const t = copy[locale]
   const ex = extra[locale]
   const cartLabel = tx(locale, { en: `Trip cart, ${cartLines} ${cartLines === 1 ? 'trip' : 'trips'}`, es: `Carrito de viajes, ${cartLines} ${cartLines === 1 ? 'viaje' : 'viajes'}`, it: `Carrello viaggi, ${cartLines} ${cartLines === 1 ? 'viaggio' : 'viaggi'}`, ar: `سلة الرحلات، ${cartLines} ${cartLines === 1 ? 'رحلة' : 'رحلات'}` })
+
+  // Header promotional bar: database records are the single source of truth.
+  // No eligible published record = the bar is hidden entirely; the original
+  // announcements are no longer rendered as hardcoded fallbacks.
+  const promos = toTopBarSlides(dbOffers, dbTours).map((slide) => ({
+    text: slide.text,
+    href: slide.href,
+    label: slide.label || ex.viewOffers,
+    icons: <BarIcons ids={slide.icons} />,
+  }))
+  const promoCount = promos.length
+  const activePromoIdx = promoCount ? promoIdx % promoCount : 0
 
   useEffect(() => {
     setMenu(false)
@@ -404,11 +422,12 @@ export function Header() {
   }, [])
 
   useEffect(() => {
+    if (promoCount < 2) return
     const interval = window.setInterval(() => {
-      if (!promoHold.current) setPromoIdx((index) => (index + 1) % 2)
+      if (!promoHold.current) setPromoIdx((index) => (index + 1) % promoCount)
     }, 5000)
     return () => window.clearInterval(interval)
-  }, [])
+  }, [promoCount])
 
   useEffect(() => {
     const syncScrollState = () => {
@@ -439,11 +458,6 @@ export function Header() {
     [ex.cat4, '/egypt-tours/shore-excursions'],
   ] as const
   const mobileLinks = [[t.home, '/'], [t.tours, '/trips'], [t.rent, '/rent-car'], [t.events, '/events'], [t.about, '/about'], [t.contact, '/contact'], [t.blogs, '/blogs']] as const
-
-  const promos = [
-    { text: t.promo, href: '/special-offers', label: ex.viewPackages, icons: <><Ticket size={26}/><BadgePercent size={26}/></> },
-    { text: ex.promo2, href: '/special-offers', label: ex.viewOffers, icons: <><Star size={26}/><BadgePercent size={26}/></> },
-  ]
 
   const navConfig = getNavConfig(t, ex, locale)
 
@@ -499,9 +513,9 @@ export function Header() {
     </div>
 
 
-    <div className="promo" aria-live="polite" onMouseEnter={() => { promoHold.current = true }} onMouseLeave={() => { promoHold.current = false }}>
-      <span className="promo-icons" key={'pi' + promoIdx}>{promos[promoIdx].icons}</span><strong key={'pt' + promoIdx} className="promo-swap">{promos[promoIdx].text}</strong><Link key={'pl' + promoIdx} href={promos[promoIdx].href} className="promo-swap">{promos[promoIdx].label}</Link><span className="promo-dots">{promos.map((_, index) => <button key={index} type="button" className={index === promoIdx ? 'active' : ''} aria-label={'Show announcement ' + (index + 1)} aria-current={index === promoIdx} onClick={() => setPromoIdx(index)}/>)}</span>
-    </div>
+    {promoCount > 0 && <div className="promo" aria-live="polite" onMouseEnter={() => { promoHold.current = true }} onMouseLeave={() => { promoHold.current = false }}>
+      <span className="promo-icons" key={'pi' + activePromoIdx}>{promos[activePromoIdx].icons}</span><strong key={'pt' + activePromoIdx} className="promo-swap">{promos[activePromoIdx].text}</strong>{promos[activePromoIdx].href.startsWith('/') ? <Link key={'pl' + activePromoIdx} href={promos[activePromoIdx].href} className="promo-swap">{promos[activePromoIdx].label}</Link> : <a key={'pl' + activePromoIdx} href={promos[activePromoIdx].href} target="_blank" rel="noopener noreferrer" className="promo-swap">{promos[activePromoIdx].label}</a>}<span className="promo-dots">{promos.map((_, index) => <button key={index} type="button" className={index === activePromoIdx ? 'active' : ''} aria-label={'Show announcement ' + (index + 1)} aria-current={index === activePromoIdx} onClick={() => setPromoIdx(index)}/>)}</span>
+    </div>}
   </>
 }
 
@@ -509,11 +523,27 @@ export function Header() {
 
 export function SupportWidgets(){const [active,setActive]=useState<'live'|'wa'|null>(null); return <div className="support-widgets"><LiveChatWidget open={active==='live'} onOpen={()=>setActive('live')} onClose={()=>setActive((a)=>a==='live'?null:a)}/><WhatsAppWidget open={active==='wa'} onOpen={()=>setActive('wa')} onClose={()=>setActive((a)=>a==='wa'?null:a)}/></div>}
 
-function AccessStrip(){const {locale}=useLocale(); const ex=extra[locale]; const [show,setShow]=useState(true); if(!show) return null; return <div className="access-strip"><Accessibility size={20}/><p>{ex.accessNote}</p><Link href="/accessible-travel">{ex.readMoreBtn}</Link><button type="button" onClick={()=>setShow(false)} aria-label="Dismiss">×</button></div>}
+// Commercial footer promotional bar — database records are the single source
+// of truth (placement `footer-promo`). The original accessibility notice is
+// itself a managed record, so no separate static strip is rendered here.
+function FooterPromoStrip(){
+  const {locale}=useLocale();
+  const ex=extra[locale];
+  const bars=placedOffers(useDbOffers(offers),'footer-promo');
+  const tours=useDbTours(catalogTours,{includeNew:true});
+  const [show,setShow]=useState(true);
+  const item=bars[0];
+  if(!show||!item) return null;
+  const campaign=readCampaign(item.campaign);
+  const href=campaignCtaHref(item,tours);
+  const label=campaign.ctaLabel||ex.viewOffers;
+  const icons=campaign.icons.length?campaign.icons:[DEFAULT_ACCESS_ICON];
+  return <div className="access-strip"><span className="promo-icons"><BarIcons ids={icons} size={20}/></span><p>{item.title}</p>{href.startsWith('/')?<Link href={href}>{label}</Link>:<a href={href} target="_blank" rel="noopener noreferrer">{label}</a>}<button type="button" onClick={()=>setShow(false)} aria-label="Dismiss">×</button></div>
+}
 
 function ScrollTop(){const [show,setShow]=useState(false); useEffect(()=>{const onScroll=()=>setShow(window.scrollY>500); onScroll(); window.addEventListener('scroll',onScroll,{passive:true}); return ()=>window.removeEventListener('scroll',onScroll);},[]); const goTop=()=>{const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches; window.scrollTo({top:0,behavior:reduced?'auto':'smooth'});}; return <button type="button" className={'scroll-top'+(show?' show':'')} onClick={goTop} aria-label="Scroll to top"><ArrowUp size={20}/></button>}
 
-export function SiteShell({children, initialLocale}:{children:React.ReactNode; initialLocale?: Locale}){return <LocaleProvider initialLocale={initialLocale}><Header/>{children}<AccessStrip/><SupportWidgets/><ScrollTop/><DynamicFooter/></LocaleProvider>}
+export function SiteShell({children, initialLocale}:{children:React.ReactNode; initialLocale?: Locale}){return <LocaleProvider initialLocale={initialLocale}><Header/>{children}<FooterPromoStrip/><SupportWidgets/><ScrollTop/><DynamicFooter/></LocaleProvider>}
 
 
 function DynamicFooter() {

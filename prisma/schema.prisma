@@ -667,6 +667,9 @@ model Tour {
   updatedAt       DateTime @updatedAt
   galleryCaptions String   @db.LongText
   specialOffer    Offer?
+  /// Journey-gallery tour assignments (this tour's SELECTED_TOURS rows).
+  /// Read-only back-relation: assignments never duplicate gallery records.
+  galleryAssignments JourneyGalleryTour[]
 
   @@map("tours")
 }
@@ -1299,4 +1302,67 @@ enum ReviewStatus {
   PENDING
   PUBLISHED
   REJECTED
+}
+
+/// Journey Gallery — one centralized record serves BOTH the homepage rows
+/// (photo row for IMAGE, video row for VIDEO) and the tour-detail video
+/// carousel (VIDEO with showOnTours). A video is never duplicated per
+/// tour: multi-tour assignment lives in `journey_gallery_tours` rows.
+/// Legacy content (hardcoded homepage photos, per-tour `journeyVideos`
+/// JSON) is merged at read time and never rewritten here.
+model JourneyGalleryItem {
+  id             String                  @id @default(cuid())
+  mediaType      JourneyGalleryMediaType
+  /// Uploaded same-origin path or normalized https social URL.
+  mediaUrl       String                  @db.VarChar(2000)
+  /// SHA-256 of the normalized URL: dedup + idempotent legacy import.
+  /// (Unique on the hash, not the URL: MySQL key-length limits forbid a
+  /// unique index on a 2000-char column.)
+  mediaHash      String                  @unique @db.VarChar(64)
+  /// youtube|instagram|facebook|tiktok|vimeo|direct. NULL on IMAGE rows.
+  platform       String?                 @db.VarChar(32)
+  title          String                  @db.VarChar(200)
+  titleAr        String?                 @db.VarChar(200)
+  caption        String?                 @db.VarChar(500)
+  /// Video poster / thumbnail. NULL when none was provided.
+  thumbnail      String?                 @db.VarChar(2000)
+  showOnHomepage Boolean                 @default(false)
+  /// Images must keep this false (enforced server-side + documented).
+  showOnTours    Boolean                 @default(false)
+  tourScope      JourneyGalleryTourScope @default(SELECTED_TOURS)
+  isPublished    Boolean                 @default(true)
+  sortOrder      Int                     @default(999)
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  tours          JourneyGalleryTour[]
+
+  @@index([mediaType, isPublished, sortOrder])
+  @@index([showOnHomepage, isPublished])
+  @@index([showOnTours, isPublished])
+  @@map("journey_gallery_items")
+}
+
+/// One row per (gallery item, tour) assignment. The item record and its
+/// media file are never duplicated across tours.
+model JourneyGalleryTour {
+  id        String             @id @default(cuid())
+  itemId    String
+  tourSlug  String             @db.VarChar(80)
+  createdAt DateTime           @default(now())
+  item      JourneyGalleryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  tour      Tour               @relation(fields: [tourSlug], references: [slug], onDelete: Cascade)
+
+  @@unique([itemId, tourSlug])
+  @@index([tourSlug])
+  @@map("journey_gallery_tours")
+}
+
+enum JourneyGalleryMediaType {
+  IMAGE
+  VIDEO
+}
+
+enum JourneyGalleryTourScope {
+  ALL_TOURS
+  SELECTED_TOURS
 }

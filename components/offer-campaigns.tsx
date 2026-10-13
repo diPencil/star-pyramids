@@ -3,9 +3,11 @@
 import Link from 'next/link'
 import { ArrowRight, CalendarDays, Check, Clock3, ShieldCheck, Sparkles, Tag } from 'lucide-react'
 import { useDbOffers, useDbOffersStatus } from '@/lib/offers-blogs-client'
-import { placedOffers, readCampaign, safeCampaignHref, type CampaignPlacement } from '@/lib/marketing-campaigns'
+import { placedOffers, readCampaign, resolveTourCtaHref, safeCampaignHref, type CampaignPlacement } from '@/lib/marketing-campaigns'
+import { useDbTours } from '@/lib/tours-client'
+import { catalogTours } from '@/data/tours'
 import { isOfferActive, offerHref } from '@/lib/special-offers'
-import { PromotionCard } from './promotion-card'
+import { PromotionCard, usePromotionCountdown } from './promotion-card'
 import { AskQuestionButton } from './ask-question'
 import { SiteShell } from './site'
 import { formatPrice, tx, useLocale } from './locale'
@@ -38,7 +40,10 @@ export function OfferCards({ placement, limit }: { placement: CampaignPlacement;
 export function CampaignAction({ item }: { item: Offer }) {
   const campaign = readCampaign(item.campaign)
   const { locale } = useLocale()
-  const href = item.tourSlug ? offerHref(item) : safeCampaignHref(campaign.ctaHref) ? campaign.ctaHref : `/contact?offer=${encodeURIComponent(item.slug)}`
+  const tours = useDbTours(catalogTours, { includeNew: true })
+  // A linked tour wins while it stays published; otherwise the saved custom
+  // URL and finally the contact fallback apply — never a broken link.
+  const href = item.tourSlug ? offerHref(item) : resolveTourCtaHref(campaign.ctaTourSlug, tours) ?? (safeCampaignHref(campaign.ctaHref) ? campaign.ctaHref : `/contact?offer=${encodeURIComponent(item.slug)}`)
   const label = campaign.ctaLabel || tx(locale, { en: 'Plan my trip', es: 'Planificar mi viaje', it: 'Pianifica il mio viaggio', ar: 'خطط رحلتي' })
   return href.startsWith('/') ? <Link className="primary-btn" href={href}>{label}<ArrowRight size={16}/></Link> : <a className="primary-btn" href={href} target="_blank" rel="noopener noreferrer">{label}<ArrowRight size={16}/></a>
 }
@@ -64,13 +69,23 @@ export function CampaignPlacementSlot({ placement }: { placement: 'trips-sidebar
 export function CampaignDetail({ slug }: { slug: string }) {
   const { locale, currency } = useLocale()
   const status = useDbOffersStatus()
-  const item = useDbOffers([]).find(o => o.slug === slug && !o.tourSlug && isOfferActive(o))
+  const found = useDbOffers([]).find(o => o.slug === slug && !o.tourSlug && isOfferActive(o))
+  // Hooks must run unconditionally: the countdown hook sits above the
+  // not-found early return so the hook order never changes between renders.
+  const countdown = usePromotionCountdown(found?.deadline)
   const back = tx(locale, { en: 'All offers', es: 'Todas las ofertas', it: 'Tutte le offerte', ar: 'كل العروض' })
-  if (!item) return <SiteShell><main className="container section"><h1>{status.loading ? tx(locale, { en: 'Loading offer…', es: 'Cargando oferta…', it: 'Caricamento offerta…', ar: 'جارٍ تحميل العرض…' }) : tx(locale, { en: 'Offer unavailable', es: 'Oferta no disponible', it: 'Offerta non disponibile', ar: 'العرض غير متاح' })}</h1>{status.error && <button type="button" onClick={status.retry} className="outline-btn">{tx(locale, { en: 'Retry', es: 'Reintentar', it: 'Riprova', ar: 'إعادة المحاولة' })}</button>}<Link href="/special-offers">{back}</Link></main></SiteShell>
+  if (!found) return <SiteShell><main className="container section"><h1>{status.loading ? tx(locale, { en: 'Loading offer…', es: 'Cargando oferta…', it: 'Caricamento offerta…', ar: 'جارٍ تحميل العرض…' }) : tx(locale, { en: 'Offer unavailable', es: 'Oferta no disponible', it: 'Offerta non disponibile', ar: 'العرض غير متاح' })}</h1>{status.error && <button type="button" onClick={status.retry} className="outline-btn">{tx(locale, { en: 'Retry', es: 'Reintentar', it: 'Riprova', ar: 'إعادة المحاولة' })}</button>}<Link href="/special-offers">{back}</Link></main></SiteShell>
+  const item = found
   const campaign = readCampaign(item.campaign)
   const gallery = [...new Set(item.gallery ?? [])].filter(src => src && src !== item.image)
   const startsAt = item.startsAt ? formatCampaignDate(item.startsAt, locale) : ''
   const deadline = item.deadline ? formatCampaignDate(item.deadline, locale) : ''
+  const countdownLabels = [
+    tx(locale, { en: 'Days', es: 'Días', it: 'Giorni', ar: 'أيام' }),
+    tx(locale, { en: 'Hours', es: 'Horas', it: 'Ore', ar: 'ساعات' }),
+    tx(locale, { en: 'Mins', es: 'Min', it: 'Min', ar: 'دقائق' }),
+    tx(locale, { en: 'Secs', es: 'Seg', it: 'Sec', ar: 'ثواني' }),
+  ]
   const hasDiscount = item.price != null && item.originalPrice != null && item.originalPrice > item.price
   const facts = [
     item.duration ? { icon: Clock3, label: tx(locale, { en: 'Journey length', es: 'Duración del viaje', it: 'Durata del viaggio', ar: 'مدة الرحلة' }), value: item.duration } : null,
@@ -78,41 +93,71 @@ export function CampaignDetail({ slug }: { slug: string }) {
     item.price != null ? { icon: Tag, label: campaign.priceLabel || tx(locale, { en: 'Special value', es: 'Valor especial', it: 'Valore speciale', ar: 'قيمة العرض' }), value: formatPrice(item.price, currency, locale) } : null,
   ].filter((fact): fact is { icon: typeof Clock3; label: string; value: string } => fact !== null)
   return <SiteShell><main className="campaign-detail">
-    <div className="container">
-      <nav className="campaign-breadcrumb" aria-label="Breadcrumb"><Link href="/special-offers">{back}</Link><span aria-hidden="true"> / </span><span>{item.title}</span></nav>
-    </div>
-
     <section className={`campaign-hero${item.image ? ' has-image' : ''}`} aria-labelledby="campaign-title">
       {item.image && <img className="campaign-hero-media" src={item.image} alt="" />}
       <div className="campaign-hero-shade" aria-hidden="true" />
-      <div className="container campaign-hero-inner">
-        <div className="campaign-hero-copy">
-          <span className="campaign-hero-eyebrow"><Sparkles size={16}/>{tx(locale, { en: 'Curated Egypt offer', es: 'Oferta seleccionada de Egipto', it: 'Offerta selezionata per l’Egitto', ar: 'عرض مختار لمصر' })}</span>
-          <h1 id="campaign-title">{item.title}</h1>
-          <p>{item.copy}</p>
-          {!!facts.length && <div className="campaign-hero-facts">{facts.map(({ icon: Icon, label, value }) => <div key={label}><Icon size={18}/><span><small>{label}</small><strong>{value}</strong></span></div>)}</div>}
-          <CampaignAction item={item}/>
-          <span className="campaign-hero-assurance"><ShieldCheck size={16}/>{tx(locale, { en: 'Final dates, availability and inclusions are confirmed with our travel team.', es: 'Las fechas, la disponibilidad y las inclusiones finales se confirman con nuestro equipo.', it: 'Date, disponibilità e servizi finali vengono confermati con il nostro team.', ar: 'يتم تأكيد التواريخ والتوافر والتفاصيل النهائية مع فريق السفر.' })}</span>
-        </div>
-        <div className="campaign-hero-offer" aria-label={tx(locale, { en: 'Campaign offer', es: 'Oferta de campaña', it: 'Offerta della campagna', ar: 'عرض الحملة' })}>
-          <span>{tx(locale, { en: 'Campaign offer', es: 'Oferta de campaña', it: 'Offerta della campagna', ar: 'عرض الحملة' })}</span>
-          <strong>{item.badge}</strong>
-          {item.price != null && <div><small>{campaign.priceLabel || tx(locale, { en: 'Your offer', es: 'Tu oferta', it: 'La tua offerta', ar: 'عرضك' })}</small>{hasDiscount && <del>{formatPrice(item.originalPrice as number, currency, locale)}</del>}<b>{formatPrice(item.price, currency, locale)}</b></div>}
+      <div className="container">
+        <nav className="campaign-breadcrumb" aria-label="Breadcrumb"><Link href="/special-offers">{back}</Link><span aria-hidden="true"> / </span><span>{item.title}</span></nav>
+        <div className="campaign-hero-inner">
+          <div className="campaign-hero-copy">
+            <span className="campaign-hero-eyebrow"><Sparkles size={16}/>{tx(locale, { en: 'Curated Egypt offer', es: 'Oferta seleccionada de Egipto', it: 'Offerta selezionata per l’Egitto', ar: 'عرض مختار لمصر' })}</span>
+            <h1 id="campaign-title">{item.title}</h1>
+            <p>{item.copy}</p>
+            {!!facts.length && <div className="campaign-hero-facts">{facts.map(({ icon: Icon, label, value }) => <div key={label}><Icon size={18}/><span><small>{label}</small><strong>{value}</strong></span></div>)}</div>}
+            <span className="campaign-hero-assurance"><ShieldCheck size={16}/>{tx(locale, { en: 'Final dates, availability and inclusions are confirmed with our travel team.', es: 'Las fechas, la disponibilidad y las inclusiones finales se confirman con nuestro equipo.', it: 'Date, disponibilità e servizi finali vengono confermati con il nostro team.', ar: 'يتم تأكيد التواريخ والتوافر والتفاصيل النهائية مع فريق السفر.' })}</span>
+          </div>
+          <div className="campaign-hero-offer" aria-label={tx(locale, { en: 'Campaign offer', es: 'Oferta de campaña', it: 'Offerta della campagna', ar: 'عرض الحملة' })}>
+            <span>{tx(locale, { en: 'Campaign offer', es: 'Oferta de campaña', it: 'Offerta della campagna', ar: 'عرض الحملة' })}</span>
+            <strong>{item.badge}</strong>
+            {item.price != null && <div><small>{campaign.priceLabel || tx(locale, { en: 'Your offer', es: 'Tu oferta', it: 'La tua offerta', ar: 'عرضك' })}</small>{hasDiscount && <del>{formatPrice(item.originalPrice as number, currency, locale)}</del>}<b>{formatPrice(item.price, currency, locale)}</b></div>}
+          </div>
         </div>
       </div>
     </section>
 
-    {!!item.highlights?.length && <section className="campaign-value-band" aria-labelledby="campaign-benefits-title"><div className="container">
-      <div className="campaign-value-heading"><span>{tx(locale, { en: 'Included value', es: 'Valor incluido', it: 'Valore incluso', ar: 'قيمة متضمنة' })}</span><h2 id="campaign-benefits-title">{tx(locale, { en: 'Built into this offer', es: 'Incluido en esta oferta', it: 'Incluso in questa offerta', ar: 'متضمن في هذا العرض' })}</h2></div>
-      <ul className="campaign-highlights">{item.highlights.map((highlight, index) => <li key={index}><b aria-hidden="true">{String(index + 1).padStart(2, '0')}</b><span><Check size={17}/></span><strong>{highlight}</strong></li>)}</ul>
-    </div></section>}
-
     <div className="container">
+      {countdown && (
+        <aside className="campaign-countdown-strip" aria-label={tx(locale, { en: 'Offer countdown', es: 'Cuenta regresiva de la oferta', it: 'Conto alla rovescia dell’offerta', ar: 'العداد التنازلي للعرض' })}>
+          <div className="campaign-countdown-lead">
+            <Clock3 size={22} />
+            <div className="campaign-countdown-text">
+              <strong>{tx(locale, { en: 'Limited-time offer ends in:', es: 'Esta oferta por tiempo limitado finaliza en:', it: 'Offerta a tempo limitato scade tra:', ar: 'ينتهي هذا العرض المحدود خلال:' })}</strong>
+              {deadline && <small>{tx(locale, { en: 'Valid until', es: 'Válido hasta', it: 'Valido fino al', ar: 'ساري حتى' })} {deadline}</small>}
+            </div>
+          </div>
+          <div className="campaign-countdown-units">
+            {countdown.map((value, index) => (
+              <span key={countdownLabels[index]}>
+                <b>{String(value).padStart(2, '0')}</b>
+                <small>{countdownLabels[index]}</small>
+              </span>
+            ))}
+          </div>
+        </aside>
+      )}
+
       <section className="campaign-story" aria-labelledby="campaign-story-title">
         <div className="campaign-story-copy">
           <span className="campaign-section-label">{tx(locale, { en: 'The offer', es: 'La oferta', it: 'L’offerta', ar: 'العرض' })}</span>
           <h2 id="campaign-story-title">{tx(locale, { en: 'More value, shaped around your Egypt journey.', es: 'Más valor, diseñado para tu viaje por Egipto.', it: 'Più valore, pensato per il tuo viaggio in Egitto.', ar: 'قيمة أكبر مصممة حول رحلتك في مصر.' })}</h2>
           <div className="campaign-prose">{(campaign.body || item.copy).split(/\n\s*\n/).map((paragraph, index) => <p key={index}>{paragraph}</p>)}</div>
+
+          {!!item.highlights?.length && <section className="campaign-benefits-section" aria-labelledby="campaign-benefits-title">
+            <div className="campaign-benefits-heading">
+              <span className="campaign-section-label">{tx(locale, { en: 'Included value', es: 'Valor incluido', it: 'Valore incluso', ar: 'قيمة متضمنة' })}</span>
+              <h3 id="campaign-benefits-title">{tx(locale, { en: 'Built into this offer', es: 'Incluido en esta oferta', it: 'Incluso in questa offerta', ar: 'متضمن في هذا العرض' })}</h3>
+            </div>
+            <ul className="campaign-highlights">
+              {item.highlights.map((highlight, index) => (
+                <li key={index}>
+                  <span><Check size={16}/></span>
+                  <strong>{highlight}</strong>
+                </li>
+              ))}
+            </ul>
+          </section>}
+
+          {campaign.terms && <section className="campaign-terms"><div><ShieldCheck size={22}/><h2>{tx(locale, { en: 'Offer terms', es: 'Condiciones de la oferta', it: 'Condizioni dell’offerta', ar: 'شروط العرض' })}</h2></div><p>{campaign.terms}</p></section>}
         </div>
 
         <aside className="campaign-booking" aria-label={tx(locale, { en: 'Offer summary', es: 'Resumen de la oferta', it: 'Riepilogo dell’offerta', ar: 'ملخص العرض' })}>
@@ -137,8 +182,6 @@ export function CampaignDetail({ slug }: { slug: string }) {
       </section>
 
       {!!gallery.length && <section className="campaign-gallery-section" aria-labelledby="campaign-gallery-title"><div className="campaign-section-head"><span className="campaign-section-label">{tx(locale, { en: 'Picture the journey', es: 'Imagina el viaje', it: 'Immagina il viaggio', ar: 'تخيل الرحلة' })}</span><h2 id="campaign-gallery-title">{tx(locale, { en: 'A closer look at the experience', es: 'Una mirada más cercana a la experiencia', it: 'Uno sguardo più vicino all’esperienza', ar: 'نظرة أقرب على التجربة' })}</h2></div><div className="campaign-gallery">{gallery.map((src, index) => <img key={src} src={src} alt={`${item.title} ${index + 1}`} loading="lazy"/>)}</div></section>}
-
-      {campaign.terms && <section className="campaign-terms"><div><ShieldCheck size={22}/><h2>{tx(locale, { en: 'Offer terms', es: 'Condiciones de la oferta', it: 'Condizioni dell’offerta', ar: 'شروط العرض' })}</h2></div><p>{campaign.terms}</p></section>}
     </div>
   </main></SiteShell>
 }

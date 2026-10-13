@@ -19,6 +19,7 @@ import { toInternational } from '@/lib/phone'
 import { ENABLED_LOCALES, LOCALE_LABELS, type EnabledLocale } from '@/lib/locale-config'
 import { useCurrentUser } from '@/lib/use-current-user'
 import { refreshStorefrontSettings } from '@/lib/storefront-settings'
+import { readAccessStrip } from '@/lib/access-strip'
 
 const TIMEZONES = [
   'Africa/Cairo', 'Africa/Tunis', 'Africa/Algiers', 'Africa/Casablanca',
@@ -476,10 +477,26 @@ function CurrencyTab({ snapshot, canWrite, onSaved }: TabShell) {
 
 function WebsiteTab({ snapshot, canWrite, onSaved }: TabShell) {
   const ar = useAdminLocale() === 'ar'
+  const accessInitial = (snap: SettingsSnapshot | null) => {
+    const parsed = readAccessStrip(snap?.values['site.accessStrip'] || '')
+    return {
+      visible: parsed?.visible !== false,
+      noteEn: parsed?.note.en ?? '',
+      noteEs: parsed?.note.es ?? '',
+      noteIt: parsed?.note.it ?? '',
+      noteAr: parsed?.note.ar ?? '',
+      ctaEn: parsed?.ctaLabel.en ?? '',
+      ctaEs: parsed?.ctaLabel.es ?? '',
+      ctaIt: parsed?.ctaLabel.it ?? '',
+      ctaAr: parsed?.ctaLabel.ar ?? '',
+      href: parsed?.ctaHref ?? '',
+    }
+  }
   const t = useTabState(snapshot, (snap) => ({
     seoTitle: val(snap, 'site.seoTitle', FALLBACK_SEO_TITLE),
     promoText: val(snap, 'site.promoText', FALLBACK_PROMO),
     promo2Text: val(snap, 'site.promo2Text', FALLBACK_PROMO2),
+    access: accessInitial(snap),
   }))
 
   const save = async () => {
@@ -487,10 +504,30 @@ function WebsiteTab({ snapshot, canWrite, onSaved }: TabShell) {
     t.setError('')
     t.setSaved('')
     try {
+      const a = t.form.access
+      const pick = (entries: [string, string][]): Record<string, string> => {
+        const next: Record<string, string> = {}
+        for (const [locale, text] of entries) {
+          if (text.trim()) next[locale] = text.trim()
+        }
+        return next
+      }
+      const strip = {
+        visible: a.visible,
+        note: pick([['en', a.noteEn], ['es', a.noteEs], ['it', a.noteIt], ['ar', a.noteAr]]),
+        ctaLabel: pick([['en', a.ctaEn], ['es', a.ctaEs], ['it', a.ctaIt], ['ar', a.ctaAr]]),
+        ctaHref: a.href.trim(),
+      }
+      // A fully-default strip is stored as empty so the website renders its
+      // built-in accessibility notice verbatim.
+      const accessStrip = strip.visible && !strip.ctaHref && !Object.keys(strip.note).length && !Object.keys(strip.ctaLabel).length
+        ? ''
+        : JSON.stringify(strip)
       const next = await patchSettings({
         'site.seoTitle': t.form.seoTitle.trim() || FALLBACK_SEO_TITLE,
         'site.promoText': t.form.promoText.trim() || FALLBACK_PROMO,
         'site.promo2Text': t.form.promo2Text.trim() || FALLBACK_PROMO2,
+        'site.accessStrip': accessStrip,
       })
       onSaved(next)
       t.setSaved(ar ? 'تم الحفظ بنجاح.' : 'Saved successfully.')
@@ -501,11 +538,16 @@ function WebsiteTab({ snapshot, canWrite, onSaved }: TabShell) {
     }
   }
 
+  const setAccess = (patch: Partial<typeof t.form.access>) =>
+    t.setForm((f) => ({ ...f, access: { ...f.access, ...patch } }))
+
   return (
     <div className="sp-form">
       <label><AdminText en="SEO title" ar="عنوان SEO" /><input value={t.form.seoTitle} onChange={(e) => t.setForm((f) => ({ ...f, seoTitle: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
       <label><AdminText en="Promo bar text" ar="نص الشريط الترويجي" /><textarea rows={2} value={t.form.promoText} onChange={(e) => t.setForm((f) => ({ ...f, promoText: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
       <label><AdminText en="Promo bar text (second announcement)" ar="نص الشريط الترويجي (الإعلان الثاني)" /><textarea rows={2} value={t.form.promo2Text} onChange={(e) => t.setForm((f) => ({ ...f, promo2Text: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
+      <p className="sp-group-title"><AdminText en="Accessibility strip (above the footer)" ar="شريط الإتاحة (فوق الفوتر)" /></p>
+      <p className="sp-integration-note"><AdminText en="This notice is now a Promotional Bars record in Special Offers. Edit its text, icon, button, visibility and schedule from /admin/offers — the promotional bar is the single source of truth, so this tab no longer duplicates it." ar="هذا الإشعار أصبح سجلاً في الأشرطة الترويجية داخل العروض الخاصة. عدّل نصه وأيقونته وزر وظهوره ومواعيده من /admin/offers — إذ إن الشريط الترويجي هو المصدر الوحيد، ولم يعد هذا التبويب يكرره." /></p>
       {!canWrite && <ReadOnlyNote />}
       <div><button type="button" className="sp-btn dark" onClick={save} disabled={!canWrite || t.saving}>{t.saving ? <AdminText en="Saving…" ar="جارٍ الحفظ…" /> : <AdminText en="Save" ar="حفظ" />}</button></div>
       <SaveFeedback saved={t.saved} error={t.error} />

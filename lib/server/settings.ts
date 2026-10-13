@@ -18,6 +18,7 @@ import { Prisma } from '@prisma/client';
 import { db } from './db';
 import { getActiveRate } from './fx';
 import { ENABLED_LOCALES } from '../locale-config';
+import { readAccessStrip, validateAccessStrip, type AccessStripOverride } from '../access-strip';
 
 export const SETTING_KEYS = {
   siteName: 'site.name',
@@ -58,6 +59,8 @@ export const PUBLIC_SETTING_KEYS = [
   'site.seoTitle',
   'site.promoText',
   'site.promo2Text',
+  // Footer accessibility strip override (JSON document, see lib/access-strip.ts)
+  'site.accessStrip',
   // Google Maps (non-secret configuration only)
   'maps.mapId',
   'maps.lat',
@@ -372,6 +375,26 @@ export function validateSettingsPatch(input: {
       case 'site.promo2Text':
         if (bounded(1, 500, 'Enter promo bar text (1-500 characters).')) clean[key] = trimmed;
         break;
+      case 'site.accessStrip': {
+        // Optional JSON override for the footer accessibility strip. An
+        // empty value clears the override and restores built-in defaults.
+        if (trimmed === '') {
+          clean[key] = '';
+          break;
+        }
+        if (value.length > 5000) {
+          fail('Accessibility strip settings are too long.');
+          break;
+        }
+        try {
+          validateAccessStrip(JSON.parse(trimmed));
+        } catch (error) {
+          fail(error instanceof Error ? error.message : 'Invalid accessibility strip settings.');
+          break;
+        }
+        clean[key] = trimmed;
+        break;
+      }
       case 'maps.mapId':
         if (trimmed.length > 200 || hasControlChars(trimmed)) {
           fail('Map ID is too long.');
@@ -722,6 +745,8 @@ export interface StorefrontSettings {
   rates: { eur: string; egp: string };
   seo: { title: string };
   promo: { text: string; text2: string };
+  /** Footer accessibility strip override; null restores built-in defaults. */
+  accessStrip: AccessStripOverride | null;
 }
 
 const nonEmpty = (value: unknown): string =>
@@ -783,5 +808,6 @@ export async function getStorefrontSettings(): Promise<StorefrontSettings> {
     rates: snapshot.rates,
     seo: { title: nonEmpty(v['site.seoTitle']) },
     promo: { text: nonEmpty(v['site.promoText']), text2: nonEmpty(v['site.promo2Text']) },
+    accessStrip: readAccessStrip(v['site.accessStrip'] || ''),
   };
 }

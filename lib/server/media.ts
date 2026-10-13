@@ -41,9 +41,9 @@ import {
  * Where uploads are classified. Only affects the stored audit label and the
  * permission gate applied by the route — the storage mechanics are shared.
  */
-export type MediaScope = 'avatar' | 'brand' | 'catalogue';
+export type MediaScope = 'avatar' | 'brand' | 'catalogue' | 'gallery-video';
 
-export const MEDIA_SCOPES: readonly MediaScope[] = ['avatar', 'brand', 'catalogue'];
+export const MEDIA_SCOPES: readonly MediaScope[] = ['avatar', 'brand', 'catalogue', 'gallery-video'];
 
 /** Server-side ceiling per file. Independent of any client-side limit. */
 export const DEFAULT_MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
