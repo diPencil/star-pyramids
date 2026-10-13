@@ -31,6 +31,7 @@ import { useCurrentUser } from '@/lib/use-current-user'
 import { SharedSelect } from '@/components/shared-select'
 import { telLink, whatsappLink } from '@/lib/phone'
 import { DateInput } from '@/components/date-input'
+import { customerErrorText } from '@/lib/customer-error-copy'
 
 export function EditorialHero({ eyebrow, title, copy, image = siteImages.pyramids, action = 'Explore with us', href = '/egypt-tours/one-day-tours' }: { eyebrow?: string; title: string; copy: string; image?: string; action?: string; href?: string }) {
   return <section className="editorial-hero"><img src={image} alt=""/><div className="editorial-overlay"/><div className="container editorial-content">{eyebrow && <span>{eyebrow}</span>}<h1>{title}</h1><p>{copy}</p><Link className="primary-btn" href={href}>{action}<ArrowRight size={17}/></Link></div></section>
@@ -163,9 +164,9 @@ export function ContactForm() {
         body: JSON.stringify({ ...formData, sourcePage: '/contact', requestId: pendingRequest.current.id }),
       })
       const data = await res.json().catch(() => null)
-      const fallback = 'Could not confirm your enquiry. Please retry without changing your details.'
+      const fallback = tx(locale, { en: 'Could not confirm your enquiry. Please retry without changing your details.', es: 'No se pudo confirmar tu consulta. Vuelve a intentarlo sin cambiar tus datos.', it: 'Impossibile confermare la tua richiesta. Riprova senza modificare i tuoi dati.', ar: 'تعذر تأكيد استفسارك. حاول مجددًا دون تغيير بياناتك.' })
       if (!res.ok) {
-        throw new Error(typeof data?.error === 'string' ? data.error : fallback)
+        throw new Error(customerErrorText(locale, data?.error, fallback))
       }
       if (typeof data?.enquiry?.publicId !== 'string' || !data.enquiry.publicId || typeof data.enquiry.createdAt !== 'string') throw new Error(fallback)
       pendingRequest.current = null
@@ -173,7 +174,7 @@ export function ContactForm() {
       setFormData({ name: '', email: '', phone: '', subject: '', message: '' })
     } catch (err) {
       setStatus('error')
-      setError(err instanceof Error ? err.message : 'Could not submit enquiry. Please try again.')
+      setError(err instanceof Error ? err.message : tx(locale, { en: 'Could not submit enquiry. Please try again.', es: 'No se pudo enviar la consulta. Inténtalo de nuevo.', it: 'Impossibile inviare la richiesta. Riprova.', ar: 'تعذر إرسال الاستفسار. حاول مجددًا.' }))
     } finally {
       submitting.current = false
     }
@@ -1438,7 +1439,7 @@ export function ForgotPasswordPage() {
             <h1>{tx(locale, { en: 'Reset your password', es: 'Restablece tu contraseña', it: 'Reimposta la tua password', ar: 'استعادة كلمة المرور' })}</h1>
             <p>{tx(locale, { en: 'Enter the email address linked to your account and we\'ll send you a secure reset link.', es: 'Introduce el correo electrónico vinculado a tu cuenta y te enviaremos un enlace seguro para restablecer la contraseña.', it: 'Inserisci l\'indirizzo email collegato al tuo account e ti invieremo un link sicuro per reimpostare la password.', ar: 'أدخل عنوان البريد الإلكتروني المرتبط بحسابك وسنرسل لك رابط إعادة تعيين آمن.' })}</p>
           </div>
-          {error && <p className="auth-v2-notice" role="alert"><CircleAlert size={15} />{error}</p>}
+          {error && <p className="auth-v2-notice" role="alert"><CircleAlert size={15} />{customerErrorText(locale, error, tx(locale, { en: 'Could not send reset link. Please try again.', es: 'No se pudo enviar el enlace de restablecimiento. Inténtalo de nuevo.', it: 'Impossibile inviare il link di reimpostazione. Riprova.', ar: 'تعذر إرسال رابط إعادة التعيين. حاول مجددًا.' }))}</p>}
           <form className="auth-v2-form" onSubmit={handleSubmit}>
             <label className="auth-v2-field">
               <span>{tx(locale, { en: 'Email address', es: 'Correo electrónico', it: 'Indirizzo email', ar: 'البريد الإلكتروني' })}</span>
@@ -1579,7 +1580,7 @@ function ResetPasswordContent() {
           <h1>{tx(locale, { en: 'Create new password', es: 'Crear nueva contraseña', it: 'Crea nuova password', ar: 'إنشاء كلمة مرور جديدة' })}</h1>
           <p>{tx(locale, { en: 'Enter your new password below. It must be 6-64 characters.', es: 'Introduce tu nueva contraseña a continuación. Debe tener 6-64 caracteres.', it: 'Inserisci la tua nuova password qui sotto. Deve essere di 6-64 caratteri.', ar: 'أدخل كلمة المرور الجديدة أدناه. يجب أن تكون 6-64 حرفًا.' })}</p>
           <form className="contact-form" onSubmit={handleSubmit}>
-            {error && <p className="co-error" role="alert"><CircleAlert size={15} />{error}</p>}
+            {error && <p className="co-error" role="alert"><CircleAlert size={15} />{customerErrorText(locale, error, tx(locale, { en: 'Could not reset password. Please try again.', es: 'No se pudo restablecer la contraseña. Inténtalo de nuevo.', it: 'Impossibile reimpostare la password. Riprova.', ar: 'تعذر إعادة تعيين كلمة المرور. حاول مجددًا.' }))}</p>}
             <label>
               {tx(locale, { en: 'New password', es: 'Contraseña nueva', it: 'Nuova password', ar: 'كلمة المرور الجديدة' })}
               <span>

@@ -49,7 +49,9 @@ import { BookingPrintDocument } from '@/components/booking-print-document'
 import { BookingPaymentPanel, PaymentInstructions, PaymentProofForm, bookingMoney, bookingPaymentLabel } from '@/components/booking-payment'
 import { LanguageModal } from '@/components/language-selector'
 import { ENABLED_LOCALES, LOCALE_LABELS, LOCALE_SHORT_LABELS, type EnabledLocale } from '@/lib/locale-config'
+import { customerErrorText } from '@/lib/customer-error-copy'
 import { useAuthenticatedUser } from '@/components/authenticated-user'
+import { useMobileDrawer } from '@/lib/use-mobile-drawer'
 
 export type AccountSection = 'overview' | 'bookings' | 'car-requests' | 'event-requests' | 'trip-requests' | 'favorites' | 'payments' | 'messages' | 'profile' | 'settings' | 'change-password'
 
@@ -261,6 +263,9 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
   // finally a neutral label rather than an empty heading.
   const displayFullName = profile.fullName.trim() || profile.email.trim() || 'Your account'
   const [mobileOpen, setMobileOpen] = useState(false)
+  const sidebarRef = useRef<HTMLElement>(null)
+  const menuTriggerRef = useRef<HTMLButtonElement>(null)
+  const mobileDrawer = useMobileDrawer({ open: mobileOpen, onClose: () => setMobileOpen(false), panel: sidebarRef, trigger: menuTriggerRef, query: '(max-width: 900px)' })
   const [query, setQuery] = useState('')
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [userOpen, setUserOpen] = useState(false)
@@ -286,8 +291,9 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
   }
 
   return <div className={`customer-dashboard section-${section} ${mobileOpen ? 'menu-open' : ''}`}>
-    <button type="button" className="customer-dashboard-scrim" aria-label={tx(locale, { en: 'Close menu', es: 'Cerrar el menú', it: 'Chiudi il menu', ar: 'إغلاق القائمة' })} onClick={() => setMobileOpen(false)} />
-    <aside className="customer-account-side">
+    <button type="button" className="customer-dashboard-scrim" tabIndex={-1} aria-hidden="true" aria-label={tx(locale, { en: 'Close menu', es: 'Cerrar el menú', it: 'Chiudi il menu', ar: 'إغلاق القائمة' })} onClick={() => setMobileOpen(false)} />
+    <aside ref={sidebarRef} id="customer-mobile-menu" className="customer-account-side" inert={mobileDrawer && !mobileOpen ? true : undefined} role={mobileDrawer && mobileOpen ? 'dialog' : undefined} aria-modal={mobileDrawer && mobileOpen ? true : undefined} aria-label={tx(locale, { en: 'Account navigation', es: 'Navegación de la cuenta', it: 'Navigazione account', ar: 'قائمة الحساب' })}>
+      <button type="button" className="customer-drawer-close" onClick={() => setMobileOpen(false)} aria-label={tx(locale, { en: 'Close menu', es: 'Cerrar el menú', it: 'Chiudi il menu', ar: 'إغلاق القائمة' })}><X size={20}/></button>
       <Link href="/account" className="customer-dashboard-brand" onClick={() => setMobileOpen(false)}>
         <img src="/favicon.png" alt="" />
         <span><strong>STAR PYRAMIDS</strong><small>{tx(locale, { en: 'TRAVELER ACCOUNT', es: 'CUENTA DEL VIAJERO', it: 'ACCOUNT VIAGGIATORE', ar: 'حساب المسافر' })}</small></span>
@@ -307,12 +313,13 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
           <div><strong>{tx(locale, { en: 'Trip cart', es: 'Cesta de viajes', it: 'Carrello viaggi', ar: 'سلة الرحلات' })}</strong><small>{cart.lines ? (locale === 'es' ? `${cart.lines} viajes en espera` : locale === 'it' ? `${cart.lines} viaggi in attesa` : locale === 'ar' ? `${cart.lines} رحلات بانتظارك` : `${cart.lines} trip${cart.lines === 1 ? '' : 's'} waiting`) : (tx(locale, { en: 'Start by adding a trip', es: 'Empieza añadiendo un viaje', it: 'Inizia aggiungendo un viaggio', ar: 'ابدأ بإضافة رحلة' }))}</small></div>
           <Link href="/cart" aria-label={tx(locale, { en: 'Open cart', es: 'Abrir la cesta', it: 'Apri il carrello', ar: 'فتح السلة' })}><ChevronRight size={17} /></Link>
         </div>
+        <Link href="/" className="customer-drawer-website" onClick={() => setMobileOpen(false)}><ExternalLink size={18}/>{tx(locale, { en: 'Back to website', es: 'Volver al sitio web', it: 'Torna al sito', ar: 'العودة للموقع' })}</Link>
         <button type="button" className="customer-signout" onClick={impersonated ? exitPreview : logout} disabled={loggingOut}><LogOut size={17} />{impersonated ? tx(locale, { en: 'Exit preview', es: 'Salir de la vista previa', it: 'Esci dall’anteprima', ar: 'إنهاء المعاينة' }) : loggingOut ? (tx(locale, { en: 'Signing out...', es: 'Cerrando sesión…', it: 'Disconnessione…', ar: 'جارٍ الخروج...' })) : (tx(locale, { en: 'Sign out', es: 'Cerrar sesión', it: 'Esci', ar: 'تسجيل الخروج' }))}</button>
     </aside>
 
-    <div className="customer-dashboard-main">
+    <div className="customer-dashboard-main" inert={mobileDrawer && mobileOpen ? true : undefined}>
       <header className="customer-dashboard-topbar">
-        <button type="button" className="customer-mobile-menu" onClick={() => setMobileOpen(true)} aria-label={tx(locale, { en: 'Open menu', es: 'Abrir el menú', it: 'Apri il menu', ar: 'فتح القائمة' })}><Menu size={20} /></button>
+        <button ref={menuTriggerRef} type="button" className="customer-mobile-menu" onClick={() => setMobileOpen(true)} aria-expanded={mobileOpen} aria-controls="customer-mobile-menu" aria-label={tx(locale, { en: 'Open menu', es: 'Abrir el menú', it: 'Apri il menu', ar: 'فتح القائمة' })}><Menu size={20} /></button>
         <Link href="/account" className="customer-mobile-brand"><img src="/favicon.png" alt="" /><strong>STAR PYRAMIDS</strong></Link>
         <div className="customer-dashboard-search">
           <Search size={17} />
@@ -380,7 +387,7 @@ function NotificationPanel({ onClose }: { onClose: () => void }) {
       items={recent}
       unreadCount={unreadCount}
       loading={loading}
-      loadError={loadError}
+      loadError={loadError ? customerErrorText(locale, loadError, tx(locale, { en: 'Could not load notifications.', es: 'No se pudieron cargar las notificaciones.', it: 'Impossibile caricare le notifiche.', ar: 'تعذر تحميل الإشعارات.' })) : ''}
       title={tx(locale, { en: 'Notifications', es: 'Notificaciones', it: 'Notifiche', ar: 'الإشعارات' })}
       dialogLabel={tx(locale, { en: 'Notifications', es: 'Notificaciones', it: 'Notifiche', ar: 'الإشعارات' })}
       unreadLabel={unreadCount > 0 ? tx(locale, { en: `${unreadCount} unread`, es: `${unreadCount} sin leer`, it: `${unreadCount} da leggere`, ar: `${unreadCount} غير مقروء` }) : null}
@@ -668,7 +675,7 @@ function BookingDetailSection({ reference, autoPrint = false }: { reference: str
   }
 
   if (!booking) {
-    return <EmptyState Icon={ShoppingBag} title={tx(locale, { en: 'Booking not found', es: 'Reserva no encontrada', it: 'Prenotazione non trovata', ar: 'الحجز غير موجود' })} copy={loadError || (tx(locale, { en: 'It may have been cancelled or you are viewing a different account.', es: 'Es posible que se haya cancelado o que estés viendo otra cuenta.', it: 'Potrebbe essere stata cancellata o stai visualizzando un altro account.', ar: 'ربما تم إلغاؤه أو أنك تتصفح حسابا مختلفا.' }))} href="/account/bookings" action={tx(locale, { en: 'Back to bookings', es: 'Volver a las reservas', it: 'Torna alle prenotazioni', ar: 'عودة للحجوزات' })} />
+    return <EmptyState Icon={ShoppingBag} title={tx(locale, { en: 'Booking not found', es: 'Reserva no encontrada', it: 'Prenotazione non trovata', ar: 'الحجز غير موجود' })} copy={(loadError ? customerErrorText(locale, loadError) : '') || (tx(locale, { en: 'It may have been cancelled or you are viewing a different account.', es: 'Es posible que se haya cancelado o que estés viendo otra cuenta.', it: 'Potrebbe essere stata cancellata o stai visualizzando un altro account.', ar: 'ربما تم إلغاؤه أو أنك تتصفح حسابا مختلفا.' }))} href="/account/bookings" action={tx(locale, { en: 'Back to bookings', es: 'Volver a las reservas', it: 'Torna alle prenotazioni', ar: 'عودة للحجوزات' })} />
   }
 
   const travelers = booking.lines.reduce((sum, line) => sum + line.adults + line.children + line.infants, 0)
@@ -785,7 +792,7 @@ function BookingDetailSection({ reference, autoPrint = false }: { reference: str
             const code = (err as { code?: unknown } | null)?.code
             setActionError(code === 'BOOKING_FINANCIAL_REVIEW'
               ? financialReviewMessage(locale)
-              : (err instanceof Error ? err.message : (tx(locale, { en: 'Could not cancel the booking.', es: 'No se pudo cancelar la reserva.', it: 'Impossibile cancellare la prenotazione.', ar: 'تعذر إلغاء الحجز.' }))))
+              : (customerErrorText(locale, err instanceof Error ? err.message : null, tx(locale, { en: 'Could not cancel the booking.', es: 'No se pudo cancelar la reserva.', it: 'Impossibile cancellare la prenotazione.', ar: 'تعذر إلغاء الحجز.' }))))
           })
       }}
       title={tx(locale, { en: 'Cancel this booking?', es: '¿Cancelar esta reserva?', it: 'Cancellare questa prenotazione?', ar: 'إلغاء هذا الحجز؟' })}
@@ -862,7 +869,7 @@ function GuestBookingSection({ token, autoPrint = false }: { token: string; auto
     return <section className="customer-account-block customer-full-block">
       <div className="customer-empty">
         <h2>{tx(locale, { en: 'This booking link is not valid', es: 'Este enlace de reserva no es válido', it: 'Questo link di prenotazione non è valido', ar: 'رابط الحجز غير صالح' })}</h2>
-        <p>{loadError || tx(locale, { en: 'The link may have expired or already been replaced by a newer one. Use the most recent link from your confirmation email, or contact our team with your reference.', es: 'El enlace puede haber caducado o haber sido sustituido por uno más reciente. Usa el enlace más reciente de tu correo de confirmación o contacta con nuestro equipo indicando tu referencia.', it: 'Il link potrebbe essere scaduto o essere stato sostituito da uno più recente. Usa il link più recente della tua email di conferma o contatta il nostro team con il tuo riferimento.', ar: 'ربما انتهت صلاحية الرابط أو تم استبداله بأحدث. استخدم أحدث رابط من رسالة التأكيد أو تواصل معنا مع ذكر المرجع.' })}</p>
+        <p>{(loadError ? customerErrorText(locale, loadError) : '') || tx(locale, { en: 'The link may have expired or already been replaced by a newer one. Use the most recent link from your confirmation email, or contact our team with your reference.', es: 'El enlace puede haber caducado o haber sido sustituido por uno más reciente. Usa el enlace más reciente de tu correo de confirmación o contacta con nuestro equipo indicando tu referencia.', it: 'Il link potrebbe essere scaduto o essere stato sostituito da uno più recente. Usa il link più recente della tua email di conferma o contatta il nostro team con il tuo riferimento.', ar: 'ربما انتهت صلاحية الرابط أو تم استبداله بأحدث. استخدم أحدث رابط من رسالة التأكيد أو تواصل معنا مع ذكر المرجع.' })}</p>
         <Link href="/trips">{tx(locale, { en: 'Browse trips', es: 'Explorar viajes', it: 'Sfoglia i viaggi', ar: 'تصفح الرحلات' })} <ArrowRight size={16} /></Link>
       </div>
     </section>
@@ -999,7 +1006,7 @@ function BookingsSection() {
     return <section className="customer-account-block customer-full-block"><div className="customer-empty" role="status"><h3>{tx(locale, { en: 'Loading your bookings…', es: 'Cargando tus reservas…', it: 'Caricamento prenotazioni…', ar: 'جارٍ تحميل حجوزاتك…' })}</h3></div></section>
   }
   if (error && !bookings.length) {
-    return <section className="customer-account-block customer-full-block"><div className="customer-empty"><h3>{tx(locale, { en: 'Could not load bookings', es: 'No se pudieron cargar las reservas', it: 'Impossibile caricare le prenotazioni', ar: 'تعذر تحميل الحجوزات' })}</h3><p>{error}</p></div></section>
+    return <section className="customer-account-block customer-full-block"><div className="customer-empty"><h3>{tx(locale, { en: 'Could not load bookings', es: 'No se pudieron cargar las reservas', it: 'Impossibile caricare le prenotazioni', ar: 'تعذر تحميل الحجوزات' })}</h3><p>{customerErrorText(locale, error)}</p></div></section>
   }
   return <section className="customer-account-block customer-full-block"><div className="customer-filterbar"><div role="tablist" aria-label={tx(locale, { en: 'Filter bookings', es: 'Filtrar reservas', it: 'Filtra prenotazioni', ar: 'فلترة الحجوزات' })}>{(['all', 'pending', 'confirmed', 'completed', 'cancelled'] as const).map((status) => <button type="button" key={status} className={filter === status ? 'active' : ''} onClick={() => setFilter(status)}>{status === 'all' ? (tx(locale, { en: 'All', es: 'Todos', it: 'Tutti', ar: 'الكل' })) : tx(locale, bookingStatusCopy[status])}</button>)}</div><Link href="/trips"><Plus size={16} />{tx(locale, { en: 'Book a trip', es: 'Reservar un viaje', it: 'Prenota un viaggio', ar: 'حجز رحلة' })}</Link></div>{visible.length ? <><div className="customer-table-wrap"><table className="customer-table"><thead><tr><th>#</th><th>{tx(locale, { en: 'Trip', es: 'Viaje', it: 'Viaggio', ar: 'الرحلة' })}</th><th>{tx(locale, { en: 'Date', es: 'Fecha', it: 'Data', ar: 'التاريخ' })}</th><th>{tx(locale, { en: 'Travelers', es: 'Viajeros', it: 'Viaggiatori', ar: 'المسافرون' })}</th><th>{tx(locale, { en: 'Total', es: 'Total', it: 'Totale', ar: 'الإجمالي' })}</th><th>{tx(locale, { en: 'Status', es: 'Estado', it: 'Stato', ar: 'الحالة' })}</th><th></th></tr></thead><tbody>{paging.pageRows.map((booking, index) => <BookingTableRow key={booking.reference} booking={booking} index={paging.from + index} />)}</tbody></table></div><CustomerPagination page={paging.page} pageCount={paging.pageCount} onPage={paging.setPage} pageSize={paging.pageSize} onPageSize={paging.setPageSize} from={paging.from} to={paging.to} total={paging.total} /></> : <EmptyState Icon={ShoppingBag} title={tx(locale, { en: 'No bookings in this view', es: 'Sin reservas en esta vista', it: 'Nessuna prenotazione in questa vista', ar: 'لا توجد حجوزات في هذه الحالة' })} copy={tx(locale, { en: 'Any booking created at checkout will appear here automatically.', es: 'Cualquier reserva creada al finalizar la compra aparecerá aquí automáticamente.', it: 'Qualsiasi prenotazione creata al checkout apparirà qui automaticamente.', ar: 'أي حجز تنشئه من صفحة الدفع سيظهر هنا تلقائيًا.' })} href="/trips" action={tx(locale, { en: 'Browse trips', es: 'Explorar viajes', it: 'Sfoglia i viaggi', ar: 'تصفح الرحلات' })} />}</section>
 }
@@ -1182,7 +1189,7 @@ function CarRequestsSection() {
       <section className="customer-account-block customer-full-block">
         <div className="customer-empty">
           <h3>{tx(locale, { en: 'Could not load requests', es: 'No se pudieron cargar las solicitudes', it: 'Impossibile caricare le richieste', ar: 'تعذر تحميل الطلبات' })}</h3>
-          <p>{loadError}</p>
+          <p>{customerErrorText(locale, loadError)}</p>
           <button type="button" className="account-icon-action" onClick={() => {
             setLoading(true)
             setLoadError('')
@@ -1214,7 +1221,7 @@ function CarRequestsSection() {
     <section className="customer-account-block customer-full-block">
       {loadError && (
         <div style={{ padding: '18px 18px 0' }}>
-          <p className="form-error" role="alert">{loadError}</p>
+          <p className="form-error" role="alert">{customerErrorText(locale, loadError)}</p>
         </div>
       )}
       <div className="customer-filterbar"><div role="tablist" aria-label={tx(locale, { en: 'Filter car requests', es: 'Filtrar solicitudes de coche', it: 'Filtra richieste auto', ar: 'فلترة طلبات السيارات' })}>{tabs.map((tab) => <button type="button" key={tab.id} className={filter === tab.id ? 'active' : ''} onClick={() => setFilter(tab.id)}>{tx(locale, tab)}</button>)}</div><Link href="/rent-car"><Plus size={16} />{tx(locale, { en: 'Request a car', es: 'Solicitar un coche', it: 'Richiedi un’auto', ar: 'طلب سيارة' })}</Link></div>
@@ -1310,7 +1317,7 @@ function CarRequestDetailSection({ reference }: { reference: string }) {
         <Clock3 size={20} />
         <span>
           <strong>{tx(locale, { en: 'Car request not found', es: 'Solicitud de coche no encontrada', it: 'Richiesta auto non trovata', ar: 'طلب السيارة غير موجود' })}</strong>
-          <small>{error || (tx(locale, { en: 'It may have been removed or belong to a different account.', es: 'Es posible que se haya eliminado o que pertenezca a otra cuenta.', it: 'Potrebbe essere stata rimossa o appartenere a un altro account.', ar: 'ربما تم حذفه أو أنه يخص حسابًا آخر.' }))}</small>
+          <small>{(error ? customerErrorText(locale, error) : '') || (tx(locale, { en: 'It may have been removed or belong to a different account.', es: 'Es posible que se haya eliminado o que pertenezca a otra cuenta.', it: 'Potrebbe essere stata rimossa o appartenere a un altro account.', ar: 'ربما تم حذفه أو أنه يخص حسابًا آخر.' }))}</small>
         </span>
         <Link href="/account/car-requests">{tx(locale, { en: 'Back to car requests', es: 'Volver a las solicitudes de coche', it: 'Torna alle richieste auto', ar: 'عودة لطلبات السيارات' })}</Link>
       </div>
@@ -1468,7 +1475,7 @@ function PaymentsSection() {
   const awaiting = payments.filter((payment) => payment.status === 'pending' || payment.status === 'processing').reduce((sum, payment) => sum + payment.amount, 0)
   const paging = usePagination(visible)
   return <><div className="customer-payment-summary"><Metric Icon={CheckCircle2} value={formatPrice(collected, currency, locale)} label={tx(locale, { en: 'Paid', es: 'Pagado', it: 'Pagato', ar: 'تم دفعه' })} note={tx(locale, { en: 'Confirmed payments', es: 'Pagos confirmados', it: 'Pagamenti confermati', ar: 'مدفوعات مؤكدة' })} tone="green" /><Metric Icon={Clock3} value={formatPrice(awaiting, currency, locale)} label={tx(locale, { en: 'Unpaid', es: 'Sin pagar', it: 'Non pagato', ar: 'غير مدفوع' })} note={tx(locale, { en: 'No charge is made online', es: 'No se realiza ningún cargo en línea', it: 'Nessun addebito online', ar: 'لا يتم الخصم عبر الإنترنت' })} tone="orange" /><Metric Icon={ReceiptText} value={payments.length} label={tx(locale, { en: 'Records', es: 'Registros', it: 'Registrazioni', ar: 'السجلات' })} note={tx(locale, { en: 'Real payment attempts', es: 'Intentos de pago reales', it: 'Tentativi di pagamento reali', ar: 'محاولات دفع حقيقية' })} tone="blue" /></div><section className="customer-account-block customer-full-block"><header><div><span>{tx(locale, { en: 'Payment history', es: 'Historial de pagos', it: 'Cronologia pagamenti', ar: 'السجل المالي' })}</span><h2>{tx(locale, { en: 'Payments and payment status', es: 'Pagos y estado de pagos', it: 'Pagamenti e stato pagamenti', ar: 'المدفوعات وحالتها' })}</h2></div><ShieldCheck size={20} /></header><div className="customer-filterbar"><div role="tablist" aria-label={tx(locale, { en: 'Filter payments', es: 'Filtrar pagos', it: 'Filtra pagamenti', ar: 'فلترة المدفوعات' })}>{(['all', 'pending', 'processing', 'paid', 'failed', 'cancelled', 'refunded', 'partially_refunded'] as const).map((status) => <button type="button" key={status} className={filter === status ? 'active' : ''} onClick={() => setFilter(status)}>{status === 'all' ? (tx(locale, { en: 'All', es: 'Todos', it: 'Tutti', ar: 'الكل' })) : paymentStatusLabel(status, locale)}</button>)}</div><Link href="/trips"><Plus size={16} />{tx(locale, { en: 'Book a trip', es: 'Reservar un viaje', it: 'Prenota un viaggio', ar: 'احجز رحلة' })}</Link></div>{loading ? <div className="customer-inline-empty" role="status"><Clock3 size={20} /><span><strong>{tx(locale, { en: 'Loading payments…', es: 'Cargando los pagos…', it: 'Caricamento pagamenti…', ar: 'جارٍ تحميل المدفوعات…' })}</strong></span></div>
-      : loadError && !payments.length ? <EmptyState Icon={ReceiptText} title={tx(locale, { en: 'Could not load payments', es: 'No se pudieron cargar los pagos', it: 'Impossibile caricare i pagamenti', ar: 'تعذر تحميل المدفوعات' })} copy={loadError} href="/account/bookings" action={tx(locale, { en: 'Back to bookings', es: 'Volver a las reservas', it: 'Torna alle prenotazioni', ar: 'عودة للحجوزات' })} />
+      : loadError && !payments.length ? <EmptyState Icon={ReceiptText} title={tx(locale, { en: 'Could not load payments', es: 'No se pudieron cargar los pagos', it: 'Impossibile caricare i pagamenti', ar: 'تعذر تحميل المدفوعات' })} copy={customerErrorText(locale, loadError)} href="/account/bookings" action={tx(locale, { en: 'Back to bookings', es: 'Volver a las reservas', it: 'Torna alle prenotazioni', ar: 'عودة للحجوزات' })} />
       : visible.length ? <><div className="customer-table-wrap"><table className="customer-table">
         <thead><tr><th>#</th><th>{tx(locale, { en: 'Reference', es: 'Referencia', it: 'Riferimento', ar: 'المرجع' })}</th><th>{tx(locale, { en: 'Booking', es: 'Reserva', it: 'Prenotazione', ar: 'الحجز' })}</th><th>{tx(locale, { en: 'Initiated', es: 'Iniciado', it: 'Avviato', ar: 'تاريخ الإنشاء' })}</th><th>{tx(locale, { en: 'Status', es: 'Estado', it: 'Stato', ar: 'الحالة' })}</th><th>{tx(locale, { en: 'Amount', es: 'Importe', it: 'Importo', ar: 'المبلغ' })}</th><th></th></tr></thead>
         <tbody>{paging.pageRows.map((payment, index) => (
@@ -1529,7 +1536,7 @@ function PaymentDetailSection({ reference }: { reference: string }) {
   }
 
   if (!payment) {
-    return <EmptyState Icon={ReceiptText} title={tx(locale, { en: 'Payment not found', es: 'Pago no encontrado', it: 'Pagamento non trovato', ar: 'الدفع غير موجود' })} copy={loadError || (tx(locale, { en: 'It may belong to a different account.', es: 'Es posible que pertenezca a otra cuenta.', it: 'Potrebbe appartenere a un altro account.', ar: 'ربما يتبع حسابًا مختلفًا.' }))} href="/account/payments" action={tx(locale, { en: 'Back to payments', es: 'Volver a los pagos', it: 'Torna ai pagamenti', ar: 'عودة للمدفوعات' })} />
+    return <EmptyState Icon={ReceiptText} title={tx(locale, { en: 'Payment not found', es: 'Pago no encontrado', it: 'Pagamento non trovato', ar: 'الدفع غير موجود' })} copy={(loadError ? customerErrorText(locale, loadError) : '') || (tx(locale, { en: 'It may belong to a different account.', es: 'Es posible que pertenezca a otra cuenta.', it: 'Potrebbe appartenere a un altro account.', ar: 'ربما يتبع حسابًا مختلفًا.' }))} href="/account/payments" action={tx(locale, { en: 'Back to payments', es: 'Volver a los pagos', it: 'Torna ai pagamenti', ar: 'عودة للمدفوعات' })} />
   }
 
   const fmtDateTime = (iso: string | null) => (iso ? new Date(iso).toLocaleString(locale === 'ar' ? 'ar-EG' : locale === 'es' ? 'es-ES' : locale === 'it' ? 'it-IT' : 'en-US') : '-')
@@ -1648,7 +1655,7 @@ function MessagesSection() {
         {thread.loading
           ? <div className="customer-chat-welcome"><span><MessageCircle size={25} /></span><h2>{tx(locale, { en: 'Loading messages…', es: 'Cargando mensajes…', it: 'Caricamento messaggi…', ar: 'جارٍ تحميل الرسائل…' })}</h2></div>
           : thread.loadError && !messages.length
-            ? <div className="customer-chat-welcome"><span><MessageCircle size={25} /></span><h2>{tx(locale, { en: 'Messages unavailable', es: 'Mensajes no disponibles', it: 'Messaggi non disponibili', ar: 'الرسائل غير متاحة' })}</h2><p>{thread.loadError}</p><div><button type="button" onClick={thread.refresh}>{tx(locale, { en: 'Try again', es: 'Reintentar', it: 'Riprova', ar: 'حاول مجددًا' })}</button></div></div>
+            ? <div className="customer-chat-welcome"><span><MessageCircle size={25} /></span><h2>{tx(locale, { en: 'Messages unavailable', es: 'Mensajes no disponibles', it: 'Messaggi non disponibili', ar: 'الرسائل غير متاحة' })}</h2><p>{customerErrorText(locale, thread.loadError)}</p><div><button type="button" onClick={thread.refresh}>{tx(locale, { en: 'Try again', es: 'Reintentar', it: 'Riprova', ar: 'حاول مجددًا' })}</button></div></div>
             : <>
                 {!messages.length && <div className="customer-chat-welcome"><span><MessageCircle size={25} /></span><h2>{locale === 'es' ? `Hola ${firstName}` : locale === 'it' ? `Ciao ${firstName}` : locale === 'ar' ? `أهلًا ${firstName}` : `Hi ${firstName}`}</h2><p>{tx(locale, { en: 'Ask about a booking, pricing, or trip details. The team reply will stay here in this conversation.', es: 'Pregunta por una reserva, precios o detalles del viaje. La respuesta del equipo quedará aquí, en esta conversación.', it: 'Chiedi info su una prenotazione, prezzi o dettagli del viaggio. La risposta del team resterà qui in questa conversazione.', ar: 'اكتب سؤالك عن الحجز أو الأسعار أو تفاصيل رحلتك، وسيظهر الرد هنا في نفس المحادثة.' })}</p><div>{(locale === 'es' ? ['Quiero seguir mi reserva', 'Quiero cambiar la fecha de mi viaje', 'Tengo una pregunta sobre un pago'] : locale === 'it' ? ['Voglio seguire la mia prenotazione', 'Voglio cambiare la data del viaggio', 'Ho una domanda su un pagamento'] : locale === 'ar' ? ['أريد متابعة حجزي', 'أحتاج تعديل موعد الرحلة', 'لدي سؤال عن الدفع'] : ['Track my booking', 'Change my travel date', 'I have a payment question']).map((prompt) => <button type="button" key={prompt} onClick={() => setDraft(prompt)}>{prompt}</button>)}</div></div>}
                 {messages.map((message) => <div key={message.id} className={`customer-chat-row ${message.senderRole === 'staff' ? 'agent' : 'customer'}`}>
@@ -1664,7 +1671,7 @@ function MessagesSection() {
       </div>
 
       {closed && <p className="customer-chat-error">{tx(locale, { en: 'This conversation was closed by our team. Send a new message to start a fresh conversation.', es: 'Esta conversación fue cerrada por nuestro equipo. Envía un mensaje nuevo para abrir otra.', it: 'Questa conversazione è stata chiusa dal nostro team. Invia un nuovo messaggio per aprirne un’altra.', ar: 'أغلق فريقنا هذه المحادثة. أرسل رسالة جديدة لبدء محادثة جديدة.' })}</p>}
-      {sendError && <p className="customer-chat-error">{sendError}</p>}
+      {sendError && <p className="customer-chat-error">{customerErrorText(locale, sendError)}</p>}
       <form className="customer-chat-composer" onSubmit={(event) => { event.preventDefault(); void send() }}>
         <textarea ref={composerRef} rows={1} value={draft} disabled={Boolean(impersonated) || closed || thread.sending} onChange={(event) => setDraft(event.target.value)} onKeyDown={keyDown} aria-label={tx(locale, { en: 'Write a message to our travel team', es: 'Escribe un mensaje a nuestro equipo', it: 'Scrivi un messaggio al nostro team', ar: 'اكتب رسالة إلى فريقنا' })} placeholder={impersonated ? (tx(locale, { en: 'Sending is disabled during staff preview', es: 'El envío está desactivado durante la vista previa del personal', it: 'Invio disabilitato durante l’anteprima staff', ar: 'الإرسال متوقف أثناء معاينة الموظفين' })) : (tx(locale, { en: 'Write a message to our travel team...', es: 'Escribe un mensaje a nuestro equipo…', it: 'Scrivi un messaggio al nostro team…', ar: 'اكتب رسالة إلى فريقنا...' }))} />
         <button type="submit" disabled={Boolean(impersonated) || closed || thread.sending || !draft.trim()} aria-label={tx(locale, { en: 'Send message', es: 'Enviar mensaje', it: 'Invia messaggio', ar: 'إرسال الرسالة' })}><Send size={18} /></button>
@@ -1925,7 +1932,7 @@ function ChangePasswordSection() {
         <span className={newPassword.length >= 6 && newPassword.length <= 64 ? 'valid' : ''}><Check size={14} />{tx(locale, { en: '6-64 characters', es: '6-64 caracteres', it: '6-64 caratteri', ar: '6-64 حرفًا' })}</span>
         <span className={matches ? 'valid' : ''}><Check size={14} />{tx(locale, { en: 'Passwords match', es: 'Las contraseñas coinciden', it: 'Le password coincidono', ar: 'كلمتا المرور متطابقتان' })}</span>
       </div>
-      {error && <p className="co-error" role="alert"><CircleAlert size={15} />{error}</p>}
+      {error && <p className="co-error" role="alert"><CircleAlert size={15} />{customerErrorText(locale, error, tx(locale, { en: 'Could not change password. Please try again.', es: 'No se pudo cambiar la contraseña. Inténtalo de nuevo.', it: 'Impossibile cambiare la password. Riprova.', ar: 'تعذر تغيير كلمة المرور. حاول مجددًا.' }))}</p>}
       {submitted && <div className="customer-password-ready"><CheckCircle2 size={17} /><div><strong>{tx(locale, { en: 'Password changed successfully', es: 'Contraseña cambiada correctamente', it: 'Password modificata con successo', ar: 'تم تغيير كلمة المرور بنجاح' })}</strong><small>{tx(locale, { en: 'Your password has been updated. Other sessions have been signed out for security.', es: 'Tu contraseña se ha actualizado. Otras sesiones se han cerrado por seguridad.', it: 'La tua password è stata aggiornata. Altre sessioni sono state disconnesse per sicurezza.', ar: 'تم تحديث كلمة المرور. تم تسجيل الخروج من الجلسات الأخرى لأسباب أمنية.' })}</small></div></div>}
       <div className="customer-password-actions"><Link href="/account/settings">{tx(locale, { en: 'Back to settings', es: 'Volver a los ajustes', it: 'Torna alle impostazioni', ar: 'العودة للإعدادات' })}</Link><button type="submit" disabled={submitting || !canSubmit}>{submitting ? tx(locale, { en: 'Updating…', es: 'Actualizando…', it: 'Aggiornando…', ar: 'جارٍ التحديث…' }) : tx(locale, { en: 'Update password', es: 'Actualizar la contraseña', it: 'Aggiorna password', ar: 'تحديث كلمة المرور' })}</button></div>
     </form>

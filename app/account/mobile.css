@@ -1,0 +1,52 @@
+.customer-drawer-close,.customer-drawer-website{display:none}
+
+@media screen and (max-width:1024px){
+  .customer-dashboard-main,.customer-account,.customer-account-main,.customer-account-block>*,.customer-form-grid>*{min-width:0}
+  .customer-table-wrap{width:100%;max-width:100%;margin-inline:0;padding-inline:0;overscroll-behavior-x:contain}
+  .customer-account-head-actions,.customer-detail-actions{flex-wrap:wrap}
+  .customer-detail-actions>*{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+  .customer-detail-grid>div,.customer-profile-form label,.customer-settings-form label{min-width:0}
+  .customer-detail-grid strong,.customer-account-block p{overflow-wrap:anywhere}
+}
+
+@media screen and (max-width:900px){
+  .customer-account-side{width:min(300px,calc(100% - 32px));height:100dvh;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+  .customer-drawer-close{position:absolute;inset-inline-end:10px;top:calc(16px + env(safe-area-inset-top));display:grid;place-items:center;width:44px;height:44px;min-height:44px;padding:0;border:1px solid rgba(255,255,255,.3);border-radius:8px;background:transparent;color:#fff}
+  .customer-dashboard-brand{padding-inline:14px 62px}
+  .customer-dashboard-brand strong{font-size:11px}
+  .customer-dashboard-brand small{font-size:8px}
+  .customer-profile-mini{padding:16px}
+  .customer-drawer-website{display:flex;align-items:center;gap:10px;min-height:44px;padding:12px 20px;color:#fff;text-decoration:none;font-size:12px}
+  .customer-dashboard-topbar{height:auto;min-height:68px;flex-wrap:wrap;gap:8px;padding:10px 12px}
+  .customer-mobile-menu{width:44px;height:44px;min-height:44px}
+  .customer-dashboard-topbar .customer-dashboard-search{display:flex;order:3;flex:1 1 100%;width:100%;min-width:0;margin:0;height:46px}
+  .customer-dashboard-search input{min-width:0;font-size:16px}
+  .customer-dashboard-search>button{width:44px;min-height:44px}
+  .customer-search-results{max-height:min(400px,55dvh);overflow-y:auto}
+  .customer-dashboard-actions{margin-inline-start:auto;gap:4px;min-width:0}
+  .customer-dashboard-actions>.cselect{display:none}
+  .customer-top-language,.customer-top-icon,.customer-top-user{width:44px;height:44px;min-height:44px;justify-content:center;padding:0}
+  .customer-top-user>svg{display:none}
+  .customer-account :is(input:not([type=checkbox]):not([type=radio]):not([type=file]),select,textarea){min-width:0;max-width:100%;font-size:16px}
+  .customer-table-actions a,.customer-table-actions button{width:44px;height:44px;min-width:44px;min-height:44px}
+  .customer-pagination-group{flex-wrap:wrap;gap:10px}
+  .customer-page-btns{flex-wrap:wrap}
+  .customer-page-btns button{height:44px;min-height:44px;min-width:44px}
+  .customer-chat-panel{height:max(320px,calc(100dvh - 200px));min-height:0}
+  .section-messages .customer-chat-panel,.section-messages .customer-account:has(.impersonate-banner) .customer-chat-panel{height:max(320px,calc(100dvh - 200px));min-height:0}
+}
+
+@media screen and (max-width:680px){
+  .customer-account :is(.customer-metric small,.customer-metric em,.customer-status,.customer-booking-meta,.customer-booking-total small,.customer-payment-list small,.customer-payment-state,.customer-switch-row small,.customer-security-list small,.customer-field-hint,.customer-settings-list small,.customer-chat-time,.customer-chat-error,.form-error,.form-note){font-size:12px;line-height:1.5}
+  .customer-account :is(.customer-form-grid label,.customer-settings-selects label,.customer-password-fields label){font-size:13px;line-height:1.5}
+  .customer-account{padding:18px 12px 32px}
+  .customer-account-head h1{font-size:26px;line-height:1.2;overflow-wrap:anywhere}
+  .customer-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .customer-metric{min-width:0;flex-wrap:wrap}
+  .customer-metric strong{overflow-wrap:anywhere}
+  .customer-detail-grid{grid-template-columns:minmax(0,1fr)}
+  .customer-detail-actions>*{flex:1 1 130px;justify-content:center}
+  .customer-switch-row{gap:12px}
+  .customer-filterbar,.customer-filterbar>*{min-width:0}
+  .customer-profile-actions button,.customer-password-actions button,.account-icon-action{min-height:44px;white-space:normal;text-align:center}
+}

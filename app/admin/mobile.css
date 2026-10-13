@@ -1,0 +1,67 @@
+@media screen and (max-width:1024px){
+  .sp-content,.sp-card-head>div,.sp-form>*{min-width:0}
+  .sp-table-wrap{max-width:100%;overscroll-behavior-x:contain}
+  .sp-table-wrap:focus-visible{outline:2px solid var(--sp-orange);outline-offset:2px}
+  .sp-card-head{flex-wrap:wrap}
+  .sp-card-head h3,.sp-card-head p,.sp-detail-list strong{overflow-wrap:anywhere}
+}
+
+@media screen and (max-width:860px){
+  .sp-admin .sp-side,.sp-admin.is-collapsed .sp-side{width:min(300px,calc(100% - 32px));height:100dvh;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom))}
+  .sp-side .sp-brand-link{min-width:0;flex:1}
+  .sp-side .sp-brand-mark{width:34px;height:34px}
+  .sp-side .sp-brand-copy strong{font-size:12px}
+  .sp-side .sp-brand-copy small{font-size:9px;letter-spacing:0}
+  .sp-side .sp-icon-btn{width:44px;height:44px;min-height:44px;flex:none}
+  .sp-nav-link{min-height:44px;overflow-wrap:anywhere}
+  .sp-top{flex-wrap:wrap;gap:8px;padding:10px 12px}
+  .sp-top-actions{gap:5px;min-width:0}
+  .sp-top .sp-search{display:flex;order:3;flex:1 1 100%;max-width:none;min-width:0}
+  .sp-search input{min-width:0;width:100%;font-size:16px}
+  .sp-search button{min-width:44px;min-height:44px}
+  .sp-top .sp-icon-btn,.sp-top-actions>.sp-icon-btn{width:44px;height:44px;min-height:44px}
+  .sp-top-actions .language{min-height:44px;min-width:44px;padding:0 6px;font-size:11px}
+  .sp-user-chip{width:44px;min-height:44px;justify-content:center;padding:0}
+  .sp-user-chip>svg,.sp-user-chip>span:not(.sp-avatar){display:none}
+  .sp-content{padding:16px 12px;gap:16px}
+  .sp-pagehead-actions,.sp-table-filters,.sp-tabs{flex-wrap:wrap}
+  .sp-pagehead-actions .sp-btn{white-space:normal;text-align:center}
+  .sp-table-search,.sp-table-filters>*{min-width:0;max-width:100%}
+  .sp-table-action,.sp-table-actions .sp-icon-btn{width:44px;height:44px;min-width:44px;min-height:44px}
+  .sp-table th,.sp-table td{padding:12px}
+  .sp-table-filters .cselect{min-width:0;max-width:100%}
+  .sp-form :is(input:not([type=checkbox]):not([type=radio]):not([type=file]),select,textarea){min-width:0;max-width:100%;font-size:16px}
+  .sp-form label,.sp-form-2>*,.sp-status2>*,.sp-builder>*{min-width:0}
+  .sp-modal-backdrop{padding:12px}
+  .sp-modal{max-height:calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));padding:20px 16px;overscroll-behavior:contain}
+  .sp-modal-head strong{overflow-wrap:anywhere}
+  .sp-confirm-actions .sp-btn{min-height:44px;white-space:normal;text-align:center;justify-content:center}
+  .sp-set-nav{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sp-set-nav button{min-width:0;min-height:60px;padding:12px;overflow-wrap:anywhere}
+  .sp-set-nav small{font-size:11px}
+  .sp-user-menu{position:fixed;top:64px;inset-inline-end:12px;width:min(250px,calc(100vw - 24px))}
+}
+
+@media screen and (max-width:560px){
+  .sp-pagehead h1{font-size:26px;letter-spacing:0;overflow-wrap:anywhere}
+  .sp-card{padding:16px 12px}
+  .sp-module-stats{gap:10px}
+  .sp-module-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sp-module-stat{min-width:0;flex-direction:column;align-items:flex-start;padding:12px;gap:8px}
+  .sp-module-stat>div{min-width:0}
+  .sp-module-stat small,.sp-module-stat p{font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+  .sp-module-stat p{white-space:normal}
+  .sp-module-stat strong{font-size:22px;line-height:1.3;overflow-wrap:anywhere}
+  .sp-set-nav{display:flex;overflow-x:auto;gap:8px;scroll-snap-type:x proximity}
+  .sp-set-nav button{flex:0 0 160px;min-width:0;min-height:76px;scroll-snap-align:start}
+  .sp-set-nav button>span{min-width:0}
+  .sp-tabs button{min-height:44px;padding-inline:12px;font-size:12px}
+  .sp-detail-grid,.sp-status2,.sp-review-grid,.sp-builder-coverage{grid-template-columns:minmax(0,1fr)}
+  .sp-passenger-rate-head,.sp-passenger-rate-row{grid-template-columns:minmax(70px,.7fr) minmax(0,1fr) 44px;gap:6px;padding:10px}
+  .sp-passenger-rate-row input{min-width:0}
+  .sp-confirm-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sp-confirm-actions .sp-btn{min-width:0;padding-inline:10px}
+  .sp-confirm-actions>.sp-btn:only-child{grid-column:1/-1}
+}
+
+@media(prefers-reduced-motion:reduce){.sp-side,.sp-scrim,.sp-table-action{transition:none}}

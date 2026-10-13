@@ -6,6 +6,7 @@ import { ArrowRight, Check, Minus, Plus, ShieldCheck } from 'lucide-react'
 import type { Event } from '@/data/types'
 import { getEventStatus } from '@/lib/events'
 import { hasEventRequestErrors, validateEventRequestDraft, type EventRequest } from '@/lib/event-request'
+import { customerErrorText } from '@/lib/customer-error-copy'
 import { countries, defaultCountry } from '@/data/countries'
 import { CountrySelect } from '@/components/country-select'
 import { InternationalPhoneInput } from '@/components/international-phone-input'
@@ -112,7 +113,7 @@ const [attendees, setAttendees] = useState(1)
     })
       .then(async (res) => {
         const data = (await res.json()) as EventRequest & { error?: string }
-        if (!res.ok) throw new Error(data.error || submitFailed)
+        if (!res.ok) throw new Error(customerErrorText(locale, data.error, submitFailed))
         setRef(data.reference)
       })
       .catch((error: unknown) => {

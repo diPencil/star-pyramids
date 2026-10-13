@@ -16,6 +16,7 @@ import { SharedSelect } from '@/components/shared-select'
 import { displayInternationalPhone } from '@/lib/phone'
 import { InternationalPhoneInput } from '@/components/international-phone-input'
 import { DateInput } from '@/components/date-input'
+import { customerErrorText } from '@/lib/customer-error-copy'
 import { toISO, todayYMD } from '@/lib/date-calendar'
 import { useAuthenticatedUser } from '@/components/authenticated-user'
 import {
@@ -238,7 +239,7 @@ function TripRequestsSection({ startNew = false, editRef = null }: { startNew?: 
           setMode('form')
         })
         .catch((error: unknown) => {
-          if (!cancelled) setSummary(error instanceof Error ? error.message : 'Could not load the request.')
+          if (!cancelled) setSummary(customerErrorText(locale, error instanceof Error ? error.message : 'Could not load the request.'))
         })
       router.replace('/account/trip-requests', { scroll: false })
       return () => { cancelled = true }
@@ -360,7 +361,7 @@ function TripRequestsSection({ startNew = false, editRef = null }: { startNew?: 
         setMode('list')
       })
       .catch((error: unknown) => {
-        setSummary(error instanceof Error ? error.message : tx(locale, { en: 'Could not save the request. Please try again.', es: 'No se pudo guardar la solicitud. Inténtalo de nuevo.', it: 'Impossibile salvare la richiesta. Riprova.', ar: 'تعذر حفظ الطلب. حاول مجددًا.' }))
+        setSummary(customerErrorText(locale, error instanceof Error ? error.message : null, tx(locale, { en: 'Could not save the request. Please try again.', es: 'No se pudo guardar la solicitud. Inténtalo de nuevo.', it: 'Impossibile salvare la richiesta. Riprova.', ar: 'تعذر حفظ الطلب. حاول مجددًا.' })))
       })
       .finally(() => setSubmitting(false))
   }
@@ -487,7 +488,7 @@ function TripRequestsSection({ startNew = false, editRef = null }: { startNew?: 
       <section className="customer-account-block customer-full-block">
         <div className="customer-empty">
           <h3>{tx(locale, { en: 'Could not load requests', es: 'No se pudieron cargar las solicitudes', it: 'Impossibile caricare le richieste', ar: 'تعذر تحميل الطلبات' })}</h3>
-          <p>{loadError}</p>
+          <p>{customerErrorText(locale, loadError)}</p>
           <button type="button" className="account-icon-action" onClick={() => {
             setLoading(true)
             setLoadError('')
@@ -518,7 +519,7 @@ function TripRequestsSection({ startNew = false, editRef = null }: { startNew?: 
     <section className="customer-account-block customer-full-block">
       {loadError && requests.length > 0 && (
         <div style={{ padding: '18px 18px 0' }}>
-          <p className="form-error" role="alert">{loadError}</p>
+          <p className="form-error" role="alert">{customerErrorText(locale, loadError)}</p>
         </div>
       )}
       {lastCreated && (
@@ -663,7 +664,7 @@ export function TripRequestDetailSection({ reference }: { reference: string }) {
         <Clock3 size={20} />
         <span>
           <strong>{tx(locale, { en: 'Trip request not found', es: 'Solicitud de viaje no encontrada', it: 'Richiesta di viaggio non trovata', ar: 'طلب الرحلة غير موجود' })}</strong>
-          <small>{error || tx(locale, { en: 'It may have been removed or belong to a different account.', es: 'Puede que se haya eliminado o pertenezca a otra cuenta.', it: 'Potrebbe essere stata rimossa o appartenere a un altro account.', ar: 'ربما تم حذفه أو أنه يخص حسابًا آخر.' })}</small>
+          <small>{error ? customerErrorText(locale, error) : tx(locale, { en: 'It may have been removed or belong to a different account.', es: 'Puede que se haya eliminado o pertenezca a otra cuenta.', it: 'Potrebbe essere stata rimossa o appartenere a un altro account.', ar: 'ربما تم حذفه أو أنه يخص حسابًا آخر.' })}</small>
         </span>
         <Link href="/account/trip-requests">{tx(locale, { en: 'Back to trip requests', es: 'Volver a solicitudes de viaje', it: 'Torna alle richieste di viaggio', ar: 'عودة لطلبات الرحلات' })}</Link>
       </div>
@@ -704,7 +705,7 @@ export function TripRequestDetailSection({ reference }: { reference: string }) {
         </section>
       )}
       <div className="customer-detail-actions">
-        {error && <p className="form-error" role="alert" style={{ flexBasis: '100%' }}>{error}</p>}
+        {error && <p className="form-error" role="alert" style={{ flexBasis: '100%' }}>{customerErrorText(locale, error)}</p>}
         <Link href="/account/trip-requests" className="account-icon-action">{tx(locale, { en: 'Back to list', es: 'Volver a la lista', it: 'Torna alla lista', ar: 'عودة للقائمة' })}</Link>
         {editable && <Link href={`/account/trip-requests?edit=${encodeURIComponent(item.reference)}`} className="account-icon-action"><Pencil size={16} />{tx(locale, { en: 'Edit request', es: 'Editar solicitud', it: 'Modifica richiesta', ar: 'تعديل الطلب' })}</Link>}
         {editable && (

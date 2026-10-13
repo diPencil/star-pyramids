@@ -6,6 +6,8 @@ import {
   sanitizeLocale,
   isLocaleRTL,
   pickLocaleText,
+  localePreferenceCookie,
+  readLocalePreferenceCookie,
   type EnabledLocale,
   type Locale,
 } from '@/lib/locale-config'
@@ -116,19 +118,38 @@ type LocaleState = {
 }
 
 const LocaleCtx = createContext<LocaleState>({ locale: DEFAULT_LOCALE, setLocale: () => {}, currency: 'USD', setCurrency: () => {} })
+const InitialLocaleCtx = createContext<{ locale: Locale; preview: boolean }>({ locale: DEFAULT_LOCALE, preview: false })
+
+function readBrowserPreference(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key)
+  } catch { return null }
+}
+
+function readStoredLocale(): string | null {
+  return readBrowserPreference('star-locale') || readLocalePreferenceCookie(document.cookie)
+}
+
+/** Server-provided hydration seed, not a second mutable locale store. */
+export function InitialLocaleProvider({ children, locale, preview = false }: { children: ReactNode; locale: Locale; preview?: boolean }) {
+  return <InitialLocaleCtx.Provider value={{ locale, preview }}>{children}</InitialLocaleCtx.Provider>
+}
 
 export function LocaleProvider({ children, initialLocale }: { children: ReactNode; initialLocale?: Locale }) {
-  const [locale, setLocaleState] = useState<Locale>(initialLocale ?? DEFAULT_LOCALE)
+  const { locale: serverLocale, preview } = useContext(InitialLocaleCtx)
+  const [locale, setLocaleState] = useState<Locale>(initialLocale ?? serverLocale)
   const [currency, setCurrencyState] = useState<Currency>('USD')
   const [, setRatesVersion] = useState(0)
   useEffect(() => {
+    if (preview) return
     ensureStorefrontSettings()
     const applyPersistedPreferences = () => {
-      const savedLocale = window.localStorage.getItem('star-locale')
+      const savedLocale = readStoredLocale()
       const initialLocale = savedLocale
         ? sanitizeLocale(savedLocale)
         : sanitizeLocale(readLocalizationSettings().defaultLanguage)
-      const savedCurrency = window.localStorage.getItem('star-currency')
+      if (savedLocale) document.cookie = localePreferenceCookie(initialLocale, window.location.protocol === 'https:')
+      const savedCurrency = readBrowserPreference('star-currency')
       const initialCurrency = savedCurrency === 'USD' || savedCurrency === 'EUR' || savedCurrency === 'EGP'
         ? savedCurrency
         : readCurrencySettings().defaultCurrency
@@ -146,11 +167,11 @@ export function LocaleProvider({ children, initialLocale }: { children: ReactNod
     // an explicit choice keep it.
     const onRates = () => {
       setRatesVersion((v) => v + 1)
-      if (!window.localStorage.getItem('star-locale')) {
+      if (!readStoredLocale()) {
         const next = sanitizeLocale(readLocalizationSettings().defaultLanguage)
         setLocaleState((prev) => (prev === next ? prev : next))
       }
-      if (!window.localStorage.getItem('star-currency')) {
+      if (!readBrowserPreference('star-currency')) {
         const next = readCurrencySettings().defaultCurrency
         setCurrencyState((prev) => (prev === next ? prev : next))
       }
@@ -162,17 +183,19 @@ export function LocaleProvider({ children, initialLocale }: { children: ReactNod
       window.removeEventListener('sp-currency', onRates)
       window.removeEventListener('sp-l10n', onRates)
     }
-  }, [])
+  }, [preview])
   useEffect(() => {
+    if (preview) return
     document.documentElement.lang = locale
     document.documentElement.dir = isLocaleRTL(locale) ? 'rtl' : 'ltr'
-  }, [locale])
+  }, [locale, preview])
   const setLocale = useCallback((next: Locale) => {
-    window.localStorage.setItem('star-locale', next)
+    try { window.localStorage.setItem('star-locale', next) } catch { /* Cookie still retains the chosen language. */ }
+    document.cookie = localePreferenceCookie(next, window.location.protocol === 'https:')
     setLocaleState(next)
   }, [])
   const setCurrency = useCallback((next: Currency) => {
-    window.localStorage.setItem('star-currency', next)
+    try { window.localStorage.setItem('star-currency', next) } catch { /* Keep the choice for this page when storage is unavailable. */ }
     setCurrencyState(next)
   }, [])
   return <LocaleCtx.Provider value={{ locale, setLocale, currency, setCurrency }}>{children}</LocaleCtx.Provider>

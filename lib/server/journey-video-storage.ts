@@ -112,15 +112,18 @@ function buildVideoStorageKey(extension: string): string {
 export async function storeUploadedVideo(input: {
   file: File;
   uploaderId?: string | null;
+  maxBytes?: number;
 }): Promise<StoredVideo> {
   const { file } = input;
   if (!file || typeof file.arrayBuffer !== 'function') {
     throw new VideoUploadError('Choose a video file to upload.');
   }
 
-  const limit = MAX_GALLERY_VIDEO_BYTES;
+  const limit = input.maxBytes ?? MAX_GALLERY_VIDEO_BYTES;
+  if (!Number.isSafeInteger(limit) || limit <= 0 || limit > 20 * 1024 * 1024) throw new VideoUploadError('Invalid video upload limit.');
+  const sizeMessage = `Videos must be ${limit / 1024 / 1024} MB or smaller.`;
   if (typeof file.size === 'number' && file.size > limit) {
-    throw new VideoUploadError('Videos must be 5 MB or smaller.');
+    throw new VideoUploadError(sizeMessage);
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
@@ -128,7 +131,7 @@ export async function storeUploadedVideo(input: {
     throw new VideoUploadError('That file is empty.');
   }
   if (buffer.byteLength > limit) {
-    throw new VideoUploadError('Videos must be 5 MB or smaller.');
+    throw new VideoUploadError(sizeMessage);
   }
 
   const detected = detectVideoFormat(buffer);

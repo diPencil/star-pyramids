@@ -1,0 +1,22 @@
+// Verified route templates, not copies of dynamic source records.
+export const heroCatalogue = [
+  { id: 'homepage', name: 'Homepage', route: '/', group: 'Homepage', type: 'Search hero', source: 'components/homepage.tsx', editor: '/admin/website-cms/hero-sections/homepage', cms: true },
+  { id: 'about', name: 'About company', route: '/about', group: 'Company & information', type: 'Showcase', source: 'components/about-page.tsx' },
+  { id: 'contact', name: 'Contact', route: '/contact', group: 'Company & information', type: 'Showcase', source: 'components/extended-pages.tsx' },
+  { id: 'destinations', name: 'Destinations', route: '/destinations', group: 'Tours & destinations', type: 'Editorial', source: 'components/extended-pages.tsx' },
+  { id: 'blogs', name: 'Blogs', route: '/blogs', group: 'Content', type: 'Showcase', source: 'components/extended-pages.tsx' },
+  { id: 'events', name: 'Events', route: '/events', group: 'Events & cars', type: 'Events hero', source: 'components/extended-pages.tsx' },
+  { id: 'cars', name: 'Rent cars', route: '/rent-car', group: 'Events & cars', type: 'Showcase', source: 'components/extended-pages.tsx' },
+  { id: 'offers', name: 'Special offers', route: '/special-offers', group: 'Offers & marketing', type: 'Showcase', source: 'components/extended-pages.tsx' },
+  { id: 'guide', name: 'Egypt travel guide', route: '/egypt-travel-guide', group: 'Company & information', type: 'Guide hero', source: 'components/extended-pages.tsx' },
+  { id: 'faq', name: 'FAQ', route: '/faq', group: 'Company & information', type: 'Editorial', source: 'components/extended-pages.tsx' },
+  { id: 'accessible', name: 'Accessible travel', route: '/accessible-travel', group: 'Company & information', type: 'Editorial', source: 'components/extended-pages.tsx' },
+  { id: 'one-day', name: 'One-day tours', route: '/egypt-tours/one-day-tours', group: 'Tours & destinations', type: 'Category showcase', source: 'components/site.tsx' },
+  { id: 'multi-day', name: 'Multi-day tours', route: '/egypt-tours/multi-days-tours', group: 'Tours & destinations', type: 'Category showcase', source: 'components/site.tsx' },
+  { id: 'nile', name: 'Nile cruises', route: '/egypt-tours/nile-cruises', group: 'Tours & destinations', type: 'Category showcase', source: 'components/site.tsx' },
+  { id: 'shore', name: 'Shore excursions', route: '/egypt-tours/shore-excursions', group: 'Tours & destinations', type: 'Category showcase', source: 'components/site.tsx' },
+  { id: 'blog-detail', name: 'Blog articles', route: '/blogs/[slug]', group: 'Dynamic content', type: 'Editorial', source: 'components/extended-pages.tsx', editor: '/admin/blogs' },
+  { id: 'destination-detail', name: 'Destination stories', route: '/destinations/[slug]', group: 'Dynamic content', type: 'Destination hero', source: 'components/extended-pages.tsx', editor: '/admin/destinations' },
+  { id: 'event-detail', name: 'Event details', route: '/events/[slug]', group: 'Dynamic content', type: 'Event hero', source: 'components/extended-pages.tsx', editor: '/admin/events' },
+  { id: 'campaign-detail', name: 'Marketing campaigns', route: '/special-offers/[slug]', group: 'Dynamic content', type: 'Campaign hero', source: 'components/offer-campaigns.tsx', editor: '/admin/offers' },
+] as const

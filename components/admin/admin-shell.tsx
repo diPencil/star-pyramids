@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Bell,
   CalendarCheck,
@@ -41,6 +41,7 @@ import { AdminBackButton } from './admin-back'
 import { LanguageToggle } from '@/components/language-selector'
 import { ENABLED_LOCALES, LOCALE_LABELS, LOCALE_REGIONS, LOCALE_SHORT_LABELS, sanitizeLocale, type EnabledLocale } from '@/lib/locale-config'
 import { readAdminProfile } from '@/lib/admin-store'
+import { useMobileDrawer } from '@/lib/use-mobile-drawer'
 
 function timeAgo(iso: string, ar: boolean): string {
   const then = new Date(iso).getTime()
@@ -100,6 +101,7 @@ const NAV_VIEW_PERMISSIONS: Record<string, string[]> = {
   '/admin/reviews': ['reviews.view'],
   '/admin/users': ['users.view', 'roles.view'],
   '/admin/settings': ['settings.view'],
+  '/admin/website-cms/hero-sections': ['settings.view'],
 }
 
 function canSeeNavItem(
@@ -115,27 +117,59 @@ function canSeeNavItem(
 
 const groups = [
   {
-    label: 'القائمة',
+    label: 'نظرة عامة',
+    labelEn: 'OVERVIEW',
     items: [
       { href: '/admin/dashboard', icon: LayoutDashboard, en: 'Dashboard', ar: 'لوحة المؤشرات' },
+    ],
+  },
+  {
+    label: 'الحجوزات والعملاء',
+    labelEn: 'BOOKINGS & CUSTOMERS',
+    items: [
       { href: '/admin/bookings', icon: ShoppingCart, en: 'Bookings', ar: 'الحجوزات' },
       { href: '/admin/payments', icon: CreditCard, en: 'Payments', ar: 'المدفوعات' },
-      { href: '/admin/trips', icon: Map, en: 'Trips', ar: 'الرحلات' },
-      { href: '/admin/destinations', icon: MapPinned, en: 'Destinations', ar: 'الوجهات' },
-      { href: '/admin/multi-day-categories', icon: Tags, en: 'Multi Day Categories', ar: 'فئات الرحلات' },
-      { href: '/admin/events', icon: CalendarCheck, en: 'Events', ar: 'الفعاليات' },
-      { href: '/admin/event-requests', icon: ClipboardList, en: 'Event Requests', ar: 'طلبات الفعاليات' },
-      { href: '/admin/offers', icon: Ticket, en: 'Special Offers', ar: 'العروض الخاصة' },
-      { href: '/admin/blogs', icon: Newspaper, en: 'Blogs', ar: 'المدونة' },
-      { href: '/admin/gallery', icon: Images, en: 'Journey Gallery', ar: 'معرض الرحلات' },
-      { href: '/admin/cars', icon: CarFront, en: 'Rent Cars', ar: 'تأجير السيارات' },
-      { href: '/admin/car-requests', icon: ClipboardList, en: 'Car Requests', ar: 'طلبات السيارات' },
-      { href: '/admin/trip-requests', icon: Compass, en: 'Trip Requests', ar: 'طلبات الرحلات' },
       { href: '/admin/customers', icon: Users, en: 'Customers', ar: 'العملاء' },
     ],
   },
   {
+    label: 'الرحلات والوجهات',
+    labelEn: 'TOURS & DESTINATIONS',
+    items: [
+      { href: '/admin/trips', icon: Map, en: 'Trips', ar: 'الرحلات' },
+      { href: '/admin/destinations', icon: MapPinned, en: 'Destinations', ar: 'الوجهات' },
+      { href: '/admin/multi-day-categories', icon: Tags, en: 'Multi Day Categories', ar: 'فئات الرحلات' },
+    ],
+  },
+  {
+    label: 'الفعاليات والسيارات',
+    labelEn: 'EVENTS & CARS',
+    items: [
+      { href: '/admin/events', icon: CalendarCheck, en: 'Events', ar: 'الفعاليات' },
+      { href: '/admin/cars', icon: CarFront, en: 'Rent Cars', ar: 'تأجير السيارات' },
+    ],
+  },
+  {
+    label: 'الطلبات',
+    labelEn: 'REQUESTS',
+    items: [
+      { href: '/admin/trip-requests', icon: Compass, en: 'Trip Requests', ar: 'طلبات الرحلات' },
+      { href: '/admin/event-requests', icon: ClipboardList, en: 'Event Requests', ar: 'طلبات الفعاليات' },
+      { href: '/admin/car-requests', icon: ClipboardList, en: 'Car Requests', ar: 'طلبات السيارات' },
+    ],
+  },
+  {
+    label: 'المحتوى والتسويق',
+    labelEn: 'CONTENT & MARKETING',
+    items: [
+      { href: '/admin/offers', icon: Ticket, en: 'Special Offers', ar: 'العروض الخاصة' },
+      { href: '/admin/blogs', icon: Newspaper, en: 'Blogs', ar: 'المدونة' },
+      { href: '/admin/gallery', icon: Images, en: 'Journey Gallery', ar: 'معرض الرحلات' },
+    ],
+  },
+  {
     label: 'التواصل',
+    labelEn: 'COMMUNICATION',
     items: [
       { href: '/admin/inbox', icon: MessageCircle, en: 'Inbox', ar: 'صندوق المراسلة' },
       { href: '/admin/emails', icon: Mail, en: 'Emails', ar: 'البريد' },
@@ -143,7 +177,15 @@ const groups = [
     ],
   },
   {
+    label: 'إدارة محتوى الموقع',
+    labelEn: 'WEBSITE CMS',
+    items: [
+      { href: '/admin/website-cms/hero-sections', icon: Images, en: 'Hero Sections', ar: 'أقسام الهيرو' },
+    ],
+  },
+  {
     label: 'الإدارة',
+    labelEn: 'ADMINISTRATION',
     items: [
       { href: '/admin/users', icon: Users, en: 'Users & Roles', ar: 'المستخدمون والصلاحيات' },
       { href: '/admin/settings', icon: Settings, en: 'Settings', ar: 'الإعدادات' },
@@ -156,6 +198,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const sidebarRef = useRef<HTMLElement>(null)
+  const menuTriggerRef = useRef<HTMLButtonElement>(null)
+  const mobileDrawer = useMobileDrawer({ open: mobileOpen, onClose: () => setMobileOpen(false), panel: sidebarRef, trigger: menuTriggerRef, query: '(max-width: 860px)' })
   const [locale, setLocale] = useState<'en' | 'ar'>('en')
   // Storefront locale shared with the website (EN/ES/IT). The admin UI
   // itself renders English (Arabic only for legacy stored sessions).
@@ -265,7 +310,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         className={cn('sp-scrim', mobileOpen && 'show')}
         onClick={() => setMobileOpen(false)}
       />
-      <aside className={cn('sp-side', mobileOpen && 'open')}>
+      <aside ref={sidebarRef} id="admin-mobile-menu" className={cn('sp-side', mobileOpen && 'open')} inert={mobileDrawer && !mobileOpen ? true : undefined} role={mobileDrawer && mobileOpen ? 'dialog' : undefined} aria-modal={mobileDrawer && mobileOpen ? true : undefined} aria-label={ar ? 'قائمة الإدارة' : 'Admin navigation'}>
         <div className="sp-brand">
           <Link href="/admin/dashboard" className="sp-brand-link">
             <span className="sp-brand-mark"><img src="/favicon.png" alt="" /></span>
@@ -276,6 +321,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               </span>
             )}
           </Link>
+          <button type="button" className="sp-icon-btn only-mobile" onClick={() => setMobileOpen(false)} aria-label={ar ? 'إغلاق القائمة' : 'Close menu'}><X size={20}/></button>
         </div>
 
         <nav className="sp-nav" aria-busy={!navReady}>
@@ -286,7 +332,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           )}
           {(navReady ? visibleGroups : []).map((g) => (
             <div key={g.label} className="sp-nav-group">
-              {!collapsed && <p>{ar ? g.label : g.label === 'القائمة' ? 'MENU' : g.label === 'التواصل' ? 'INBOX' : 'ADMINISTRATION'}</p>}
+              {!collapsed && <p>{ar ? g.label : g.labelEn}</p>}
               {g.items.map((item) => {
                 const active = pathname === item.href || pathname?.startsWith(item.href + '/')
                 return (
@@ -306,7 +352,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           ))}
           {!navReady && groups.map((g) => (
             <div key={g.label} className="sp-nav-group" aria-hidden="true">
-              {!collapsed && <p>{ar ? g.label : g.label === 'القائمة' ? 'MENU' : g.label === 'التواصل' ? 'INBOX' : 'ADMINISTRATION'}</p>}
+              {!collapsed && <p>{ar ? g.label : g.labelEn}</p>}
               {g.items.map((item) => (
                 <span key={item.href} className="sp-nav-link" style={{ pointerEvents: 'none' }}>
                   <span style={{ width: 18, height: 18, borderRadius: 6, background: 'rgba(255,255,255,.14)' }} />
@@ -328,13 +374,16 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <div className="sp-main">
+      <div className="sp-main" inert={mobileDrawer && mobileOpen ? true : undefined}>
         <header className="sp-top">
           <button
+            ref={menuTriggerRef}
             type="button"
             className="sp-icon-btn only-mobile"
-            onClick={() => setMobileOpen(true)}
-            aria-label="Open menu"
+            onClick={() => { setCollapsed(false); setMobileOpen(true) }}
+            aria-expanded={mobileOpen}
+            aria-controls="admin-mobile-menu"
+            aria-label={ar ? 'فتح القائمة' : 'Open menu'}
           >
             <Menu size={20} />
           </button>
@@ -354,13 +403,14 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={ar ? 'بحث عن حجز أو رحلة أو عميل...' : 'Search bookings, trips, customers...'}
+              aria-label={ar ? 'البحث في أقسام الإدارة' : 'Search admin modules'}
             />
             {query && (
               <button type="button" onClick={() => setQuery('')} aria-label="Clear">
                 <X size={15} />
               </button>
             )}
-            {query && <div className="sp-search-results" role="listbox" aria-label={ar ? 'نتائج البحث' : 'Search results'}>
+            {query && <div className="sp-search-results" role="navigation" aria-label={ar ? 'نتائج البحث' : 'Search results'}>
               {searchResults.length ? searchResults.map((item) => <Link key={item.href} href={item.href} onClick={() => setQuery('')}><item.icon size={16} /><span>{ar ? item.ar : item.en}</span></Link>) : <span>{ar ? 'لا توجد أقسام مطابقة' : 'No matching modules'}</span>}
             </div>}
           </div>

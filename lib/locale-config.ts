@@ -48,6 +48,16 @@ export function sanitizeLocale(value: string | null | undefined): EnabledLocale 
   return DEFAULT_LOCALE;
 }
 
+/** Host-only, non-secret preference consumed by the existing server locale reader. */
+export function localePreferenceCookie(locale: Locale, secure: boolean): string {
+  return `star-locale=${sanitizeLocale(locale)}; Path=/; Max-Age=31536000; SameSite=Lax${secure ? '; Secure' : ''}`;
+}
+
+export function readLocalePreferenceCookie(cookie: string): EnabledLocale | null {
+  const value = cookie.split(';').map((part) => part.trim()).find((part) => part.startsWith('star-locale='))?.slice('star-locale='.length);
+  return value && isLocaleEnabled(value) ? value : null;
+}
+
 /**
  * Neutral localized-text picker (no React, safe for server + client).
  * Missing translations fall back to English — catalogue/editorial

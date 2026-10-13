@@ -2,6 +2,7 @@ import { Analytics } from '@vercel/analytics/next'
 import { Alexandria, Montserrat } from 'next/font/google'
 import type { Metadata, Viewport } from 'next'
 import { BrandFavicon } from '@/components/brand-favicon'
+import { InitialLocaleProvider } from '@/components/locale'
 import { EnquiryHistoryTracking } from '@/components/enquiry-history-tracking'
 import { getServerLocale, getHtmlLang, getOgLocale } from '@/lib/server/locale'
 import { getSiteUrl } from '@/lib/seo'
@@ -26,6 +27,7 @@ const alexandria = Alexandria({
 })
 
 import './globals.css'
+import './mobile-shell.css'
 
 const SITE_NAME = 'STAR PYRAMIDS'
 const SITE_DESCRIPTION = 'Discover ancient wonders, warm hospitality, and unforgettable journeys across Egypt.'
@@ -88,6 +90,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
   colorScheme: 'light dark',
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: 'white' },
@@ -115,7 +120,7 @@ export default async function RootLayout({
       <body className={`${montserrat.variable} ${alexandria.variable} antialiased`}>
         <BrandFavicon />
         <EnquiryHistoryTracking />
-        {children}
+        <InitialLocaleProvider locale={locale}>{children}</InitialLocaleProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './account.css'
+import './mobile.css'
 import { headers } from 'next/headers'
 import { AuthenticatedUserProvider } from '@/components/authenticated-user'
 import { StaffPreviewBootstrap } from '@/components/staff-preview-bootstrap'

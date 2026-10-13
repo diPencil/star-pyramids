@@ -1,10 +1,9 @@
-import type { Metadata } from 'next'
+import { authPageMetadata } from '@/lib/auth-page-metadata'
+import { getServerLocale } from '@/lib/server/locale'
 import { LoginPage } from '@/components/auth-pages'
 
-export const metadata: Metadata = {
-  title: 'Sign In',
-  description: 'Sign in to your STAR PYRAMIDS account to manage bookings and trips.',
-  robots: { index: false, follow: false, nocache: true },
+export async function generateMetadata() {
+  return authPageMetadata('login', await getServerLocale())
 }
 
 export default function Page() {

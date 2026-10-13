@@ -128,7 +128,7 @@ export function AdminTableTools({
 }
 
 export function AdminTableWrap({ children }: { children: React.ReactNode }) {
-  return <div className="sp-table-wrap">{children}</div>
+  return <div className="sp-table-wrap" tabIndex={0}>{children}</div>
 }
 
 export function AdminIconAction({

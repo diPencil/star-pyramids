@@ -2,6 +2,9 @@ import type { Metadata } from 'next'
 import { RebuiltHomePage } from '@/components/homepage'
 import { generateOrganizationJsonLd, renderJsonLd } from '@/lib/structured-data'
 import { getSiteUrl, getHreflangEntries } from '@/lib/seo'
+import { readHeroState } from '@/lib/server/website-heroes'
+import { publicHeroState } from '@/lib/website-heroes'
+import type { PublicHomeHero } from '@/components/homepage-hero'
 
 export async function generateMetadata(): Promise<Metadata> {
   const siteUrl = await getSiteUrl()
@@ -24,12 +27,15 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-export default function Page() {
+export default async function Page() {
   const orgJsonLd = generateOrganizationJsonLd()
+  let hero: PublicHomeHero
+  try { hero = publicHeroState(await readHeroState()) }
+  catch { hero = { hidden: false, content: null, unavailable: true } }
   return (
     <>
       {renderJsonLd(orgJsonLd)}
-      <RebuiltHomePage />
+      <RebuiltHomePage hero={hero} />
     </>
   )
 }

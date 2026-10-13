@@ -921,7 +921,7 @@ export default function SettingsPage() {
   const ar = useAdminLocale() === 'ar'
   const { user } = useCurrentUser()
   const canWrite = (user?.permissions ?? []).includes('settings.edit')
-  const [tab, setTab] = useState<(typeof tabs)[number]['id']>('whatsapp')
+  const [tab, setTab] = useState<(typeof tabs)[number]['id']>('general')
   const [snapshot, setSnapshot] = useState<SettingsSnapshot | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')

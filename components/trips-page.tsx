@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { CampaignPlacementSlot } from './offer-campaigns'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -90,6 +90,8 @@ function TripsContent() {
   const page = Number.isInteger(rawPage) && rawPage > 0 && rawPage <= 999 ? rawPage : 1
   const [search, setSearch] = useState(q)
   const [view, setView] = useState<'grid' | 'list'>('grid')
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const filterTrigger = useRef<HTMLButtonElement>(null)
   useEffect(() => setSearch(q), [q])
 
   const update = (next: Record<string, string>) => {
@@ -138,8 +140,9 @@ function TripsContent() {
         </div>
         <button type="submit">{t.search}<ArrowRight size={17} aria-hidden="true" /></button>
       </form>
+      <button ref={filterTrigger} type="button" className="trips-mobile-filter-toggle" aria-expanded={filtersOpen} aria-controls="trips-filter-panel" onClick={() => setFiltersOpen((open) => !open)}><SlidersHorizontal size={18}/><span>{t.filters}</span>{activeCount > 0 && <b>{activeCount}</b>}</button>
       <div className="trips-layout">
-        <aside className="trips-filters" aria-label={t.filters}>
+        <aside id="trips-filter-panel" className={`trips-filters${filtersOpen ? ' is-open' : ''}`} aria-label={t.filters}>
           <div className="trips-filter-head"><h2><SlidersHorizontal size={19}/>{t.filters}{activeCount > 0 && <span>{activeCount}</span>}</h2><button type="button" onClick={() => { setSearch(''); router.replace('/trips', { scroll: false }) }}>{t.clear}</button></div>
           <fieldset className="trips-filter-group"><legend>{t.type}</legend>
             <label><input type="radio" name="trip-category" checked={!category} onChange={() => update({ category: '' })}/><span>{t.all}</span><small>{liveCatalog.length}</small></label>
@@ -149,6 +152,7 @@ function TripsContent() {
           <div className="trips-filter-group"><label className="trips-select-label" htmlFor="trips-duration">{t.duration}</label><div className="trips-select"><SharedSelect id="trips-duration" value={duration} onChange={(next) => update({ duration: next })} locale={locale} options={[{ value: '', label: t.anyDuration }, ...durations.map((item, index) => ({ value: item, label: t.durationLabels[index] }))]} /></div></div>
           <div className="trips-filter-group"><label className="trips-select-label" htmlFor="trips-price">{t.price}</label><div className="trips-select"><SharedSelect id="trips-price" value={price} onChange={(next) => update({ price: next })} locale={locale} options={[{ value: '', label: t.anyPrice }, ...tourPriceBands.slice(1).map((band) => {const lo = formatPrice(200, currency, locale); const hi = formatPrice(400, currency, locale); const label = band.id === 'under-200' ? tx(locale, { en: `Under ${lo}`, es: `Menos de ${lo}`, it: `Meno di ${lo}`, ar: `أقل من ${lo}` }) : band.id === '200-400' ? `${lo} - ${hi}` : tx(locale, { en: `Over ${hi}`, es: `Más de ${hi}`, it: `Più di ${hi}`, ar: `أكثر من ${hi}` }); return { value: band.id, label }})]} /></div></div>
           <CampaignPlacementSlot placement="trips-sidebar"/>
+          <button type="button" className="trips-mobile-filter-done" onClick={() => { setFiltersOpen(false); filterTrigger.current?.focus({ preventScroll: true }) }}>{tx(locale, { en: `Show ${filtered.length} trips`, es: `Ver ${filtered.length} viajes`, it: `Mostra ${filtered.length} viaggi`, ar: `عرض ${filtered.length} رحلة` })}<ArrowRight size={17}/></button>
         </aside>
         <div className="trips-catalog">
           <div className="trips-toolbar"><div><strong role="status">{filtered.length} {t.results}</strong><span>{filtered.length ? `${t.showing} ${start + 1}-${Math.min(start + perPage, sorted.length)} ${t.of} ${sorted.length}` : ''}</span></div><div className="trips-toolbar-actions"><label>{t.sort}<SharedSelect value={sort} onChange={(next) => update({ sort: next })} locale={locale} options={tourListingSorts.map((item, index) => ({ value: item, label: t.sortLabels[index] }))} /></label><div className="trips-view" role="group" aria-label={tx(locale, { en: 'View mode', es: 'Modo de vista', it: 'Modalità di visualizzazione', ar: 'طريقة العرض' })}><button type="button" className={view === 'grid' ? 'active' : ''} onClick={() => setView('grid')} aria-label={t.grid} aria-pressed={view === 'grid'} title={t.grid}><LayoutGrid size={18}/></button><button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')} aria-label={t.list} aria-pressed={view === 'list'} title={t.list}><List size={18}/></button></div></div></div>

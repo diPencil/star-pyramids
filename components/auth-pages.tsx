@@ -13,6 +13,7 @@ import { LocaleProvider, tx, useLocale } from './locale'
 import { LanguageSelector } from './language-selector'
 import { Logo } from './site'
 import { getCopy } from '@/lib/locale-helpers'
+import { customerErrorText } from '@/lib/customer-error-copy'
 
 type SocialProvider = 'Google' | 'Facebook'
 
@@ -106,9 +107,9 @@ function LoginForm() {
         return
       }
       const data = await res.json().catch(() => ({}))
-      setError(data.error || genericError)
+      setError(typeof data.error === 'string' ? data.error : 'An error occurred. Please try again.')
     } catch {
-      setError(genericError)
+      setError('An error occurred. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -128,7 +129,7 @@ function LoginForm() {
       <header className="auth-v2-top"><Link href="/" aria-label={tx(locale, { en: 'Back to home', es: 'Volver al inicio', it: 'Torna alla home', ar: 'العودة للرئيسية' })}><ArrowRight size={18} />{tx(locale, { en: 'Home', es: 'Inicio', it: 'Home', ar: 'الرئيسية' })}</Link><LanguageSelector /></header>
       <div className="auth-v2-card">
         <div className="auth-v2-heading"><span>{tx(locale, { en: 'Welcome back', es: 'Bienvenido de nuevo', it: 'Bentornato', ar: 'مرحبًا بعودتك' })}</span><h1>{text.loginTitle}</h1><p>{text.loginCopy}</p></div>
-        {error && <p className="auth-v2-notice" role="alert"><ShieldCheck size={17} />{error}</p>}
+        {error && <p className="auth-v2-notice" role="alert"><ShieldCheck size={17} />{customerErrorText(locale, error, genericError)}</p>}
         <form className="auth-v2-form" onSubmit={handleSubmit}>
           <AuthField label={tx(locale, { en: 'Email or username', es: 'Correo electrónico o nombre de usuario', it: 'Email o nome utente', ar: 'البريد الإلكتروني أو اسم المستخدم' })} icon={<Mail size={18} />}>
             <input required name="username" type="text" autoComplete="username" placeholder={tx(locale, { en: 'you@example.com or username', es: 'you@example.com o nombre de usuario', it: 'you@example.com o nome utente', ar: 'you@example.com أو اسم المستخدم' })} value={identifier} onChange={(e) => setIdentifier(e.target.value)} />
@@ -156,7 +157,7 @@ function RegisterForm() {
   const [countryCode, setCountryCode] = useState(defaultCountry.code)
   const [phoneCountry, setPhoneCountry] = useState(defaultCountry.code)
   const [phone, setPhone] = useState('')
-  const [notice, setNotice] = useState('')
+  const [notice, setNotice] = useState<string | { apiError: unknown }>('')
   const [loading, setLoading] = useState(false)
   const createFailed = tx(locale, { en: 'Could not create the account. Please try again.', es: 'No se pudo crear la cuenta. Inténtalo de nuevo.', it: 'Impossibile creare l’account. Riprova.', ar: 'تعذر إنشاء الحساب. حاول مرة أخرى.' })
 
@@ -167,7 +168,7 @@ function RegisterForm() {
     setNotice('')
     const form = new FormData(event.currentTarget)
     if (form.get('password') !== form.get('confirmPassword')) {
-      setNotice(tx(locale, { en: 'The passwords do not match.', es: 'Las contraseñas no coinciden.', it: 'Le password non corrispondono.', ar: 'كلمتا المرور غير متطابقتين.' }))
+      setNotice(locale === 'ar' ? 'كلمتا المرور غير متطابقتين.' : { apiError: 'The passwords do not match.' })
       return
     }
     setLoading(true)
@@ -191,13 +192,13 @@ function RegisterForm() {
       })
       const data = await response.json().catch(() => ({}))
       if (!response.ok) {
-        setNotice(data.error || createFailed)
+        setNotice({ apiError: data.error })
         return
       }
       router.replace(typeof data.redirectTo === 'string' ? data.redirectTo : '/account')
       router.refresh()
     } catch {
-      setNotice(createFailed)
+      setNotice({ apiError: null })
     } finally {
       setLoading(false)
     }
@@ -219,7 +220,7 @@ function RegisterForm() {
         <>
           <div className="auth-v2-heading"><span>{tx(locale, { en: 'Join STAR PYRAMIDS', es: 'Únete a STAR PYRAMIDS', it: 'Unisciti a STAR PYRAMIDS', ar: 'انضم لينا' })}</span><h1>{text.registerTitle}</h1><p>{text.registerCopy}</p></div>
           <SocialButtons onSelect={socialPreview} />
-          {notice && <p className="auth-v2-notice" role="alert"><ShieldCheck size={17} />{notice}</p>}
+          {notice && <p className="auth-v2-notice" role="alert"><ShieldCheck size={17} />{typeof notice === 'string' ? notice : customerErrorText(locale, notice.apiError, createFailed)}</p>}
           <div className="auth-v2-divider"><span>{tx(locale, { en: 'or use your details', es: 'o usa tus datos', it: 'oppure usa i tuoi dati', ar: 'أو استخدم بياناتك' })}</span></div>
           <form className="auth-v2-form" onSubmit={submit}>
             <div className="auth-v2-grid">

@@ -7,6 +7,7 @@ import { formatPrice, tx, useLocale, type Locale } from '@/components/locale'
 import { SharedSelect } from '@/components/shared-select'
 import { bookingOfflinePaymentLabel, remainingBookingBalance } from '@/lib/payment'
 import type { Booking } from '@/lib/booking'
+import { customerErrorText } from '@/lib/customer-error-copy'
 
 /**
  * Offline payment instructions (Phase 3: no gateway, no bank details on
@@ -118,7 +119,7 @@ export function PaymentProofForm({ bookingReference, guestToken, onSubmitted }: 
     })
       .then(async (res) => {
         const data = (await res.json().catch(() => ({}))) as SubmittedProofResponse & { error?: string }
-        if (!res.ok) throw new Error(typeof data.error === 'string' && data.error ? data.error : tx(locale, { en: 'Could not send the reference. Please try again.', es: 'No se pudo enviar la referencia. Inténtalo de nuevo.', it: 'Impossibile inviare il riferimento. Riprova.', ar: 'تعذر إرسال المرجع. حاول مجددًا.' }))
+        if (!res.ok) throw new Error(customerErrorText(locale, data.error, tx(locale, { en: 'Could not send the reference. Please try again.', es: 'No se pudo enviar la referencia. Inténtalo de nuevo.', it: 'Impossibile inviare il riferimento. Riprova.', ar: 'تعذر إرسال المرجع. حاول مجددًا.' })))
         setReference('')
         setMethod('')
         setNotice(data.proof?.duplicate
@@ -145,7 +146,7 @@ export function PaymentProofForm({ bookingReference, guestToken, onSubmitted }: 
           ]} />
         </label>
         <label>{tx(locale, { en: 'Payment reference', es: 'Referencia de pago', it: 'Riferimento di pagamento', ar: 'مرجع الدفع' })}
-          <input value={reference} onChange={(event) => setReference(event.target.value)} maxLength={128} dir="ltr" autoComplete="off" placeholder="e.g. BANK-REF-123456" aria-label={tx(locale, { en: 'Payment reference', es: 'Referencia de pago', it: 'Riferimento di pagamento', ar: 'مرجع الدفع' })} />
+          <input value={reference} onChange={(event) => setReference(event.target.value)} maxLength={128} dir="ltr" autoComplete="off" placeholder={tx(locale, { en: 'e.g. BANK-REF-123456', es: 'p. ej. BANK-REF-123456', it: 'ad es. BANK-REF-123456', ar: 'مثال: BANK-REF-123456' })} aria-label={tx(locale, { en: 'Payment reference', es: 'Referencia de pago', it: 'Riferimento di pagamento', ar: 'مرجع الدفع' })} />
         </label>
       </div>
       {error && <p role="alert" className="form-error">{error}</p>}

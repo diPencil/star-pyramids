@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { AdminShell } from '@/components/admin/admin-shell';
 import { requireStaff } from '@/lib/server/guards';
 import './admin.css';
+import './mobile.css';
 
 export const metadata: Metadata = {
   title: 'Star Pyramids | Internal Dashboard',

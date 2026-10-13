@@ -7,7 +7,7 @@ import { getToursByCategory } from '@/data/tours'
 import { useDbTours } from '@/lib/tours-client'
 import { whatsappHref } from '@/data/company'
 import { useBrandSettings } from '@/lib/admin-store'
-import { formatPrice, useLocale } from './locale'
+import { formatPrice, useLocale, type Locale } from './locale'
 
 type ChatMsg = { id: number; from: 'agent' | 'user'; text: string; time: string }
 type ChipId = 'prices' | 'agent' | 'booking' | 'browse' | 'trips' | 'plan' | 'contact' | 'wa'
@@ -55,23 +55,51 @@ const baseCopy = {
   },
 } as const
 
-const copy = { ...baseCopy, es: baseCopy.en, it: baseCopy.en } as const
+const copy = {
+  ...baseCopy,
+  es: {
+    openLabel: 'Abrir chat', closeLabel: 'Cerrar chat', sendLabel: 'Enviar mensaje',
+    name: 'STAR PYRAMIDS', online: 'En línea, respuestas al instante', inputPh: 'Escribe un mensaje...',
+    teaser: '¿Necesitas ayuda para planificar tu viaje a Egipto? ¡Chatea con nosotros!',
+    greeting: '¡Hola! Soy Nour de STAR PYRAMIDS. Pregúntame sobre cruceros por el Nilo, precios o reservas. También puedes elegir un tema:',
+    price: 'Nuestros cruceros por el Nilo cuestan desde {price} por persona, según la temporada y el tamaño del grupo. Cada página de crucero tiene una tabla de precios por temporada (individual, pareja y grupo). Abre un crucero y consulta «Precios del crucero».',
+    cruise: 'Tenemos 4 categorías de cruceros: Standard, Deluxe, Superior y Luxury, de 3 a 7 noches entre Lúxor y Asuán, con pensión completa y visitas guiadas a los templos.',
+    booking: 'Reservar es fácil: abre un viaje y pulsa «Reserva ahora», o indícanos tus fechas en la página «Crea tu viaje» y organizaremos los detalles.',
+    human: '¡Por supuesto! Nuestro equipo está disponible en WhatsApp y en la página de contacto. Alguien te responderá en breve.',
+    thanks: '¡De nada! Estoy aquí si necesitas algo más.',
+    fallback: '¡Entendido! Nuestro equipo te responderá en breve. Mientras tanto, elige un tema para que pueda ayudarte más rápido:',
+    chipLabels: { prices: 'Precios de cruceros por el Nilo', agent: 'Hablar con un agente', booking: '¿Cómo reservo?', browse: 'Ver cruceros por el Nilo', trips: 'Ver todos los viajes', plan: 'Planificar mi viaje', contact: 'Página de contacto', wa: 'Escríbenos por WhatsApp' },
+  },
+  it: {
+    openLabel: 'Apri la chat', closeLabel: 'Chiudi la chat', sendLabel: 'Invia messaggio',
+    name: 'STAR PYRAMIDS', online: 'Online, risposte immediate', inputPh: 'Scrivi un messaggio...',
+    teaser: 'Hai bisogno di aiuto per organizzare il tuo viaggio in Egitto? Chatta con noi!',
+    greeting: 'Ciao! Sono Nour di STAR PYRAMIDS. Chiedimi informazioni su crociere sul Nilo, prezzi o prenotazioni. Oppure scegli un argomento:',
+    price: 'Le nostre crociere sul Nilo partono da {price} a persona, in base alla stagione e alle dimensioni del gruppo. Ogni pagina della crociera ha una tabella dei prezzi stagionali (singolo, coppia e gruppo). Apri una crociera e consulta «Prezzi della crociera».',
+    cruise: 'Abbiamo 4 categorie di crociere: Standard, Deluxe, Superior e Luxury, da 3 a 7 notti tra Luxor e Assuan, con pensione completa e visite guidate ai templi.',
+    booking: 'Prenotare è semplice: apri un viaggio e premi «Prenota ora», oppure indica le tue date nella pagina «Crea il tuo viaggio» e organizzeremo i dettagli.',
+    human: 'Certamente! Il nostro team è disponibile su WhatsApp e nella pagina dei contatti. Qualcuno ti risponderà a breve.',
+    thanks: 'Prego! Sono qui se hai bisogno di altro.',
+    fallback: 'Ricevuto! Il nostro team ti risponderà a breve. Nel frattempo, scegli un argomento per aiutarti più rapidamente:',
+    chipLabels: { prices: 'Prezzi delle crociere sul Nilo', agent: 'Parla con un operatore', booking: 'Come posso prenotare?', browse: 'Vedi le crociere sul Nilo', trips: 'Vedi tutti i viaggi', plan: 'Pianifica il mio viaggio', contact: 'Pagina dei contatti', wa: 'Scrivici su WhatsApp' },
+  },
+} as const
 
-function getBotReply(text: string, lang: 'en' | 'ar', priceStr: string): { text: string; chips: ChipId[] } {
+export function getBotReply(text: string, lang: Locale, priceStr: string): { text: string; chips: ChipId[] } {
   const t = copy[lang]
   const s = text.toLocaleLowerCase()
   const has = (...words: string[]) => words.some((w) => s.includes(w))
-  if (/^(hi|hello|hey|good morning|good evening|hii+)\b/.test(s) || has('سلام', 'مرحبا', 'أهلا', 'اهلا', 'ازيك', 'هاي', 'صباح', 'مساء'))
+  if (/^(hi|hello|hey|good morning|good evening|hii+|hola|buenos días|buenas tardes|ciao|buongiorno|buonasera)\b/.test(s) || has('سلام', 'مرحبا', 'أهلا', 'اهلا', 'ازيك', 'هاي', 'صباح', 'مساء'))
     return { text: t.greeting, chips: [...chipsHome] }
-  if (has('price', 'cost', 'much', 'cheap', 'discount', 'سعر', 'أسعار', 'اسعار', 'بكام', 'تكلفة', 'تكلفه', 'خصم'))
+  if (has('price', 'cost', 'much', 'cheap', 'discount', 'precio', 'cuánto', 'descuento', 'prezzo', 'prezzi', 'quanto', 'sconto', 'سعر', 'أسعار', 'اسعار', 'بكام', 'تكلفة', 'تكلفه', 'خصم'))
     return { text: t.price.replace('{price}', priceStr), chips: [...chipsBrowse] }
-  if (has('book', 'reserve', 'حجز', 'احجز', 'الحجز'))
+  if (has('book', 'reserve', 'reserv', 'prenot', 'حجز', 'احجز', 'الحجز'))
     return { text: t.booking, chips: [...chipsPlan] }
-  if (has('cruise', 'nile', 'ship', 'luxor', 'aswan', 'كروز', 'نيل', 'النيل', 'مركب', 'الأقصر', 'الاقصر', 'أسوان', 'اسوان'))
+  if (has('cruise', 'nile', 'ship', 'luxor', 'aswan', 'crucero', 'nilo', 'crociera', 'crociere', 'كروز', 'نيل', 'النيل', 'مركب', 'الأقصر', 'الاقصر', 'أسوان', 'اسوان'))
     return { text: t.cruise, chips: [...chipsBrowse] }
-  if (has('human', 'agent', 'person', 'someone', 'call', 'phone', 'contact', 'whatsapp', 'موظف', 'إنسان', 'انسان', 'بشر', 'مندوب', 'حد يكلمني', 'اتصل', 'تليفون', 'رقم', 'واتس', 'تواصل'))
+  if (has('human', 'agent', 'person', 'someone', 'call', 'phone', 'contact', 'whatsapp', 'agente', 'operatore', 'contatt', 'teléfono', 'telefono', 'موظف', 'إنسان', 'انسان', 'بشر', 'مندوب', 'حد يكلمني', 'اتصل', 'تليفون', 'رقم', 'واتس', 'تواصل'))
     return { text: t.human, chips: [...chipsContact] }
-  if (has('thank', 'thanks', 'شكرا', 'متشكر', 'ميرسي'))
+  if (has('thank', 'thanks', 'gracias', 'grazie', 'شكرا', 'متشكر', 'ميرسي'))
     return { text: t.thanks, chips: [...chipsHome] }
   return { text: t.fallback, chips: [...chipsHome] }
 }
@@ -113,7 +141,7 @@ export function LiveChatWidget({ open, onOpen, onClose }: { open: boolean; onOpe
   const nilePrices = nileTours.map((tour) => tour.price)
   const liveMinNilePrice = nilePrices.length ? Math.min(...nilePrices) : minNilePrice
   const priceStr = formatPrice(liveMinNilePrice, currency, locale)
-  const timeNow = () => new Date().toLocaleTimeString(locale === 'ar' ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })
+  const timeNow = () => new Date().toLocaleTimeString(locale === 'ar' ? 'ar-EG' : locale === 'es' ? 'es-ES' : locale === 'it' ? 'it-IT' : 'en-US', { hour: '2-digit', minute: '2-digit' })
 
   useEffect(() => { openRef.current = open }, [open])
   useEffect(() => {
@@ -165,7 +193,7 @@ export function LiveChatWidget({ open, onOpen, onClose }: { open: boolean; onOpe
     setMessages((prev) => [...prev, userMsg])
     setDraft('')
     setTyping(true)
-    const reply = getBotReply(clean, locale === 'ar' ? 'ar' : 'en', priceStr)
+    const reply = getBotReply(clean, locale, priceStr)
     timerRef.current = window.setTimeout(() => {
       setTyping(false)
       setMessages((prev) => [...prev, { id: idRef.current++, from: 'agent', text: reply.text, time: timeNow() }])

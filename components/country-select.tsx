@@ -2,7 +2,8 @@
 
 import { Check, ChevronDown } from 'lucide-react'
 import { Select } from '@base-ui/react/select'
-import { countries, type CountryOption } from '@/data/countries'
+import { countries } from '@/data/countries'
+import { countryLabel as localizedName } from '@/lib/country-label'
 import { CountryFlag } from '@/components/country-flag'
 import { tx } from '@/components/locale'
 import type { Locale } from '@/lib/locale-config'
@@ -39,10 +40,6 @@ type CountrySelectProps = {
   describedBy?: string
   className?: string
   popupWidth?: CountryPopupWidth
-}
-
-function localizedName(country: CountryOption, locale: Locale): string {
-  return locale === 'ar' ? country.nameAr : country.name
 }
 
 /**

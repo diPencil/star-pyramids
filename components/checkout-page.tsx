@@ -12,6 +12,7 @@ import {
 } from '@/lib/booking'
 import { InternationalPhoneInput } from './international-phone-input'
 import { PaymentInstructions } from './booking-payment'
+import { customerErrorText } from '@/lib/customer-error-copy'
 
 const IDEMPOTENCY_KEY_STORAGE = 'sp-checkout-key'
 
@@ -109,7 +110,7 @@ export function CheckoutPage() {
     })
       .then(async (res) => {
         const data = (await res.json()) as Booking & { error?: string; guestAccessUrl?: string | null }
-        if (!res.ok) throw new Error(data.error || sendFailed)
+        if (!res.ok) throw new Error(customerErrorText(locale, data.error, sendFailed))
         // Guest checkouts get a private link from the server: the booking is
         // not linked to an account, so the reference alone opens nothing.
         const guestAccessUrl = typeof data.guestAccessUrl === 'string' ? data.guestAccessUrl : null

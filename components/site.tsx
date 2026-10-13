@@ -4,7 +4,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useRef, useState, type MouseEvent as CardMouseEvent } from 'react'
-import { ChevronDown, Globe2, Heart, Menu, Search, Share2, ShoppingCart, X, ArrowRight, ArrowUp, Check, MapPin, Clock3, Users, CarFront, Mail, Phone, Star, Sun, Ship, Anchor, Package, Ticket, BadgePercent, Accessibility, BadgeCheck, Gift, Bell, Sparkles, UserRound, LayoutDashboard } from 'lucide-react'
+import { ChevronDown, Globe2, Heart, Home, Compass, CalendarCheck, Menu, Search, Share2, ShoppingCart, X, ArrowRight, ArrowUp, Check, MapPin, Clock3, Users, CarFront, Mail, Phone, Star, Sun, Ship, Anchor, Package, Ticket, BadgePercent, Accessibility, BadgeCheck, Gift, Bell, Sparkles, UserRound, LayoutDashboard } from 'lucide-react'
 import { blogs, cars, destinations, events, faqs, offers, siteImages, policies, findBlog, findCar, findDestination, findEvent, findOffer } from '@/data/content'
 import { assignableOneDayTours, catalogTours, getCruiseTypeBySlug, getMultiDayToursForCategory, getOneDayToursForDestination, getPublishedMultiDayCategories, getPublishedOneDayDestinations, getToursByCategory, multiDayCategories, seasonalTours, tourCategories, tourImages } from '@/data/tours'
 import { matchPriceBand, parseTourListingQuery, tourListingSorts, tourPriceBands, type TourListingQuery } from '@/lib/query'
@@ -365,6 +365,8 @@ export function Header() {
   const [scrolled, setScrolled] = useState(false)
   const promoHold = useRef(false)
   const primaryHeaderRef = useRef<HTMLElement>(null)
+  const mobileMenuRef = useRef<HTMLDialogElement>(null)
+  const mobileMenuTriggerRef = useRef<HTMLButtonElement>(null)
   const router = useRouter()
   const pathname = usePathname()
   const activeNav = useActiveNav(pathname)
@@ -396,6 +398,24 @@ export function Header() {
   }, [pathname])
 
   useEffect(() => {
+    if (!menu) return
+    const dialog = mobileMenuRef.current
+    if (!dialog) return
+    dialog.showModal()
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const desktop = window.matchMedia('(min-width: 1025px)')
+    const closeOnDesktop = () => { if (desktop.matches) setMenu(false) }
+    desktop.addEventListener('change', closeOnDesktop)
+    return () => {
+      dialog.close()
+      document.body.style.overflow = previousOverflow
+      desktop.removeEventListener('change', closeOnDesktop)
+      mobileMenuTriggerRef.current?.focus({ preventScroll: true })
+    }
+  }, [menu])
+
+  useEffect(() => {
     const onDocumentClick = (event: globalThis.MouseEvent) => {
       const target = event.target as HTMLElement
       if (!target.closest('.nav-dropdown') && !target.closest('.mobile-nav')) {
@@ -403,7 +423,6 @@ export function Header() {
         setCompanyOpen(false)
       }
       if (!target.closest('.notif-wrapper')) setNotifOpen(false)
-      if (!target.closest('.mobile-nav') && !target.closest('.mobile-menu')) setMenu(false)
     }
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -436,7 +455,6 @@ export function Header() {
         if (prev !== next) {
           setToursOpen(false)
           setCompanyOpen(false)
-          setMenu(false)
         }
         return next
       })
@@ -457,14 +475,26 @@ export function Header() {
     [ex.cat3, '/egypt-tours/nile-cruises'],
     [ex.cat4, '/egypt-tours/shore-excursions'],
   ] as const
-  const mobileLinks = [[t.home, '/'], [t.tours, '/trips'], [t.rent, '/rent-car'], [t.events, '/events'], [t.about, '/about'], [t.contact, '/contact'], [t.blogs, '/blogs']] as const
+  const mobileGroups = [
+    { label: t.tours, links: [...tourLinks, [t.offer, '/special-offers'], [tx(locale, { en: 'Destinations', es: 'Destinos', it: 'Destinazioni', ar: 'الوجهات' }), '/destinations']] },
+    { label: tx(locale, { en: 'Plan & discover', es: 'Planifica y descubre', it: 'Pianifica e scopri', ar: 'خطط واستكشف' }), links: [[t.make, '/make-your-trip'], [t.rent, '/rent-car'], [t.events, '/events'], [t.blogs, '/blogs'], [ex.guideLink, '/egypt-travel-guide']] },
+    { label: tx(locale, { en: 'Help & company', es: 'Ayuda y empresa', it: 'Assistenza e azienda', ar: 'المساعدة والشركة' }), links: [[t.about, '/about'], [t.contact, '/contact'], [ex.faqsLink, '/faq'], [ex.accessLink, '/accessible-travel']] },
+  ]
+  const staff = isStaffUser(headerUser)
+  const mobileAccountHref = headerUser ? (staff ? '/admin' : '/account') : '/login'
+  const mobileBottomLinks = [
+    { href: '/', label: t.home, icon: Home, active: pathname === '/' },
+    { href: '/trips', label: tx(locale, { en: 'Explore', es: 'Explorar', it: 'Esplora', ar: 'استكشف' }), icon: Compass, active: pathname === '/trips' || pathname.startsWith('/egypt-tours') || pathname.startsWith('/destinations') },
+    { href: staff ? '/cart' : '/account/bookings', label: staff ? tx(locale, { en: 'Cart', es: 'Carrito', it: 'Carrello', ar: 'السلة' }) : tx(locale, { en: 'Bookings', es: 'Reservas', it: 'Prenotazioni', ar: 'الحجوزات' }), icon: staff ? ShoppingCart : CalendarCheck, active: staff ? pathname === '/cart' : pathname.startsWith('/account/bookings') },
+    { href: mobileAccountHref, label: headerUser ? (staff ? t.dashboard : t.account) : t.signIn, icon: staff ? LayoutDashboard : UserRound, active: pathname === '/login' || pathname === '/register' || (pathname.startsWith('/account') && !pathname.startsWith('/account/bookings')) },
+  ]
 
   const navConfig = getNavConfig(t, ex, locale)
 
   return <>
     <header ref={primaryHeaderRef} suppressHydrationWarning className="site-header">
       <div className="header-top container">
-        <button type="button" className="mobile-menu" onClick={() => setMenu((value) => !value)} aria-label={tx(locale, { en: 'Open menu', es: 'Abrir el menú', it: 'Apri il menu', ar: 'فتح القائمة' })} aria-expanded={menu}>{menu ? <X/> : <Menu/>}</button>
+        <button ref={mobileMenuTriggerRef} type="button" className="mobile-menu" onClick={(event) => { event.stopPropagation(); setMenu(true) }} aria-label={tx(locale, { en: 'Open menu', es: 'Abrir el menú', it: 'Apri il menu', ar: 'فتح القائمة' })} aria-expanded={menu} aria-controls="public-mobile-menu"><Menu/></button>
         <Logo/>
         <form className="site-search" role="search" onSubmit={(event) => { event.preventDefault(); router.push('/search?q=' + encodeURIComponent(query)) }}>
           <Search size={19}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t.search} aria-label={t.search}/>
@@ -483,6 +513,12 @@ export function Header() {
         </div>
       </div>
 
+      <form className="mobile-header-search container" role="search" onSubmit={(event) => { event.preventDefault(); router.push('/search?q=' + encodeURIComponent(query.trim())) }}>
+        <Search size={18} aria-hidden="true" />
+        <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t.search} aria-label={t.search} enterKeyHint="search" />
+        <button type="submit" aria-label={ex.searchBtn}><ArrowRight size={18} /></button>
+      </form>
+
       <div className="header-nav">
         <div className="container header-nav-inner">
           <nav aria-label={tx(locale, { en: 'Primary navigation', es: 'Navegación principal', it: 'Navigazione principale', ar: 'القائمة الرئيسية' })}>
@@ -493,7 +529,13 @@ export function Header() {
       </div>
 
       {languageOpen && <LanguageModal locale={locale} currency={currency} onClose={() => setLanguageOpen(false)} onSelect={setLocale} onCurrency={setCurrency}/>}
-      {menu && <nav className="mobile-nav" aria-label={tx(locale, { en: 'Mobile navigation', es: 'Navegación móvil', it: 'Navigazione mobile', ar: 'قائمة الموبايل' })}>{mobileLinks.map(([label, href]) => <Link key={href} href={href} onClick={() => setMenu(false)}>{label}</Link>)}<HeaderAuthAction mobile user={headerUser} loading={headerUserLoading} signInLabel={t.signIn} dashboardLabel={t.dashboard} accountLabel={t.account} onNavigate={() => setMenu(false)} /></nav>}
+      {menu && <dialog ref={mobileMenuRef} id="public-mobile-menu" className="mobile-nav" aria-label={tx(locale, { en: 'Mobile navigation', es: 'Navegación móvil', it: 'Navigazione mobile', ar: 'قائمة الموبايل' })} onCancel={() => setMenu(false)} onMouseDown={(event) => { if (event.target === event.currentTarget) setMenu(false) }}>
+        <div className="mobile-nav-content">
+          <div className="mobile-nav-heading"><Logo/><button type="button" className="icon-btn" autoFocus onClick={() => setMenu(false)} aria-label={tx(locale, { en: 'Close menu', es: 'Cerrar menú', it: 'Chiudi menu', ar: 'إغلاق القائمة' })}><X size={20}/></button></div>
+          <nav>{mobileGroups.map((group) => <section key={group.label}><h2>{group.label}</h2>{group.links.map(([label, href]) => <Link key={href} href={href} aria-current={pathname === href ? 'page' : undefined} onClick={() => setMenu(false)}>{label}<ArrowRight size={16} aria-hidden="true"/></Link>)}</section>)}</nav>
+          <div className="mobile-nav-account"><HeaderAuthAction mobile user={headerUser} loading={headerUserLoading} signInLabel={t.signIn} dashboardLabel={t.dashboard} accountLabel={t.account} onNavigate={() => setMenu(false)} /></div>
+        </div>
+      </dialog>}
     </header>
     <div className={scrolled ? 'compact-sticky-header is-open' : 'compact-sticky-header'} aria-hidden={!scrolled}>
       <div className="container compact-sticky-inner">
@@ -516,6 +558,9 @@ export function Header() {
     {promoCount > 0 && <div className="promo" aria-live="polite" onMouseEnter={() => { promoHold.current = true }} onMouseLeave={() => { promoHold.current = false }}>
       <span className="promo-icons" key={'pi' + activePromoIdx}>{promos[activePromoIdx].icons}</span><strong key={'pt' + activePromoIdx} className="promo-swap">{promos[activePromoIdx].text}</strong>{promos[activePromoIdx].href.startsWith('/') ? <Link key={'pl' + activePromoIdx} href={promos[activePromoIdx].href} className="promo-swap">{promos[activePromoIdx].label}</Link> : <a key={'pl' + activePromoIdx} href={promos[activePromoIdx].href} target="_blank" rel="noopener noreferrer" className="promo-swap">{promos[activePromoIdx].label}</a>}<span className="promo-dots">{promos.map((_, index) => <button key={index} type="button" className={index === activePromoIdx ? 'active' : ''} aria-label={'Show announcement ' + (index + 1)} aria-current={index === activePromoIdx} onClick={() => setPromoIdx(index)}/>)}</span>
     </div>}
+    <nav className="mobile-bottom-nav" aria-label={tx(locale, { en: 'Quick navigation', es: 'Navegación rápida', it: 'Navigazione rapida', ar: 'التنقل السريع' })}>
+      {mobileBottomLinks.map((item) => <Link key={item.href} href={item.href} aria-current={item.active ? 'page' : undefined}><item.icon size={21} aria-hidden="true"/><span>{item.label}</span></Link>)}
+    </nav>
   </>
 }
 

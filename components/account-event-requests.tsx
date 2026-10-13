@@ -10,6 +10,7 @@ import { useDbEvents } from '@/lib/events-cars-client'
 import { events } from '@/data/content'
 import { CUSTOMER_EVENT_CANCELLABLE_STATUSES, eventActivityLabel, eventDisplayTitle, eventRequestStatusLabel, type EventRequest, type EventRequestStatus } from '@/lib/event-request'
 import { displayInternationalPhone } from '@/lib/phone'
+import { customerErrorText } from '@/lib/customer-error-copy'
 
 function StatusBadge({ status }: { status: Parameters<typeof eventRequestStatusLabel>[0] }) {
   const { locale } = useLocale()
@@ -82,7 +83,7 @@ export function EventRequestsSection() {
       <section className="customer-account-block customer-full-block">
         <div className="customer-empty">
           <h3>{tx(locale, { en: 'Could not load requests', es: 'No se pudieron cargar las solicitudes', it: 'Impossibile caricare le richieste', ar: 'تعذر تحميل الطلبات' })}</h3>
-          <p>{loadError}</p>
+          <p>{customerErrorText(locale, loadError)}</p>
           <button type="button" className="account-icon-action" onClick={() => {
             setLoading(true)
             setLoadError('')
@@ -174,7 +175,7 @@ export function EventRequestDetailSection({ reference }: { reference: string }) 
         <Ticket size={20} />
         <span>
           <strong>{tx(locale, { en: 'Event request not found', es: 'Solicitud de evento no encontrada', it: 'Richiesta evento non trovata', ar: 'طلب الفعالية غير موجود' })}</strong>
-          <small>{loadError || tx(locale, { en: 'Check the reference and try again.', es: 'Comprueba la referencia e inténtalo de nuevo.', it: 'Controlla il riferimento e riprova.', ar: 'تأكد من المرجع وحاول مجددًا.' })}</small>
+          <small>{loadError ? customerErrorText(locale, loadError) : tx(locale, { en: 'Check the reference and try again.', es: 'Comprueba la referencia e inténtalo de nuevo.', it: 'Controlla il riferimento e riprova.', ar: 'تأكد من المرجع وحاول مجددًا.' })}</small>
         </span>
         <Link href="/account/event-requests">{tx(locale, { en: 'Back to event requests', es: 'Volver a solicitudes de eventos', it: 'Torna alle richieste eventi', ar: 'عودة لطلبات الفعاليات' })}</Link>
       </div>
@@ -225,7 +226,7 @@ export function EventRequestDetailSection({ reference }: { reference: string }) 
           apiEventCancel(item.reference)
             .then((row) => { setItem(row); setCancelling(false) })
             .catch((error: unknown) => {
-              setActionError(error instanceof Error ? error.message : tx(locale, { en: 'Could not cancel the request.', es: 'No se pudo cancelar la solicitud.', it: 'Impossibile annullare la richiesta.', ar: 'تعذر إلغاء الطلب.' }))
+              setActionError(customerErrorText(locale, error instanceof Error ? error.message : 'Could not cancel the request.'))
               setCancelling(false)
             })
         }}
