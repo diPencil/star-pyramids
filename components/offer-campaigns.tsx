@@ -1,14 +1,24 @@
 'use client'
 
 import Link from 'next/link'
-import { ArrowRight, Check } from 'lucide-react'
+import { ArrowRight, CalendarDays, Check, Clock3, ShieldCheck, Sparkles, Tag } from 'lucide-react'
 import { useDbOffers, useDbOffersStatus } from '@/lib/offers-blogs-client'
 import { placedOffers, readCampaign, safeCampaignHref, type CampaignPlacement } from '@/lib/marketing-campaigns'
 import { isOfferActive, offerHref } from '@/lib/special-offers'
 import { PromotionCard } from './promotion-card'
+import { AskQuestionButton } from './ask-question'
 import { SiteShell } from './site'
 import { formatPrice, tx, useLocale } from './locale'
 import type { Offer } from '@/data/types'
+import type { Locale } from '@/lib/locale-config'
+
+function formatCampaignDate(value: string, locale: Locale): string {
+  const day = value.slice(0, 10)
+  const date = new Date(`${day}T00:00:00Z`)
+  if (Number.isNaN(date.getTime())) return day
+  const intlLocale = locale === 'ar' ? 'ar-EG' : locale === 'es' ? 'es-ES' : locale === 'it' ? 'it-IT' : 'en-GB'
+  return new Intl.DateTimeFormat(intlLocale, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(date)
+}
 
 function useOffers(placement: CampaignPlacement) {
   const status = useDbOffersStatus()
@@ -59,15 +69,76 @@ export function CampaignDetail({ slug }: { slug: string }) {
   if (!item) return <SiteShell><main className="container section"><h1>{status.loading ? tx(locale, { en: 'Loading offer…', es: 'Cargando oferta…', it: 'Caricamento offerta…', ar: 'جارٍ تحميل العرض…' }) : tx(locale, { en: 'Offer unavailable', es: 'Oferta no disponible', it: 'Offerta non disponibile', ar: 'العرض غير متاح' })}</h1>{status.error && <button type="button" onClick={status.retry} className="outline-btn">{tx(locale, { en: 'Retry', es: 'Reintentar', it: 'Riprova', ar: 'إعادة المحاولة' })}</button>}<Link href="/special-offers">{back}</Link></main></SiteShell>
   const campaign = readCampaign(item.campaign)
   const gallery = [...new Set(item.gallery ?? [])].filter(src => src && src !== item.image)
+  const startsAt = item.startsAt ? formatCampaignDate(item.startsAt, locale) : ''
+  const deadline = item.deadline ? formatCampaignDate(item.deadline, locale) : ''
+  const hasDiscount = item.price != null && item.originalPrice != null && item.originalPrice > item.price
+  const facts = [
+    item.duration ? { icon: Clock3, label: tx(locale, { en: 'Journey length', es: 'Duración del viaje', it: 'Durata del viaggio', ar: 'مدة الرحلة' }), value: item.duration } : null,
+    deadline ? { icon: CalendarDays, label: tx(locale, { en: 'Offer available until', es: 'Oferta disponible hasta', it: 'Offerta disponibile fino al', ar: 'العرض متاح حتى' }), value: deadline } : null,
+    item.price != null ? { icon: Tag, label: campaign.priceLabel || tx(locale, { en: 'Special value', es: 'Valor especial', it: 'Valore speciale', ar: 'قيمة العرض' }), value: formatPrice(item.price, currency, locale) } : null,
+  ].filter((fact): fact is { icon: typeof Clock3; label: string; value: string } => fact !== null)
   return <SiteShell><main className="campaign-detail">
-    <div className="container"><nav className="campaign-breadcrumb" aria-label="Breadcrumb"><Link href="/special-offers">{back}</Link><span aria-hidden="true"> / </span><span>{item.title}</span></nav>
-      <section className="campaign-hero"><div className="campaign-hero-copy"><span className="campaign-badge">{item.badge}</span><h1>{item.title}</h1><p>{item.copy}</p>{item.duration && <span>{item.duration}</span>}<CampaignAction item={item}/></div><div className="campaign-hero-media">{item.image ? <img src={item.image} alt={item.title}/> : <span>{item.title}</span>}</div></section>
-      <div className="campaign-detail-layout"><article>
-        {campaign.body && <section className="campaign-prose">{campaign.body.split(/\n\s*\n/).map((p, i) => <p key={i}>{p}</p>)}</section>}
-        {!!item.highlights?.length && <section><h2>{tx(locale, { en: 'What makes this offer special', es: 'Qué hace especial esta oferta', it: 'Cosa rende speciale questa offerta', ar: 'مميزات العرض' })}</h2><ul className="campaign-highlights">{item.highlights.map((h, i) => <li key={i}><Check size={18}/><span>{h}</span></li>)}</ul></section>}
-        {!!gallery.length && <div className="campaign-gallery">{gallery.map(src => <img key={src} src={src} alt={item.title} loading="lazy"/>)}</div>}
-        {campaign.terms && <section className="campaign-prose"><h2>{tx(locale, { en: 'Offer terms', es: 'Condiciones de la oferta', it: 'Condizioni dell’offerta', ar: 'شروط العرض' })}</h2><p>{campaign.terms}</p></section>}
-      </article><aside className="campaign-booking"><span className="campaign-badge">{item.badge}</span><h2>{item.title}</h2>{item.price != null && <div className="campaign-price"><span>{campaign.priceLabel}</span>{item.originalPrice != null && item.originalPrice > item.price && <del>{formatPrice(item.originalPrice, currency, locale)}</del>}<strong>{formatPrice(item.price, currency, locale)}</strong></div>}{item.deadline && <p>{tx(locale, { en: 'Available until', es: 'Disponible hasta', it: 'Disponibile fino al', ar: 'متاح حتى' })} <time dateTime={item.deadline}>{item.deadline.slice(0, 10)}</time></p>}<CampaignAction item={item}/><Link className="campaign-more" href="/special-offers">{back}<ArrowRight size={15}/></Link></aside></div>
+    <div className="container">
+      <nav className="campaign-breadcrumb" aria-label="Breadcrumb"><Link href="/special-offers">{back}</Link><span aria-hidden="true"> / </span><span>{item.title}</span></nav>
+    </div>
+
+    <section className={`campaign-hero${item.image ? ' has-image' : ''}`} aria-labelledby="campaign-title">
+      {item.image && <img className="campaign-hero-media" src={item.image} alt="" />}
+      <div className="campaign-hero-shade" aria-hidden="true" />
+      <div className="container campaign-hero-inner">
+        <div className="campaign-hero-copy">
+          <span className="campaign-hero-eyebrow"><Sparkles size={16}/>{tx(locale, { en: 'Curated Egypt offer', es: 'Oferta seleccionada de Egipto', it: 'Offerta selezionata per l’Egitto', ar: 'عرض مختار لمصر' })}</span>
+          <h1 id="campaign-title">{item.title}</h1>
+          <p>{item.copy}</p>
+          {!!facts.length && <div className="campaign-hero-facts">{facts.map(({ icon: Icon, label, value }) => <div key={label}><Icon size={18}/><span><small>{label}</small><strong>{value}</strong></span></div>)}</div>}
+          <CampaignAction item={item}/>
+          <span className="campaign-hero-assurance"><ShieldCheck size={16}/>{tx(locale, { en: 'Final dates, availability and inclusions are confirmed with our travel team.', es: 'Las fechas, la disponibilidad y las inclusiones finales se confirman con nuestro equipo.', it: 'Date, disponibilità e servizi finali vengono confermati con il nostro team.', ar: 'يتم تأكيد التواريخ والتوافر والتفاصيل النهائية مع فريق السفر.' })}</span>
+        </div>
+        <div className="campaign-hero-offer" aria-label={tx(locale, { en: 'Campaign offer', es: 'Oferta de campaña', it: 'Offerta della campagna', ar: 'عرض الحملة' })}>
+          <span>{tx(locale, { en: 'Campaign offer', es: 'Oferta de campaña', it: 'Offerta della campagna', ar: 'عرض الحملة' })}</span>
+          <strong>{item.badge}</strong>
+          {item.price != null && <div><small>{campaign.priceLabel || tx(locale, { en: 'Your offer', es: 'Tu oferta', it: 'La tua offerta', ar: 'عرضك' })}</small>{hasDiscount && <del>{formatPrice(item.originalPrice as number, currency, locale)}</del>}<b>{formatPrice(item.price, currency, locale)}</b></div>}
+        </div>
+      </div>
+    </section>
+
+    {!!item.highlights?.length && <section className="campaign-value-band" aria-labelledby="campaign-benefits-title"><div className="container">
+      <div className="campaign-value-heading"><span>{tx(locale, { en: 'Included value', es: 'Valor incluido', it: 'Valore incluso', ar: 'قيمة متضمنة' })}</span><h2 id="campaign-benefits-title">{tx(locale, { en: 'Built into this offer', es: 'Incluido en esta oferta', it: 'Incluso in questa offerta', ar: 'متضمن في هذا العرض' })}</h2></div>
+      <ul className="campaign-highlights">{item.highlights.map((highlight, index) => <li key={index}><b aria-hidden="true">{String(index + 1).padStart(2, '0')}</b><span><Check size={17}/></span><strong>{highlight}</strong></li>)}</ul>
+    </div></section>}
+
+    <div className="container">
+      <section className="campaign-story" aria-labelledby="campaign-story-title">
+        <div className="campaign-story-copy">
+          <span className="campaign-section-label">{tx(locale, { en: 'The offer', es: 'La oferta', it: 'L’offerta', ar: 'العرض' })}</span>
+          <h2 id="campaign-story-title">{tx(locale, { en: 'More value, shaped around your Egypt journey.', es: 'Más valor, diseñado para tu viaje por Egipto.', it: 'Più valore, pensato per il tuo viaggio in Egitto.', ar: 'قيمة أكبر مصممة حول رحلتك في مصر.' })}</h2>
+          <div className="campaign-prose">{(campaign.body || item.copy).split(/\n\s*\n/).map((paragraph, index) => <p key={index}>{paragraph}</p>)}</div>
+        </div>
+
+        <aside className="campaign-booking" aria-label={tx(locale, { en: 'Offer summary', es: 'Resumen de la oferta', it: 'Riepilogo dell’offerta', ar: 'ملخص العرض' })}>
+          <span className="campaign-badge">{item.badge}</span>
+          <h2>{item.title}</h2>
+          {item.price != null && <div className="campaign-price"><span>{campaign.priceLabel || tx(locale, { en: 'Offer price', es: 'Precio de la oferta', it: 'Prezzo dell’offerta', ar: 'سعر العرض' })}</span><div>{hasDiscount && <del>{formatPrice(item.originalPrice as number, currency, locale)}</del>}<strong>{formatPrice(item.price, currency, locale)}</strong></div></div>}
+          {(startsAt || deadline || item.duration) && <dl className="campaign-summary-list">
+            {startsAt && <div><dt>{tx(locale, { en: 'Starts', es: 'Comienza', it: 'Inizia', ar: 'يبدأ' })}</dt><dd><time dateTime={item.startsAt}>{startsAt}</time></dd></div>}
+            {deadline && <div><dt>{tx(locale, { en: 'Ends', es: 'Finaliza', it: 'Termina', ar: 'ينتهي' })}</dt><dd><time dateTime={item.deadline}>{deadline}</time></dd></div>}
+            {item.duration && <div><dt>{tx(locale, { en: 'Duration', es: 'Duración', it: 'Durata', ar: 'المدة' })}</dt><dd>{item.duration}</dd></div>}
+          </dl>}
+          <CampaignAction item={item}/>
+          <AskQuestionButton
+            tourSlug={item.slug}
+            tourTitle={item.title}
+            subjectType="offer"
+            className="campaign-question"
+            label={tx(locale, { en: 'Ask about this offer', es: 'Pregunta por esta oferta', it: 'Chiedi di questa offerta', ar: 'اسأل عن هذا العرض' })}
+          />
+          <Link className="campaign-more" href="/special-offers">{back}<ArrowRight size={15}/></Link>
+        </aside>
+      </section>
+
+      {!!gallery.length && <section className="campaign-gallery-section" aria-labelledby="campaign-gallery-title"><div className="campaign-section-head"><span className="campaign-section-label">{tx(locale, { en: 'Picture the journey', es: 'Imagina el viaje', it: 'Immagina il viaggio', ar: 'تخيل الرحلة' })}</span><h2 id="campaign-gallery-title">{tx(locale, { en: 'A closer look at the experience', es: 'Una mirada más cercana a la experiencia', it: 'Uno sguardo più vicino all’esperienza', ar: 'نظرة أقرب على التجربة' })}</h2></div><div className="campaign-gallery">{gallery.map((src, index) => <img key={src} src={src} alt={`${item.title} ${index + 1}`} loading="lazy"/>)}</div></section>}
+
+      {campaign.terms && <section className="campaign-terms"><div><ShieldCheck size={22}/><h2>{tx(locale, { en: 'Offer terms', es: 'Condiciones de la oferta', it: 'Condizioni dell’offerta', ar: 'شروط العرض' })}</h2></div><p>{campaign.terms}</p></section>}
     </div>
   </main></SiteShell>
 }

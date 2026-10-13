@@ -43,6 +43,15 @@ const shared = vi.hoisted(() => {
         return { count: 1 }
       },
     },
+    paymentEvent: {
+      findFirst: async (args: { where: { paymentId: string; action: { in: string[] }; note: string } }) => {
+        const payment = store.payments.get(args.where.paymentId)
+        const event = payment?.events?.find((entry: any) =>
+          args.where.action.in.includes(entry.action) && entry.note === args.where.note,
+        )
+        return event ? { id: event.id } : null
+      },
+    },
     $transaction: async (fn: (tx: unknown) => Promise<unknown>) => {
       const snap = {
         payments: new Map([...store.payments].map(([k, v]) => [k, structuredClone(v)])),
@@ -54,7 +63,7 @@ const shared = vi.hoisted(() => {
           const sql = strings.join('?')
           if (sql.includes('FROM payments')) {
             const row = [...store.payments.values()].find((p) => p.reference === values[0])
-            return row ? [{ id: row.id, status: row.status, bookingId: row.bookingId }] : []
+            return row ? [{ id: row.id, status: row.status, bookingId: row.bookingId, amountPaid: row.amountPaid, amountRefunded: row.amountRefunded }] : []
           }
           if (sql.includes('FROM bookings')) {
             const booking = store.bookings.get(values[0])
@@ -77,6 +86,9 @@ const shared = vi.hoisted(() => {
               action: values[3],
               note: values[4],
               isInternal: values[5],
+              amountCents: values[7] ?? null,
+              method: values[8] ?? null,
+              externalReference: values[9] ?? null,
               createdAt: new Date(),
             })
           }
@@ -105,10 +117,16 @@ vi.mock('@/lib/server/notifications', () => ({
   notifyUser: vi.fn(async () => undefined),
   notifyStaff: vi.fn(async () => undefined),
 }))
+vi.mock('@/lib/server/booking-access', () => ({
+  revokeGuestBookingTokens: vi.fn(async () => undefined),
+  issueGuestBookingToken: vi.fn(async () => ({ token: 'guest-payment-token', expiresAt: new Date() })),
+  guestBookingPath: (token: string) => `/booking/${token}`,
+}))
 
 import { recordOfflineRefund, deriveBookingPaymentSummary } from '@/lib/server/payments'
 import { bookingCancelExposure } from '@/lib/booking'
 import { notifyStaff } from '@/lib/server/notifications'
+import { sendCustomerEmailSafe } from '@/lib/server/email'
 
 function seedPaidPayment(overrides: Record<string, any> = {}) {
   const row: Record<string, any> = {
@@ -176,6 +194,25 @@ describe('recordOfflineRefund', () => {
     expect(result.payment.status).toBe('partially_refunded')
     expect(result.payment.amountRefunded).toBe(200)
     expect(result.payment.amountPaid).toBe(500)
+  })
+
+  it('accumulates more than one partial refund before the final refund', async () => {
+    seedPaidPayment()
+    const first = await recordOfflineRefund(refund({ amount: 200, externalReference: 'BANK-PART-1' }))
+    const second = await recordOfflineRefund(refund({ amount: 100, externalReference: 'BANK-PART-2' }))
+    const final = await recordOfflineRefund(refund({ amount: 200, externalReference: 'BANK-PART-3' }))
+
+    expect(first.payment.amountRefunded).toBe(200)
+    expect(second.payment.status).toBe('partially_refunded')
+    expect(second.payment.amountRefunded).toBe(300)
+    expect(final.payment.status).toBe('refunded')
+    expect(final.payment.amountRefunded).toBe(500)
+    const refundMailKeys = vi.mocked(sendCustomerEmailSafe).mock.calls.map((call) => call[3]?.idempotencyKey)
+    expect(refundMailKeys).toEqual([
+      'payment_refunded:SP-PAY-ABC123:20000',
+      'payment_refunded:SP-PAY-ABC123:30000',
+      'payment_refunded:SP-PAY-ABC123:50000',
+    ])
   })
 
   it('rejects over-refunds beyond the remaining refundable balance', async () => {

@@ -82,6 +82,37 @@ const homeStrings = { ...baseHomeStrings,
   }
 } as const
 
+const helpFormStrings = {
+  en: {
+    sending: 'Sending...',
+    nameError: 'Enter your name.',
+    emailError: 'Enter a valid email address.',
+    phoneError: 'Enter a valid phone number.',
+    failure: 'We could not send your request. Please try again.',
+  },
+  es: {
+    sending: 'Enviando...',
+    nameError: 'Introduce tu nombre.',
+    emailError: 'Introduce un correo electrónico válido.',
+    phoneError: 'Introduce un número de teléfono válido.',
+    failure: 'No pudimos enviar tu solicitud. Inténtalo de nuevo.',
+  },
+  it: {
+    sending: 'Invio in corso...',
+    nameError: 'Inserisci il tuo nome.',
+    emailError: 'Inserisci un indirizzo email valido.',
+    phoneError: 'Inserisci un numero di telefono valido.',
+    failure: 'Non siamo riusciti a inviare la richiesta. Riprova.',
+  },
+  ar: {
+    sending: 'جارٍ الإرسال...',
+    nameError: 'اكتب اسمك.',
+    emailError: 'اكتب بريداً إلكترونياً صحيحاً.',
+    phoneError: 'اكتب رقم هاتف صحيحاً.',
+    failure: 'تعذر إرسال طلبك. حاول مرة أخرى.',
+  },
+} as const
+
 export function ReviewsSection(){return <ProviderReviewsSection/>}
 
 const statItems=[{prefix:'+',target:100,suffix:'K',decimals:0,Icon:Users},{prefix:'+',target:50,suffix:'',decimals:0,Icon:Award},{prefix:'+',target:60,suffix:'',decimals:0,Icon:MapPin},{prefix:'',target:5,suffix:'',decimals:1,Icon:Star}];
@@ -92,8 +123,95 @@ function StatItem({prefix,target,suffix,decimals,label,Icon,started}:{prefix:str
 
 function StatsStrip(){const {locale:sl}=useLocale(); const hx=homeStrings[sl]; const ref=useRef<HTMLElement|null>(null);const [started,setStarted]=useState(false);useEffect(()=>{const el=ref.current;if(!el)return;const io=new IntersectionObserver(([entry])=>{if(entry.isIntersecting){setStarted(true);io.disconnect();}},{threshold:.4});io.observe(el);return ()=>io.disconnect();},[]);return <section ref={ref} className="home-stats container">{statItems.map((s,i)=><StatItem key={i} {...s} label={hx.stats[i]} started={started}/>)}</section>;}
 
+function createEnquiryRequestId() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16))
+  bytes[6] = (bytes[6] & 15) | 64
+  bytes[8] = (bytes[8] & 63) | 128
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}
+
+function HomepageHelpForm() {
+  const { locale } = useLocale()
+  const copy = homeStrings[locale]
+  const formCopy = helpFormStrings[locale]
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle')
+  const [error, setError] = useState('')
+  const submitting = useRef(false)
+  const pendingRequest = useRef<{ payload: string; id: string } | null>(null)
+
+  const clearStatus = () => {
+    if (status !== 'idle') setStatus('idle')
+    if (error) setError('')
+  }
+
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (submitting.current) return
+
+    const trimmedName = name.trim()
+    const trimmedEmail = email.trim().toLowerCase()
+    const trimmedPhone = phone.trim()
+    const phoneDigits = trimmedPhone.replace(/\D/g, '')
+    if (!trimmedName || trimmedName.length > 120) {
+      setStatus('error'); setError(formCopy.nameError); document.getElementById('home-help-name')?.focus(); return
+    }
+    if (!/^[^\s@]{1,120}@[^\s@]{1,120}\.[^\s@]{2,24}$/.test(trimmedEmail)) {
+      setStatus('error'); setError(formCopy.emailError); document.getElementById('home-help-email')?.focus(); return
+    }
+    if (!/^\+?[0-9 ()-]{6,24}$/.test(trimmedPhone) || phoneDigits.length < 6 || phoneDigits.length > 15) {
+      setStatus('error'); setError(formCopy.phoneError); document.getElementById('home-help-phone')?.focus(); return
+    }
+
+    const enquiry = {
+      name: trimmedName,
+      email: trimmedEmail,
+      phone: trimmedPhone,
+      subject: 'Homepage trip help request',
+      message: 'Please contact me to help plan an Egypt trip.',
+      sourcePage: '/',
+    }
+    const payload = JSON.stringify(enquiry)
+    if (pendingRequest.current?.payload !== payload) {
+      pendingRequest.current = { payload, id: createEnquiryRequestId() }
+    }
+
+    submitting.current = true
+    setStatus('submitting')
+    setError('')
+    try {
+      const response = await fetch('/api/enquiries', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ ...enquiry, requestId: pendingRequest.current.id }),
+      })
+      const data = await response.json().catch(() => null)
+      if (!response.ok || typeof data?.enquiry?.publicId !== 'string' || typeof data?.enquiry?.createdAt !== 'string') {
+        throw new Error(formCopy.failure)
+      }
+      pendingRequest.current = null
+      setName('')
+      setEmail('')
+      setPhone('')
+      setStatus('success')
+    } catch {
+      setStatus('error')
+      setError(formCopy.failure)
+    } finally {
+      submitting.current = false
+    }
+  }
+
+  const disabled = status === 'submitting'
+  return <section className="help-home container"><div className="help-layout"><div className="help-text"><h2>{copy.helpT}</h2><p>{copy.helpS}</p></div><form className="help-form" onSubmit={submit} noValidate><input id="home-help-name" placeholder={copy.helpN} required maxLength={120} disabled={disabled} value={name} onChange={(event)=>{setName(event.target.value);clearStatus()}} aria-label={copy.helpN} aria-invalid={status==='error'&&!name.trim()} aria-describedby="home-help-status"/><input id="home-help-email" placeholder={copy.helpE} required type="email" maxLength={190} disabled={disabled} value={email} onChange={(event)=>{setEmail(event.target.value);clearStatus()}} aria-label={copy.helpE} aria-describedby="home-help-status"/><InternationalPhoneInput id="home-help-phone" required disabled={disabled} value={phone} onChange={(value)=>{setPhone(value);clearStatus()}} locale={locale} placeholder={copy.helpP} describedBy="home-help-status"/><button className="primary-btn" type="submit" disabled={disabled}>{disabled?formCopy.sending:copy.contactNow}</button><p id="home-help-status" className={`help-form-status ${status}`} role={status==='error'?'alert':'status'} aria-live="polite">{status==='success'?`${copy.thanks1}${name?` ${name}`:''}${copy.thanks2}`:error}</p></form></div></section>
+}
+
 export function RebuiltHomePage(){return <SiteShell><RebuiltHomePageInner/></SiteShell>}
-function RebuiltHomePageInner(){const [category,setCategory]=useState('All'); const [lightbox,setLightbox]=useState<string|null>(null); const [helpSent,setHelpSent]=useState(false); const [helpName,setHelpName]=useState(''); const [helpEmail,setHelpEmail]=useState(''); const [helpPhone,setHelpPhone]=useState(''); const [msDest,setMsDest]=useState(''); const [msFrom,setMsFrom]=useState(''); const [msTo,setMsTo]=useState(''); const [msGuests,setMsGuests]=useState(''); const {locale:hl}=useLocale(); const hx=homeStrings[hl]; const liveBlogs=useDbBlogs(allBlogs).filter((b)=>b.isPublished!==false); const liveDestinations=useDbDestinations(allDestinations).filter((d)=>d.showInDestinations!==false&&d.isPublished!==false); const liveSeasonal=useDbTours(seasonal); const livePopular=useDbTours(popular); const liveCatalog=useDbTours(catalogTours); const goPlan=()=>{const q=new URLSearchParams(); if(msDest)q.set('destination',msDest); if(msFrom)q.set('from',msFrom); if(msTo)q.set('to',msTo); if(msGuests)q.set('guests',msGuests); if(msFrom&&msTo)q.set('step','2'); const s=q.toString(); router.push('/make-your-trip'+(s?`?${s}`:'')); }; const router=useRouter(); const visiblePopular=category==='All'?livePopular:liveCatalog.filter((t)=>t.category===category).slice(0,8); return <main className="rebuilt-home">
+function RebuiltHomePageInner(){const [category,setCategory]=useState('All'); const [lightbox,setLightbox]=useState<string|null>(null); const [msDest,setMsDest]=useState(''); const [msFrom,setMsFrom]=useState(''); const [msTo,setMsTo]=useState(''); const [msGuests,setMsGuests]=useState(''); const {locale:hl}=useLocale(); const hx=homeStrings[hl]; const liveBlogs=useDbBlogs(allBlogs).filter((b)=>b.isPublished!==false); const liveDestinations=useDbDestinations(allDestinations).filter((d)=>d.showInDestinations!==false&&d.isPublished!==false); const liveSeasonal=useDbTours(seasonal); const livePopular=useDbTours(popular); const liveCatalog=useDbTours(catalogTours); const goPlan=()=>{const q=new URLSearchParams(); if(msDest)q.set('destination',msDest); if(msFrom)q.set('from',msFrom); if(msTo)q.set('to',msTo); if(msGuests)q.set('guests',msGuests); if(msFrom&&msTo)q.set('step','2'); const s=q.toString(); router.push('/make-your-trip'+(s?`?${s}`:'')); }; const router=useRouter(); const visiblePopular=category==='All'?livePopular:liveCatalog.filter((t)=>t.category===category).slice(0,8); return <main className="rebuilt-home">
   <section className="home-hero"><Image src="/egypt-hero.png" alt="Egyptian temple columns in warm desert light at sunset" fill priority sizes="100vw" className="home-hero-img" /><div className="home-hero-shade"/><div className="home-hero-copy"><span>{hx.heroSpan}</span><h1>{hx.heroTitle}</h1></div><TripSearchEngine/></section>
   <StatsStrip/>
   <section className="home-section container"><SectionHeading title={hx.xmasT} subtitle={hx.xmasS}/><div className="compact-tour-grid">{liveSeasonal.map(t=><TourCard key={t.title} tour={t}/>)}</div><div className="center-cta"><ViewAll href="/egypt-tours/multi-days-tours"/></div></section>
@@ -107,5 +225,5 @@ function RebuiltHomePageInner(){const [category,setCategory]=useState('All'); co
   <section className="home-section gal-section"><div className="container"><SectionHeading title={hx.galT} subtitle={hx.galS}/></div><div className="gal-marquee" dir="ltr"><div className="gal-track">{[0,1].map(half=><div className="gal-group" key={'a'+half} aria-hidden={half===1}>{galItems.map((g,i)=><div key={g.src+i+half} className="gal-card" role="button" tabIndex={half===1?-1:0} aria-label={'Enlarge photo: '+g.label} onClick={()=>setLightbox(g.src)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();setLightbox(g.src)}}}><Image src={g.src} alt={g.label} fill sizes="(max-width: 760px) 100vw, (max-width: 1100px) 50vw, 33vw" loading="lazy" placeholder="blur" blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="/><b>{g.label}</b></div>)}</div>)}</div><div className="gal-track rev">{[0,1].map(half=><div className="gal-group" key={'b'+half} aria-hidden={half===1}>{[...galItems].reverse().map((g,i)=><div key={g.src+i+half} className="gal-card" role="button" tabIndex={half===1?-1:0} aria-label={'Enlarge photo: '+g.label} onClick={()=>setLightbox(g.src)} onKeyDown={(e)=>{if(e.key==='Enter'){e.preventDefault();setLightbox(g.src)}}}><Image src={g.src} alt={g.label} fill sizes="(max-width: 760px) 100vw, (max-width: 1100px) 50vw, 33vw" loading="lazy" placeholder="blur" blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="/><b>{g.label}</b></div>)}</div>)}</div></div>{lightbox&&<div role="dialog" aria-modal="true" aria-label="Photo preview" onClick={()=>setLightbox(null)} style={{position:'fixed',inset:0,zIndex:200,display:'grid',placeItems:'center',background:'rgba(0,0,0,.82)',padding:24}}><Image src={lightbox} alt="Egypt travel moment enlarged" fill sizes="min(920px,100vw)" style={{maxWidth:'min(920px,100%)',maxHeight:'85vh',borderRadius:18}}/><button type="button" onClick={()=>setLightbox(null)} aria-label="Close preview" style={{position:'fixed',top:20,right:20,width:48,height:48,minHeight:48,borderRadius:'50%',border:0,background:'#fff',fontSize:22,cursor:'pointer'}}>×</button></div>}</section>
   <ReviewsSection/>
   <section className="home-section container faq-home"><div><SectionHeading title={hx.faqT} subtitle={hx.faqS}/><Link className="small-orange-btn" href="/faq">{hx.faqAll} <ArrowRight size={15}/></Link></div><div className="faq-home-list">{(hx as { faqQ: readonly string[] }).faqQ.map((q: string, i: number)=><details key={q} open={i===0}><summary>{q}<span>+</span></summary><p>{hx.faqA}</p></details>)}</div></section>
-  <section className="help-home container"><div className="help-layout"><div className="help-text"><h2>Need Help Finding Your Trip?</h2><p>{hx.helpS}</p></div><form className="help-form" onSubmit={(e) => { e.preventDefault(); setHelpSent(true); }}><input placeholder={hx.helpN} required value={helpName} onChange={(e)=>setHelpName(e.target.value)} aria-label={hx.helpN}/><input placeholder={hx.helpE} required type="email" value={helpEmail} onChange={(e)=>setHelpEmail(e.target.value)} aria-label={hx.helpE}/><InternationalPhoneInput required value={helpPhone} onChange={setHelpPhone} locale={hl} placeholder={hx.helpP}/><button className="primary-btn" type="submit">{hx.contactNow}</button></form></div></section>
+  <HomepageHelpForm/>
 </main>}

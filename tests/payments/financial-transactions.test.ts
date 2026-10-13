@@ -59,7 +59,7 @@ const shared = vi.hoisted(() => {
           if (sql.includes('FROM payments')) {
             const row = [...store.payments.values()].find((p) => p.reference === values[0])
             return row
-              ? [{ id: row.id, status: row.status, bookingId: row.bookingId }]
+              ? [{ id: row.id, status: row.status, bookingId: row.bookingId, amountPaid: row.amountPaid, amountRefunded: row.amountRefunded }]
               : []
           }
           if (sql.includes('FROM bookings')) {
@@ -111,6 +111,11 @@ vi.mock('@/lib/server/email', () => ({
 vi.mock('@/lib/server/notifications', () => ({
   notifyUser: vi.fn(async () => undefined),
   notifyStaff: vi.fn(async () => undefined),
+}))
+vi.mock('@/lib/server/booking-access', () => ({
+  revokeGuestBookingTokens: vi.fn(async () => undefined),
+  issueGuestBookingToken: vi.fn(async () => ({ token: 'guest-payment-token', expiresAt: new Date() })),
+  guestBookingPath: (token: string) => `/booking/${token}`,
 }))
 
 import {

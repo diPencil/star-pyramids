@@ -211,22 +211,19 @@ official test harness supports that behavior.
 
 Current repository reality:
 
-- There is no configured automated test runner or lint script.
-- This absence is not permission to claim tests passed.
-- Until the project's testing and linting stack is intentionally established as
-  a dedicated infrastructure task, an agent must not introduce a new test
-  framework, lint framework, E2E framework, or major quality dependency solely
-  to satisfy a feature task.
-- Feature work must instead perform all currently available verification:
-  browser testing, TypeScript checking, production build validation, focused
-  manual regression, relevant searches, and self-review.
-- Every completion report must explicitly identify automated coverage that is
-  missing because the official tooling has not yet been established.
+- Vitest is the configured automated test runner. `pnpm test` runs the complete
+  suite and `pnpm test:unit` runs the database-independent subset.
+- There is no configured lint or browser E2E script. This absence is not
+  permission to claim either check passed.
+- Do not introduce another test runner, lint framework, E2E framework, or major
+  quality dependency solely to satisfy an ordinary feature task.
+- Feature work must run the relevant Vitest coverage plus TypeScript, production
+  build, browser validation when applicable, focused searches, and self-review.
 
 ### Quality-stack governance
 
-The official quality stack must be chosen once through a dedicated
-infrastructure task with explicit scope. That task must:
+Any future expansion of the official quality stack must happen through a
+dedicated infrastructure task with explicit scope. That task must:
 
 1. evaluate and select one linting solution, one unit/component testing
    solution, and one E2E solution that fit the current Next.js version;
@@ -237,9 +234,9 @@ infrastructure task with explicit scope. That task must:
 5. define the migration policy for existing code and avoid unrelated mass
    formatting or test rewrites.
 
-Possible tools such as ESLint, Vitest, React Testing Library, and Playwright are
-candidates, not current project standards. No agent may treat them as approved
-until that infrastructure task records the decision in the repository.
+Vitest is the approved test runner. Possible additions such as a lint solution,
+React Testing Library, or Playwright are candidates, not current project
+standards, until a dedicated infrastructure task records the decision.
 
 ## 8. Mandatory verification gate
 
@@ -247,19 +244,20 @@ Run commands from the application root (the directory containing
 `package.json`) unless the command says otherwise.
 
 ```powershell
-corepack pnpm exec tsc --noEmit
+corepack pnpm typecheck
+corepack pnpm test
 corepack pnpm build
 ```
 
-Both commands are required for code changes. The build alone is insufficient
-because `next.config.mjs` currently ignores TypeScript build errors.
+All three commands are required for release verification and are combined by
+`corepack pnpm verify:release`. Production builds enforce TypeScript errors;
+the separate typecheck keeps failures early and explicit.
 
-Also run these commands only when the repository's official quality stack
-defines them:
+Run these commands only when the repository's official quality stack defines
+them:
 
 ```powershell
 corepack pnpm lint
-corepack pnpm test
 corepack pnpm test:e2e
 ```
 

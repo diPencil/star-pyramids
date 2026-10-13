@@ -100,8 +100,40 @@ To run this project locally, follow these steps:
 ## 📜 Scripts
 
 - `pnpm run dev` - Starts the Next.js development server.
+- `pnpm run typecheck` - Checks the active TypeScript source without emitting files.
+- `pnpm run test` - Runs the default database-independent Vitest suite.
+- `pnpm run test:unit` - Runs the database-independent Vitest subset.
+- `pnpm run test:integration` - Runs database-writing tests only after the isolated test database guard passes.
+- `pnpm run db:test:deploy` - Applies existing migrations only after the same isolation guard passes.
 - `pnpm run build` - Builds the application for production.
+- `pnpm run verify:release` - Runs type checking, the full test suite, and the production build; any failure stops the release check.
 - `pnpm run start` - Starts the production server.
+
+## Isolated MySQL integration tests
+
+Database-writing tests never fall back to the application's `DATABASE_URL`.
+Provision a separate database and a MySQL user restricted to that database:
+
+```sql
+CREATE DATABASE star_pyramids_integration CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'star_pyramids_test'@'localhost' IDENTIFIED BY '<generate-a-strong-local-password>';
+GRANT ALL PRIVILEGES ON star_pyramids_integration.* TO 'star_pyramids_test'@'localhost';
+FLUSH PRIVILEGES;
+```
+
+Run those statements manually as a MySQL administrator on the intended local
+test server. Do not reuse the application database or its database user. In the
+same terminal session, set `TEST_DATABASE_URL` to the restricted user's URL and
+set `INTEGRATION_TEST_DATABASE_CONFIRMATION` to the exact value
+`STAR_PYRAMIDS_ISOLATED_TEST_DB`. Keep the normal `DATABASE_URL` configured so
+the guard can compare parsed host, port, and database names.
+
+Apply the existing migrations with `pnpm db:test:deploy`; that command validates
+both URLs and switches Prisma to the test target only after the guard succeeds.
+Never run reset, seed, or development migrations for this test database. Then
+run `pnpm test:integration`. The guard rejects missing
+configuration, missing acknowledgement, invalid MySQL URLs, and any target that
+resolves to the same host, port, and database as the application connection.
 
 ---
 *Developed with focus on delivering an immersive and seamless travel booking experience.*

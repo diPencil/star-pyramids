@@ -196,6 +196,18 @@
         "No automatic sidebar placement for legacy campaigns",
         "Use configured copy, images, prices, terms and safe CTA links"
       ]
+    },
+    {
+      "area": "marketing-campaign-detail",
+      "direction": "Immersive Campaign Story",
+      "summary": "Standalone offer pages use campaign photography as a full-width first-viewport sales signal, then reveal the stored narrative, value, dates, highlights, gallery, terms and action in a clear conversion sequence.",
+      "constraints": [
+        "Render only campaign data supplied through the existing offer editor",
+        "Never invent prices, dates, availability, inclusions or terms",
+        "Keep STAR PYRAMIDS navy and orange, the public shell, locale behavior and campaign actions",
+        "Hide empty optional sections and keep the layout complete with only the required campaign fields",
+        "Maintain readable LTR and dormant Arabic RTL layouts across desktop and mobile"
+      ]
     }
   ]
 }

@@ -122,7 +122,7 @@ export function CustomerDetailContent({ customerKey }: { customerKey: string }) 
 
       <Card title={<AdminText en="Messages" ar="الرسائل" />} sub={<AdminText en="Support threads linked to this customer" ar="محادثات الدعم المرتبطة بهذا العميل" />}>
         {customer.conversations.length ? <div className="sp-detail-list">{customer.conversations.map((thread) => (
-          <div key={thread.reference}><span><strong>{thread.subject || thread.reference}</strong><br /><small style={{ color: 'var(--sp-muted)' }}>{thread.messageCount} <AdminText en="messages" ar="رسائل" /> · {thread.status}</small></span><Link className="sp-btn" href="/admin/inbox"><AdminText en="Open" ar="فتح" /></Link></div>
+          <div key={thread.reference}><span><strong>{thread.subject || thread.reference}</strong><br /><small style={{ color: 'var(--sp-muted)' }}>{thread.messageCount} <AdminText en="messages" ar="رسائل" /> · {thread.status}</small></span><Link className="sp-btn" href={`/admin/inbox?conversation=${encodeURIComponent(thread.reference)}`}><AdminText en="Open" ar="فتح" /></Link></div>
         ))}</div> : <p style={{ color: 'var(--sp-muted)' }}><AdminText en="No messages yet" ar="لا توجد رسائل بعد" /></p>}
       </Card>
     </div>

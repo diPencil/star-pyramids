@@ -116,22 +116,24 @@ Run application commands from this directory (the directory containing
 ```powershell
 corepack pnpm install --frozen-lockfile
 corepack pnpm dev
-corepack pnpm exec tsc --noEmit
+corepack pnpm typecheck
+corepack pnpm test
+corepack pnpm test:unit
 corepack pnpm build
+corepack pnpm verify:release
 corepack pnpm start
 ```
 
 Important current constraints:
 
-- `package.json` has no `lint` or `test` script yet. Do not claim linting or
-  automated tests ran when they did not.
-- Do not introduce a test runner, lint framework, E2E framework, or major
-  quality dependency from inside an ordinary feature task. The official quality
-  stack must be selected once in a dedicated infrastructure task; until then,
-  follow the available verification and reporting rules in `constitution.md`.
-- `next.config.mjs` currently sets `typescript.ignoreBuildErrors: true`.
-  Therefore a successful production build does not replace
-  `corepack pnpm exec tsc --noEmit`.
+- Vitest is the existing test runner. `test` runs the complete suite, while
+  `test:unit` is the database-independent validation subset.
+- `verify:release` runs TypeScript, the complete Vitest suite, and the
+  production build in sequence and stops on the first failure.
+- Production builds enforce TypeScript errors. Keep the separate `typecheck`
+  step in release verification so failures are reported before the build.
+- There is no lint or browser E2E script yet. Do not claim either ran when it
+  did not, and do not add another test runner or package manager.
 - Use pnpm through Corepack; do not introduce a second lockfile or package
   manager.
 - Do not edit generated output in `.next/`, `node_modules/`, or

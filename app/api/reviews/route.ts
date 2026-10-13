@@ -3,6 +3,7 @@ import { db } from '@/lib/server/db';
 import { getCurrentUser } from '@/lib/server/auth';
 import { Prisma } from '@prisma/client';
 import { WEBSITE_REVIEW_SCOPE } from '@/lib/review-scope';
+import { isSameOriginRequest } from '@/lib/server/csrf';
 
 const REVIEW_ATTEMPT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 const REVIEW_ATTEMPT_LIMIT = 5;
@@ -19,7 +20,7 @@ const REVIEW_ATTEMPT_LIMIT = 5;
  * - rate limiting per user/ip
  */
 export async function POST(request: Request) {
-  if (request.headers.get('origin') && request.headers.get('origin') !== new URL(request.url).origin) {
+  if (!isSameOriginRequest(request)) {
     return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
   }
   const user = await getCurrentUser();

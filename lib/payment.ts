@@ -108,11 +108,18 @@ const PAYMENT_TRANSITIONS: Record<PaymentStatus, PaymentStatus[]> = {
   failed: ['pending'],
   cancelled: [],
   refunded: [],
-  partially_refunded: ['refunded'],
+  // Further partial returns remain partial until the captured amount is
+  // fully returned. The server applies each delta under a payment-row lock.
+  partially_refunded: ['partially_refunded', 'refunded'],
 }
 
 export function canTransitionPayment(from: PaymentStatus, to: PaymentStatus): boolean {
   return PAYMENT_TRANSITIONS[from]?.includes(to) ?? false
+}
+
+/** USD display helper shared by customer and staff booking surfaces. */
+export function remainingBookingBalance(total: number, paid: number, refunded: number): number {
+  return Math.max(0, Math.round((total - (paid - refunded)) * 100) / 100)
 }
 
 /**

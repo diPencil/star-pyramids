@@ -4,6 +4,7 @@ import { checkEnquiryRateLimit, recordEnquiryAttempt } from '@/lib/server/rate-l
 import { notifyStaff } from '@/lib/server/notifications';
 import { sendCustomerEmailSafe, sendStaffEmailSafe } from '@/lib/server/email';
 import { Prisma } from '@prisma/client';
+import { isSameOriginRequest } from '@/lib/server/csrf';
 
 const MAX_NAME_LENGTH = 120;
 const MAX_EMAIL_LENGTH = 190;
@@ -18,6 +19,9 @@ function getClientIp(request: Request): string {
 }
 
 export async function POST(request: Request) {
+  if (!isSameOriginRequest(request)) {
+    return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
+  }
   const ip = getClientIp(request);
 
   let body: {

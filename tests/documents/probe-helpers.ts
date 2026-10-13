@@ -110,6 +110,7 @@ export async function recordTestRefund(
   tag: string,
 ): Promise<RecordedTestRefund> {
   const externalReference = `TEST-EXT-${tag}-${Date.now()}`;
+  const amountCents = Math.round(Number(amountDollars) * 100);
   const recorded = await recordOfflineRefund({
     paymentReference,
     amount: Number(amountDollars),
@@ -118,16 +119,20 @@ export async function recordTestRefund(
     confirmReturned: true,
   });
   if (!recorded.created) throw new Error('test refund was not recorded');
-  const event = await db.paymentEvent.findFirst({
-    where: {
-      paymentId: recorded.payment.id,
-      action: { in: ['Payment refunded', 'Payment partially refunded'] },
-    },
-    orderBy: { createdAt: 'desc' },
-    select: { id: true },
-  });
+  // The service returns a safe staff projection, not the internal payment id.
+  // Anchor the fixture to the exact persisted refund instead of letting an
+  // undefined Prisma filter select another test's newest global event.
+  const [event] = await db.$queryRaw<Array<{ id: string }>>`
+    SELECT e.id
+    FROM payment_events AS e
+    JOIN payments AS p ON p.id = e.paymentId
+    WHERE p.reference = ${paymentReference}
+      AND (e.action = 'Payment refunded' OR e.action = 'Payment partially refunded')
+      AND e.amountCents = ${amountCents}
+      AND e.externalReference = ${externalReference}
+    LIMIT 1`;
   if (!event) throw new Error('test refund event not found');
-  return { eventId: event.id, externalReference, amountCents: Math.round(Number(amountDollars) * 100) };
+  return { eventId: event.id, externalReference, amountCents };
 }
 
 export async function cleanupProbe(bookingIds: string[], bookingRefs: string[], userIds: string[]) {

@@ -26,6 +26,7 @@ import {
 } from '@/lib/payment';
 import { notifyUser, notifyStaff } from './notifications';
 import { sendCustomerEmailSafe, sendStaffEmailSafe } from './email';
+import { guestBookingPath, issueGuestBookingToken, revokeGuestBookingTokens } from './booking-access';
 
 const REF_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const REF_ATTEMPTS = 5;
@@ -391,9 +392,29 @@ export interface RecordOfflinePaymentInput {
   idempotencyKey: string;
 }
 
+type LockedOfflineBookingRow = {
+  id: string;
+  status: string;
+  total: Prisma.Decimal | number | string;
+};
+
 function hasControlChars(value: string): boolean {
   // eslint-disable-next-line no-control-regex
   return /[\u0000-\u001f\u007f]/.test(value);
+}
+
+async function paymentDetailUrlForCustomer(booking: { reference: string; userId: string | null }, paymentReference: string) {
+  if (booking.userId !== null) {
+    return `/account/payments/detail?ref=${encodeURIComponent(paymentReference)}`;
+  }
+  try {
+    await revokeGuestBookingTokens(booking.reference);
+    const access = await issueGuestBookingToken(booking.reference);
+    if (access) return guestBookingPath(access.token);
+  } catch {
+    /* A link failure must not undo money already recorded. */
+  }
+  return '/contact';
 }
 
 /**
@@ -435,69 +456,96 @@ export async function recordOfflinePayment(
     typeof input.idempotencyKey === 'string' ? input.idempotencyKey.trim() : '';
   if (!KEY_PATTERN.test(idempotencyKey)) throw new Error('Invalid request.');
 
-  const booking = await db.booking.findUnique({
-    where: { reference: bookingReference },
-    select: { id: true, status: true, total: true },
-  });
-  if (!booking) return null;
-  if (booking.status !== 'PENDING' && booking.status !== 'CONFIRMED') {
-    throw new Error('Only pending or confirmed bookings can take payment.');
-  }
+  const replayMatches = (row: PaymentRow) =>
+    row.booking.reference === bookingReference &&
+    row.provider === 'offline' &&
+    decimalToCents(row.amountPaid) === amountCents;
 
-  const replay = await db.payment.findUnique({
-    where: { idempotencyKey },
-    include: paymentInclude,
-  });
-  if (replay) return { payment: toStaffPaymentView(replay), created: false };
-
-  // Remaining balance from settled rows only, in integer cents.
-  const settled = await db.payment.findMany({
-    where: { bookingId: booking.id },
-    select: { status: true, amountPaid: true, amountRefunded: true },
-  });
-  const isSettled = (status: string) =>
-    status === 'PAID' || status === 'PARTIALLY_REFUNDED' || status === 'REFUNDED';
-  const paidCents = settled
-    .filter((p) => isSettled(p.status))
-    .reduce((sum, p) => sum + decimalToCents(p.amountPaid), 0);
-  const refundedCents = settled.reduce((sum, p) => sum + decimalToCents(p.amountRefunded), 0);
-  const remainingCents = decimalToCents(booking.total) - (paidCents - refundedCents);
-  if (remainingCents <= 0) throw new Error('This booking is already paid in full.');
-  if (amountCents > remainingCents) {
-    throw new Error('The received amount exceeds the remaining balance.');
-  }
-
-  // One receipt row per recording (`amount` keeps "amount due"
-  // semantics like initiation; `amountPaid` carries this receipt).
-  // P2002 on the key returns the concurrent winner, like initiation.
-  let receiptReference: string | null = null;
+  let result: { row: PaymentRow; created: boolean } | null = null;
   for (let attempt = 0; attempt < REF_ATTEMPTS; attempt += 1) {
     const reference = mintReferenceCandidate();
     try {
-      await db.payment.create({
-        data: {
-          reference,
-          bookingId: booking.id,
-          provider: 'offline',
-          status: 'PENDING',
-          currency: 'USD',
-          amount: centsToDecimal(decimalToCents(booking.total)),
-          amountPaid: centsToDecimal(0),
-          amountRefunded: centsToDecimal(0),
-          idempotencyKey,
-          events: {
-            create: {
-              actorRole: 'staff',
-              action: 'Offline payment recorded',
-              note:
-                `Offline ${OFFLINE_METHOD_LABELS[method]} receipt` +
-                (referenceNote ? `: ${referenceNote}` : ''),
-              isInternal: true,
+      result = await db.$transaction(async (tx) => {
+        // Booking lock serializes every manual receipt for this booking.
+        // The balance check and the PAID row now commit atomically, so
+        // two different idempotency keys cannot overpay the same balance.
+        const locked = await tx.$queryRaw<LockedOfflineBookingRow[]>`
+          SELECT id, status, total FROM bookings
+          WHERE reference = ${bookingReference} FOR UPDATE`;
+        const booking = locked[0];
+        if (!booking) return null;
+        if (booking.status !== 'PENDING' && booking.status !== 'CONFIRMED') {
+          throw new Error('Only pending or confirmed bookings can take payment.');
+        }
+
+        const replay = await tx.payment.findUnique({
+          where: { idempotencyKey },
+          include: paymentInclude,
+        });
+        if (replay) {
+          if (!replayMatches(replay)) {
+            throw new Error('That submission key was already used for a different payment.');
+          }
+          return { row: replay, created: false };
+        }
+
+        const settled = await tx.payment.findMany({
+          where: { bookingId: booking.id },
+          select: { status: true, amountPaid: true, amountRefunded: true },
+        });
+        const isSettled = (status: string) =>
+          status === 'PAID' || status === 'PARTIALLY_REFUNDED' || status === 'REFUNDED';
+        const paidCents = settled
+          .filter((payment) => isSettled(payment.status))
+          .reduce((sum, payment) => sum + decimalToCents(payment.amountPaid), 0);
+        const refundedCents = settled.reduce(
+          (sum, payment) => sum + decimalToCents(payment.amountRefunded),
+          0,
+        );
+        const remainingCents = decimalToCents(booking.total) - (paidCents - refundedCents);
+        if (remainingCents <= 0) throw new Error('This booking is already paid in full.');
+        if (amountCents > remainingCents) {
+          throw new Error('The received amount exceeds the remaining balance.');
+        }
+
+        const recordedNote =
+          `Offline ${OFFLINE_METHOD_LABELS[method]} receipt` +
+          (referenceNote ? `: ${referenceNote}` : '');
+        const receiptNote = `${recordedNote} — recorded by staff`;
+        const row = await tx.payment.create({
+          data: {
+            reference,
+            bookingId: booking.id,
+            provider: 'offline',
+            status: 'PAID',
+            currency: 'USD',
+            amount: centsToDecimal(decimalToCents(booking.total)),
+            amountPaid: centsToDecimal(amountCents),
+            amountRefunded: centsToDecimal(0),
+            paidAt: new Date(),
+            idempotencyKey,
+            events: {
+              create: [
+                {
+                  actorRole: 'staff',
+                  action: 'Offline payment recorded',
+                  note: recordedNote,
+                  isInternal: true,
+                },
+                {
+                  actorRole: 'staff',
+                  action: 'Payment completed',
+                  note: receiptNote,
+                  isInternal: false,
+                },
+              ],
             },
           },
-        },
+          include: paymentInclude,
+        });
+        return { row, created: true };
       });
-      receiptReference = reference;
+      if (!result) return null;
       break;
     } catch (error) {
       // Duck-typed P2002 (same convention as booking idempotency):
@@ -511,45 +559,34 @@ export async function recordOfflinePayment(
           where: { idempotencyKey },
           include: paymentInclude,
         });
-        if (winner) return { payment: toStaffPaymentView(winner), created: false };
+        if (winner) {
+          if (!replayMatches(winner)) {
+            throw new Error('That submission key was already used for a different payment.');
+          }
+          return { payment: toStaffPaymentView(winner), created: false };
+        }
         continue;
       }
       throw error;
     }
   }
-  if (!receiptReference) {
+  if (!result) {
     throw new Error('Could not record the payment. Please try again.');
   }
+  const paid = toStaffPaymentView(result.row);
+  if (!result.created) return { payment: paid, created: false };
 
-  const receiptNote =
-    `Offline ${OFFLINE_METHOD_LABELS[method]} receipt` +
-    (referenceNote ? `: ${referenceNote}` : '') +
-    ' — recorded by staff';
-  let paid: StaffPayment | null;
   try {
-    paid = await transitionPayment(receiptReference, 'paid', {
-      actor: 'staff',
-      amountPaidCents: amountCents,
-      note: receiptNote,
-      internal: false,
-    });
-  } catch (error) {
-    if (error instanceof PaidOnCancelledBooking) {
-      // The booking cancelled mid-recording: void the orphan receipt so
-      // no PENDING row is left behind, then report clearly. Nothing was
-      // ever marked paid.
-      await transitionPayment(receiptReference, 'cancelled', {
-        actor: 'staff',
-        note: 'Voided: booking cancelled during offline recording.',
-        internal: true,
-      }).catch(() => undefined);
-      throw new Error(
-        'The booking was cancelled before the receipt could be applied. The pending record was voided; no money was marked paid.',
-      );
-    }
-    throw error;
+    const detailUrl = await paymentDetailUrlForCustomer(result.row.booking, result.row.reference);
+    await sendCustomerEmailSafe('payment_paid', result.row.booking.contactEmail, {
+      name: result.row.booking.contactName,
+      reference: result.row.reference,
+      bookingReference: result.row.booking.reference,
+      detailUrl,
+    }, { relatedReference: result.row.reference, idempotencyKey: `payment_paid:${result.row.reference}` });
+  } catch {
+    /* email never breaks an already-recorded receipt */
   }
-  if (!paid) throw new Error('Could not record the payment. Please try again.');
 
   await notifyStaff({
     type: 'admin_payment_recorded',
@@ -651,17 +688,32 @@ export async function recordOfflineRefund(
 
   const target: PaymentStatus =
     refundedCents + amountCents >= paidCents ? 'refunded' : 'partially_refunded';
-  const updated = await transitionPayment(paymentReference, target, {
-    actor: 'staff',
-    amountRefundedCents: refundedCents + amountCents,
-    note: receiptNote,
-    internal: true,
-    // Phase D: this event alone identifies the refund (amount, method,
-    // external reference), so a commercial refund note can anchor to it.
-    eventAmountCents: amountCents,
-    eventMethod: method,
-    eventExternalReference: externalReference,
-  });
+  let updated: StaffPayment | null;
+  try {
+    updated = await transitionPayment(paymentReference, target, {
+      actor: 'staff',
+      note: receiptNote,
+      internal: true,
+      // Recomputed from the locked payment row inside transitionPayment,
+      // so repeated partial refunds accumulate without lost updates.
+      refundDeltaCents: amountCents,
+      dedupeEventNote: receiptNote,
+      // Phase D: this event alone identifies the refund (amount, method,
+      // external reference), so a commercial refund note can anchor to it.
+      eventAmountCents: amountCents,
+      eventMethod: method,
+      eventExternalReference: externalReference,
+    });
+  } catch (error) {
+    if (error instanceof DuplicateOfflineRefund) {
+      const replay = await db.payment.findUnique({
+        where: { reference: paymentReference },
+        include: paymentInclude,
+      });
+      if (replay) return { payment: toStaffPaymentView(replay), created: false };
+    }
+    throw error;
+  }
   if (!updated) throw new Error('Could not record the refund. Please try again.');
 
   await notifyStaff({
@@ -812,7 +864,20 @@ export class PaidOnCancelledBooking extends Error {
 }
 
 /** Locking row read: current committed state, never a stale snapshot. */
-type LockedPaymentRow = { id: string; status: string; bookingId: string };
+type LockedPaymentRow = {
+  id: string;
+  status: string;
+  bookingId: string;
+  amountPaid: Prisma.Decimal | number | string;
+  amountRefunded: Prisma.Decimal | number | string;
+};
+
+class DuplicateOfflineRefund extends Error {
+  constructor() {
+    super('Offline refund already recorded.');
+    this.name = 'DuplicateOfflineRefund';
+  }
+}
 
 /**
  * Single enforced applier for server-side payment transitions
@@ -853,6 +918,10 @@ async function transitionPayment(
     eventAmountCents?: number;
     eventMethod?: string;
     eventExternalReference?: string;
+    /** Increment applied from the locked row, used by offline refunds. */
+    refundDeltaCents?: number;
+    /** Natural idempotency anchor for a completed offline refund. */
+    dedupeEventNote?: string;
   },
 ): Promise<StaffPayment | null> {
   const existing = await db.payment.findUnique({ where: { reference } });
@@ -862,6 +931,7 @@ async function transitionPayment(
     throw new Error('This payment change is not allowed.');
   }
   const now = new Date();
+  let appliedTo = to;
   let row;
   try {
     row = await db.$transaction(async (tx) => {
@@ -869,28 +939,59 @@ async function transitionPayment(
       // state: a concurrent transition that committed after the
       // pre-read above cannot slip through.
       const locked = await tx.$queryRaw<LockedPaymentRow[]>`
-        SELECT id, status, bookingId FROM payments WHERE reference = ${reference} FOR UPDATE`;
+        SELECT id, status, bookingId, amountPaid, amountRefunded
+        FROM payments WHERE reference = ${reference} FOR UPDATE`;
       const currentRow = locked[0];
       if (!currentRow) {
         throw new Error('Payment not found.');
       }
+      if (options.dedupeEventNote) {
+        const duplicate = await tx.paymentEvent.findFirst({
+          where: {
+            paymentId: currentRow.id,
+            action: { in: ['Payment refunded', 'Payment partially refunded'] },
+            note: options.dedupeEventNote,
+          },
+          select: { id: true },
+        });
+        if (duplicate) throw new DuplicateOfflineRefund();
+      }
       const current = FROM_DB_STATUS[currentRow.status as DbStatus];
-      if (!canTransitionPayment(current, to)) {
+      const lockedPaidCents = decimalToCents(currentRow.amountPaid);
+      const lockedRefundedCents = decimalToCents(currentRow.amountRefunded);
+      if (options.refundDeltaCents !== undefined) {
+        if (!Number.isSafeInteger(options.refundDeltaCents) || options.refundDeltaCents <= 0) {
+          throw new Error('Invalid payment amounts.');
+        }
+        const refundableCents = lockedPaidCents - lockedRefundedCents;
+        if (refundableCents <= 0) {
+          throw new Error('This payment has no captured money left to refund.');
+        }
+        if (options.refundDeltaCents > refundableCents) {
+          throw new Error('The refund amount exceeds the remaining refundable balance.');
+        }
+        appliedTo = options.refundDeltaCents === refundableCents ? 'refunded' : 'partially_refunded';
+      } else {
+        appliedTo = to;
+      }
+      if (!canTransitionPayment(current, appliedTo)) {
         throw new Error('This payment change is not allowed.');
       }
       // Paid settlement on a cancelled booking is refused: lock the
       // booking row too (same booking→payment lock order as the
       // cancellation path, so the two can never deadlock) and check
       // its current committed status.
-      if (to === 'paid') {
+      if (appliedTo === 'paid') {
         const lockedBooking = await tx.$queryRaw<{ status: string }[]>`
           SELECT status FROM bookings WHERE id = ${currentRow.bookingId} FOR UPDATE`;
         if (lockedBooking[0] && lockedBooking[0].status === 'CANCELLED') {
           throw new PaidOnCancelledBooking(reference);
         }
       }
-      const amountPaidCents = options.amountPaidCents ?? decimalToCents(existing.amountPaid);
-      const amountRefundedCents = options.amountRefundedCents ?? decimalToCents(existing.amountRefunded);
+      const amountPaidCents = options.amountPaidCents ?? lockedPaidCents;
+      const amountRefundedCents = options.refundDeltaCents !== undefined
+        ? lockedRefundedCents + options.refundDeltaCents
+        : options.amountRefundedCents ?? lockedRefundedCents;
       if (amountPaidCents < 0 || amountRefundedCents < 0 || amountRefundedCents > amountPaidCents) {
         throw new Error('Invalid payment amounts.');
       }
@@ -903,16 +1004,16 @@ async function transitionPayment(
       const claimed = await tx.payment.updateMany({
         where: { id: currentRow.id, status: currentRow.status as DbStatus },
         data: {
-          status: TO_DB_STATUS[to],
+          status: TO_DB_STATUS[appliedTo],
           amountPaid: centsToDecimal(amountPaidCents),
           amountRefunded: centsToDecimal(amountRefundedCents),
           ...(options.providerPaymentId ? { providerPaymentId: options.providerPaymentId } : {}),
           ...(options.failureCode ? { failureCode: options.failureCode.slice(0, 64) } : {}),
           ...(options.failureMessage ? { failureMessage: options.failureMessage.slice(0, 255) } : {}),
-          ...(to === 'paid' ? { paidAt: now } : {}),
-          ...(to === 'failed' ? { failedAt: now } : {}),
-          ...(to === 'cancelled' ? { cancelledAt: now } : {}),
-          ...(to === 'refunded' || to === 'partially_refunded' ? { refundedAt: now } : {}),
+          ...(appliedTo === 'paid' ? { paidAt: now } : {}),
+          ...(appliedTo === 'failed' ? { failedAt: now } : {}),
+          ...(appliedTo === 'cancelled' ? { cancelledAt: now } : {}),
+          ...(appliedTo === 'refunded' || appliedTo === 'partially_refunded' ? { refundedAt: now } : {}),
         },
       });
       if (claimed.count === 0) {
@@ -930,7 +1031,7 @@ async function transitionPayment(
           ${randomUUID()},
           ${currentRow.id},
           ${options.actor},
-          ${paymentTransitionAction(current, to)},
+          ${paymentTransitionAction(current, appliedTo)},
           ${options.note?.slice(0, 1000) || null},
           ${options.internal ?? true},
           ${options.providerEventId ?? null},
@@ -959,20 +1060,29 @@ async function transitionPayment(
   // refunded / partially refunded). Processing/cancelled/pending are
   // internal handoff states and never email. Best-effort — never
   // breaks the transition.
-  if (to === 'paid' || to === 'failed' || to === 'refunded' || to === 'partially_refunded') {
+  if (appliedTo === 'paid' || appliedTo === 'failed' || appliedTo === 'refunded' || appliedTo === 'partially_refunded') {
     try {
       const booking = await db.booking.findUnique({
         where: { id: existing.bookingId },
-        select: { reference: true, contactEmail: true, contactName: true },
+        select: { reference: true, userId: true, contactEmail: true, contactName: true },
       });
       if (booking) {
-        const eventType = to === 'paid' ? 'payment_paid' : to === 'failed' ? 'payment_failed' : 'payment_refunded';
+        const eventType = appliedTo === 'paid' ? 'payment_paid' : appliedTo === 'failed' ? 'payment_failed' : 'payment_refunded';
+        const detailUrl = await paymentDetailUrlForCustomer(booking, existing.reference);
         await sendCustomerEmailSafe(eventType, booking.contactEmail, {
           name: booking.contactName,
           reference: existing.reference,
           bookingReference: booking.reference,
-          detailUrl: `/account/payments/detail?ref=${encodeURIComponent(existing.reference)}`,
-        }, { relatedReference: existing.reference, idempotencyKey: `${eventType}:${existing.reference}` });
+          detailUrl,
+        }, {
+          relatedReference: existing.reference,
+          // A payment can have several genuine partial refunds. Anchor
+          // refund mail dedupe to the locked cumulative refunded amount:
+          // redelivery stays idempotent, while each new refund gets mail.
+          idempotencyKey: eventType === 'payment_refunded'
+            ? `${eventType}:${existing.reference}:${decimalToCents(row.amountRefunded)}`
+            : `${eventType}:${existing.reference}`,
+        });
       }
     } catch {
       /* email never breaks the transition */

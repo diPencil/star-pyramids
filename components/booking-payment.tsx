@@ -5,7 +5,7 @@ import { useState, type FormEvent } from 'react'
 import { MessageCircle, ReceiptText, ShieldCheck } from 'lucide-react'
 import { formatPrice, tx, useLocale, type Locale } from '@/components/locale'
 import { SharedSelect } from '@/components/shared-select'
-import { bookingOfflinePaymentLabel } from '@/lib/payment'
+import { bookingOfflinePaymentLabel, remainingBookingBalance } from '@/lib/payment'
 import type { Booking } from '@/lib/booking'
 
 /**
@@ -53,7 +53,7 @@ export function PaymentInstructions({ layout }: { layout: 'section' | 'note' }) 
 export function bookingMoney(booking: Booking): { paid: number; refunded: number; remaining: number } {
   const paid = booking.paymentSummary?.paidTotal ?? 0
   const refunded = booking.paymentSummary?.refundedTotal ?? 0
-  return { paid, refunded, remaining: Math.max(0, Math.round((booking.total - (paid - refunded)) * 100) / 100) }
+  return { paid, refunded, remaining: remainingBookingBalance(booking.total, paid, refunded) }
 }
 
 export function bookingPaymentLabel(booking: Booking, locale: Locale): string {

@@ -392,7 +392,7 @@ describe.runIf(reachable)('PDF download access matrix (real database)', () => {
       mockGetCurrentUser.mockResolvedValue(null)
       await cleanup({ bookingIds: [booking.id], bookingRefs: [booking.reference], userIds: [] })
     }
-  })
+  }, 15_000)
 
   it('issues nothing on download attempts for bookings without documents', async () => {
     const booking = await createProbeBooking({ userId: null, tag: 'noissue' })

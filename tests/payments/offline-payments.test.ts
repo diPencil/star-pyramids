@@ -10,6 +10,7 @@ const shared = vi.hoisted(() => {
     payments: [] as Row[],
     usedEventIds: new Set<string>(),
     bookingStatusForRaw: 'CONFIRMED' as string,
+    transactionTail: Promise.resolve(),
   }
   const db: Record<string, any> = {
     booking: {
@@ -31,7 +32,8 @@ const shared = vi.hoisted(() => {
         )
         if (!row) return null
         const full = structuredClone(row)
-        full.booking = { reference: 'SP-BK-TEST01', user: null }
+        const booking = shared.store.bookings.get(full.bookingId)
+        full.booking = { ...booking, user: null }
         full.events = (full.events ?? []).map((e: any) => ({ createdAt: new Date(), ...e }))
         return full
       },
@@ -63,11 +65,14 @@ const shared = vi.hoisted(() => {
           ...scalarData,
         }
         const nested = args.data.events?.create
-        if (nested) {
-          row.events.push({ ...nested, id: `ev-${row.id}`, createdAt: new Date() })
+        for (const [index, event] of (Array.isArray(nested) ? nested : nested ? [nested] : []).entries()) {
+          row.events.push({ ...event, id: `ev-${row.id}-${index}`, createdAt: new Date() })
         }
         shared.store.payments.push(row)
-        return structuredClone(row)
+        const full = structuredClone(row)
+        const booking = shared.store.bookings.get(full.bookingId)
+        full.booking = { ...booking, user: null }
+        return full
       },
       updateMany: async (args: { where: { id?: string; status?: string }; data: any }) => {
         const row = args.where.id ? shared.store.payments.find((p) => p.id === args.where.id) : undefined
@@ -87,6 +92,10 @@ const shared = vi.hoisted(() => {
       },
     },
     $transaction: async (fn: (tx: unknown) => Promise<unknown>) => {
+      let release!: () => void
+      const previous = shared.store.transactionTail
+      shared.store.transactionTail = new Promise<void>((resolve) => { release = resolve })
+      await previous
       const snap = {
         payments: structuredClone(shared.store.payments),
         usedEventIds: new Set(shared.store.usedEventIds),
@@ -97,10 +106,11 @@ const shared = vi.hoisted(() => {
           const sql = strings.join('?')
           if (sql.includes('FROM payments')) {
             const row = shared.store.payments.find((p) => p.reference === values[0])
-            return row ? [{ id: row.id, status: row.status, bookingId: row.bookingId }] : []
+            return row ? [{ id: row.id, status: row.status, bookingId: row.bookingId, amountPaid: row.amountPaid, amountRefunded: row.amountRefunded }] : []
           }
           if (sql.includes('FROM bookings')) {
-            return [{ status: shared.store.bookingStatusForRaw }]
+            const booking = [...shared.store.bookings.values()].find((row) => row.reference === values[0])
+            return booking ? [{ id: booking.id, status: shared.store.bookingStatusForRaw, total: booking.total }] : []
           }
           return []
         },
@@ -131,6 +141,8 @@ const shared = vi.hoisted(() => {
         shared.store.payments = snap.payments
         shared.store.usedEventIds = snap.usedEventIds
         throw error
+      } finally {
+        release()
       }
     },
   }
@@ -147,9 +159,15 @@ vi.mock('@/lib/server/notifications', () => ({
   notifyUser: vi.fn(async () => undefined),
   notifyStaff: vi.fn(async () => undefined),
 }))
+vi.mock('@/lib/server/booking-access', () => ({
+  revokeGuestBookingTokens: vi.fn(async () => undefined),
+  issueGuestBookingToken: vi.fn(async () => ({ token: 'guest-payment-token', expiresAt: new Date() })),
+  guestBookingPath: (token: string) => `/booking/${token}`,
+}))
 
 import { recordOfflinePayment, deriveBookingPaymentSummary } from '@/lib/server/payments'
 import { notifyStaff } from '@/lib/server/notifications'
+import { sendCustomerEmailSafe } from '@/lib/server/email'
 
 function seedBooking(overrides: Record<string, any> = {}) {
   const row: Record<string, any> = {
@@ -165,6 +183,7 @@ function seedBooking(overrides: Record<string, any> = {}) {
     ...overrides,
   }
   shared.store.bookings.set(row.id, row)
+  shared.store.bookingStatusForRaw = row.status
   return row
 }
 
@@ -184,6 +203,7 @@ beforeEach(() => {
   shared.store.payments = []
   shared.store.usedEventIds.clear()
   shared.store.bookingStatusForRaw = 'CONFIRMED'
+  shared.store.transactionTail = Promise.resolve()
 })
 
 describe('recordOfflinePayment', () => {
@@ -203,12 +223,32 @@ describe('recordOfflinePayment', () => {
     expect(vi.mocked(notifyStaff)).toHaveBeenCalledTimes(1)
   })
 
+  it('sends guest payment emails to a private booking link, not the account portal', async () => {
+    seedBooking({ userId: null })
+    await recordOfflinePayment(receipt())
+    expect(vi.mocked(sendCustomerEmailSafe)).toHaveBeenCalledWith(
+      'payment_paid',
+      'guest@example.com',
+      expect.objectContaining({ detailUrl: '/booking/guest-payment-token' }),
+      expect.any(Object),
+    )
+  })
+
   it('returns the original receipt on duplicate idempotency key', async () => {
     seedBooking()
     const first = (await recordOfflinePayment(receipt()))!
     const second = (await recordOfflinePayment(receipt()))!
     expect(second.created).toBe(false)
     expect(second.payment.reference).toBe(first.payment.reference)
+    expect(shared.store.payments).toHaveLength(1)
+  })
+
+  it('rejects reusing an idempotency key with a different amount', async () => {
+    seedBooking()
+    await recordOfflinePayment(receipt({ amount: 200 }))
+    await expect(recordOfflinePayment(receipt({ amount: 300 }))).rejects.toThrow(
+      'submission key was already used for a different payment',
+    )
     expect(shared.store.payments).toHaveLength(1)
   })
 
@@ -266,16 +306,26 @@ describe('recordOfflinePayment', () => {
     expect(shared.store.payments).toHaveLength(2)
   })
 
-  it('voids the orphan receipt when the booking cancels mid-recording', async () => {
+  it('serializes concurrent receipts so they cannot overpay the booking', async () => {
+    seedBooking()
+    const outcomes = await Promise.allSettled([
+      recordOfflinePayment(receipt({ amount: 300, idempotencyKey: 'offline-race-1' })),
+      recordOfflinePayment(receipt({ amount: 300, idempotencyKey: 'offline-race-2' })),
+    ])
+    expect(outcomes.filter((outcome) => outcome.status === 'fulfilled')).toHaveLength(1)
+    expect(outcomes.filter((outcome) => outcome.status === 'rejected')).toHaveLength(1)
+    expect(shared.store.payments).toHaveLength(1)
+    expect(Number(shared.store.payments[0].amountPaid)).toBe(300)
+  })
+
+  it('refuses a receipt if cancellation wins before the booking lock', async () => {
     seedBooking()
     // The pre-check sees CONFIRMED, but the locked settlement read
     // observes CANCELLED: the receipt must be voided, never paid.
     shared.store.bookingStatusForRaw = 'CANCELLED'
-    await expect(recordOfflinePayment(receipt())).rejects.toThrow('voided; no money was marked paid')
+    await expect(recordOfflinePayment(receipt())).rejects.toThrow('Only pending or confirmed')
     const rows = shared.store.payments.filter((p) => p.reference.startsWith('SP-PAY-'))
-    expect(rows).toHaveLength(1)
-    expect(rows[0].status).toBe('CANCELLED')
-    expect(rows[0].amountPaid).toBe('0.00')
+    expect(rows).toHaveLength(0)
   })
 })
 

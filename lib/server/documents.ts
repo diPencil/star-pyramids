@@ -1094,7 +1094,7 @@ export async function listBookingRefundEvents(bookingId: string): Promise<Refund
     JOIN payments AS p ON p.id = e.paymentId
     WHERE p.bookingId = ${bookingId}
       AND (e.action = 'Payment refunded' OR e.action = 'Payment partially refunded')
-    ORDER BY e.createdAt DESC`;
+    ORDER BY e.createdAt DESC, e.id DESC`;
   const options: RefundEventOption[] = [];
   for (const row of rows) {
     const scope = refundEventScope(row.action);

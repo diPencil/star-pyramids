@@ -12,6 +12,7 @@ import { useCurrentUser } from '@/lib/use-current-user'
 import { SharedSelect } from '@/components/shared-select'
 import { bookingActivityLabel, bookingPaymentStatusLabel, bookingStatusLabel, canTransitionBooking, type BookingStatus, type StaffBooking } from '@/lib/booking'
 import { documentTypeLabel, formatDocumentIssuedAt, staffDocumentPdfUrl, type DocumentListItem, type VerifiedPaymentOption } from '@/lib/documents'
+import { remainingBookingBalance } from '@/lib/payment'
 
 /** Client-safe mirror of the server refund-event option (admin list endpoint). */
 type RefundEventOption = {
@@ -570,8 +571,8 @@ export function BookingDetailContent({ reference }: { reference: string }) {
         onConfirm={submitRecord}
         title={<AdminText en="Record offline payment" ar="تسجيل دفعة نقدية" />}
         description={<AdminText
-          en={`Remaining balance ${formatUsd(Math.max(0, item.total - (item.paymentSummary?.paidTotal ?? 0)))} · stored in USD, no conversion applied.`}
-          ar={`الرصيد المتبقي ${formatUsd(Math.max(0, item.total - (item.paymentSummary?.paidTotal ?? 0)))} · يُحفظ بالدولار دون تحويل.`}
+          en={`Remaining balance ${formatUsd(remainingBookingBalance(item.total, item.paymentSummary?.paidTotal ?? 0, item.paymentSummary?.refundedTotal ?? 0))} · stored in USD, no conversion applied.`}
+          ar={`الرصيد المتبقي ${formatUsd(remainingBookingBalance(item.total, item.paymentSummary?.paidTotal ?? 0, item.paymentSummary?.refundedTotal ?? 0))} · يُحفظ بالدولار دون تحويل.`}
         />}
         confirmLabel={<AdminText en={recSaving ? 'Recording…' : 'Record as paid'} ar={recSaving ? 'جارٍ التسجيل…' : 'تسجيل كمدفوع'} />}
         cancelLabel={<AdminText en="Cancel" ar="إلغاء" />}
