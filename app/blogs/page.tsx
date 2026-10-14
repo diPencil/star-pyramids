@@ -1,4 +1,6 @@
 import type { Metadata } from 'next'
+import { pageContentMetadata } from '@/lib/server/page-content-metadata'
+import { ServerShowcaseHero } from '@/components/server-showcase-hero'
 import { BlogsPage } from '@/components/extended-pages'
 import { getSiteUrl, getHreflangEntries } from '@/lib/seo'
 import { getPublishedDbBlogs } from '@/lib/server/blogs'
@@ -10,10 +12,11 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: 'Egypt Travel Blog',
     description: 'Read the STAR PYRAMIDS blog for Egypt travel tips, destination guides, tour insights, and inspiration for your next journey.',
+    ...(await pageContentMetadata('blogs')),
     alternates: { canonical: `${siteUrl}/blogs`, languages: hreflang },
   }
 }
 
 export default async function Page() {
-  return <BlogsPage initialBlogs={await getPublishedDbBlogs()} />
+  return <ServerShowcaseHero id="blogs"><BlogsPage initialBlogs={await getPublishedDbBlogs()} /></ServerShowcaseHero>
 }

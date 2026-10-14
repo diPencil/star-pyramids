@@ -27,7 +27,7 @@ function parseRange(header: string | null, size: number): { start: number; end: 
   const [, startRaw, endRaw] = match;
   if (startRaw === '' && endRaw === '') return null;
   let start = startRaw === '' ? Math.max(0, size - Number(endRaw)) : Number(startRaw);
-  let end = endRaw === '' ? size - 1 : Number(endRaw);
+  let end = startRaw === '' || endRaw === '' ? size - 1 : Number(endRaw);
   if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end < start) return null;
   if (start >= size) return null;
   end = Math.min(end, size - 1);

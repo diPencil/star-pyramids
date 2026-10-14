@@ -1,5 +1,12 @@
 import type { Metadata } from 'next'
+import { readPublishedPage } from '@/lib/server/page-sections'
+import { pageContentMetadata } from '@/lib/server/page-content-metadata'
 import { getSiteUrl, getHreflangEntries } from '@/lib/seo'
+import { InformationPage } from '@/components/information-page'
+import { FaqHeroProvider } from '@/components/faq-hero-context'
+import { readFaqHeroState } from '@/lib/server/faq-hero'
+import { publicEditorialHero } from '@/lib/editorial-hero-definitions'
+import type { PublicFaqHero } from '@/lib/faq-hero'
 
 export async function generateMetadata(): Promise<Metadata> {
   const siteUrl = await getSiteUrl()
@@ -8,10 +15,14 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: 'Accessible Travel Egypt',
     description: 'STAR PYRAMIDS accessible Egypt tours. Wheelchair-friendly day trips, Nile cruises, and shore excursions for travelers with mobility needs.',
+    ...(await pageContentMetadata('accessible')),
     alternates: { canonical: `${siteUrl}/accessible-travel`, languages: hreflang },
   }
 }
 
-export default function Page() {
-  return <div className="accessible-travel-page"><h1>Accessible Travel in Egypt</h1><p>Wheelchair-friendly day trips, Nile cruises, and shore excursions for travelers with mobility needs.</p></div>
+export default async function Page() {
+  let hero: PublicFaqHero
+  try { hero = publicEditorialHero('accessible', await readFaqHeroState('accessible')) }
+  catch { hero = { hidden: false, content: null, unavailable: true } }
+  return <FaqHeroProvider state={hero}><InformationPage id="accessible" pageContent={await readPublishedPage('accessible')} /></FaqHeroProvider>
 }

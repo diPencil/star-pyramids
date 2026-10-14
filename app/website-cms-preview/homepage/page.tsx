@@ -2,14 +2,14 @@ import { redirect } from 'next/navigation'
 import { requireStaff } from '@/lib/server/guards'
 import { hasPermission } from '@/lib/server/auth'
 import { readHeroState } from '@/lib/server/website-heroes'
-import { RebuiltHomePage } from '@/components/homepage'
+import { HomepageHeroPreview } from '@/components/homepage-hero-preview'
 import { sanitizeLocale } from '@/lib/locale-config'
-import { InitialLocaleProvider } from '@/components/locale'
+import { readPublishedPage } from '@/lib/server/page-sections'
 export const metadata = { robots: { index: false, follow: false, nocache: true } }
 export default async function Preview({ searchParams }: { searchParams: Promise<{ locale?: string }> }) {
   const user = await requireStaff()
   if (!hasPermission(user, 'settings.view')) redirect('/admin')
   const state = await readHeroState()
   const { locale } = await searchParams
-  return <InitialLocaleProvider locale={sanitizeLocale(locale)} preview><div inert><RebuiltHomePage initialLocale={sanitizeLocale(locale)} hero={{ hidden: false, content: state.draft ?? state.published }} /></div></InitialLocaleProvider>
+  return <HomepageHeroPreview initialLocale={sanitizeLocale(locale)} initialContent={state.draft ?? state.published} pageContent={await readPublishedPage()} />
 }

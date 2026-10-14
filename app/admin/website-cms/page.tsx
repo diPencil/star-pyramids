@@ -1,2 +1,2 @@
-import { redirect } from 'next/navigation'
-export default function WebsiteCmsPage() { redirect('/admin/website-cms/hero-sections') }
+import { CmsPagesDashboard } from '@/components/admin/cms-pages-dashboard'
+export default function WebsiteCmsPage() { return <CmsPagesDashboard overview /> }

@@ -6,6 +6,8 @@ import { InitialLocaleProvider } from '@/components/locale'
 import { EnquiryHistoryTracking } from '@/components/enquiry-history-tracking'
 import { getServerLocale, getHtmlLang, getOgLocale } from '@/lib/server/locale'
 import { getSiteUrl } from '@/lib/seo'
+import { readPresentationStates, readPublishedPage } from '@/lib/server/page-sections'
+import { PresentationProvider } from '@/components/presentation-content-context'
 
 // Optimize font loading: preload critical weights, use display: swap
 const montserrat = Montserrat({
@@ -120,7 +122,7 @@ export default async function RootLayout({
       <body className={`${montserrat.variable} ${alexandria.variable} antialiased`}>
         <BrandFavicon />
         <EnquiryHistoryTracking />
-        <InitialLocaleProvider locale={locale}>{children}</InitialLocaleProvider>
+        <InitialLocaleProvider locale={locale}><PresentationProvider states={{ ...await readPresentationStates(), faq: await readPublishedPage('faq') }}>{children}</PresentationProvider></InitialLocaleProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

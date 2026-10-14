@@ -1,4 +1,8 @@
 'use client'
+import { CmsPublicLink } from '@/components/cms-public-link'
+
+import { usePresentation, PresentationSection, PresentationOrder } from '@/components/presentation-content-context'
+
 
 import Link from 'next/link'
 import { ArrowRight, CalendarDays, Check, Clock3, ShieldCheck, Sparkles, Tag } from 'lucide-react'
@@ -28,8 +32,9 @@ function useOffers(placement: CampaignPlacement) {
   return { ...status, rows }
 }
 
-export function OfferCards({ placement, limit }: { placement: CampaignPlacement; limit?: number }) {
-  const { rows, loading, error, retry } = useOffers(placement)
+export function OfferCards({ placement, limit, slugs }: { placement: CampaignPlacement; limit?: number; slugs?: string[] }) {
+  const { rows: sourceRows, loading, error, retry } = useOffers(placement)
+  const rows = slugs === undefined ? sourceRows : slugs.flatMap((slug) => { const row = sourceRows.find((item) => item.slug === slug); return row ? [row] : [] })
   const { locale } = useLocale()
   if (loading) return <p role="status">{tx(locale, { en: 'Loading offers…', es: 'Cargando ofertas…', it: 'Caricamento offerte…', ar: 'جارٍ تحميل العروض…' })}</p>
   if (error) return <div role="alert"><p>{tx(locale, { en: 'Offers could not be loaded.', es: 'No se pudieron cargar las ofertas.', it: 'Impossibile caricare le offerte.', ar: 'تعذر تحميل العروض.' })}</p><button type="button" className="outline-btn" onClick={retry}>{tx(locale, { en: 'Retry', es: 'Reintentar', it: 'Riprova', ar: 'إعادة المحاولة' })}</button></div>
@@ -67,6 +72,8 @@ export function CampaignPlacementSlot({ placement }: { placement: 'trips-sidebar
 }
 
 export function CampaignDetail({ slug }: { slug: string }) {
+  const cms = usePresentation("campaign-detail")
+
   const { locale, currency } = useLocale()
   const status = useDbOffersStatus()
   const found = useDbOffers([]).find(o => o.slug === slug && !o.tourSlug && isOfferActive(o))
@@ -74,7 +81,7 @@ export function CampaignDetail({ slug }: { slug: string }) {
   // not-found early return so the hook order never changes between renders.
   const countdown = usePromotionCountdown(found?.deadline)
   const back = tx(locale, { en: 'All offers', es: 'Todas las ofertas', it: 'Tutte le offerte', ar: 'كل العروض' })
-  if (!found) return <SiteShell><main className="container section"><h1>{status.loading ? tx(locale, { en: 'Loading offer…', es: 'Cargando oferta…', it: 'Caricamento offerta…', ar: 'جارٍ تحميل العرض…' }) : tx(locale, { en: 'Offer unavailable', es: 'Oferta no disponible', it: 'Offerta non disponibile', ar: 'العرض غير متاح' })}</h1>{status.error && <button type="button" onClick={status.retry} className="outline-btn">{tx(locale, { en: 'Retry', es: 'Reintentar', it: 'Riprova', ar: 'إعادة المحاولة' })}</button>}<Link href="/special-offers">{back}</Link></main></SiteShell>
+  if (!found) return <SiteShell><main className="container section"><h1>{status.loading ? cms.text("presentation","description0",tx(locale, { en: 'Loading offer…', es: 'Cargando oferta…', it: 'Caricamento offerta…', ar: 'جارٍ تحميل العرض…' })) : cms.text("presentation","description1",tx(locale, { en: 'Offer unavailable', es: 'Oferta no disponible', it: 'Offerta non disponibile', ar: 'العرض غير متاح' }))}</h1>{status.error && <button type="button" onClick={status.retry} className="outline-btn">{tx(locale, { en: 'Retry', es: 'Reintentar', it: 'Riprova', ar: 'إعادة المحاولة' })}</button>}<Link href="/special-offers">{back}</Link></main></SiteShell>
   const item = found
   const campaign = readCampaign(item.campaign)
   const gallery = [...new Set(item.gallery ?? [])].filter(src => src && src !== item.image)
@@ -100,7 +107,7 @@ export function CampaignDetail({ slug }: { slug: string }) {
         <nav className="campaign-breadcrumb" aria-label="Breadcrumb"><Link href="/special-offers">{back}</Link><span aria-hidden="true"> / </span><span>{item.title}</span></nav>
         <div className="campaign-hero-inner">
           <div className="campaign-hero-copy">
-            <span className="campaign-hero-eyebrow"><Sparkles size={16}/>{tx(locale, { en: 'Curated Egypt offer', es: 'Oferta seleccionada de Egipto', it: 'Offerta selezionata per l’Egitto', ar: 'عرض مختار لمصر' })}</span>
+            <span className="campaign-hero-eyebrow"><Sparkles size={16}/>{cms.text("presentation","kicker",tx(locale, { en: 'Curated Egypt offer', es: 'Oferta seleccionada de Egipto', it: 'Offerta selezionata per l’Egitto', ar: 'عرض مختار لمصر' }))}</span>
             <h1 id="campaign-title">{item.title}</h1>
             <p>{item.copy}</p>
             {!!facts.length && <div className="campaign-hero-facts">{facts.map(({ icon: Icon, label, value }) => <div key={label}><Icon size={18}/><span><small>{label}</small><strong>{value}</strong></span></div>)}</div>}
@@ -136,16 +143,16 @@ export function CampaignDetail({ slug }: { slug: string }) {
         </aside>
       )}
 
-      <section className="campaign-story" aria-labelledby="campaign-story-title">
+      <PresentationSection pageId="campaign-detail" id="campaign-story"><section className="campaign-story" aria-labelledby="campaign-story-title">
         <div className="campaign-story-copy">
-          <span className="campaign-section-label">{tx(locale, { en: 'The offer', es: 'La oferta', it: 'L’offerta', ar: 'العرض' })}</span>
-          <h2 id="campaign-story-title">{tx(locale, { en: 'More value, shaped around your Egypt journey.', es: 'Más valor, diseñado para tu viaje por Egipto.', it: 'Più valore, pensato per il tuo viaggio in Egitto.', ar: 'قيمة أكبر مصممة حول رحلتك في مصر.' })}</h2>
+          <span className="campaign-section-label">{cms.text("campaign-story","description0",tx(locale, { en: 'The offer', es: 'La oferta', it: 'L’offerta', ar: 'العرض' }))}</span>
+          <h2 id="campaign-story-title">{cms.text("campaign-story","description1",tx(locale, { en: 'More value, shaped around your Egypt journey.', es: 'Más valor, diseñado para tu viaje por Egipto.', it: 'Più valore, pensato per il tuo viaggio in Egitto.', ar: 'قيمة أكبر مصممة حول رحلتك في مصر.' }))}</h2>
           <div className="campaign-prose">{(campaign.body || item.copy).split(/\n\s*\n/).map((paragraph, index) => <p key={index}>{paragraph}</p>)}</div>
 
-          {!!item.highlights?.length && <section className="campaign-benefits-section" aria-labelledby="campaign-benefits-title">
+          {!!item.highlights?.length && <PresentationSection pageId="campaign-detail" id="campaign-benefits-section"><section className="campaign-benefits-section" aria-labelledby="campaign-benefits-title">
             <div className="campaign-benefits-heading">
-              <span className="campaign-section-label">{tx(locale, { en: 'Included value', es: 'Valor incluido', it: 'Valore incluso', ar: 'قيمة متضمنة' })}</span>
-              <h3 id="campaign-benefits-title">{tx(locale, { en: 'Built into this offer', es: 'Incluido en esta oferta', it: 'Incluso in questa offerta', ar: 'متضمن في هذا العرض' })}</h3>
+              <span className="campaign-section-label">{cms.text("campaign-benefits-section","description0",tx(locale, { en: 'Included value', es: 'Valor incluido', it: 'Valore incluso', ar: 'قيمة متضمنة' }))}</span>
+              <h3 id="campaign-benefits-title">{cms.text("campaign-benefits-section","description1",tx(locale, { en: 'Built into this offer', es: 'Incluido en esta oferta', it: 'Incluso in questa offerta', ar: 'متضمن في هذا العرض' }))}</h3>
             </div>
             <ul className="campaign-highlights">
               {item.highlights.map((highlight, index) => (
@@ -155,7 +162,7 @@ export function CampaignDetail({ slug }: { slug: string }) {
                 </li>
               ))}
             </ul>
-          </section>}
+          </section></PresentationSection>}
 
           {campaign.terms && <section className="campaign-terms"><div><ShieldCheck size={22}/><h2>{tx(locale, { en: 'Offer terms', es: 'Condiciones de la oferta', it: 'Condizioni dell’offerta', ar: 'شروط العرض' })}</h2></div><p>{campaign.terms}</p></section>}
         </div>
@@ -177,11 +184,11 @@ export function CampaignDetail({ slug }: { slug: string }) {
             className="campaign-question"
             label={tx(locale, { en: 'Ask about this offer', es: 'Pregunta por esta oferta', it: 'Chiedi di questa offerta', ar: 'اسأل عن هذا العرض' })}
           />
-          <Link className="campaign-more" href="/special-offers">{back}<ArrowRight size={15}/></Link>
+          <CmsPublicLink className="campaign-more" href={cms.link("campaign-story","links0","/special-offers")}>{back}<ArrowRight size={15}/></CmsPublicLink>
         </aside>
-      </section>
+      </section></PresentationSection>
 
-      {!!gallery.length && <section className="campaign-gallery-section" aria-labelledby="campaign-gallery-title"><div className="campaign-section-head"><span className="campaign-section-label">{tx(locale, { en: 'Picture the journey', es: 'Imagina el viaje', it: 'Immagina il viaggio', ar: 'تخيل الرحلة' })}</span><h2 id="campaign-gallery-title">{tx(locale, { en: 'A closer look at the experience', es: 'Una mirada más cercana a la experiencia', it: 'Uno sguardo più vicino all’esperienza', ar: 'نظرة أقرب على التجربة' })}</h2></div><div className="campaign-gallery">{gallery.map((src, index) => <img key={src} src={src} alt={`${item.title} ${index + 1}`} loading="lazy"/>)}</div></section>}
+      {!!gallery.length && <PresentationSection pageId="campaign-detail" id="campaign-gallery-section"><section className="campaign-gallery-section" aria-labelledby="campaign-gallery-title"><div className="campaign-section-head"><span className="campaign-section-label">{cms.text("campaign-gallery-section","description0",tx(locale, { en: 'Picture the journey', es: 'Imagina el viaje', it: 'Immagina il viaggio', ar: 'تخيل الرحلة' }))}</span><h2 id="campaign-gallery-title">{cms.text("campaign-gallery-section","description1",tx(locale, { en: 'A closer look at the experience', es: 'Una mirada más cercana a la experiencia', it: 'Uno sguardo più vicino all’esperienza', ar: 'نظرة أقرب على التجربة' }))}</h2></div><div className="campaign-gallery">{gallery.map((src, index) => <img key={src} src={src} alt={`${item.title} ${index + 1}`} loading="lazy"/>)}</div></section></PresentationSection>}
     </div>
   </main></SiteShell>
 }

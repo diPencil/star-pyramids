@@ -1,4 +1,11 @@
 'use client'
+import { CmsPublicLink } from '@/components/cms-public-link'
+
+import { usePresentation, PresentationSection, PresentationOrder, useSharedFaqs } from '@/components/presentation-content-context'
+
+
+import { CmsFaqBody } from './cms-additional-pages'
+import type { PublicPageContent } from '@/lib/page-sections'
 
 import Link from 'next/link'
 import { OfferCards, CampaignDetail, CampaignPlacementSlot } from './offer-campaigns'
@@ -32,9 +39,16 @@ import { SharedSelect } from '@/components/shared-select'
 import { telLink, whatsappLink } from '@/lib/phone'
 import { DateInput } from '@/components/date-input'
 import { customerErrorText } from '@/lib/customer-error-copy'
+import { useFaqHero } from './faq-hero-context'
+import { useShowcaseHero } from './showcase-hero-context'
 
 export function EditorialHero({ eyebrow, title, copy, image = siteImages.pyramids, action = 'Explore with us', href = '/egypt-tours/one-day-tours' }: { eyebrow?: string; title: string; copy: string; image?: string; action?: string; href?: string }) {
-  return <section className="editorial-hero"><img src={image} alt=""/><div className="editorial-overlay"/><div className="container editorial-content">{eyebrow && <span>{eyebrow}</span>}<h1>{title}</h1><p>{copy}</p><Link className="primary-btn" href={href}>{action}<ArrowRight size={17}/></Link></div></section>
+  const state = useFaqHero()
+  const { locale } = useLocale()
+  if (state?.hidden || state?.unavailable) return null
+  const content = state?.content
+  const text = content && locale !== 'ar' ? content.text[locale] : null
+  return <section className="editorial-hero"><img src={content?.image ?? image} alt={text?.alt ?? ''}/><div className="editorial-overlay"/><div className="container editorial-content">{(text?.eyebrow ?? eyebrow) && <span>{text?.eyebrow ?? eyebrow}</span>}<h1>{text?.heading ?? title}</h1><p>{text?.description ?? copy}</p><Link className="primary-btn" href={content?.href ?? href}>{text?.action ?? action}<ArrowRight size={17}/></Link></div></section>
 }
 
 export function DetailNotFound({ title, copy, backHref, backLabel }: { title: string; copy: string; backHref: string; backLabel: string }) {
@@ -57,34 +71,33 @@ export function ContactPage() {
 }
 
 function ContactPageContent() {
+  const cms = usePresentation("contact")
+  const contactFaqs = useSharedFaqs(3)
+
   const { locale: cl } = useLocale()
   const brand = useBrandSettings()
   const ar = cl === 'ar'
   const ex = extra[cl]
   const contactMethods = [
-    { Icon: Mail, title: tx(cl, { en: 'Email our travel team', es: 'Escribe a nuestro equipo de viajes', it: 'Scrivi al nostro team di viaggio', ar: 'راسل فريق الرحلات' }), value: brand.email, note: tx(cl, { en: 'For itineraries and general questions', es: 'Para itinerarios y consultas generales', it: 'Per itinerari e domande generali', ar: 'لبرامج الرحلات والأسئلة العامة' }), href: `mailto:${brand.email}` },
-    { Icon: Phone, title: tx(cl, { en: 'Call our travel team', es: 'Llama a nuestro equipo de viajes', it: 'Chiama il nostro team di viaggio', ar: 'اتصل بفريقنا' }), value: brand.phone, note: tx(cl, { en: 'For direct enquiries and travel help', es: 'Para consultas directas y ayuda con tu viaje', it: 'Per richieste dirette e assistenza di viaggio', ar: 'للتواصل المباشر والاستفسارات' }), href: phoneHref(brand.phone) },
-    { Icon: MessageCircle, title: tx(cl, { en: 'Chat with us on WhatsApp', es: 'Escríbenos por WhatsApp', it: 'Scrivici su WhatsApp', ar: 'راسلنا على واتساب' }), value: brand.whatsapp, note: tx(cl, { en: 'Start a direct WhatsApp conversation', es: 'Inicia una conversación directa por WhatsApp', it: 'Avvia una conversazione WhatsApp diretta', ar: 'ابدأ محادثة واتساب مباشرة' }), href: whatsappHref(brand.whatsapp) },
+    { Icon: Mail, title: cms.text("contact-enquiry","descriptionMethod0",tx(cl, { en: 'Email our travel team', es: 'Escribe a nuestro equipo de viajes', it: 'Scrivi al nostro team di viaggio', ar: 'راسل فريق الرحلات' })), value: brand.email, note: cms.text("contact-enquiry","descriptionMethod1",tx(cl, { en: 'For itineraries and general questions', es: 'Para itinerarios y consultas generales', it: 'Per itinerari e domande generali', ar: 'لبرامج الرحلات والأسئلة العامة' })), href: `mailto:${brand.email}` },
+    { Icon: Phone, title: cms.text("contact-enquiry","descriptionMethod2",tx(cl, { en: 'Call our travel team', es: 'Llama a nuestro equipo de viajes', it: 'Chiama il nostro team di viaggio', ar: 'اتصل بفريقنا' })), value: brand.phone, note: cms.text("contact-enquiry","descriptionMethod3",tx(cl, { en: 'For direct enquiries and travel help', es: 'Para consultas directas y ayuda con tu viaje', it: 'Per richieste dirette e assistenza di viaggio', ar: 'للتواصل المباشر والاستفسارات' })), href: phoneHref(brand.phone) },
+    { Icon: MessageCircle, title: cms.text("contact-enquiry","descriptionMethod4",tx(cl, { en: 'Chat with us on WhatsApp', es: 'Escríbenos por WhatsApp', it: 'Scrivici su WhatsApp', ar: 'راسلنا على واتساب' })), value: brand.whatsapp, note: cms.text("contact-enquiry","descriptionMethod5",tx(cl, { en: 'Start a direct WhatsApp conversation', es: 'Inicia una conversación directa por WhatsApp', it: 'Avvia una conversazione WhatsApp diretta', ar: 'ابدأ محادثة واتساب مباشرة' })), href: whatsappHref(brand.whatsapp) },
   ]
-  const steps = [['01', tx(cl, { en: 'Tell us about your trip', es: 'Cuéntanos tu viaje', it: 'Raccontaci il tuo viaggio', ar: 'احكيلنا عن رحلتك' }), tx(cl, { en: 'Share your dates, group size, and the places you want to experience.', es: 'Comparte tus fechas, el tamaño del grupo y los lugares que quieres conocer.', it: 'Condividi date, numero di partecipanti e luoghi che vuoi scoprire.', ar: 'شاركنا مواعيدك، عدد المسافرين، والأماكن اللي نفسك تشوفها.' })], ['02', tx(cl, { en: 'We shape the details', es: 'Damos forma a los detalles', it: 'Diamo forma ai dettagli', ar: 'نرتب التفاصيل' }), tx(cl, { en: 'Our local team reviews your idea and connects the right route and experiences.', es: 'Nuestro equipo local revisa tu idea y une la ruta y las experiencias adecuadas.', it: 'Il nostro team locale esamina la tua idea e collega itinerario ed esperienze giusti.', ar: 'فريقنا المحلي يراجع فكرتك ويجمع أنسب مسار وتجارب ليك.' })], ['03', tx(cl, { en: 'Receive a clear proposal', es: 'Recibe una propuesta clara', it: 'Ricevi una proposta chiara', ar: 'تستلم تصور واضح' }), tx(cl, { en: 'We return with an easy-to-review plan before you make any commitment.', es: 'Te devolvemos un plan fácil de revisar antes de ningún compromiso.', it: 'Ti presentiamo un piano facile da rivedere prima di qualsiasi impegno.', ar: 'نرجعلك بخطة مفهومة وتفاصيل جاهزة للمراجعة قبل أي التزام.' })]]
+  const steps = cms.items("contact-v2-process", [['01', tx(cl, { en: 'Tell us about your trip', es: 'Cuéntanos tu viaje', it: 'Raccontaci il tuo viaggio', ar: 'احكيلنا عن رحلتك' }), tx(cl, { en: 'Share your dates, group size, and the places you want to experience.', es: 'Comparte tus fechas, el tamaño del grupo y los lugares que quieres conocer.', it: 'Condividi date, numero di partecipanti e luoghi che vuoi scoprire.', ar: 'شاركنا مواعيدك، عدد المسافرين، والأماكن اللي نفسك تشوفها.' })], ['02', tx(cl, { en: 'We shape the details', es: 'Damos forma a los detalles', it: 'Diamo forma ai dettagli', ar: 'نرتب التفاصيل' }), tx(cl, { en: 'Our local team reviews your idea and connects the right route and experiences.', es: 'Nuestro equipo local revisa tu idea y une la ruta y las experiencias adecuadas.', it: 'Il nostro team locale esamina la tua idea e collega itinerario ed esperienze giusti.', ar: 'فريقنا المحلي يراجع فكرتك ويجمع أنسب مسار وتجارب ليك.' })], ['03', tx(cl, { en: 'Receive a clear proposal', es: 'Recibe una propuesta clara', it: 'Ricevi una proposta chiara', ar: 'تستلم تصور واضح' }), tx(cl, { en: 'We return with an easy-to-review plan before you make any commitment.', es: 'Te devolvemos un plan fácil de revisar antes de ningún compromiso.', it: 'Ti presentiamo un piano facile da rivedere prima di qualsiasi impegno.', ar: 'نرجعلك بخطة مفهومة وتفاصيل جاهزة للمراجعة قبل أي التزام.' })]])
 
-  return <main className="contact-v2">
+  return <main className="contact-v2"><PresentationOrder pageId="contact">
       <PageShowcaseHero image={siteImages.nile} eyebrow={tx(cl, { en: 'Local team, personal planning', es: 'Equipo local, planificación personal', it: 'Team locale, pianificazione personale', ar: 'فريق محلي, تخطيط شخصي' })} title={tx(cl, { en: 'Your Egypt journey starts with a conversation.', es: 'Tu viaje a Egipto empieza con una conversación.', it: 'Il tuo viaggio in Egitto inizia con una conversazione.', ar: 'رحلتك لمصر تبدأ بمحادثة.' })} intro={tx(cl, { en: 'Tell us how you want to experience Egypt, and we will help turn the idea into a thoughtful route shaped around your time and interests.', es: 'Cuéntanos cómo quieres vivir Egipto y te ayudaremos a convertir la idea en una ruta a medida según tu tiempo e intereses.', it: 'Raccontaci come vuoi vivere l\'Egitto: ti aiuteremo a trasformare l\'idea in un itinerario pensato su tempi e interessi.', ar: 'قولنا نفسك تشوف مصر إزاي، وإحنا نساعدك تحول الفكرة لمسار متوازن يناسب وقتك واهتماماتك.' })} primaryLabel={tx(cl, { en: 'Start the conversation', es: 'Inicia la conversación', it: 'Avvia la conversazione', ar: 'ابدأ المحادثة' })} primaryHref="#contact-enquiry" secondaryLabel={tx(cl, { en: 'Build a detailed trip', es: 'Crea un viaje detallado', it: 'Crea un viaggio dettagliato', ar: 'خطط رحلتك بالتفصيل' })} secondaryHref="/make-your-trip" railLabel={tx(cl, { en: 'Start here', es: 'Empieza aquí', it: 'Inizia qui', ar: 'ابدأ من هنا' })} railTitle={tx(cl, { en: 'Tell us the journey you have in mind.', es: 'Cuéntanos el viaje que tienes en mente.', it: 'Raccontaci il viaggio che hai in mente.', ar: 'احكيلنا عن الرحلة اللي في بالك.' })} railHref="#contact-enquiry" railMeta={[{ Icon: MessageCircle, label: tx(cl, { en: 'Trip enquiry', es: 'Consulta de viaje', it: 'Richiesta di viaggio', ar: 'استفسار عن رحلة' }) }, { Icon: ShieldCheck, label: tx(cl, { en: 'Sent to our team', es: 'Enviada a nuestro equipo', it: 'Inviata al nostro team', ar: 'تُرسل إلى فريقنا' }) }]} statsLabel={tx(cl, { en: 'Contact summary', es: 'Resumen de contacto', it: 'Riepilogo contatti', ar: 'ملخص التواصل' })} stats={[{ value: contactMethods.length, label: tx(cl, { en: 'Ways to connect', es: 'Formas de contactar', it: 'Modi per contattarci', ar: 'طرق للتواصل' }) }, { value: steps.length, label: tx(cl, { en: 'Planning steps', es: 'Pasos de planificación', it: 'Fasi di pianificazione', ar: 'خطوات للتخطيط' }) }]}/>
-      <Breadcrumb items={[tx(cl, { en: 'Contact Us', es: 'Contáctanos', it: 'Contattaci', ar: 'تواصل معنا' })]}/>
+      <Breadcrumb items={[cms.text("presentation","description0",tx(cl, { en: 'Contact Us', es: 'Contáctanos', it: 'Contattaci', ar: 'تواصل معنا' }))]}/>
 
-      <section className="contact-v2-trust" aria-label={tx(cl, { en: 'Reasons to contact us', es: 'Por qué contactarnos', it: 'Perché contattarci', ar: 'مميزات التواصل معنا' })}>
-        <div className="container">
-          <span><MapPin size={20} /><b>{tx(cl, { en: 'Egypt-based local insight', es: 'Conocimiento local desde Egipto', it: 'Conoscenza locale dall\'Egitto', ar: 'خبرة محلية داخل مصر' })}</b></span>
-          <span><Clock3 size={20} /><b>{tx(cl, { en: 'Planning around your time', es: 'Planificación a tu medida', it: 'Pianificazione sui tuoi tempi', ar: 'تخطيط حسب وقتك' })}</b></span>
-          <span><ShieldCheck size={20} /><b>{tx(cl, { en: 'Clear details before booking', es: 'Detalles claros antes de reservar', it: 'Dettagli chiari prima di prenotare', ar: 'تفاصيل واضحة قبل الحجز' })}</b></span>
-        </div>
-      </section>
+      <PresentationSection pageId="contact" id="contact-v2-trust"><section className="contact-v2-trust" aria-label={tx(cl, { en: 'Reasons to contact us', es: 'Por qué contactarnos', it: 'Perché contattarci', ar: 'مميزات التواصل معنا' })}>
+        <div className="container">{cms.cards("contact-v2-trust").map(({id,title,Icon})=><span key={id}><Icon size={20}/><b>{title}</b></span>)}</div>
+      </section></PresentationSection>
 
-      <section id="contact-enquiry" className="container contact-v2-main">
+      <PresentationSection pageId="contact" id="contact-enquiry"><section id="contact-enquiry" className="container contact-v2-main">
         <div className="contact-v2-intro">
-          <span className="eyebrow">{tx(cl, { en: 'Let us plan it together', es: 'Planifiquémoslo juntos', it: 'Pianifichiamolo insieme', ar: 'خلينا نخططها سوا' })}</span>
-          <h2>{tx(cl, { en: 'What kind of journey do you have in mind?', es: '¿Qué tipo de viaje tienes en mente?', it: 'Che tipo di viaggio hai in mente?', ar: 'إيه شكل الرحلة اللي في بالك؟' })}</h2>
-          <p>{tx(cl, { en: 'Whether it is one day in Cairo, a complete package, a Nile cruise, or an airport transfer, send us the starting point and let our team connect the details.', es: 'Ya sea un día en El Cairo, un paquete completo, un crucero por el Nilo o un traslado al aeropuerto: envíanos la idea inicial y nuestro equipo unirá los detalles.', it: 'Che si tratti di un giorno al Cairo, di un pacchetto completo, di una crociera sul Nilo o di un trasferimento aeroportuale: inviaci l\'idea di partenza e il nostro team collegherà i dettagli.', ar: 'سواء يوم واحد في القاهرة، باكدج كاملة، نايل كروز، أو استقبال من المطار، ابعتلنا الفكرة الأساسية وسيب التفاصيل علينا.' })}</p>
+          <span className="eyebrow">{cms.text("contact-enquiry","description0",tx(cl, { en: 'Let us plan it together', es: 'Planifiquémoslo juntos', it: 'Pianifichiamolo insieme', ar: 'خلينا نخططها سوا' }))}</span>
+          <h2>{cms.text("contact-enquiry","description1",tx(cl, { en: 'What kind of journey do you have in mind?', es: '¿Qué tipo de viaje tienes en mente?', it: 'Che tipo di viaggio hai in mente?', ar: 'إيه شكل الرحلة اللي في بالك؟' }))}</h2>
+          <p>{cms.text("contact-enquiry","description2",tx(cl, { en: 'Whether it is one day in Cairo, a complete package, a Nile cruise, or an airport transfer, send us the starting point and let our team connect the details.', es: 'Ya sea un día en El Cairo, un paquete completo, un crucero por el Nilo o un traslado al aeropuerto: envíanos la idea inicial y nuestro equipo unirá los detalles.', it: 'Che si tratti di un giorno al Cairo, di un pacchetto completo, di una crociera sul Nilo o di un trasferimento aeroportuale: inviaci l\'idea di partenza e il nostro team collegherà i dettagli.', ar: 'سواء يوم واحد في القاهرة، باكدج كاملة، نايل كروز، أو استقبال من المطار، ابعتلنا الفكرة الأساسية وسيب التفاصيل علينا.' }))}</p>
           <div className="contact-v2-methods">
             {contactMethods.map(({ Icon, ...method }) => <a href={method.href} key={method.title} className="contact-v2-method" target={method.href.startsWith('https://wa.me/') ? '_blank' : undefined} rel={method.href.startsWith('https://wa.me/') ? 'noreferrer' : undefined}>
               <Icon size={22} />
@@ -95,23 +108,23 @@ function ContactPageContent() {
           <a className="contact-v2-address" href={brand.mapUrl || undefined} target={brand.mapUrl ? '_blank' : undefined} rel={brand.mapUrl ? 'noreferrer' : undefined}><MapPin size={22} /><span><small>{ex.addrT}</small><strong>{brand.address}</strong></span></a>
         </div>
         <div className="contact-v2-form-wrap">
-          <header><span>{tx(cl, { en: 'Trip enquiry', es: 'Solicitud de viaje', it: 'Richiesta di viaggio', ar: 'طلب رحلة' })}</span><h2>{tx(cl, { en: 'Start here.', es: 'Empieza aquí.', it: 'Inizia qui.', ar: 'ابدأ من هنا.' })}</h2><p>{tx(cl, { en: 'The more you share, the more useful our first response can be.', es: 'Cuanto más nos cuentes, más útil será nuestra primera respuesta.', it: 'Più ci racconti, più utile sarà la nostra prima risposta.', ar: 'كل ما تحكيلنا أكتر، نقدر نساعدك بصورة أدق.' })}</p></header>
+          <header><span>{cms.text("contact-enquiry","description3",tx(cl, { en: 'Trip enquiry', es: 'Solicitud de viaje', it: 'Richiesta di viaggio', ar: 'طلب رحلة' }))}</span><h2>{cms.text("contact-enquiry","description4",tx(cl, { en: 'Start here.', es: 'Empieza aquí.', it: 'Inizia qui.', ar: 'ابدأ من هنا.' }))}</h2><p>{cms.text("contact-enquiry","description5",tx(cl, { en: 'The more you share, the more useful our first response can be.', es: 'Cuanto más nos cuentes, más útil será nuestra primera respuesta.', it: 'Più ci racconti, più utile sarà la nostra prima risposta.', ar: 'كل ما تحكيلنا أكتر، نقدر نساعدك بصورة أدق.' }))}</p></header>
           <ContactForm />
         </div>
-      </section>
+      </section></PresentationSection>
 
-      <section className="contact-v2-process">
+      <PresentationSection pageId="contact" id="contact-v2-process"><section className="contact-v2-process">
         <div className="container">
-          <header><span className="eyebrow">{tx(cl, { en: 'What happens next', es: 'Qué pasa después', it: 'Cosa succede dopo', ar: 'بعد ما تبعتلنا' })}</span><h2>{tx(cl, { en: 'From first message to a clear travel plan.', es: 'Del primer mensaje a un plan de viaje claro.', it: 'Dal primo messaggio a un piano di viaggio chiaro.', ar: 'من أول رسالة لخطة رحلة واضحة.' })}</h2></header>
+          <header><span className="eyebrow">{cms.text("contact-v2-process","description0",tx(cl, { en: 'What happens next', es: 'Qué pasa después', it: 'Cosa succede dopo', ar: 'بعد ما تبعتلنا' }))}</span><h2>{cms.text("contact-v2-process","description1",tx(cl, { en: 'From first message to a clear travel plan.', es: 'Del primer mensaje a un plan de viaje claro.', it: 'Dal primo messaggio a un piano di viaggio chiaro.', ar: 'من أول رسالة لخطة رحلة واضحة.' }))}</h2></header>
           <div>{steps.map(([number, title, copy]) => <article key={number}><b>{number}</b><h3>{title}</h3><p>{copy}</p></article>)}</div>
         </div>
-      </section>
+      </section></PresentationSection>
 
-      <section className="container contact-v2-faq">
-        <div><span className="eyebrow">{ex.faqTeaser}</span><h2>{tx(cl, { en: 'Before you get in touch.', es: 'Antes de contactarnos.', it: 'Prima di contattarci.', ar: 'قبل ما تراسلنا.' })}</h2><p>{tx(cl, { en: 'Quick answers to the questions that usually begin a journey.', es: 'Respuestas rápidas a las preguntas con las que suele empezar un viaje.', it: 'Risposte rapide alle domande con cui di solito inizia un viaggio.', ar: 'إجابات سريعة على الأسئلة اللي غالبًا بتبدأ بيها الرحلة.' })}</p></div>
-        <div>{faqs.slice(0, 3).map(([question, answer]) => <details key={question}><summary>{question}<span>+</span></summary><p>{answer}</p></details>)}<Link className="text-link" href="/faq">{ex.seeMore} <ArrowRight size={15} /></Link></div>
-      </section>
-    </main>
+      <PresentationSection pageId="contact" id="contact-v2-faq"><section className="container contact-v2-faq">
+        <div><span className="eyebrow">{cms.text("contact-v2-faq", "faqEyebrow", ex.faqTeaser)}</span><h2>{cms.text("contact-v2-faq","description0",tx(cl, { en: 'Before you get in touch.', es: 'Antes de contactarnos.', it: 'Prima di contattarci.', ar: 'قبل ما تراسلنا.' }))}</h2><p>{cms.text("contact-v2-faq","description1",tx(cl, { en: 'Quick answers to the questions that usually begin a journey.', es: 'Respuestas rápidas a las preguntas con las que suele empezar un viaje.', it: 'Risposte rapide alle domande con cui di solito inizia un viaggio.', ar: 'إجابات سريعة على الأسئلة اللي غالبًا بتبدأ بيها الرحلة.' }))}</p></div>
+        <div>{contactFaqs.map(([question, answer]) => <details key={question}><summary>{question}<span>+</span></summary><p>{answer}</p></details>)}<CmsPublicLink className="text-link" href={cms.link("contact-v2-faq","links0","/faq")}>{cms.text("contact-v2-faq", "faqCta", ex.seeMore)} <ArrowRight size={15} /></CmsPublicLink></div>
+      </section></PresentationSection>
+    </PresentationOrder></main>
 }
 
 export function ContactForm() {
@@ -292,19 +305,21 @@ export function CarsPage() {
 }
 
 function CarsPageContent() {
+  const cms = usePresentation("cars")
+
   const { locale } = useLocale()
   const ar = locale === 'ar'
   const liveCars = useDbCars(cars).filter((car) => car.isPublished !== false)
   const featured = liveCars[2] ?? liveCars[0]
   const maxSeats = liveCars.length ? Math.max(...liveCars.map((car) => Number.parseInt(car.seats, 10) || 0)) : 0
-  if (!featured) return <main><div className="container"><section className="section"><div className="section-heading"><span className="eyebrow">{tx(locale, { en: 'Our fleet', es: 'Nuestra flota', it: 'La nostra flotta', ar: 'الأسطول' })}</span><h2>{tx(locale, { en: 'No vehicles listed right now', es: 'Sin vehículos disponibles ahora mismo', it: 'Nessun veicolo disponibile al momento', ar: 'لا توجد سيارات متاحة حاليًا' })}</h2><p>{tx(locale, { en: 'Check back later or contact us and we will help arrange your transfer.', es: 'Vuelve más tarde o contáctanos y te ayudaremos a organizar tu traslado.', it: 'Torna più tardi o contattaci: ti aiuteremo a organizzare il trasferimento.', ar: 'عُد لاحقًا أو تواصل معنا وسنساعدك في ترتيب انتقالك.' })}</p><Link href="/contact" className="primary-btn">{tx(locale, { en: 'Contact us', es: 'Contáctanos', it: 'Contattaci', ar: 'تواصل معنا' })} <ArrowRight size={16} /></Link></div></section></div></main>
+  if (!featured) return <main><div className="container"><PresentationSection pageId="cars" id="content"><section className="section"><div className="section-heading"><span className="eyebrow">{cms.text("content","description0",tx(locale, { en: 'Our fleet', es: 'Nuestra flota', it: 'La nostra flotta', ar: 'الأسطول' }))}</span><h2>{cms.text("content","description1",tx(locale, { en: 'No vehicles listed right now', es: 'Sin vehículos disponibles ahora mismo', it: 'Nessun veicolo disponibile al momento', ar: 'لا توجد سيارات متاحة حاليًا' }))}</h2><p>{cms.text("content","description2",tx(locale, { en: 'Check back later or contact us and we will help arrange your transfer.', es: 'Vuelve más tarde o contáctanos y te ayudaremos a organizar tu traslado.', it: 'Torna più tardi o contattaci: ti aiuteremo a organizzare il trasferimento.', ar: 'عُد لاحقًا أو تواصل معنا وسنساعدك في ترتيب انتقالك.' }))}</p><CmsPublicLink href={cms.link("content","links0","/contact")} className="primary-btn">{cms.text("content","description3",tx(locale, { en: 'Contact us', es: 'Contáctanos', it: 'Contattaci', ar: 'تواصل معنا' }))} <ArrowRight size={16} /></CmsPublicLink></div></section></PresentationSection></div></main>
   return <main>
     <PageShowcaseHero image={featured.image} eyebrow={tx(locale, { en: 'Private drivers & modern fleet', es: 'Conductores privados y flota moderna', it: 'Autisti privati e flotta moderna', ar: 'سائقون خصوصيون وأسطول حديث' })} title={tx(locale, { en: 'Move through Egypt with ease', es: 'Muévete por Egipto con total comodidad', it: 'Muoviti in Egitto in totale comfort', ar: 'تنقّل في مصر براحة تامة' })} intro={tx(locale, { en: 'Airport pickups, day trips, and multi-city routes with a private driver and modern air-conditioned cars.', es: 'Recogidas en el aeropuerto, excursiones de un día y rutas entre ciudades con conductor privado y coches modernos con aire acondicionado.', it: 'Trasferimenti aeroportuali, gite giornaliere e itinerari tra più città con autista privato e auto moderne climatizzate.', ar: 'استقبال من المطار ورحلات يومية وخطوط بين المدن مع سائق خاص وسيارات حديثة مكيفة.' })} primaryLabel={tx(locale, { en: 'Explore the fleet', es: 'Descubre la flota', it: 'Scopri la flotta', ar: 'استكشف الأسطول' })} primaryHref="#fleet" secondaryLabel={tx(locale, { en: 'Request this vehicle', es: 'Solicita este vehículo', it: 'Richiedi questo veicolo', ar: 'اطلب هذه السيارة' })} secondaryHref={`/rent-car/request?vehicle=${featured.slug}`} railLabel={tx(locale, { en: 'Featured vehicle', es: 'Vehículo destacado', it: 'Veicolo in evidenza', ar: 'سيارة مميزة' })} railTitle={featured.title} railHref={`/rent-car/request?vehicle=${featured.slug}`} railMeta={[{ Icon: Users, label: featured.seats }, { Icon: CarFront, label: featured.transmission }]} statsLabel={tx(locale, { en: 'Fleet summary', es: 'Resumen de la flota', it: 'Riepilogo flotta', ar: 'ملخص الأسطول' })} stats={[{ value: liveCars.length, label: tx(locale, { en: 'Fleet choices', es: 'Opciones de vehículos', it: 'Scelte di veicoli', ar: 'خيارات سيارات' }) }, { value: maxSeats, label: tx(locale, { en: 'Seats maximum', es: 'Asientos máximos', it: 'Posti massimi', ar: 'مقعدًا كحد أقصى' }) }]}/>
     <div className="container">
-    <section id="fleet" className="section">
-      <div className="section-heading inline-heading"><div><span className="eyebrow">{tx(locale, { en: 'Our fleet', es: 'Nuestra flota', it: 'La nostra flotta', ar: 'الأسطول' })}</span><h2>{tx(locale, { en: 'Comfort for every kind of journey', es: 'Comodidad para cada tipo de viaje', it: 'Comfort per ogni tipo di viaggio', ar: 'راحة لكل نوع رحلة' })}</h2></div><Link className="text-link" href="/rent-car/request">{tx(locale, { en: 'Need a custom vehicle?', es: '¿Necesitas un vehículo a medida?', it: 'Serve un veicolo su misura?', ar: 'هل تحتاج إلى سيارة مخصصة؟' })} <ArrowRight size={15} /></Link></div>
+    <PresentationSection pageId="cars" id="fleet"><section id="fleet" className="section">
+      <div className="section-heading inline-heading"><div><span className="eyebrow">{cms.text("fleet","description0",tx(locale, { en: 'Our fleet', es: 'Nuestra flota', it: 'La nostra flotta', ar: 'الأسطول' }))}</span><h2>{cms.text("fleet","description1",tx(locale, { en: 'Comfort for every kind of journey', es: 'Comodidad para cada tipo de viaje', it: 'Comfort per ogni tipo di viaggio', ar: 'راحة لكل نوع رحلة' }))}</h2></div><CmsPublicLink className="text-link" href={cms.link("fleet","links0","/rent-car/request")}>{cms.text("fleet","description2",tx(locale, { en: 'Need a custom vehicle?', es: '¿Necesitas un vehículo a medida?', it: 'Serve un veicolo su misura?', ar: 'هل تحتاج إلى سيارة مخصصة؟' }))} <ArrowRight size={15} /></CmsPublicLink></div>
       <div className="fleet-grid">{liveCars.map((car) => <CarCard key={car.slug} car={car} />)}</div>
-    </section>
+    </section></PresentationSection>
     </div>
   </main>
 }
@@ -692,11 +707,15 @@ function CarRequestContent() {
   </>
 }
 
-export function DestinationsPage() { const { locale } = useLocale(); const ar = locale === 'ar'; const liveDestinations = useDbDestinations(destinations).filter((d) => d.showInDestinations !== false && d.isPublished !== false); return <SiteShell><EditorialHero eyebrow={tx(locale, { en: 'See the full picture', es: 'Mira el panorama completo', it: 'Guarda il quadro completo', ar: 'الصورة الكاملة' })} title={tx(locale, { en: 'Every destination tells a different Egypt story', es: 'Cada destino cuenta una historia distinta de Egipto', it: 'Ogni destinazione racconta una storia diversa dell\'Egitto', ar: 'كل وجهة تحكي قصة مختلفة عن مصر' })} copy={tx(locale, { en: 'Build a trip around the places that make you curious, from ancient capitals to salt-white deserts and coral-blue seas.', es: 'Crea un viaje en torno a los lugares que despierten tu curiosidad, desde capitales antiguas hasta desiertos blancos y mares de coral.', it: 'Costruisci un viaggio intorno ai luoghi che accendono la tua curiosità, dalle antiche capitali ai deserti bianchi e ai mari corallini.', ar: 'ابنِ رحلتك حول الأماكن التي تثير فضولك، من العواصم القديمة للصحارى البيضاء والشواطئ المرجانية.' })} image={siteImages.desert} href="/make-your-trip" action={tx(locale, { en: 'Build my route', es: 'Crea mi ruta', it: 'Crea il mio itinerario', ar: 'ابنِ خط سيرك' })}/><main className="section container"><div className="destination-large-grid">{liveDestinations.map(item=><article className="destination-large" key={item.slug}><img src={item.image} alt={item.title}/><div><span className="eyebrow">{tx(locale, { en: 'Discover Egypt', es: 'Descubre Egipto', it: 'Scopri l\'Egitto', ar: 'اكتشف مصر' })}</span><h2>{item.title}</h2><p>{item.copy}</p><Link href={`/destinations/${item.slug}`} className="text-link">{tx(locale, { en: 'Explore destination', es: 'Descubre el destino', it: 'Scopri la destinazione', ar: 'استكشف الوجهة' })} <ArrowRight size={15}/></Link></div></article>)}</div></main></SiteShell> }
+export function DestinationsPage() {
+  const cms = usePresentation("destinations")
+ const { locale } = useLocale(); const ar = locale === 'ar'; const liveDestinations = useDbDestinations(destinations).filter((d) => d.showInDestinations !== false && d.isPublished !== false); return <SiteShell><EditorialHero eyebrow={tx(locale, { en: 'See the full picture', es: 'Mira el panorama completo', it: 'Guarda il quadro completo', ar: 'الصورة الكاملة' })} title={tx(locale, { en: 'Every destination tells a different Egypt story', es: 'Cada destino cuenta una historia distinta de Egipto', it: 'Ogni destinazione racconta una storia diversa dell\'Egitto', ar: 'كل وجهة تحكي قصة مختلفة عن مصر' })} copy={tx(locale, { en: 'Build a trip around the places that make you curious, from ancient capitals to salt-white deserts and coral-blue seas.', es: 'Crea un viaje en torno a los lugares que despierten tu curiosidad, desde capitales antiguas hasta desiertos blancos y mares de coral.', it: 'Costruisci un viaggio intorno ai luoghi che accendono la tua curiosità, dalle antiche capitali ai deserti bianchi e ai mari corallini.', ar: 'ابنِ رحلتك حول الأماكن التي تثير فضولك، من العواصم القديمة للصحارى البيضاء والشواطئ المرجانية.' })} image={siteImages.desert} href="/make-your-trip" action={tx(locale, { en: 'Build my route', es: 'Crea mi ruta', it: 'Crea il mio itinerario', ar: 'ابنِ خط سيرك' })}/><main className="section container"><div className="destination-large-grid">{liveDestinations.map(item=><article className="destination-large" key={item.slug}><img src={item.image} alt={item.title}/><div><span className="eyebrow">{cms.text("presentation","description0",tx(locale, { en: 'Discover Egypt', es: 'Descubre Egipto', it: 'Scopri l\'Egitto', ar: 'اكتشف مصر' }))}</span><h2>{item.title}</h2><p>{item.copy}</p><Link href={`/destinations/${item.slug}`} className="text-link">{cms.text("presentation","description1",tx(locale, { en: 'Explore destination', es: 'Descubre el destino', it: 'Scopri la destinazione', ar: 'استكشف الوجهة' }))} <ArrowRight size={15}/></Link></div></article>)}</div></main></SiteShell> }
 
 const destinationFactIcons = [Clock3, Sun, Compass, MapPin]
 
 export function DestinationDetailPage({ slug }: { slug: string }) {
+  const cms = usePresentation("destination-detail")
+
   const { locale } = useLocale()
   const ar = locale === 'ar'
   const liveItem = useDbDestinations(destinations).find((entry) => entry.slug === slug)
@@ -709,7 +728,7 @@ export function DestinationDetailPage({ slug }: { slug: string }) {
     .filter((tour): tour is Tour => Boolean(tour))
 
   return <SiteShell>
-    <main className="destination-detail-page">
+    <main className="destination-detail-page"><PresentationOrder pageId="destination-detail">
       <section className="destination-detail-hero">
         <img src={detail.heroImage} alt={detail.heroAlt}/>
         <div className="destination-detail-shade"/>
@@ -719,8 +738,8 @@ export function DestinationDetailPage({ slug }: { slug: string }) {
           <h1>{item.title}</h1>
           <p>{item.copy}</p>
           <div className="destination-hero-actions">
-            <Link href="/make-your-trip" className="primary-btn">{tx(locale, { en: 'Plan this destination', es: 'Planifica este destino', it: 'Pianifica questa destinazione', ar: 'خطط لهذه الوجهة' })} <ArrowRight size={17}/></Link>
-            <a href="#destination-experiences" className="destination-ghost-btn">{tx(locale, { en: 'See what awaits', es: 'Descubre lo que te espera', it: 'Scopri cosa ti aspetta', ar: 'اكتشف ما ينتظرك' })}</a>
+            <Link href="/make-your-trip" className="primary-btn">{cms.text("destination-story","planDestination",tx(locale, { en: 'Plan this destination', es: 'Planifica este destino', it: 'Pianifica questa destinazione', ar: 'خطط لهذه الوجهة' }))} <ArrowRight size={17}/></Link>
+            <a href="#destination-experiences" className="destination-ghost-btn">{cms.text("destination-story","seeDestination",tx(locale, { en: 'See what awaits', es: 'Descubre lo que te espera', it: 'Scopri cosa ti aspetta', ar: 'اكتشف ما ينتظرك' }))}</a>
           </div>
         </div>
       </section>
@@ -734,22 +753,22 @@ export function DestinationDetailPage({ slug }: { slug: string }) {
         </div>
       </section>
 
-      <section className="destination-story container">
+      <PresentationSection pageId="destination-detail" id="destination-story"><section className="destination-story container">
         <div>
-          <span className="eyebrow">{tx(locale, { en: 'The destination story', es: 'La historia del destino', it: 'La storia della destinazione', ar: 'حكاية الوجهة' })}</span>
-          <h2>{tx(locale, { en: 'Come for the icons. Stay for the rhythm.', es: 'Ven por los iconos. Quédate por el ritmo.', it: 'Vieni per le icone. Resta per il ritmo.', ar: 'تعالَ للأيقونات. وابقَ للإيقاع.' })}</h2>
+          <span className="eyebrow">{cms.text("destination-story","description0",tx(locale, { en: 'The destination story', es: 'La historia del destino', it: 'La storia della destinazione', ar: 'حكاية الوجهة' }))}</span>
+          <h2>{cms.text("destination-story","description1",tx(locale, { en: 'Come for the icons. Stay for the rhythm.', es: 'Ven por los iconos. Quédate por el ritmo.', it: 'Vieni per le icone. Resta per il ritmo.', ar: 'تعالَ للأيقونات. وابقَ للإيقاع.' }))}</h2>
           <p>{detail.intro}</p>
-          <p>{tx(locale, { en: 'We shape each day around proximity, light, energy, and the moments that deserve more than a quick stop.', es: 'Diseñamos cada día en torno a la cercanía, la luz, la energía y los momentos que merecen más que una parada rápida.', it: 'Modelliamo ogni giornata su vicinanza, luce, energia e momenti che meritano più di una sosta veloce.', ar: 'نصمم كل يوم حول القرب والإضاءة والطاقة واللحظات التي تستحق أكثر من وقفة سريعة.' })}</p>
+          <p>{cms.text("destination-story","description2",tx(locale, { en: 'We shape each day around proximity, light, energy, and the moments that deserve more than a quick stop.', es: 'Diseñamos cada día en torno a la cercanía, la luz, la energía y los momentos que merecen más que una parada rápida.', it: 'Modelliamo ogni giornata su vicinanza, luce, energia e momenti che meritano più di una sosta veloce.', ar: 'نصمم كل يوم حول القرب والإضاءة والطاقة واللحظات التي تستحق أكثر من وقفة سريعة.' }))}</p>
         </div>
         <aside>
-          <span className="eyebrow">{tx(locale, { en: 'Especially good for', es: 'Ideal para', it: 'Ideale per', ar: 'مناسبة بشكل خاص لـ' })}</span>
+          <span className="eyebrow">{cms.text("destination-story","description3",tx(locale, { en: 'Especially good for', es: 'Ideal para', it: 'Ideale per', ar: 'مناسبة بشكل خاص لـ' }))}</span>
           <div>{detail.bestFor.map((item) => <span key={item}><Check size={15}/>{item}</span>)}</div>
         </aside>
-      </section>
+      </section></PresentationSection>
 
-      <section id="destination-experiences" className="destination-experiences">
+      <PresentationSection pageId="destination-detail" id="destination-experiences"><section id="destination-experiences" className="destination-experiences">
         <div className="container">
-          <header className="destination-section-head"><div><span className="eyebrow">{tx(locale, { en: 'Signature experiences', es: 'Experiencias emblemáticas', it: 'Esperienze imperdibili', ar: 'تجارب مميزة' })}</span><h2>{tx(locale, { en: 'The moments that define', es: 'Los momentos que definen', it: 'I momenti che definiscono', ar: 'اللحظات التي تميز' })} {item.title}.</h2></div><p>{tx(locale, { en: 'Not a checklist. A considered mix of landmarks, local texture, and enough space to actually feel the place.', es: 'No es una lista de tareas: es una mezcla cuidada de monumentos, ambiente local y espacio suficiente para sentir de verdad el lugar.', it: 'Non una lista di cose da spuntare, ma un mix studiato di monumenti, atmosfera locale e spazio per vivere davvero il luogo.', ar: 'ليست قائمة مهام، بل مزيج مدروس من المعالم والروح المحلية ومساحة كافية لتشعر بالمكان فعلًا.' })}</p></header>
+          <header className="destination-section-head"><div><span className="eyebrow">{cms.text("destination-experiences","description0",tx(locale, { en: 'Signature experiences', es: 'Experiencias emblemáticas', it: 'Esperienze imperdibili', ar: 'تجارب مميزة' }))}</span><h2>{cms.text("destination-experiences","description1",tx(locale, { en: 'The moments that define', es: 'Los momentos que definen', it: 'I momenti che definiscono', ar: 'اللحظات التي تميز' }))} {item.title}.</h2></div><p>{cms.text("destination-experiences","description2",tx(locale, { en: 'Not a checklist. A considered mix of landmarks, local texture, and enough space to actually feel the place.', es: 'No es una lista de tareas: es una mezcla cuidada de monumentos, ambiente local y espacio suficiente para sentir de verdad el lugar.', it: 'Non una lista di cose da spuntare, ma un mix studiato di monumenti, atmosfera locale e spazio per vivere davvero il luogo.', ar: 'ليست قائمة مهام، بل مزيج مدروس من المعالم والروح المحلية ومساحة كافية لتشعر بالمكان فعلًا.' }))}</p></header>
           <div className="destination-experience-grid">
             {detail.experiences.map((experience, index) => <article key={experience.title} className={index === 0 ? 'featured' : ''}>
               <img src={experience.image} alt={experience.alt} loading="lazy"/>
@@ -757,35 +776,35 @@ export function DestinationDetailPage({ slug }: { slug: string }) {
             </article>)}
           </div>
         </div>
-      </section>
+      </section></PresentationSection>
 
-      <section className="destination-rhythm container">
-<div className="destination-rhythm-image"><img src={detail.heroImage} alt={tx(locale, { en: `A memorable view of ${item.title}`, es: `Una vista inolvidable de ${item.title}`, it: `Una vista memorabile di ${item.title}`, ar: `منظر لا يُنسى من ${item.title}` })} loading="lazy"/><span>{tx(locale, { en: 'Suggested rhythm', es: 'Ritmo sugerido', it: 'Ritmo suggerito', ar: 'إيقاع مقترح' })}</span></div>
+      <PresentationSection pageId="destination-detail" id="destination-rhythm"><section className="destination-rhythm container">
+<div className="destination-rhythm-image"><img src={detail.heroImage} alt={tx(locale, { en: `A memorable view of ${item.title}`, es: `Una vista inolvidable de ${item.title}`, it: `Una vista memorabile di ${item.title}`, ar: `منظر لا يُنسى من ${item.title}` })} loading="lazy"/><span>{cms.text("destination-rhythm","description0",tx(locale, { en: 'Suggested rhythm', es: 'Ritmo sugerido', it: 'Ritmo suggerito', ar: 'إيقاع مقترح' }))}</span></div>
         <div className="destination-rhythm-copy">
-          <span className="eyebrow">{tx(locale, { en: 'A route that breathes', es: 'Una ruta que respira', it: 'Un itinerario che respira', ar: 'خط سير يتنفس' })}</span>
-          <h2>{tx(locale, { en: 'How to experience', es: 'Cómo vivir', it: 'Come vivere', ar: 'كيف تعيش' })} {item.title} {tx(locale, { en: 'without rushing it.', es: 'sin prisas.', it: 'senza fretta.', ar: 'دون استعجال.' })}</h2>
+          <span className="eyebrow">{cms.text("destination-rhythm","description1",tx(locale, { en: 'A route that breathes', es: 'Una ruta que respira', it: 'Un itinerario che respira', ar: 'خط سير يتنفس' }))}</span>
+          <h2>{cms.text("destination-rhythm","description2",tx(locale, { en: 'How to experience', es: 'Cómo vivir', it: 'Come vivere', ar: 'كيف تعيش' }))} {item.title} {cms.text("destination-rhythm","description3",tx(locale, { en: 'without rushing it.', es: 'sin prisas.', it: 'senza fretta.', ar: 'دون استعجال.' }))}</h2>
           <div className="destination-timeline">{detail.rhythm.map((step, index) => <article key={step.title}><b>0{index + 1}</b><div><small>{step.label}</small><h3>{step.title}</h3><p>{step.copy}</p></div></article>)}</div>
         </div>
-      </section>
+      </section></PresentationSection>
 
-      <section className="destination-practical">
+      <PresentationSection pageId="destination-detail" id="destination-practical"><section className="destination-practical">
         <div className="container">
-          <header><span className="eyebrow">{tx(locale, { en: 'Travel well', es: 'Viaja bien', it: 'Viaggia bene', ar: 'سافر بذكاء' })}</span><h2>{tx(locale, { en: 'Small choices. Better days.', es: 'Pequeñas decisiones. Días mejores.', it: 'Piccole scelte. Giorni migliori.', ar: 'خيارات صغيرة وأيام أجمل.' })}</h2></header>
+          <header><span className="eyebrow">{cms.text("destination-practical","description0",tx(locale, { en: 'Travel well', es: 'Viaja bien', it: 'Viaggia bene', ar: 'سافر بذكاء' }))}</span><h2>{cms.text("destination-practical","description1",tx(locale, { en: 'Small choices. Better days.', es: 'Pequeñas decisiones. Días mejores.', it: 'Piccole scelte. Giorni migliori.', ar: 'خيارات صغيرة وأيام أجمل.' }))}</h2></header>
           <div>{detail.practical.map((tip, index) => <article key={tip.title}><span>0{index + 1}</span><h3>{tip.title}</h3><p>{tip.copy}</p></article>)}</div>
         </div>
-      </section>
+      </section></PresentationSection>
 
-      {relatedTours.length > 0 && <section className="destination-related container">
-        <header className="destination-section-head"><div><span className="eyebrow">{tx(locale, { en: 'Travel with us', es: 'Viaja con nosotros', it: 'Viaggia con noi', ar: 'سافر معنا' })}</span><h2>{tx(locale, { en: 'Ways to experience', es: 'Formas de vivir', it: 'Modi per vivere', ar: 'طرق لتعيش بها' })} {item.title}.</h2></div><Link href="/egypt-tours/one-day-tours" className="text-link">{tx(locale, { en: 'View all tours', es: 'Ver todas las excursiones', it: 'Vedi tutti i tour', ar: 'شاهد كل الرحلات' })} <ArrowRight size={15}/></Link></header>
+      {relatedTours.length > 0 && <PresentationSection pageId="destination-detail" id="destination-related"><section className="destination-related container">
+        <header className="destination-section-head"><div><span className="eyebrow">{cms.text("destination-related","description0",tx(locale, { en: 'Travel with us', es: 'Viaja con nosotros', it: 'Viaggia con noi', ar: 'سافر معنا' }))}</span><h2>{cms.text("destination-related","description1",tx(locale, { en: 'Ways to experience', es: 'Formas de vivir', it: 'Modi per vivere', ar: 'طرق لتعيش بها' }))} {item.title}.</h2></div><CmsPublicLink href={cms.link("destination-related","links0","/egypt-tours/one-day-tours")} className="text-link">{cms.text("destination-related","description2",tx(locale, { en: 'View all tours', es: 'Ver todas las excursiones', it: 'Vedi tutti i tour', ar: 'شاهد كل الرحلات' }))} <ArrowRight size={15}/></CmsPublicLink></header>
         <div className={`destination-tour-grid${relatedTours.length === 1 ? ' single' : ''}`}>{relatedTours.map((tour) => <TourCard key={tour.slug} tour={tour}/>)}</div>
-      </section>}
+      </section></PresentationSection>}
 
-      <section className="destination-plan-cta">
+      <PresentationSection pageId="destination-detail" id="destination-plan-cta"><section className="destination-plan-cta">
         <img src={item.image} alt="" loading="lazy"/>
         <div/>
-        <div className="container"><span className="eyebrow">{tx(locale, { en: 'Your Egypt, thoughtfully arranged', es: 'Tu Egipto, organizado con esmero', it: 'Il tuo Egitto, organizzato con cura', ar: 'مصر بتنظيم مدروس' })}</span><h2>{tx(locale, { en: 'Make', es: 'Haz de', it: 'Fai di', ar: 'اجعل' })} {item.title} {tx(locale, { en: 'part of a journey built around you.', es: 'parte de un viaje creado a tu medida.', it: 'parte di un viaggio costruito intorno a te.', ar: 'جزءًا من رحلة مبنية حولك.' })}</h2><p>{tx(locale, { en: 'Share your dates, pace, and interests. Our local team will connect the details into one smooth itinerary.', es: 'Comparte tus fechas, tu ritmo y tus intereses. Nuestro equipo local unirá los detalles en un itinerario fluido.', it: 'Condividi date, ritmo e interessi: il nostro team locale collegherà i dettagli in un itinerario fluido.', ar: 'شاركنا مواعيدك وإيقاعك واهتماماتك، وسيربط فريقنا المحلي التفاصيل في برنامج واحد سلس.' })}</p><Link href="/make-your-trip" className="primary-btn">{tx(locale, { en: 'Build my trip', es: 'Crea mi viaje', it: 'Crea il mio viaggio', ar: 'ابنِ رحلتي' })} <ArrowRight size={17}/></Link></div>
-      </section>
-    </main>
+        <div className="container"><span className="eyebrow">{cms.text("destination-plan-cta","description0",tx(locale, { en: 'Your Egypt, thoughtfully arranged', es: 'Tu Egipto, organizado con esmero', it: 'Il tuo Egitto, organizzato con cura', ar: 'مصر بتنظيم مدروس' }))}</span><h2>{cms.text("destination-plan-cta","description1",tx(locale, { en: 'Make', es: 'Haz de', it: 'Fai di', ar: 'اجعل' }))} {item.title} {cms.text("destination-plan-cta","description2",tx(locale, { en: 'part of a journey built around you.', es: 'parte de un viaje creado a tu medida.', it: 'parte di un viaggio costruito intorno a te.', ar: 'جزءًا من رحلة مبنية حولك.' }))}</h2><p>{cms.text("destination-plan-cta","description3",tx(locale, { en: 'Share your dates, pace, and interests. Our local team will connect the details into one smooth itinerary.', es: 'Comparte tus fechas, tu ritmo y tus intereses. Nuestro equipo local unirá los detalles en un itinerario fluido.', it: 'Condividi date, ritmo e interessi: il nostro team locale collegherà i dettagli in un itinerario fluido.', ar: 'شاركنا مواعيدك وإيقاعك واهتماماتك، وسيربط فريقنا المحلي التفاصيل في برنامج واحد سلس.' }))}</p><CmsPublicLink href={cms.link("destination-plan-cta","links0","/make-your-trip")} className="primary-btn">{cms.text("destination-plan-cta","description4",tx(locale, { en: 'Build my trip', es: 'Crea mi viaje', it: 'Crea il mio viaggio', ar: 'ابنِ رحلتي' }))} <ArrowRight size={17}/></CmsPublicLink></div>
+      </section></PresentationSection>
+    </PresentationOrder></main>
   </SiteShell>
 }
 
@@ -818,6 +837,8 @@ function BlogMagazineCard({ item }: { item: Blog }) {
 }
 
 function BlogsPageContent({ initialBlogs }: { initialBlogs: Blog[] }) {
+  const cms = usePresentation("blogs")
+
   const { locale } = useLocale()
   const ar = locale === 'ar'
   const liveBlogs = useDbBlogs(initialBlogs).filter((blog) => blog.isPublished !== false)
@@ -826,14 +847,14 @@ function BlogsPageContent({ initialBlogs }: { initialBlogs: Blog[] }) {
   if (!featured) return null
   return <main>
     <PageShowcaseHero image={featured.image} eyebrow={tx(locale, { en: 'Stories & inspiration', es: 'Historias e inspiración', it: 'Storie e ispirazione', ar: 'حكايات وإلهام' })} title={tx(locale, { en: 'Travel notes for curious Egypt explorers', es: 'Notas de viaje para exploradores curiosos de Egipto', it: 'Note di viaggio per curiosi esploratori dell\'Egitto', ar: 'ملاحظات سفر لعشاق مصر الفضوليين' })} intro={tx(locale, { en: 'Practical guides, local perspective, and the small details that help you travel with more confidence.', es: 'Guías prácticas, mirada local y los pequeños detalles que te ayudan a viajar con más confianza.', it: 'Guide pratiche, prospettiva locale e piccoli dettagli per viaggiare con più sicurezza.', ar: 'أدلة عملية ووجهة نظر محلية وتفاصيل صغيرة تساعدك تسافر بثقة أكبر.' })} primaryLabel={tx(locale, { en: 'Explore the stories', es: 'Descubre las historias', it: 'Scopri le storie', ar: 'استكشف القصص' })} primaryHref="#blog-stories" secondaryLabel={tx(locale, { en: 'Read the featured story', es: 'Lee la historia destacada', it: 'Leggi la storia in evidenza', ar: 'اقرأ القصة المميزة' })} secondaryHref={`/blogs/${featured.slug}`} railLabel={tx(locale, { en: 'Featured story', es: 'Historia destacada', it: 'Storia in evidenza', ar: 'قصة مميزة' })} railTitle={featured.title} railHref={`/blogs/${featured.slug}`} railMeta={[{ Icon: CalendarDays, label: featured.date }, { Icon: Compass, label: featured.category }]} statsLabel={tx(locale, { en: 'Journal summary', es: 'Resumen del blog', it: 'Riepilogo del diario', ar: 'ملخص المدونة' })} stats={[{ value: liveBlogs.length, label: tx(locale, { en: 'Stories & guides', es: 'Historias y guías', it: 'Storie e guide', ar: 'قصص وأدلة' }) }, { value: categories, label: tx(locale, { en: 'Story categories', es: 'Categorías', it: 'Categorie di storie', ar: 'تصنيفات' }) }]}/>
-    <section id="blog-stories" className="blogs-editorial section container">
+    <PresentationSection pageId="blogs" id="blog-stories"><section id="blog-stories" className="blogs-editorial section container">
       <article className="blog-feature-story">
         <Link href={`/blogs/${featured.slug}`} className="blog-feature-media" aria-label={featured.title}>
           <img src={featured.editorial?.heroImage ?? featured.image} alt={featured.editorial?.heroAlt ?? featured.title}/>
-          <span>{tx(locale, { en: 'Editor\'s pick', es: 'Selección del editor', it: 'Scelta del redattore', ar: 'اختيار المجلة' })}</span>
+          <span>{cms.text("blog-stories","description0",tx(locale, { en: 'Editor\'s pick', es: 'Selección del editor', it: 'Scelta del redattore', ar: 'اختيار المجلة' }))}</span>
         </Link>
         <div className="blog-feature-copy">
-          <span className="eyebrow">{tx(locale, { en: 'Featured story', es: 'Historia destacada', it: 'Storia in evidenza', ar: 'قصة مميزة' })}</span>
+          <span className="eyebrow">{cms.text("blog-stories","description1",tx(locale, { en: 'Featured story', es: 'Historia destacada', it: 'Storia in evidenza', ar: 'قصة مميزة' }))}</span>
           <div className="blog-mag-meta">
             <span><Compass size={14}/>{featured.category}</span>
             <span><CalendarDays size={14}/>{featured.date}</span>
@@ -842,15 +863,15 @@ function BlogsPageContent({ initialBlogs }: { initialBlogs: Blog[] }) {
           <h2>{featured.title}</h2>
           <p>{featured.excerpt}</p>
           <Link href={`/blogs/${featured.slug}`} className="blog-feature-link">
-            {tx(locale, { en: 'Read the full story', es: 'Lee la historia completa', it: 'Leggi la storia completa', ar: 'اقرأ القصة كاملة' })} <ArrowRight size={17}/>
+            {cms.text("blog-stories","description2",tx(locale, { en: 'Read the full story', es: 'Lee la historia completa', it: 'Leggi la storia completa', ar: 'اقرأ القصة كاملة' }))} <ArrowRight size={17}/>
           </Link>
         </div>
       </article>
 
       <header className="blog-index-head">
         <div>
-          <span className="eyebrow">{tx(locale, { en: 'From the travel journal', es: 'De nuestro diario de viajes', it: 'Dal diario di viaggio', ar: 'من مجلة السفر' })}</span>
-          <h2>{tx(locale, { en: 'Fresh perspectives for your next Egypt journey.', es: 'Nuevas perspectivas para tu próximo viaje a Egipto.', it: 'Nuove prospettive per il tuo prossimo viaggio in Egitto.', ar: 'أفكار جديدة لرحلتك القادمة في مصر.' })}</h2>
+          <span className="eyebrow">{cms.text("blog-stories","description3",tx(locale, { en: 'From the travel journal', es: 'De nuestro diario de viajes', it: 'Dal diario di viaggio', ar: 'من مجلة السفر' }))}</span>
+          <h2>{cms.text("blog-stories","description4",tx(locale, { en: 'Fresh perspectives for your next Egypt journey.', es: 'Nuevas perspectivas para tu próximo viaje a Egipto.', it: 'Nuove prospettive per il tuo prossimo viaggio in Egitto.', ar: 'أفكار جديدة لرحلتك القادمة في مصر.' }))}</h2>
         </div>
         <p>{tx(locale, { en: `${Math.max(liveBlogs.length - 1, 0)} recent guides and stories`, es: `${Math.max(liveBlogs.length - 1, 0)} guías e historias recientes`, it: `${Math.max(liveBlogs.length - 1, 0)} guide e storie recenti`, ar: `${Math.max(liveBlogs.length - 1, 0)} أدلة وقصص حديثة` })}</p>
       </header>
@@ -858,7 +879,7 @@ function BlogsPageContent({ initialBlogs }: { initialBlogs: Blog[] }) {
       <div className="blog-magazine-grid">
         {liveBlogs.slice(1).map((item) => <BlogMagazineCard item={item} key={item.slug}/>) }
       </div>
-    </section>
+    </section></PresentationSection>
   </main>
 }
 
@@ -899,6 +920,8 @@ function GuideSection({ section, tips }: { section: { id: string; number: string
 }
 
 export function BlogEditorialPage({ item, allBlogs }: { item: Blog; allBlogs: Blog[] }) {
+  const cms = usePresentation("blog-detail")
+
   const editorial = item.editorial!
   const { currency, locale } = useLocale()
   const adAr = locale === 'ar'
@@ -937,7 +960,7 @@ export function BlogEditorialPage({ item, allBlogs }: { item: Blog; allBlogs: Bl
   }, [editorial.sidebarLinks])
 
   return <SiteShell>
-    <div className="guide-breadcrumb"><div className="container"><Link href="/">{tx(locale, { en: 'Home', es: 'Inicio', it: 'Home', ar: 'الرئيسية' })}</Link><span>›</span><Link href="/blogs">{tx(locale, { en: 'Blogs', es: 'Blog', it: 'Blog', ar: 'المدونة' })}</Link><span>›</span><strong>{item.title}</strong></div></div>
+    <div className="guide-breadcrumb"><div className="container"><Link href="/">{cms.text("presentation","description0",tx(locale, { en: 'Home', es: 'Inicio', it: 'Home', ar: 'الرئيسية' }))}</Link><span>›</span><Link href="/blogs">{cms.text("presentation","description1",tx(locale, { en: 'Blogs', es: 'Blog', it: 'Blog', ar: 'المدونة' }))}</Link><span>›</span><strong>{item.title}</strong></div></div>
     <main className="guide-page">
       <header className="guide-hero">
         <img src={heroImage} alt={heroAlt} />
@@ -958,8 +981,8 @@ export function BlogEditorialPage({ item, allBlogs }: { item: Blog; allBlogs: Bl
 
       <div className="container guide-layout">
         <aside className="guide-sidebar">
-          {editorial.sidebarLinks && editorial.sidebarLinks.length > 0 && <nav aria-label="In this guide"><strong>{tx(locale, { en: 'In this guide', es: 'En esta guía', it: 'In questa guida', ar: 'في هذا الدليل' })}</strong>{editorial.sidebarLinks.map((link) => <a key={link.href} href={link.href} className={activeSection === link.href.replace('#', '') ? 'active' : ''}>{link.label}</a>)}</nav>}
-          {editorial.sidebarAction && <div className="guide-side-action"><span>{editorial.sidebarAction.label}</span><strong>{editorial.sidebarAction.heading}</strong><Link href={`/egypt-tours/${editorial.sidebarAction.tourSlug}`}>{tx(locale, { en: 'View the tour', es: 'Ver la excursión', it: 'Vedi il tour', ar: 'استعرض الرحلة' })} <ArrowRight size={15}/></Link></div>}
+          {editorial.sidebarLinks && editorial.sidebarLinks.length > 0 && <nav aria-label="In this guide"><strong>{cms.text("presentation","description2",tx(locale, { en: 'In this guide', es: 'En esta guía', it: 'In questa guida', ar: 'في هذا الدليل' }))}</strong>{editorial.sidebarLinks.map((link) => <a key={link.href} href={link.href} className={activeSection === link.href.replace('#', '') ? 'active' : ''}>{link.label}</a>)}</nav>}
+          {editorial.sidebarAction && <div className="guide-side-action"><span>{editorial.sidebarAction.label}</span><strong>{editorial.sidebarAction.heading}</strong><Link href={`/egypt-tours/${editorial.sidebarAction.tourSlug}`}>{cms.text("presentation","description3",tx(locale, { en: 'View the tour', es: 'Ver la excursión', it: 'Vedi il tour', ar: 'استعرض الرحلة' }))} <ArrowRight size={15}/></Link></div>}
           <CampaignPlacementSlot placement="blog-sidebar"/>
         </aside>
 
@@ -970,14 +993,14 @@ export function BlogEditorialPage({ item, allBlogs }: { item: Blog; allBlogs: Bl
 
           {editorial.wideImage && <figure className="guide-wide-image"><img src={editorial.wideImage.src} alt={editorial.wideImage.alt} loading="lazy"/>{editorial.wideImage.caption && <figcaption>{editorial.wideImage.caption}</figcaption>}</figure>}
 
-          {editorial.checklist && editorial.checklist.length > 0 && <section id={checklistAnchor} className="guide-checklist">
-            <div><span className="guide-section-number">{String((editorial.sections?.length || 0) + 1).padStart(2, '0')}</span><span className="eyebrow">{editorial.checklistEyebrow || tx(locale, { en: 'Before you go', es: 'Antes de viajar', it: 'Prima di partire', ar: 'قبل السفر' })}</span><h2>{editorial.checklistHeading || tx(locale, { en: 'Your trip, simplified', es: 'Tu viaje, simplificado', it: 'Il tuo viaggio, semplificato', ar: 'رحلتك ببساطة' })}</h2></div>
+          {editorial.checklist && editorial.checklist.length > 0 && <PresentationSection pageId="blog-detail" id="guide-checklist"><section id={checklistAnchor} className="guide-checklist">
+            <div><span className="guide-section-number">{String((editorial.sections?.length || 0) + 1).padStart(2, '0')}</span><span className="eyebrow">{editorial.checklistEyebrow || cms.text("guide-checklist","description0",tx(locale, { en: 'Before you go', es: 'Antes de viajar', it: 'Prima di partire', ar: 'قبل السفر' }))}</span><h2>{editorial.checklistHeading || cms.text("guide-checklist","description1",tx(locale, { en: 'Your trip, simplified', es: 'Tu viaje, simplificado', it: 'Il tuo viaggio, semplificato', ar: 'رحلتك ببساطة' }))}</h2></div>
             <ul>{editorial.checklist.map((item, i) => <li key={i}><Check size={17}/><span><strong>{item.title}</strong>{item.detail}</span></li>)}</ul>
-          </section>}
+          </section></PresentationSection>}
         </article>
       </div>
 
-      {editorial.cta && <section className="guide-cta">
+      {editorial.cta && <PresentationSection pageId="blog-detail" id="guide-cta"><section className="guide-cta">
         <img src={heroImage} alt={heroAlt} loading="lazy"/>
         <div className="guide-cta-shade"/>
         <div className="container guide-cta-content">
@@ -986,12 +1009,12 @@ export function BlogEditorialPage({ item, allBlogs }: { item: Blog; allBlogs: Bl
           <p>{editorial.cta.copy}</p>
           <div>
             {editorial.cta.tourSlug && <Link href={`/egypt-tours/${editorial.cta.tourSlug}`} className="primary-btn">{editorial.cta.tourLabel || 'View the tour'} <ArrowRight size={17}/></Link>}
-            <Link href="/make-your-trip" className="guide-cta-link">{editorial.cta.customLabel || 'Build my own trip'}</Link>
+            <CmsPublicLink href={cms.link("guide-cta","links0","/make-your-trip")} className="guide-cta-link">{editorial.cta.customLabel || 'Build my own trip'}</CmsPublicLink>
           </div>
         </div>
-      </section>}
+      </section></PresentationSection>}
 
-      <section className="container guide-related"><div className="guide-related-head"><div><span className="eyebrow">{tx(locale, { en: 'Keep exploring', es: 'Sigue explorando', it: 'Continua a esplorare', ar: 'واصل الاستكشاف' })}</span><h2>{tx(locale, { en: 'More stories from Egypt', es: 'Más historias de Egipto', it: 'Altre storie dall\'Egitto', ar: 'قصص أخرى من مصر' })}</h2></div><Link href="/blogs">{tx(locale, { en: 'All travel stories', es: 'Todas las historias de viaje', it: 'Tutte le storie di viaggio', ar: 'كل قصص السفر' })} <ArrowRight size={16}/></Link></div><div className="guide-related-grid">{related.map((blog) => <article key={blog.slug}><Link href={`/blogs/${blog.slug}`}><img src={blog.image} alt={blog.title} loading="lazy"/></Link><small>{blog.category}</small><h3><Link href={`/blogs/${blog.slug}`}>{blog.title}</Link></h3><p>{blog.excerpt}</p></article>)}</div></section>
+      <PresentationSection pageId="blog-detail" id="guide-related"><section className="container guide-related"><div className="guide-related-head"><div><span className="eyebrow">{cms.text("guide-related","description0",tx(locale, { en: 'Keep exploring', es: 'Sigue explorando', it: 'Continua a esplorare', ar: 'واصل الاستكشاف' }))}</span><h2>{cms.text("guide-related","description1",tx(locale, { en: 'More stories from Egypt', es: 'Más historias de Egipto', it: 'Altre storie dall\'Egitto', ar: 'قصص أخرى من مصر' }))}</h2></div><CmsPublicLink href={cms.link("guide-related","links0","/blogs")}>{cms.text("guide-related","description2",tx(locale, { en: 'All travel stories', es: 'Todas las historias de viaje', it: 'Tutte le storie di viaggio', ar: 'كل قصص السفر' }))} <ArrowRight size={16}/></CmsPublicLink></div><div className="guide-related-grid">{related.map((blog) => <article key={blog.slug}><Link href={`/blogs/${blog.slug}`}><img src={blog.image} alt={blog.title} loading="lazy"/></Link><small>{blog.category}</small><h3><Link href={`/blogs/${blog.slug}`}>{blog.title}</Link></h3><p>{blog.excerpt}</p></article>)}</div></section></PresentationSection>
     </main>
   </SiteShell>
 }
@@ -1067,6 +1090,9 @@ const EVENTS_PAGE_SIZE = 6
 
 function EventsPageContent() {
   const { locale } = useLocale()
+  const heroState = useShowcaseHero()
+  const heroContent = heroState?.content
+  const heroText = heroContent && locale !== 'ar' ? heroContent.text[locale] : {}
   const ar = locale === 'ar'
   const liveEvents = useDbEvents(events)
   const published = useMemo(() => getPublishedEvents(liveEvents), [liveEvents])
@@ -1115,32 +1141,32 @@ function EventsPageContent() {
   const pageRows = filtered.slice((safePage - 1) * EVENTS_PAGE_SIZE, safePage * EVENTS_PAGE_SIZE)
 
   return <main>
-    <section className="events-page-hero">
-      <img src={featured ? eventImageSrc(featured.image) : EVENT_IMAGE_FALLBACK} alt="" onError={onEventImageError} />
-      <div className="events-page-hero-shade" />
+    {!heroState?.hidden && !heroState?.unavailable && <section className="events-page-hero">
+      {heroContent?.image || heroContent?.mobileImage ? <picture>{heroContent.mobileImage && <source media="(max-width: 760px)" srcSet={heroContent.mobileImage} />}<img className="hero-bg-img" src={heroContent.image || (featured ? eventImageSrc(featured.image) : EVENT_IMAGE_FALLBACK)} alt={locale !== 'ar' ? heroContent.alt[locale] : ''} onError={onEventImageError} style={heroContent.position !== 'source' ? { objectPosition: heroContent.position } : undefined} /></picture> : <img src={featured ? eventImageSrc(featured.image) : EVENT_IMAGE_FALLBACK} alt={heroContent && locale !== 'ar' ? heroContent.alt[locale] : ''} onError={onEventImageError} style={heroContent && heroContent.position !== 'source' ? { objectPosition: heroContent.position } : undefined} />}
+      <div className="events-page-hero-shade" style={heroContent?.overlay != null ? { background: `rgba(10,32,76,${heroContent.overlay})` } : undefined} />
       <div className="container events-page-hero-content">
         <div className="events-page-hero-copy">
-          <span className="eyebrow">{tx(locale, { en: 'Egypt events calendar', es: 'Calendario de eventos de Egipto', it: 'Calendario eventi dell\'Egitto', ar: 'أجندة فعاليات مصر' })}</span>
-          <h1>{tx(locale, { en: 'Egypt events & seasonal journeys', es: 'Eventos y viajes de temporada en Egipto', it: 'Eventi e viaggi stagionali in Egitto', ar: 'فعاليات ورحلات موسمية تستحق السفر' })}</h1>
-          <p>{tx(locale, { en: 'Celebrations, cultural escapes, and limited-time experiences shaped around Egypt at its most alive.', es: 'Celebraciones, escapadas culturales y experiencias por tiempo limitado en torno al Egipto más vibrante.', it: 'Celebrazioni, fughe culturali ed esperienze a tempo limitato intorno all\'Egitto più vivo.', ar: 'احتفالات وعطلات ثقافية وتجارب محدودة التوقيت، مرتبة لتعيش مصر في أكثر لحظاتها حيوية.' })}</p>
+          <span className="eyebrow">{heroText.eyebrow ?? tx(locale, { en: 'Egypt events calendar', es: 'Calendario de eventos de Egipto', it: 'Calendario eventi dell\'Egitto', ar: 'أجندة فعاليات مصر' })}</span>
+          <h1>{heroText.title ?? tx(locale, { en: 'Egypt events & seasonal journeys', es: 'Eventos y viajes de temporada en Egipto', it: 'Eventi e viaggi stagionali in Egitto', ar: 'فعاليات ورحلات موسمية تستحق السفر' })}</h1>
+          <p>{heroText.intro ?? tx(locale, { en: 'Celebrations, cultural escapes, and limited-time experiences shaped around Egypt at its most alive.', es: 'Celebraciones, escapadas culturales y experiencias por tiempo limitado en torno al Egipto más vibrante.', it: 'Celebrazioni, fughe culturali ed esperienze a tempo limitato intorno all\'Egitto più vivo.', ar: 'احتفالات وعطلات ثقافية وتجارب محدودة التوقيت، مرتبة لتعيش مصر في أكثر لحظاتها حيوية.' })}</p>
           <div className="events-page-hero-actions">
-            <a href="#events-list" className="primary-btn">{tx(locale, { en: 'Explore upcoming events', es: 'Descubre los próximos eventos', it: 'Scopri i prossimi eventi', ar: 'استكشف الفعاليات' })} <ArrowRight size={17} /></a>
-            {featured && <Link href={`/events/${featured.slug}`} className="events-hero-link">{tx(locale, { en: 'View the next event', es: 'Ver el próximo evento', it: 'Vedi il prossimo evento', ar: 'تفاصيل الفعالية القادمة' })} <ArrowRight size={16} /></Link>}
+            <a href={heroContent?.links.primaryHref ?? "#events-list"} className="primary-btn">{heroText.primaryLabel ?? tx(locale, { en: 'Explore upcoming events', es: 'Descubre los próximos eventos', it: 'Scopri i prossimi eventi', ar: 'استكشف الفعاليات' })} <ArrowRight size={17} /></a>
+            {featured && <Link href={`/events/${featured.slug}`} className="events-hero-link">{heroText.secondaryLabel ?? tx(locale, { en: 'View the next event', es: 'Ver el próximo evento', it: 'Vedi il prossimo evento', ar: 'تفاصيل الفعالية القادمة' })} <ArrowRight size={16} /></Link>}
           </div>
         </div>
         <div className="events-hero-rail">
           {featured ? <Link href={`/events/${featured.slug}`} className="events-next-event">
-            <span>{tx(locale, { en: 'Next event', es: 'Próximo evento', it: 'Prossimo evento', ar: 'الفعالية القادمة' })}</span>
+            <span>{heroText.railLabel ?? tx(locale, { en: 'Next event', es: 'Próximo evento', it: 'Prossimo evento', ar: 'الفعالية القادمة' })}</span>
             <strong>{(locale === 'ar' ? featured.titleAr : undefined) || featured.title}</strong>
             <small><CalendarDays size={14} />{featured.date}<i aria-hidden="true"/><MapPin size={14} />{(locale === 'ar' ? featured.locationAr : undefined) || featured.location}</small>
           </Link> : <p className="events-next-empty">{tx(locale, { en: 'No published events right now.', es: 'No hay eventos publicados ahora mismo.', it: 'Nessun evento pubblicato al momento.', ar: 'لا توجد فعاليات منشورة حاليًا.' })}</p>}
-          <div className="events-hero-stats" aria-label={tx(locale, { en: 'Events summary', es: 'Resumen de eventos', it: 'Riepilogo eventi', ar: 'ملخص الفعاليات' })}>
-            <span><b>{upcomingCount}</b>{tx(locale, { en: 'Upcoming events', es: 'Próximos eventos', it: 'Prossimi eventi', ar: 'فعاليات قادمة' })}</span>
-            <span><b>{cityCount}</b>{tx(locale, { en: 'Egyptian cities', es: 'Ciudades egipcias', it: 'Città egiziane', ar: 'مدن مصرية' })}</span>
+          <div className="events-hero-stats" aria-label={heroText.statsLabel ?? tx(locale, { en: 'Events summary', es: 'Resumen de eventos', it: 'Riepilogo eventi', ar: 'ملخص الفعاليات' })}>
+            <span><b>{upcomingCount}</b>{heroText.stat0 ?? tx(locale, { en: 'Upcoming events', es: 'Próximos eventos', it: 'Prossimi eventi', ar: 'فعاليات قادمة' })}</span>
+            <span><b>{cityCount}</b>{heroText.stat1 ?? tx(locale, { en: 'Egyptian cities', es: 'Ciudades egipcias', it: 'Città egiziane', ar: 'مدن مصرية' })}</span>
           </div>
         </div>
       </div>
-    </section>
+    </section>}
     <div id="events-list" className="section container">
       {published.length === 0 ? (
         <div className="account-empty events-empty" role="status">
@@ -1175,6 +1201,8 @@ function EventsPageContent() {
 }
 
 export function EventDetailPage({ slug }: { slug: string }) {
+  const cms = usePresentation("event-detail")
+
   const { locale } = useLocale()
   const ar = locale === 'ar'
   const liveEvents = useDbEvents(events)
@@ -1190,7 +1218,7 @@ export function EventDetailPage({ slug }: { slug: string }) {
     return () => window.clearInterval(id)
   }, [rangeKey])
   if (!item) return <DetailNotFound title={tx(locale, { en: 'Event not found', es: 'Evento no encontrado', it: 'Evento non trovato', ar: 'الفعالية غير موجودة' })} copy={tx(locale, { en: 'The event you were looking for has taken a different route.', es: 'El evento que buscabas ha tomado otro camino.', it: 'L\'evento che cercavi ha preso un\'altra strada.', ar: 'الفعالية التي تبحث عنها سلكت طريقًا آخر.' })} backHref="/events" backLabel={tx(locale, { en: 'See all events', es: 'Ver todos los eventos', it: 'Vedi tutti gli eventi', ar: 'شاهد كل الفعاليات' })}/>
-  if (item.isPublished === false) return <SiteShell><main className="container section"><div className="account-empty" role="status"><h1>{tx(locale, { en: 'This event is currently hidden', es: 'Este evento está oculto ahora mismo', it: 'Questo evento è attualmente nascosto', ar: 'هذه الفعالية مخفية حاليًا' })}</h1><p>{tx(locale, { en: 'Browse the other published events.', es: 'Descubre los otros eventos publicados.', it: 'Scopri gli altri eventi pubblicati.', ar: 'تصفح الفعاليات المنشورة الأخرى.' })}</p><Link href="/events" className="primary-btn">{tx(locale, { en: 'See all events', es: 'Ver todos los eventos', it: 'Vedi tutti gli eventi', ar: 'شاهد كل الفعاليات' })}</Link></div></main></SiteShell>
+  if (item.isPublished === false) return <SiteShell><main className="container section"><div className="account-empty" role="status"><h1>{cms.text("presentation","description0",tx(locale, { en: 'This event is currently hidden', es: 'Este evento está oculto ahora mismo', it: 'Questo evento è attualmente nascosto', ar: 'هذه الفعالية مخفية حاليًا' }))}</h1><p>{cms.text("presentation","description1",tx(locale, { en: 'Browse the other published events.', es: 'Descubre los otros eventos publicados.', it: 'Scopri gli altri eventi pubblicati.', ar: 'تصفح الفعاليات المنشورة الأخرى.' }))}</p><Link href="/events" className="primary-btn">{cms.text("presentation","description2",tx(locale, { en: 'See all events', es: 'Ver todos los eventos', it: 'Vedi tutti gli eventi', ar: 'شاهد كل الفعاليات' }))}</Link></div></main></SiteShell>
   const title = (locale === 'ar' ? item.titleAr : undefined) || item.title
   const copy = (locale === 'ar' ? item.copyAr : undefined) || item.copy
   const intro = (locale === 'ar' ? item.introAr : undefined) || (item.intro ?? copy)
@@ -1217,7 +1245,7 @@ export function EventDetailPage({ slug }: { slug: string }) {
     window.setTimeout(() => setShared(false), 2000)
   }
   return <SiteShell><main className="event-detail-page">
-    <Breadcrumb items={[tx(locale, { en: 'Events', es: 'Eventos', it: 'Eventi', ar: 'الفعاليات' }), title]} />
+    <Breadcrumb items={[cms.text("presentation","description3",tx(locale, { en: 'Events', es: 'Eventos', it: 'Eventi', ar: 'الفعاليات' })), title]} />
     <section className="event-detail-hero container">
       <img src={eventImageSrc(item.image)} alt={title} onError={onEventImageError} />
       <div className="event-detail-shade" />
@@ -1242,25 +1270,25 @@ export function EventDetailPage({ slug }: { slug: string }) {
     </section>
     <div className="container event-layout">
       <div className="event-main">
-        <section className="event-about">
-          <span className="eyebrow">{tx(locale, { en: 'About this event', es: 'Sobre este evento', it: 'Su questo evento', ar: 'عن الفعالية' })}</span>
+        <PresentationSection pageId="event-detail" id="event-about"><section className="event-about">
+          <span className="eyebrow">{cms.text("event-about","description0",tx(locale, { en: 'About this event', es: 'Sobre este evento', it: 'Su questo evento', ar: 'عن الفعالية' }))}</span>
           <h2>{copy}</h2>
           {intro !== copy && <p className="event-lede">{intro}</p>}
           {item.gallery && item.gallery.length > 0 && <div className="event-gallery" role="list" aria-label={tx(locale, { en: 'Event photos', es: 'Fotos del evento', it: 'Foto dell\'evento', ar: 'صور الفعالية' })}>{item.gallery.map((src) => <img key={src} role="listitem" src={eventImageSrc(src)} alt={title} loading="lazy" onError={onEventImageError} />)}</div>}
-        </section>
-        {item.highlights && item.highlights.length > 0 && <section className="event-experience">
-          <span className="eyebrow">{tx(locale, { en: 'Why this journey works', es: 'Por qué funciona este viaje', it: 'Perché questo viaggio funziona', ar: 'ليه الرحلة دي مميزة' })}</span>
+        </section></PresentationSection>
+        {item.highlights && item.highlights.length > 0 && <PresentationSection pageId="event-detail" id="event-experience"><section className="event-experience">
+          <span className="eyebrow">{cms.text("event-experience","description0",tx(locale, { en: 'Why this journey works', es: 'Por qué funciona este viaje', it: 'Perché questo viaggio funziona', ar: 'ليه الرحلة دي مميزة' }))}</span>
           <div className="event-experience-grid">{item.highlights.map((highlight, index) => <article key={highlight.title}><span>{String(index + 1).padStart(2, '0')}</span><Sparkles size={20}/><h3>{(locale === 'ar' ? highlight.titleAr : undefined) || highlight.title}</h3><p>{(locale === 'ar' ? highlight.descriptionAr : undefined) || highlight.description}</p></article>)}</div>
-        </section>}
+        </section></PresentationSection>}
         {range.start && now !== null && msLeft > 0 && (status === 'upcoming') && <section className="event-countdown-wrap" aria-label={tx(locale, { en: 'Countdown', es: 'Cuenta atrás', it: 'Conto alla rovescia', ar: 'العد التنازلي' })}>
           <span className="eyebrow">{tx(locale, { en: 'Countdown to the event', es: 'Cuenta atrás para el evento', it: 'Conto alla rovescia per l\'evento', ar: 'العد التنازلي لبداية الفعالية' })}</span>
           <div className="event-countdown" role="timer">{cd.map((v, i) => <span key={cdLabels[i]}><b>{String(v).padStart(2, '0')}</b><small>{cdLabels[i]}</small></span>)}</div>
         </section>}
-        {hasProgram && <section id="event-program" className="event-program">
-          <span className="eyebrow">{tx(locale, { en: 'Event program', es: 'Programa del evento', it: 'Programma dell\'evento', ar: 'برنامج الفعالية' })}</span>
-          <h2>{tx(locale, { en: 'Day by day', es: 'Día a día', it: 'Giorno per giorno', ar: 'يوم بيوم' })}</h2>
+        {hasProgram && <PresentationSection pageId="event-detail" id="event-program"><section id="event-program" className="event-program">
+          <span className="eyebrow">{cms.text("event-program","description0",tx(locale, { en: 'Event program', es: 'Programa del evento', it: 'Programma dell\'evento', ar: 'برنامج الفعالية' }))}</span>
+          <h2>{cms.text("event-program","description1",tx(locale, { en: 'Day by day', es: 'Día a día', it: 'Giorno per giorno', ar: 'يوم بيوم' }))}</h2>
           <div className="event-program-list">{item.program!.map((d) => <article key={`${d.day}-${d.title}`}><span className="event-program-day">{d.day}</span><div><h3>{d.title}</h3><p>{d.description}</p></div></article>)}</div>
-        </section>}
+        </section></PresentationSection>}
         {(included?.length || excluded?.length) && <section className="event-inclusions">
           <span className="eyebrow">{tx(locale, { en: 'Included & excluded', es: 'Incluido y no incluido', it: 'Incluso ed escluso', ar: 'المشمول والمستبعد' })}</span>
           <h2>{tx(locale, { en: 'Know exactly what the arrangement covers.', es: 'Descubre exactamente qué cubre la organización.', it: 'Scopri esattamente cosa copre l\'organizzazione.', ar: 'اعرف بالضبط إيه الموجود في الترتيب.' })}</h2>
@@ -1269,11 +1297,11 @@ export function EventDetailPage({ slug }: { slug: string }) {
             {excluded && excluded.length > 0 && <article><h3>{tx(locale, { en: 'Not included', es: 'No incluido', it: 'Escluso', ar: 'غير مشمول' })}</h3><ul className="excluded-list">{excluded.map((x) => <li key={x}><Minus size={16} />{x}</li>)}</ul></article>}
           </div>
         </section>}
-        {item.addOns && item.addOns.length > 0 && <section className="event-addons-wrap">
-          <span className="eyebrow">{tx(locale, { en: 'Optional add-ons', es: 'Extras opcionales', it: 'Extra facoltativi', ar: 'إضافات اختيارية' })}</span>
-          <h2>{tx(locale, { en: 'Enhance your experience', es: 'Mejora tu experiencia', it: 'Arricchisci la tua esperienza', ar: 'زوّد تجربتك' })}</h2>
+        {item.addOns && item.addOns.length > 0 && <PresentationSection pageId="event-detail" id="event-addons-wrap"><section className="event-addons-wrap">
+          <span className="eyebrow">{cms.text("event-addons-wrap","description0",tx(locale, { en: 'Optional add-ons', es: 'Extras opcionales', it: 'Extra facoltativi', ar: 'إضافات اختيارية' }))}</span>
+          <h2>{cms.text("event-addons-wrap","description1",tx(locale, { en: 'Enhance your experience', es: 'Mejora tu experiencia', it: 'Arricchisci la tua esperienza', ar: 'زوّد تجربتك' }))}</h2>
           <ul className="event-addons">{item.addOns.map((a) => <li key={a.title}><Plus size={15} />{a.title}{typeof a.price === 'number' ? ` · ${a.price}` : ''}</li>)}</ul>
-        </section>}
+        </section></PresentationSection>}
         <section className="event-venue">
           <span className="eyebrow">{tx(locale, { en: 'Venue & area', es: 'Lugar y zona', it: 'Sede e zona', ar: 'مكان الانعقاد' })}</span>
           <h2>{item.venueName ?? venue}</h2>
@@ -1290,10 +1318,10 @@ export function EventDetailPage({ slug }: { slug: string }) {
             {item.organizerEmail && <li><Mail size={15} /><a href={`mailto:${item.organizerEmail}`}>{item.organizerEmail}</a></li>}
           </ul>
         </section>}
-        {related.length > 0 && <section className="event-related">
-          <div className="section-title-row"><h2>{tx(locale, { en: 'More events', es: 'Más eventos', it: 'Altri eventi', ar: 'فعاليات أخرى' })}</h2><Link href="/events" className="text-link">{tx(locale, { en: 'View all', es: 'Ver todo', it: 'Vedi tutto', ar: 'شاهد الكل' })} <ArrowRight size={15} /></Link></div>
+        {related.length > 0 && <PresentationSection pageId="event-detail" id="event-related"><section className="event-related">
+          <div className="section-title-row"><h2>{cms.text("event-related","description0",tx(locale, { en: 'More events', es: 'Más eventos', it: 'Altri eventi', ar: 'فعاليات أخرى' }))}</h2><CmsPublicLink href={cms.link("event-related","links0","/events")} className="text-link">{cms.text("event-related","description1",tx(locale, { en: 'View all', es: 'Ver todo', it: 'Vedi tutto', ar: 'شاهد الكل' }))} <ArrowRight size={15} /></CmsPublicLink></div>
           <div className="event-grid two">{related.map((e) => <EventCard item={e} key={e.slug} />)}</div>
-        </section>}
+        </section></PresentationSection>}
       </div>
       <aside id="event-book" className="event-book" aria-label={tx(locale, { en: 'Event request', es: 'Solicitud del evento', it: 'Richiesta evento', ar: 'طلب حضور الفعالية' })}>
         <EventRequestForm event={item} />
@@ -1307,6 +1335,8 @@ export function OffersPage() {
 }
 
 function OffersPageContent() {
+  const cms = usePresentation("offers")
+
   const { locale } = useLocale()
   const ar = locale === 'ar'
   const liveTours = useDbTours([], { includeNew: true })
@@ -1314,48 +1344,40 @@ function OffersPageContent() {
   const featured = liveTours.find(tour => dbOffers.some(offer => offer.tourSlug === tour.slug)) ?? liveTours[0]
   const tourOfferCount = dbOffers.filter(offer => offer.tourSlug).length
   const campaignCount = dbOffers.length - tourOfferCount
-  return <main className="offers-page">
+  return <main className="offers-page"><PresentationOrder pageId="offers">
       {featured && <PageShowcaseHero image={featured.image} eyebrow={tx(locale, { en: 'Curated Egypt savings', es: 'Ahorros seleccionados en Egipto', it: 'Risparmi selezionati in Egitto', ar: 'توفير مختار بعناية في مصر' })} title={tx(locale, { en: 'Egypt travel offers worth packing for.', es: 'Ofertas de viaje a Egipto por las que merece la pena hacer la maleta.', it: 'Offerte di viaggio in Egitto per cui vale la pena fare le valigie.', ar: 'عروض سفر في مصر تستاهل تجهزلها شنطة.' })} intro={tx(locale, { en: 'More nights, thoughtful extras, and memorable combinations designed to give your Egypt journey more value.', es: 'Más noches, extras con encanto y combinaciones memorables para dar más valor a tu viaje a Egipto.', it: 'Più notti, extra pensati e combinazioni memorabili per dare più valore al tuo viaggio in Egitto.', ar: 'ليالٍ أكثر وإضافات مدروسة وتركيبات لا تُنسى تمنح رحلتك لمصر قيمة أكبر.' })} primaryLabel={tx(locale, { en: 'Explore current offers', es: 'Descubre las ofertas actuales', it: 'Scopri le offerte attuali', ar: 'استكشف العروض الحالية' })} primaryHref="#current-offers" secondaryLabel={tx(locale, { en: 'View the featured package', es: 'Ver el paquete destacado', it: 'Vedi il pacchetto in evidenza', ar: 'شاهد الباقة المميزة' })} secondaryHref={`/egypt-tours/${featured.slug}`} railLabel={tx(locale, { en: 'Featured package', es: 'Paquete destacado', it: 'Pacchetto in evidenza', ar: 'باقة مميزة' })} railTitle={(locale === 'ar' ? featured.titleAr : undefined) || featured.title} railHref={`/egypt-tours/${featured.slug}`} railMeta={[{ Icon: Clock3, label: featured.duration }, { Icon: MapPin, label: featured.location }]} statsLabel={tx(locale, { en: 'Offers summary', es: 'Resumen de ofertas', it: 'Riepilogo offerte', ar: 'ملخص العروض' })} stats={[{ value: tourOfferCount, label: tx(locale, { en: 'Tour offers', es: 'Ofertas de viaje', it: 'Offerte tour', ar: 'عروض رحلات' }) }, { value: campaignCount, label: tx(locale, { en: 'Travel campaigns', es: 'Campañas de viaje', it: 'Campagne di viaggio', ar: 'حملات سفر' }) }]}/>}
 
-      <section className="offers-trust" aria-label={tx(locale, { en: 'Booking benefits', es: 'Ventajas de reservar', it: 'Vantaggi della prenotazione', ar: 'مميزات الحجز' })}>
-        <div className="container">
-          <div><CalendarCheck size={22}/><span><strong>{tx(locale, { en: 'Built around your dates', es: 'Creadas en torno a tus fechas', it: 'Costruite intorno alle tue date', ar: 'مصممة حول مواعيدك' })}</strong><small>{tx(locale, { en: 'We match each offer to your travel window.', es: 'Adaptamos cada oferta a tus fechas de viaje.', it: 'Adattiamo ogni offerta alle tue date di viaggio.', ar: 'نطابق كل عرض مع نافذة سفرك.' })}</small></span></div>
-          <div><Gift size={22}/><span><strong>{tx(locale, { en: 'Meaningful extras', es: 'Extras con sentido', it: 'Extra significativi', ar: 'إضافات ذات معنى' })}</strong><small>{tx(locale, { en: 'Added value that improves the actual journey.', es: 'Valor añadido que mejora el viaje de verdad.', it: 'Valore aggiunto che migliora davvero il viaggio.', ar: 'قيمة مضافة تحسّن الرحلة فعلًا.' })}</small></span></div>
-          <div><Headphones size={22}/><span><strong>{tx(locale, { en: 'Local support', es: 'Apoyo local', it: 'Supporto locale', ar: 'دعم محلي' })}</strong><small>{tx(locale, { en: 'A real Egypt-based team from enquiry to arrival.', es: 'Un equipo real en Egipto, desde la consulta hasta la llegada.', it: 'Un vero team in Egitto, dalla richiesta.', ar: 'فريق مصري حقيقي من الاستفسار للوصول.' })}</small></span></div>
-        </div>
-      </section>
+      <PresentationSection pageId="offers" id="offers-trust"><section className="offers-trust" aria-label={tx(locale, { en: 'Booking benefits', es: 'Ventajas de reservar', it: 'Vantaggi della prenotazione', ar: 'مميزات الحجز' })}>
+        <div className="container">{cms.cards("offers-trust").map(({id,title,copy,Icon})=><div key={id}><Icon size={22}/><span><strong>{title}</strong><small>{copy}</small></span></div>)}</div>
+      </section></PresentationSection>
 
-      <section id="current-offers" className="offers-current container">
+      <PresentationSection pageId="offers" id="current-offers"><section id="current-offers" className="offers-current container">
         <header className="offers-section-head">
-          <div><span className="eyebrow">{tx(locale, { en: 'Current opportunities', es: 'Oportunidades actuales', it: 'Opportunità attuali', ar: 'فرص حالية' })}</span>{featured ? <h2>{tx(locale, { en: 'Choose the value that fits your journey.', es: 'Elige el valor que encaje con tu viaje.', it: 'Scegli il valore adatto al tuo viaggio.', ar: 'اختر القيمة المناسبة لرحلتك.' })}</h2> : <h1>{tx(locale, { en: 'Choose the value that fits your journey.', es: 'Elige el valor que encaje con tu viaje.', it: 'Scegli il valore adatto al tuo viaggio.', ar: 'اختر القيمة المناسبة لرحلتك.' })}</h1>}</div>
-          <p>{tx(locale, { en: 'Every offer can be shaped around your dates, group, and preferred pace. Ask our team for the exact inclusions before you commit.', es: 'Cada oferta puede adaptarse a tus fechas, tu grupo y tu ritmo. Pregunta a nuestro equipo por las inclusiones exactas antes de decidirte.', it: 'Ogni offerta può essere modellata su date, gruppo e ritmo. Chiedi al nostro team le inclusioni esatte prima di impegnarti.', ar: 'كل عرض يمكن تشكيله حول مواعيدك ومجموعتك وإيقاعك المفضل. اسأل فريقنا عن المشمول الدقيق قبل الحجز.' })}</p>
+          <div><span className="eyebrow">{cms.text("current-offers","description0",tx(locale, { en: 'Current opportunities', es: 'Oportunidades actuales', it: 'Opportunità attuali', ar: 'فرص حالية' }))}</span>{featured ? <h2>{cms.text("current-offers","description1",tx(locale, { en: 'Choose the value that fits your journey.', es: 'Elige el valor que encaje con tu viaje.', it: 'Scegli il valore adatto al tuo viaggio.', ar: 'اختر القيمة المناسبة لرحلتك.' }))}</h2> : <h1>{cms.text("current-offers","description1",tx(locale, { en: 'Choose the value that fits your journey.', es: 'Elige el valor que encaje con tu viaje.', it: 'Scegli il valore adatto al tuo viaggio.', ar: 'اختر القيمة المناسبة لرحلتك.' }))}</h1>}</div>
+          <p>{cms.text("current-offers","description2",tx(locale, { en: 'Every offer can be shaped around your dates, group, and preferred pace. Ask our team for the exact inclusions before you commit.', es: 'Cada oferta puede adaptarse a tus fechas, tu grupo y tu ritmo. Pregunta a nuestro equipo por las inclusiones exactas antes de decidirte.', it: 'Ogni offerta può essere modellata su date, gruppo e ritmo. Chiedi al nostro team le inclusioni esatte prima di impegnarti.', ar: 'كل عرض يمكن تشكيله حول مواعيدك ومجموعتك وإيقاعك المفضل. اسأل فريقنا عن المشمول الدقيق قبل الحجز.' }))}</p>
         </header>
 
         <OfferCards placement="offers"/>
-      </section>
+      </section></PresentationSection>
 
-      <section className="offers-process">
+      <PresentationSection pageId="offers" id="offers-process"><section className="offers-process">
         <div className="container">
-          <header><span className="eyebrow">{tx(locale, { en: 'Simple and personal', es: 'Sencillo y personal', it: 'Semplice e personale', ar: 'بسيط وشخصي' })}</span><h2>{tx(locale, { en: 'From offer to confirmed journey.', es: 'De la oferta al viaje confirmado.', it: 'Dall\'offerta al viaggio confermato.', ar: 'من العرض لرحلة مؤكدة.' })}</h2></header>
-          <div className="offers-process-grid">
-            <div><strong>01</strong><h3>{tx(locale, { en: 'Choose your offer', es: 'Elige tu oferta', it: 'Scegli la tua offerta', ar: 'اختر عرضك' })}</h3><p>{tx(locale, { en: 'Pick the value or travel style that feels right for your trip.', es: 'Elige el valor o el estilo de viaje que encaje con tu viaje.', it: 'Scegli il valore o lo stile di viaggio giusto per il tuo viaggio.', ar: 'اختر القيمة أو نمط السفر المناسب لرحلتك.' })}</p></div>
-            <div><strong>02</strong><h3>{tx(locale, { en: 'Share your dates', es: 'Comparte tus fechas', it: 'Condividi le tue date', ar: 'شاركنا مواعيدك' })}</h3><p>{tx(locale, { en: 'Tell us who is traveling and the experience you have in mind.', es: 'Cuéntanos quién viaja y la experiencia que imaginas.', it: 'Dicci chi viaggia e l\'esperienza che immagini.', ar: 'أخبرنا بمن يسافر وبالتجربة التي تتصورها.' })}</p></div>
-            <div><strong>03</strong><h3>{tx(locale, { en: 'Confirm the details', es: 'Confirma los detalles', it: 'Conferma i dettagli', ar: 'أكّد التفاصيل' })}</h3><p>{tx(locale, { en: 'We verify availability and send the exact itinerary and inclusions.', es: 'Verificamos la disponibilidad y te enviamos el itinerario exacto y las inclusiones.', it: 'Verifichiamo la disponibilità e ti inviamo itinerario esatto e inclusioni.', ar: 'نتحقق من التوافر وسنرسل البرنامج الدقيق والمشمول.' })}</p></div>
-          </div>
+          <header><span className="eyebrow">{cms.text("offers-process","description0",tx(locale, { en: 'Simple and personal', es: 'Sencillo y personal', it: 'Semplice e personale', ar: 'بسيط وشخصي' }))}</span><h2>{cms.text("offers-process","description1",tx(locale, { en: 'From offer to confirmed journey.', es: 'De la oferta al viaje confirmado.', it: 'Dall\'offerta al viaggio confermato.', ar: 'من العرض لرحلة مؤكدة.' }))}</h2></header>
+        <div className="offers-process-grid">{cms.cards("offers-process").map(({id,title,copy,number})=><div key={id}><strong>{number}</strong><h3>{title}</h3><p>{copy}</p></div>)}</div>
         </div>
-      </section>
+      </section></PresentationSection>
 
-      <section className="offers-final">
-        <img src={siteImages.nile} alt={tx(locale, { en: 'A Nile journey through Egypt', es: 'Un viaje por el Nilo en Egipto', it: 'Un viaggio sul Nilo in Egitto', ar: 'رحلة نيلية في مصر' })} loading="lazy"/>
+      <PresentationSection pageId="offers" id="offers-final"><section className="offers-final">
+        <img src={cms.media("offers-final","media0",siteImages.nile)} alt={cms.text("offers-final","description0",tx(locale, { en: 'A Nile journey through Egypt', es: 'Un viaje por el Nilo en Egipto', it: 'Un viaggio sul Nilo in Egitto', ar: 'رحلة نيلية في مصر' }))} loading="lazy"/>
         <div className="offers-final-shade"/>
         <div className="container offers-final-content">
-          <span className="eyebrow">{tx(locale, { en: 'Need a different kind of value?', es: '¿Buscas otro tipo de valor?', it: 'Cerchi un altro tipo di valore?', ar: 'هل تحتاج إلى نوع مختلف من القيمة؟' })}</span>
-          <h2>{tx(locale, { en: 'Let us shape an offer around your Egypt plans.', es: 'Diseñemos una oferta en torno a tus planes en Egipto.', it: 'Creiamo un\'offerta intorno ai tuoi piani in Egitto.', ar: 'دعنا نصمم عرضًا حول خططك لمصر.' })}</h2>
-          <p>{tx(locale, { en: 'Tell us your dates, group size, and wish list. Our travel designers will recommend the best available route and inclusions.', es: 'Cuéntanos tus fechas, el tamaño del grupo y tu lista de deseos. Nuestros diseñadores de viajes te recomendarán la mejor ruta y las mejores inclusiones disponibles.', it: 'Dicci date, numero di partecipanti e desideri: i nostri travel designer consiglieranno il miglior itinerario e le migliori inclusioni disponibili.', ar: 'أخبرنا بمواعيدك وحجم مجموعتك وقائمة أمنياتك. سيرشح لك مصممو رحلاتنا أفضل خط سير ومشمول متاح.' })}</p>
-          <Link href="/make-your-trip" className="primary-btn">{tx(locale, { en: 'Make your trip', es: 'Crea tu viaje', it: 'Crea il tuo viaggio', ar: 'خطط رحلتك' })} <ArrowRight size={17}/></Link>
+          <span className="eyebrow">{cms.text("offers-final","description1",tx(locale, { en: 'Need a different kind of value?', es: '¿Buscas otro tipo de valor?', it: 'Cerchi un altro tipo di valore?', ar: 'هل تحتاج إلى نوع مختلف من القيمة؟' }))}</span>
+          <h2>{cms.text("offers-final","description2",tx(locale, { en: 'Let us shape an offer around your Egypt plans.', es: 'Diseñemos una oferta en torno a tus planes en Egipto.', it: 'Creiamo un\'offerta intorno ai tuoi piani in Egitto.', ar: 'دعنا نصمم عرضًا حول خططك لمصر.' }))}</h2>
+          <p>{cms.text("offers-final","description3",tx(locale, { en: 'Tell us your dates, group size, and wish list. Our travel designers will recommend the best available route and inclusions.', es: 'Cuéntanos tus fechas, el tamaño del grupo y tu lista de deseos. Nuestros diseñadores de viajes te recomendarán la mejor ruta y las mejores inclusiones disponibles.', it: 'Dicci date, numero di partecipanti e desideri: i nostri travel designer consiglieranno il miglior itinerario e le migliori inclusioni disponibili.', ar: 'أخبرنا بمواعيدك وحجم مجموعتك وقائمة أمنياتك. سيرشح لك مصممو رحلاتنا أفضل خط سير ومشمول متاح.' }))}</p>
+          <CmsPublicLink href={cms.link("offers-final","links0","/make-your-trip")} className="primary-btn">{cms.text("offers-final","description4",tx(locale, { en: 'Make your trip', es: 'Crea tu viaje', it: 'Crea il tuo viaggio', ar: 'خطط رحلتك' }))} <ArrowRight size={17}/></CmsPublicLink>
         </div>
-      </section>
-    </main>
+      </section></PresentationSection>
+    </PresentationOrder></main>
 }
 
 
@@ -1364,7 +1386,7 @@ export function OfferDetailPage({ slug }: { slug: string }) { return <CampaignDe
 
 export function GuidePage() { const { locale } = useLocale(); const ar = locale === 'ar'; const groups: [string, string, string[]][] = [['Ancient civilization', 'Temples, tombs, and five thousand years of stories.', ['Pharaohs', 'Mythology', 'Pyramids', 'Temples', 'Tombs']], ['Tourist attractions', 'Where to go, city by city.', ['Cairo', 'Luxor', 'Aswan', 'Alexandria', 'Sinai', 'Museums', 'Oases']], ['Travel tips', 'Practical know-how before you fly.', ['Before you travel', 'While you are in Egypt', 'Visas', 'Packing', 'Tipping']], ['Destinations', 'Coasts, deserts, cities, and the Nile.', ['Red Sea', 'White Desert', 'Siwa Oasis', 'Nile Valley']], ['Tour packages', 'How to choose the right format.', ['Classic tours', 'Small groups', 'Honeymoon', 'Adventure', 'Spiritual']], ['Sustainability', 'Travel kindly and leave a positive footprint.', ['Local communities', 'Accessible travel', 'Responsible choices']]]; return <SiteShell><EditorialHero eyebrow={tx(locale, { en: 'Learn before you go', es: 'Aprende antes de viajar', it: 'Impara prima di partire', ar: 'تعلّم قبل أن تسافر' })} title={tx(locale, { en: 'Egypt travel guide', es: 'Guía de viaje de Egipto', it: 'Guida di viaggio dell\'Egitto', ar: 'دليل السفر إلى مصر' })} copy={tx(locale, { en: 'Attractions, tips, destinations, and honest advice for planning a smoother journey.', es: 'Atracciones, consejos, destinos y recomendaciones honestas para planificar un viaje sin contratiempos.', it: 'Attrazioni, consigli, destinazioni e suggerimenti onesti per pianificare un viaggio senza intoppi.', ar: 'معالم ونصائح ووجهات ونصيحة صادقة لرحلة أسهل.' })} image={siteImages.desert} href="/make-your-trip" action={tx(locale, { en: 'Plan my trip', es: 'Planifica mi viaje', it: 'Pianifica il mio viaggio', ar: 'خطط رحلتي' })} /><main className="section container"><div className="faq-list">{groups.map(([title, copy, topics]) => <details className="faq-item" key={title}><summary>{title}</summary><p>{copy}</p><div className="location-stops">{topics.map(t => <span key={t}>{t}</span>)}</div></details>)}</div></main><HelpCTA /></SiteShell> }
 
-export function AccessiblePage() { const { locale } = useLocale(); const ar = locale === 'ar'; return <SiteShell><EditorialHero eyebrow={tx(locale, { en: 'Travel for everyone', es: 'Viajar es para todos', it: 'Viaggiare è per tutti', ar: 'سفر للجميع' })} title={tx(locale, { en: 'Accessible travel in Egypt', es: 'Viajes accesibles en Egipto', it: 'Viaggi accessibili in Egitto', ar: 'سفر ميسّر في مصر' })} copy={tx(locale, { en: 'Extra assistance, adapted pacing, and honest advice so every guest can enjoy Egypt comfortably.', es: 'Asistencia extra, ritmo adaptado y consejos honestos para que cada viajero disfrute Egipto con comodidad.', it: 'Assistenza extra, ritmo adattato e consigli onesti perché ogni ospite possa godersi l\'Egitto comodamente.', ar: 'مساعدة إضافية وإيقاع مكيّف ونصيحة صادقة ليستمتع كل ضيف بمصر براحة.' })} image={siteImages.pyramids} href="/contact" action={tx(locale, { en: 'Ask about assistance', es: 'Pregunta por asistencia', it: 'Chiedi assistenza', ar: 'اسأل عن المساعدة' })} /><main><section className="section container split-editorial"><div><span className="eyebrow">{tx(locale, { en: '5% discount', es: '5 % de descuento', it: 'Sconto del 5%', ar: 'خصم 5%' })}</span><h2>{tx(locale, { en: 'Extra care, on us.', es: 'Cuidado extra, por nuestra cuenta.', it: 'Attenzione extra, da parte nostra.', ar: 'عناية إضافية، علينا.' })}</h2><p>{tx(locale, { en: 'Guests requiring accessibility assistance receive 5% off all our tour packages. Tell us what you need and we will adapt vehicles, pacing, hotel rooms, and sightseeing to match.', es: 'Los viajeros que necesiten asistencia de accesibilidad reciben un 5 % de descuento en todos nuestros paquetes. Cuéntanos lo que necesitas y adaptaremos vehículos, ritmo, habitaciones y visitas.', it: 'Gli ospiti che necessitano assistenza per l\'accessibilità ricevono il 5% di sconto su tutti i pacchetti. Dicci di cosa hai bisogno: adatteremo veicoli, ritmo, camere e visite.', ar: 'ضيوفنا من ذوي الاحتياجات الخاصة يحصلون على خصم 5% على كل البرامج. أخبرنا باحتياجاتك وسنكيّف السيارات والإيقاع والغرف والمزارات.' })}</p><div className="detail-highlights">{(locale === 'ar' ? ['سيارات مجهزة', 'خيارات بدون سلالم', 'مرشدون صبورون ومدربون'] : locale === 'es' ? ['Vehículos adaptados', 'Opciones sin escalones', 'Guías pacientes y formados'] : locale === 'it' ? ['Veicoli adattati', 'Opzioni senza gradini', 'Guide pazienti e formate'] : ['Adapted vehicles', 'Step-free options', 'Patient, trained guides']).map(x => <span key={x}><Check size={16} />{x}</span>)}</div></div><img src={siteImages.temple} alt={tx(locale, { en: 'Accessible travel in Egypt', es: 'Viajes accesibles en Egipto', it: 'Viaggi accessibili in Egitto', ar: 'سفر ميسّر في مصر' })} /></section><HelpCTA /></main></SiteShell> } export function FAQPage() { const [open,setOpen] = useState(0); const { locale } = useLocale(); const ar = locale === 'ar'; return <SiteShell><EditorialHero eyebrow={tx(locale, { en: 'Questions, answered', es: 'Preguntas con respuesta', it: 'Domande e risposte', ar: 'أسئلة وإجابات' })} title={tx(locale, { en: 'A smoother way to plan Egypt', es: 'Una forma más fácil de planificar Egipto', it: 'Un modo più semplice per pianificare.', ar: 'خطط لمصر براحة أكبر' })} copy={tx(locale, { en: 'Find clear answers to common questions, then talk to our team when you are ready for the details.', es: 'Encuentra respuestas claras a las preguntas frecuentes y habla con nuestro equipo cuando quieras los detalles.', it: 'Trova risposte chiare alle domande frequenti, poi parla con il nostro team quando vuoi i dettagli.', ar: 'اعثر على إجابات واضحة للأسئلة الشائعة، ثم كلمنا عندما تكون جاهزًا للتفاصيل.' })} image={siteImages.temple} href="/contact" action={tx(locale, { en: 'Ask a question', es: 'Haz una pregunta', it: 'Fai una domanda', ar: 'اسأل سؤالًا' })}/><main className="section container faq-page"><div className="faq-intro"><span className="eyebrow">{tx(locale, { en: 'Good to know', es: 'Conviene saber', it: 'Utile sapere', ar: 'معلومات تهمك' })}</span><h2>{tx(locale, { en: 'Before you go', es: 'Antes de viajar', it: 'Prima di partire', ar: 'قبل السفر' })}</h2><p>{tx(locale, { en: 'We believe planning should feel as welcoming as the trip itself.', es: 'Creemos que planificar debe resultar tan acogedor como el propio viaje.', it: 'Crediamo che pianificare debba essere accogliente quanto il viaggio stesso.', ar: 'نؤمن أن التخطيط يجب أن يكون مرحبًا مثل الرحلة نفسها.' })}</p></div><div className="faq-list">{faqs.map(([question,answer],i)=><div className={`faq-item ${open===i?'open':''}`} key={question}><button onClick={()=>setOpen(open===i?-1:i)}><span>{question}</span><b>{open===i?'−':'+'}</b></button>{open===i&&<p>{answer}</p>}</div>)}</div></main></SiteShell> }
+export function AccessiblePage() { const { locale } = useLocale(); const ar = locale === 'ar'; return <SiteShell><EditorialHero eyebrow={tx(locale, { en: 'Travel for everyone', es: 'Viajar es para todos', it: 'Viaggiare è per tutti', ar: 'سفر للجميع' })} title={tx(locale, { en: 'Accessible travel in Egypt', es: 'Viajes accesibles en Egipto', it: 'Viaggi accessibili in Egitto', ar: 'سفر ميسّر في مصر' })} copy={tx(locale, { en: 'Extra assistance, adapted pacing, and honest advice so every guest can enjoy Egypt comfortably.', es: 'Asistencia extra, ritmo adaptado y consejos honestos para que cada viajero disfrute Egipto con comodidad.', it: 'Assistenza extra, ritmo adattato e consigli onesti perché ogni ospite possa godersi l\'Egitto comodamente.', ar: 'مساعدة إضافية وإيقاع مكيّف ونصيحة صادقة ليستمتع كل ضيف بمصر براحة.' })} image={siteImages.pyramids} href="/contact" action={tx(locale, { en: 'Ask about assistance', es: 'Pregunta por asistencia', it: 'Chiedi assistenza', ar: 'اسأل عن المساعدة' })} /><main><section className="section container split-editorial"><div><span className="eyebrow">{tx(locale, { en: '5% discount', es: '5 % de descuento', it: 'Sconto del 5%', ar: 'خصم 5%' })}</span><h2>{tx(locale, { en: 'Extra care, on us.', es: 'Cuidado extra, por nuestra cuenta.', it: 'Attenzione extra, da parte nostra.', ar: 'عناية إضافية، علينا.' })}</h2><p>{tx(locale, { en: 'Guests requiring accessibility assistance receive 5% off all our tour packages. Tell us what you need and we will adapt vehicles, pacing, hotel rooms, and sightseeing to match.', es: 'Los viajeros que necesiten asistencia de accesibilidad reciben un 5 % de descuento en todos nuestros paquetes. Cuéntanos lo que necesitas y adaptaremos vehículos, ritmo, habitaciones y visitas.', it: 'Gli ospiti che necessitano assistenza per l\'accessibilità ricevono il 5% di sconto su tutti i pacchetti. Dicci di cosa hai bisogno: adatteremo veicoli, ritmo, camere e visite.', ar: 'ضيوفنا من ذوي الاحتياجات الخاصة يحصلون على خصم 5% على كل البرامج. أخبرنا باحتياجاتك وسنكيّف السيارات والإيقاع والغرف والمزارات.' })}</p><div className="detail-highlights">{(locale === 'ar' ? ['سيارات مجهزة', 'خيارات بدون سلالم', 'مرشدون صبورون ومدربون'] : locale === 'es' ? ['Vehículos adaptados', 'Opciones sin escalones', 'Guías pacientes y formados'] : locale === 'it' ? ['Veicoli adattati', 'Opzioni senza gradini', 'Guide pazienti e formate'] : ['Adapted vehicles', 'Step-free options', 'Patient, trained guides']).map(x => <span key={x}><Check size={16} />{x}</span>)}</div></div><img src={siteImages.temple} alt={tx(locale, { en: 'Accessible travel in Egypt', es: 'Viajes accesibles en Egipto', it: 'Viaggi accessibili in Egitto', ar: 'سفر ميسّر في مصر' })} /></section><HelpCTA /></main></SiteShell> } export function FAQPage({ pageContent }: { pageContent?: PublicPageContent } = {}) { const [open,setOpen] = useState(0); const { locale } = useLocale(); const ar = locale === 'ar'; return <SiteShell><EditorialHero eyebrow={tx(locale, { en: 'Questions, answered', es: 'Preguntas con respuesta', it: 'Domande e risposte', ar: 'أسئلة وإجابات' })} title={tx(locale, { en: 'A smoother way to plan Egypt', es: 'Una forma más fácil de planificar Egipto', it: 'Un modo più semplice per pianificare.', ar: 'خطط لمصر براحة أكبر' })} copy={tx(locale, { en: 'Find clear answers to common questions, then talk to our team when you are ready for the details.', es: 'Encuentra respuestas claras a las preguntas frecuentes y habla con nuestro equipo cuando quieras los detalles.', it: 'Trova risposte chiare alle domande frequenti, poi parla con il nostro team quando vuoi i dettagli.', ar: 'اعثر على إجابات واضحة للأسئلة الشائعة، ثم كلمنا عندما تكون جاهزًا للتفاصيل.' })} image={siteImages.temple} href="/contact" action={tx(locale, { en: 'Ask a question', es: 'Haz una pregunta', it: 'Fai una domanda', ar: 'اسأل سؤالًا' })}/><CmsFaqBody state={pageContent} /></SiteShell> }
 
 export function SearchPage() { const params=useSearchParams(); const initial=parseSearchQuery(params).q; const [query,setQuery]=useState(initial); useEffect(()=>setQuery(initial),[initial]); const { locale } = useLocale(); const ar = locale === 'ar'; const liveEvents = useDbEvents(events); const liveOffersSearch = useDbOffers(offers).filter((o) => o.isPublished !== false); const liveBlogsSearch = useDbBlogs(blogs).filter((b) => b.isPublished !== false); const typeLabel = (t: string) => t === 'Blog' ? tx(locale, { en: t, es: 'Blog', it: 'Blog', ar: 'مدونة' }) : t === 'Event' ? tx(locale, { en: t, es: 'Evento', it: 'Evento', ar: 'فعالية' }) : t === 'Offer' ? tx(locale, { en: t, es: 'Oferta', it: 'Offerta', ar: 'عرض' }) : t === 'Tour' ? tx(locale, { en: 'Tour', es: 'Circuito', it: 'Tour', ar: 'رحلة' }) : tx(locale, { en: t, es: 'Destino', it: 'Destinazione', ar: 'وجهة' }); const liveDbTours = useDbTours(catalogTours, { includeNew: true }).filter((tour) => `${tour.title} ${tour.summary} ${tour.location}`.toLowerCase().includes(query.toLowerCase())).map((tour) => ({ title: tour.title, slug: tour.slug, image: tour.image, copy: tour.summary, type: 'Tour' as const })); const staticResults=allSearchItems.filter(item=>item.type !== 'Offer' && item.type !== 'Blog' && `${item.title} ${item.copy}`.toLowerCase().includes(query.toLowerCase())); const liveCustomEvents = liveEvents.filter((e) => !allSearchItems.some((s) => s.slug === e.slug && s.type === 'Event') && isEventPublished(e) && `${e.title} ${e.copy}`.toLowerCase().includes(query.toLowerCase())).map((e) => ({ title: e.title, slug: e.slug, image: e.image, copy: e.copy, type: 'Event' as const })); const liveDbOffers = liveOffersSearch.filter((o) => `${o.title} ${o.copy}`.toLowerCase().includes(query.toLowerCase())).map((o) => ({ title: o.title, slug: o.slug, image: o.image, copy: o.copy, type: 'Offer' as const })); const liveDbBlogs = liveBlogsSearch.filter((b) => `${b.title} ${b.excerpt}`.toLowerCase().includes(query.toLowerCase())).map((b) => ({ title: b.title, slug: b.slug, image: b.image, copy: b.excerpt, type: 'Blog' as const })); const results=[...staticResults, ...liveDbTours, ...liveCustomEvents, ...liveDbOffers, ...liveDbBlogs]; return <SiteShell><main className="search-page container"><div className="search-page-header"><span className="eyebrow">{tx(locale, { en: 'Explore the site', es: 'Descubre el sitio', it: 'Esplora il sito', ar: 'استكشف الموقع' })}</span><h1>{tx(locale, { en: 'Find your next Egypt story', es: 'Encuentra tu próxima historia en Egipto', it: 'Trova la tua prossima storia in Egitto', ar: 'اعثر على حكايتك القادمة في مصر' })}</h1><label><Search size={20}/><input autoFocus value={query} onChange={(e)=>setQuery(e.target.value.slice(0,120))} placeholder={tx(locale, { en: 'Search tours, destinations, stories...', es: 'Busca excursiones, destinos, historias...', it: 'Cerca tour, destinazioni, storie...', ar: 'ابحث عن رحلات ووجهات وحكايات...' })} aria-label={tx(locale, { en: 'Search', es: 'Buscar', it: 'Cerca', ar: 'بحث' })}/></label></div><div className="search-results"><p>{tx(locale, { en: `${results.length} result${results.length===1?'':'s'}`, es: `${results.length} resultado${results.length===1?'':'s'}`, it: `${results.length} risultato${results.length===1?'':'i'}`, ar: `${results.length} نتيجة` })}{query ? (tx(locale, { en: ` for "${query}"`, es: ` para "${query}"`, it: ` per "${query}"`, ar: ` عن "${query}"` })) : ''}</p><div className="content-grid">{results.map(item=><article className="content-card" key={`${item.type}-${item.slug}`}><img className="content-image" src={item.image} alt={item.title}/><div className="content-card-body"><small>{typeLabel(item.type)}</small><h3>{item.title}</h3><p>{item.copy}</p><Link href={item.type==='Blog'?`/blogs/${item.slug}`:item.type==='Event'?`/events/${item.slug}`:item.type==='Offer'?`/special-offers/${item.slug}`:item.type==='Tour'?`/egypt-tours/${item.slug}`:`/destinations/${item.slug}`} className="text-link">{tx(locale, { en: 'Explore', es: 'Descubrir', it: 'Scopri', ar: 'استكشف' })} <ArrowRight size={15}/></Link></div></article>)}</div></div></main></SiteShell> }
 

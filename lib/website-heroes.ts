@@ -85,3 +85,11 @@ export function transitionHero(state: HeroState, action: HeroAction, content?: u
 export function publicHeroState(state: HeroState): { hidden: boolean; content: HomeHero | null } {
   return { hidden: state.mode === 'hidden', content: state.mode === 'published' ? state.published : null }
 }
+
+export function readHeroPreviewMessage(event: Pick<MessageEvent, 'origin' | 'source' | 'data'>, origin: string, parent: MessageEventSource | null, embedded: boolean): { content: HomeHero; locale: EnabledLocale } | null {
+  if (!embedded || event.origin !== origin || event.source !== parent || event.data?.type !== 'star-hero-preview') return null
+  try {
+    if (!ENABLED_LOCALES.includes(event.data.locale)) return null
+    return { content: validateHomeHero(event.data.content), locale: event.data.locale }
+  } catch { return null }
+}

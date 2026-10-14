@@ -12,6 +12,7 @@ import { Breadcrumb, HelpCTA, SiteShell, TourCard } from '@/components/site'
 import { SharedSelect } from '@/components/shared-select'
 import { formatPrice, tx, useLocale } from '@/components/locale'
 import { useDbTours } from '@/lib/tours-client'
+import { useShowcaseHero } from './showcase-hero-context'
 
 const categories = Object.keys(tourCategories) as TourCategory[]
 const durations = ['day', 'short', 'long'] as const
@@ -70,6 +71,8 @@ function durationMatches(value: string, filter: Duration) {
 
 function TripsContent() {
   const { currency, locale } = useLocale()
+  const hero = useShowcaseHero()
+  const heroText = hero?.content && locale !== 'ar' ? hero.content.text[locale] : undefined
   const liveCatalog = useDbTours(catalogTours, { includeNew: true })
   const destinationOptions = [...new Set(liveCatalog.flatMap((tour) => tour.location.split(',').map((place) => place.trim())))].sort()
   const t = copy[locale]
@@ -122,16 +125,16 @@ function TripsContent() {
   const activeCount = [category, destination, duration, price, q].filter(Boolean).length
 
   return <>
-    <div className="trips-intro">
+    {!hero?.hidden && !hero?.unavailable && <div className="trips-intro">
       <div className="container trips-intro-inner">
         <div>
-          <span className="trips-eyebrow">STAR PYRAMIDS, EGYPT</span>
-          <h1>{t.title}</h1>
-          <p>{t.subtitle}</p>
+          <span className="trips-eyebrow">{heroText?.eyebrow ?? 'STAR PYRAMIDS, EGYPT'}</span>
+          <h1>{heroText?.title ?? t.title}</h1>
+          <p>{heroText?.intro ?? t.subtitle}</p>
         </div>
-        <div className="trips-intro-count"><strong>{liveCatalog.length}</strong><span>{t.all}</span></div>
+        <div className="trips-intro-count"><strong>{liveCatalog.length}</strong><span>{heroText?.stat0 ?? t.all}</span></div>
       </div>
-    </div>
+    </div>}
     <main className="container trips-page">
       <form className="trips-search" role="search" onSubmit={(event) => { event.preventDefault(); update({ q: search.trim().slice(0, 120) }) }}>
         <div className="trips-search-field">

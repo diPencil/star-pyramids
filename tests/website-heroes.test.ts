@@ -72,13 +72,15 @@ describe('Website CMS hero lifecycle', () => {
   it('uses unique route-template identities and deep links to existing dynamic editors', () => {
     expect(new Set(heroCatalogue.map((hero) => hero.id)).size).toBe(heroCatalogue.length)
     expect(new Set(heroCatalogue.map((hero) => hero.route)).size).toBe(heroCatalogue.length)
-    expect(heroCatalogue.filter((hero) => 'cms' in hero)).toHaveLength(1)
+    expect(heroCatalogue.filter((hero) => 'cms' in hero)).toHaveLength(20)
+    expect(heroCatalogue.filter((hero) => !('cms' in hero)).every((hero) => 'editor' in hero)).toBe(true)
     expect(heroCatalogue.find((hero) => hero.id === 'blog-detail')).toMatchObject({ editor: '/admin/blogs' })
     for (const hero of heroCatalogue) expect(readFileSync(hero.source, 'utf8').length).toBeGreaterThan(0)
   })
   it('keeps real homepage search composition and private draft previews', () => {
     expect(readFileSync('components/homepage.tsx', 'utf8')).toContain('<TripSearchEngine/></HomepageHero>')
-    expect(readFileSync('app/website-cms-preview/homepage/page.tsx', 'utf8')).toContain('<div inert>')
+    expect(readFileSync('components/homepage-hero-preview.tsx', 'utf8')).toContain('<div inert>')
+    expect(readFileSync('app/website-cms-preview/homepage/page.tsx', 'utf8')).toContain('<HomepageHeroPreview')
     expect(readFileSync('app/website-cms-preview/homepage/page.tsx', 'utf8')).toContain("hasPermission(user, 'settings.view')")
   })
 })

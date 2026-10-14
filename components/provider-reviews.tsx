@@ -11,7 +11,7 @@ function TrustindexWidget({ id }: { id: string }) {
   const doc = `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://cdn.trustindex.io https://www.trustindex.io; style-src 'unsafe-inline' https:; img-src https: data:; font-src https:; connect-src https://cdn.trustindex.io https://www.trustindex.io https://admin.trustindex.io; frame-src https://www.trustindex.io"><style>body{margin:0;font-family:Arial,sans-serif}</style></head><body><script defer async src="https://cdn.trustindex.io/loader.js?${id}"></script></body></html>`
   return <iframe title="Trustindex reviews" srcDoc={doc} sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" referrerPolicy="no-referrer" className="provider-review-widget"/>
 }
-export function ProviderReviewsSection() {
+export function ProviderReviewsSection({ heading, description }: { heading?: string; description?: string } = {}) {
   const { locale } = useLocale(), [selected, setSelected] = useState<ReviewProvider | 'all' | 'website'>('all'), [feeds, setFeeds] = useState<ReviewFeed[]>([]), [loading, setLoading] = useState(true), [error, setError] = useState(false), [retry, setRetry] = useState(0), [writing, setWriting] = useState(false), [submitted, setSubmitted] = useState(false)
   const text = (en: string, es: string, it: string, ar: string) => tx(locale, { en, es, it, ar })
   const [websiteSummary, setWebsiteSummary] = useState<ReviewSummary | null>(null)
@@ -37,7 +37,7 @@ export function ProviderReviewsSection() {
   const all = text('All reviews', 'Todas las reseñas', 'Tutte le recensioni', 'كل التقييمات')
   const website = text('Website reviews', 'Reseñas del sitio', 'Recensioni del sito', 'تقييمات الموقع')
   return <section className="home-section reviews-section"><div className="container">
-    <div className="home-heading"><h2>{text('Loved by travelers', 'Amado por los viajeros', 'Amato dai viaggiatori', 'محبوب من المسافرين')}</h2><p>{text('Experiences shared by our travelers.', 'Experiencias de nuestros viajeros.', 'Esperienze dei nostri viaggiatori.', 'تجارب يشاركها مسافرونا.')}</p></div>
+    <div className="home-heading"><h2>{heading ?? text('Loved by travelers', 'Amado por los viajeros', 'Amato dai viaggiatori', 'محبوب من المسافرين')}</h2><p>{description ?? text('Experiences shared by our travelers.', 'Experiencias de nuestros viajeros.', 'Esperienze dei nostri viaggiatori.', 'تجارب يشاركها مسافرونا.')}</p></div>
     <div className="rev-tabs provider-review-tabs" role="group" aria-label={text('Review platforms', 'Plataformas de reseñas', 'Piattaforme di recensioni', 'منصات التقييمات')}>
       {(['all', 'website', ...enabled.map(f => f.provider)] as const).map(p => <button type="button" key={p} aria-label={p === 'all' ? all : p === 'website' ? website : REVIEW_LABELS[p]} aria-pressed={selected === p} className={selected === p ? 'active' : ''} onClick={() => setSelected(p)}>{p !== 'all' && <PlatformIcon id={p}/>}<span>{p === 'all' ? all : p === 'website' ? website : REVIEW_LABELS[p]}</span></button>)}
     </div>

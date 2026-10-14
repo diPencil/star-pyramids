@@ -1,0 +1,18 @@
+.information-page .information-topics{max-width:1040px}
+.information-page .information-topics .faq-item{padding:22px 24px}
+.information-page .information-topics summary{display:flex;align-items:center;justify-content:space-between;gap:20px;cursor:pointer;list-style:none;min-height:44px}
+.information-page .information-topics summary::-webkit-details-marker{display:none}
+.information-page .information-topics summary h2{margin:0;font-size:22px;line-height:1.4;letter-spacing:0;overflow-wrap:anywhere}
+.information-page .information-topics summary svg{flex:none;color:var(--blue)}
+.information-page .information-topics details[open] summary svg{transform:rotate(180deg)}
+.information-page .information-topics p,.information-page .information-intro p{color:var(--muted);line-height:1.8;white-space:pre-line;overflow-wrap:anywhere}
+.information-page .information-topics .text-link{display:inline-flex;align-items:center;gap:8px;min-height:44px;overflow-wrap:anywhere}
+.information-page .information-intro{align-items:center}
+.information-page .information-intro h2{font-size:36px;letter-spacing:0;overflow-wrap:anywhere}
+.information-page .information-intro .primary-btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:48px;padding:14px 24px;text-decoration:none;max-width:100%}
+.information-page .information-title{padding-top:32px}
+.information-page summary:focus-visible,.information-page a:focus-visible{outline:2px solid var(--blue);outline-offset:4px}
+.information-page .editorial-content h1{letter-spacing:0;overflow-wrap:anywhere;font-size:56px}
+.information-page .information-unavailable p{line-height:1.8}
+.information-page .information-help>.primary-btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:48px;max-width:100%;padding:14px 24px;text-decoration:none}
+@media(max-width:760px){.information-page .editorial-content h1{font-size:36px}.information-page .editorial-content{padding-block:64px}.information-page .information-intro{gap:28px}.information-page .information-intro h2{font-size:28px}.information-page .information-topics .faq-item{padding:16px}.information-page .information-topics summary h2{font-size:20px}.information-page .information-intro>img{height:auto;aspect-ratio:4/3}}

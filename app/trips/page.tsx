@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { TripsPage } from '@/components/trips-page'
+import { ServerShowcaseHero } from '@/components/server-showcase-hero'
 import { getSiteUrl, getHreflangEntries } from '@/lib/seo'
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -14,5 +15,5 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function Page() {
-  return <TripsPage />
+  return <ServerShowcaseHero id="trips"><TripsPage /></ServerShowcaseHero>
 }

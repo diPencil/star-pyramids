@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { ServerShowcaseHero } from '@/components/server-showcase-hero'
 import { EventsPage } from '@/components/extended-pages'
 import { getSiteUrl, getHreflangEntries } from '@/lib/seo'
 
@@ -13,4 +14,4 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-export default EventsPage
+export default function Page() { return <ServerShowcaseHero id="events"><EventsPage /></ServerShowcaseHero> }
