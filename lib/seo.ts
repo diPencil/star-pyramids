@@ -1,24 +1,30 @@
-import { getSetting } from '@/lib/server/settings';
-
 /**
  * Shared SEO utilities — single source for site URL, canonicals, hreflang.
  */
 
-export async function getSiteUrl(): Promise<string> {
+export function resolveSiteUrl(): string {
   try {
-    const siteName = await getSetting('site.name');
-    const host = process.env.NEXT_PUBLIC_SITE_URL;
-    if (host) return host.replace(/\/$/, '');
-    if (siteName) return `https://${siteName.toLowerCase().replace(/\s+/g, '')}.com`.replace(/\/$/, '');
+    const url = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? '');
+    const hostname = url.hostname.toLowerCase();
+    if (
+      url.protocol === 'https:' && !url.username && !url.password &&
+      /^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/.test(hostname) &&
+      !/(?:^|\.)(?:localhost|local|internal|test|invalid|example)$/.test(hostname) &&
+      !hostname.endsWith('.home.arpa') && hostname !== 'home.arpa'
+    ) return url.origin;
   } catch {
     // Fall through
   }
   return 'https://starpyramids.com';
 }
 
+export async function getSiteUrl(): Promise<string> {
+  return resolveSiteUrl();
+}
+
 /**
  * Generate canonical URL for a given path.
- * Always uses the production domain from NEXT_PUBLIC_SITE_URL or settings.
+ * Always uses the validated public origin or the production fallback.
  */
 export async function getCanonicalUrl(path: string): Promise<string> {
   const baseUrl = await getSiteUrl();

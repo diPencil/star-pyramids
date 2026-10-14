@@ -5,6 +5,7 @@
 import "server-only";
 
 import { db } from "./db";
+import { stripRecordSeo } from '../record-seo';
 import { getPublishedOneDayDestinations as publishedOneDay } from "@/data/tours";
 import type { Destination } from "@/data/types";
 
@@ -24,7 +25,7 @@ type DbDestinationRow = {
 
 /** Map a Prisma Destination row to the shared `Destination` domain shape. */
 export function toDestination(row: DbDestinationRow): Destination {
-  const detail = (row.detail ?? {}) as Destination["detail"];
+  const detail = (stripRecordSeo(row.detail) ?? {}) as Destination["detail"];
   return {
     title: row.title,
     slug: row.slug,

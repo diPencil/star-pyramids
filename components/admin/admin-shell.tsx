@@ -104,6 +104,7 @@ const NAV_VIEW_PERMISSIONS: Record<string, string[]> = {
   '/admin/website-cms/hero-sections': ['settings.view'],
   '/admin/website-cms': ['settings.view'],
   '/admin/website-cms/pages': ['settings.view'],
+  '/admin/website-cms/seo': ['settings.view'],
 }
 
 function canSeeNavItem(
@@ -185,6 +186,7 @@ const groups = [
       { href: '/admin/website-cms', icon: LayoutDashboard, en: 'Overview', ar: 'نظرة عامة' },
       { href: '/admin/website-cms/hero-sections', icon: Images, en: 'Hero Sections', ar: 'الأقسام الرئيسية' },
       { href: '/admin/website-cms/pages', icon: Newspaper, en: 'Pages & Sections', ar: 'الصفحات والأقسام' },
+      { href: '/admin/website-cms/seo', icon: Search, en: 'SEO Manager', ar: 'إدارة تحسين محركات البحث' },
     ],
   },
   {

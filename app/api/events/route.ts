@@ -1,4 +1,5 @@
 import { catalogueTranslationResponse, saveWithCatalogueTranslations } from '@/lib/server/catalogue-translations';
+import { preserveRecordSeo } from '@/lib/record-seo';
 import { validateCatalogueTranslations } from '@/lib/catalogue-translations';
 import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
@@ -103,7 +104,7 @@ export async function POST(request: Request) {
       organizerEmail: cleanText(data.organizerEmail, 200),
       isPublished: data.isPublished !== false,
       displayOrder: Number.isFinite(Number(data.displayOrder)) ? Number(data.displayOrder) : 999,
-      content: data.content ?? {},
+      content: preserveRecordSeo({}, data.content ?? {})!,
     },
   }));
 

@@ -8,6 +8,7 @@ import { isOfferActive } from '../special-offers'
 import type { PageDocumentId } from '../additional-page-content'
 import { TEMPLATE_PAGES, type TemplatePageId } from '../template-presentation'
 import type { PublicPageContent } from '../page-sections'
+import { validateSeoContent } from '../seo-content'
 
 const offerReferenceSelect = { slug: true, isPublished: true, startsAt: true, deadline: true, tour: { select: { status: true } } } as const
 async function activeOfferReferences(slugs: string[]) {
@@ -16,12 +17,15 @@ async function activeOfferReferences(slugs: string[]) {
 }
 
 export const HOME_PAGE_SETTING_KEY = 'cms.page.homepage.v1'
-export const pageSettingKey = (pageId: PageDocumentId) => `cms.page.${pageId}.v1`
+export const pageSettingKey = (pageId: string) => `cms.page.${pageId}.v1`
 export function decodePageState(value: string, pageId: PageDocumentId = 'homepage'): PageContentState {
   const state = JSON.parse(value) as PageContentState
   if (!state || state.version !== 1 || !Number.isSafeInteger(state.revision) || state.revision < 0 || !['original', 'published', 'hidden'].includes(state.mode)) throw new Error('Invalid page state.')
   if (state.draft) state.draft = validatePageContent(state.draft, pageId)
   if (state.published) state.published = validatePageContent(state.published, pageId)
+  if (state.seoDraft) state.seoDraft = validateSeoContent(state.seoDraft)
+  if (state.seoManaged !== undefined && typeof state.seoManaged !== 'boolean') throw new Error('Invalid SEO publication.')
+  if (state.seoManaged && !state.published) throw new Error('Missing SEO publication.')
   if (state.mode === 'published' && !state.published) throw new Error('Missing page publication.')
   return state
 }

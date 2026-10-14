@@ -15,8 +15,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: 'Frequently Asked Questions',
     description: 'Find answers to common questions about STAR PYRAMIDS Egypt tours, bookings, Nile cruises, and travel planning.',
-    ...(await pageContentMetadata('faq')),
     alternates: { canonical: `${siteUrl}/faq`, languages: hreflang },
+    ...(await pageContentMetadata('faq')),
   }
 }
 

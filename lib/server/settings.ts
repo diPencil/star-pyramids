@@ -19,6 +19,7 @@ import { db } from './db';
 import { getActiveRate } from './fx';
 import { ENABLED_LOCALES } from '../locale-config';
 import { readAccessStrip, validateAccessStrip, type AccessStripOverride } from '../access-strip';
+import { validateHeroMedia } from '../website-heroes';
 
 export const SETTING_KEYS = {
   siteName: 'site.name',
@@ -57,6 +58,11 @@ export const PUBLIC_SETTING_KEYS = [
   'social.links',
   // Website defaults / SEO
   'site.seoTitle',
+  'site.seoDescriptionEn',
+  'site.seoDescriptionEs',
+  'site.seoDescriptionIt',
+  'site.seoImage',
+  'site.googleSiteVerification',
   'site.promoText',
   'site.promo2Text',
   // Footer accessibility strip override (JSON document, see lib/access-strip.ts)
@@ -368,6 +374,30 @@ export function validateSettingsPatch(input: {
       }
       case 'site.seoTitle':
         if (bounded(1, 160, 'Enter an SEO title (1-160 characters).')) clean[key] = trimmed;
+        break;
+      case 'site.seoDescriptionEn':
+      case 'site.seoDescriptionEs':
+      case 'site.seoDescriptionIt':
+        if (value.length > 320 || hasControlChars(value) || /[<>]/.test(value)) {
+          fail('SEO descriptions must be plain text (up to 320 characters).');
+          break;
+        }
+        clean[key] = trimmed;
+        break;
+      case 'site.googleSiteVerification':
+        // This public meta-tag token is not an OAuth credential or connection.
+        if (value.length > 256 || !/^[A-Za-z0-9_-]*$/.test(value)) {
+          fail('Enter a Google verification token (up to 256 ASCII letters, digits, underscores or hyphens).');
+          break;
+        }
+        clean[key] = value;
+        break;
+      case 'site.seoImage':
+        try {
+          clean[key] = validateHeroMedia(value, 'image', true);
+        } catch {
+          fail('Enter a stored image path or public HTTPS image URL, or leave empty.');
+        }
         break;
       case 'site.promoText':
         if (bounded(1, 500, 'Enter promo bar text (1-500 characters).')) clean[key] = trimmed;

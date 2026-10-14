@@ -11,8 +11,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: 'Contact Us',
     description: 'Get in touch with STAR PYRAMIDS. Call, email, or visit us in Giza, Egypt. We are here to plan your perfect Egypt journey.',
-    ...(await pageContentMetadata('contact')),
     alternates: { canonical: `${siteUrl}/contact`, languages: hreflang },
+    ...(await pageContentMetadata('contact')),
   }
 }
 

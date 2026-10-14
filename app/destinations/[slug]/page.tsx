@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { DestinationDetailPage } from '@/components/extended-pages'
 import { findDestinationBySlug, listDestinationSlugs } from '@/lib/server/destinations'
-import { getSiteUrl, getHreflangEntries } from '@/lib/seo'
+import { dynamicSeo } from '@/lib/dynamic-seo'
+import { RecordPageJsonLd } from '@/lib/structured-data'
 
 export async function generateStaticParams() {
   try {
@@ -16,36 +17,15 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
   const destination = await findDestinationBySlug(slug).catch(() => null)
-  if (!destination) {
+  if (!destination || destination.isPublished === false) {
     return { title: 'Destination not found', description: 'This destination is no longer available.', robots: { index: false, follow: false } }
   }
-  const siteUrl = await getSiteUrl()
-  const hreflang = await getHreflangEntries(`/destinations/${destination.slug}`)
-  const title = `${destination.title} | STAR PYRAMIDS`
-  const description = destination.copy
-    ? destination.copy.slice(0, 160)
-    : `Explore ${destination.title} with STAR PYRAMIDS. Discover tours, travel tips, and local insights for ${destination.title}, Egypt.`
-  return {
-    title,
-    description,
-    alternates: { canonical: `${siteUrl}/destinations/${destination.slug}`, languages: hreflang },
-    openGraph: {
-      title,
-      description,
-      type: 'website',
-      images: destination.image ? [{ url: destination.image }] : [],
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title,
-      description,
-    },
-  }
+  return dynamicSeo(destination, 'destination', '/destinations')
 }
 
 export default async function Page({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const destination = await findDestinationBySlug(slug).catch(() => null)
-  if (!destination) notFound()
-  return <DestinationDetailPage slug={slug} />
+  if (!destination || destination.isPublished === false) notFound()
+  return <><RecordPageJsonLd kind="destination" slug={destination.slug} name={destination.title} path={`/destinations/${destination.slug}`} /><DestinationDetailPage slug={slug} /></>
 }

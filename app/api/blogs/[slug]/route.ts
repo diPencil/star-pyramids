@@ -1,10 +1,11 @@
 import { catalogueTranslationResponse, saveWithCatalogueTranslations, deleteWithCatalogueTranslations } from '@/lib/server/catalogue-translations';
+import { preserveRecordSeo, recordSeoObject } from '@/lib/record-seo';
 import { validateCatalogueTranslations } from '@/lib/catalogue-translations';
 import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
 import { getCurrentUser, hasPermission } from '@/lib/server/auth';
-import { readJsonObject, writeJsonText } from '@/lib/json-text';
+import { readJsonObject } from '@/lib/json-text';
 import { BlogEditorialInputError, validateBlogEditorial } from '@/lib/blog-editorial';
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -80,7 +81,7 @@ export async function PUT(
 
   // Preserve every unrelated content key while replacing only the validated
   // editorial payload managed by the article builder.
-  const existingContent = readJsonObject(existing.content);
+  const existingContent = recordSeoObject(existing.content);
   const nextPublished = data.isPublished === undefined ? existing.isPublished : data.isPublished !== false;
   const incomingContent = data.content && typeof data.content === 'object' && !Array.isArray(data.content)
     ? data.content as Record<string, unknown>
@@ -96,7 +97,7 @@ export async function PUT(
   }
 
   const blog = await saveWithCatalogueTranslations('blog', data.translations, existing.slug, (tx) => tx.blog.update({
-    where: { slug: paramSlug },
+    where: { slug: paramSlug, content: existing.content, updatedAt: existing.updatedAt },
     data: {
       slug: data.slug ? String(data.slug).trim().toLowerCase() || existing.slug : existing.slug,
       title: typeof data.title === 'string' && data.title.trim() ? data.title.trim().slice(0, 200) : existing.title,
@@ -106,7 +107,7 @@ export async function PUT(
       excerpt: typeof data.excerpt === 'string' && data.excerpt.trim() ? data.excerpt.trim().slice(0, 2000) : existing.excerpt,
       isPublished: nextPublished,
       displayOrder: data.displayOrder === undefined || data.displayOrder === '' ? existing.displayOrder : (Number.isFinite(Number(data.displayOrder)) ? Number(data.displayOrder) : existing.displayOrder),
-      content: writeJsonText(nextContent),
+      content: preserveRecordSeo(existing.content, nextContent, false, { kind: 'blog', oldSlug: existing.slug, newSlug: data.slug ? String(data.slug).trim().toLowerCase() || existing.slug : existing.slug })!,
     },
   }));
 

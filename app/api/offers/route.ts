@@ -1,12 +1,13 @@
 import { isOfferActive } from '@/lib/special-offers';
 import { campaignContent, linkedOfferFields, offerBody, offerError, offerTourSelect, presentOffer } from '@/lib/server/special-offers';
 import { catalogueTranslationResponse, saveWithCatalogueTranslations } from '@/lib/server/catalogue-translations';
+import { preserveRecordSeo } from '@/lib/record-seo';
 import { validateCatalogueTranslations } from '@/lib/catalogue-translations';
 import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
 import { getCurrentUser, hasPermission } from '@/lib/server/auth';
-import { readJsonObject, writeJsonText } from '@/lib/json-text';
+import { readJsonObject } from '@/lib/json-text';
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -112,7 +113,7 @@ export async function POST(request: Request) {
       originalPrice: numOrNull(data.originalPrice),
       isPublished: data.isPublished !== false,
       displayOrder: Number.isFinite(Number(data.displayOrder)) ? Number(data.displayOrder) : 999,
-      content: writeJsonText(campaignContent(data, { gallery, highlights, photoCredits })),
+      content: preserveRecordSeo({}, campaignContent(data, { gallery, highlights, photoCredits }))!,
       ...linked,
     },
   }); });

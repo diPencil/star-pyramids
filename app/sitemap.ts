@@ -1,83 +1,79 @@
 import type { MetadataRoute } from 'next';
-import { listTourRouteSlugs } from '@/lib/server/tours';
-import { listDestinationSlugs } from '@/lib/server/destinations';
+import { listTours } from '@/lib/server/tours';
+import { getPublishedDestinations, getPublishedOneDayDestinations } from '@/lib/server/destinations';
 import { listBlogSlugs } from '@/lib/server/blogs';
-import { listEventSlugs } from '@/lib/server/events';
-import { listOfferSlugs } from '@/lib/server/offers';
+import { getPublishedDbEvents } from '@/lib/server/events';
+import { getPublishedDbOffers } from '@/lib/server/offers';
+import { getPublishedCategories } from '@/lib/server/categories';
+import { cruiseTypes } from '@/data/tours';
+import { isTourPublished } from '@/lib/tour-publish';
 import { getSiteUrl } from '@/lib/seo';
+import { SEO_PAGES, currentSeo, isSeoPage } from '@/lib/seo-manager';
+import { readSeoState } from '@/lib/server/seo-manager';
+import { getPublishedRecordSeo } from '@/lib/server/record-seo';
+import { publicRecordCanonical, type RecordSeoKind } from '@/lib/dynamic-seo';
 
-/**
- * Dynamic sitemap.xml — DB-authoritative for all public routes.
- * Excludes admin, account, checkout, cart, auth, and private pages.
- */
+export const dynamic = 'force-dynamic';
+
+/** Public canonical routes only; locale switching uses cookies, not separate URLs. */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = await getSiteUrl();
-  const lastModified = new Date();
-
-  // Static public routes
-  const staticRoutes: MetadataRoute.Sitemap = [
-    { url: baseUrl, changeFrequency: 'daily' as const, priority: 1, lastModified },
-    { url: `${baseUrl}/trips`, changeFrequency: 'weekly' as const, priority: 0.9, lastModified },
-    { url: `${baseUrl}/egypt-tours/one-day-tours`, changeFrequency: 'weekly' as const, priority: 0.8, lastModified },
-    { url: `${baseUrl}/egypt-tours/multi-days-tours`, changeFrequency: 'weekly' as const, priority: 0.8, lastModified },
-    { url: `${baseUrl}/egypt-tours/nile-cruises`, changeFrequency: 'weekly' as const, priority: 0.8, lastModified },
-    { url: `${baseUrl}/egypt-tours/shore-excursions`, changeFrequency: 'weekly' as const, priority: 0.8, lastModified },
-    { url: `${baseUrl}/destinations`, changeFrequency: 'weekly' as const, priority: 0.7, lastModified },
-    { url: `${baseUrl}/special-offers`, changeFrequency: 'weekly' as const, priority: 0.8, lastModified },
-    { url: `${baseUrl}/blogs`, changeFrequency: 'weekly' as const, priority: 0.6, lastModified },
-    { url: `${baseUrl}/events`, changeFrequency: 'weekly' as const, priority: 0.6, lastModified },
-    { url: `${baseUrl}/rent-car`, changeFrequency: 'weekly' as const, priority: 0.7, lastModified },
-    { url: `${baseUrl}/about`, changeFrequency: 'monthly' as const, priority: 0.5, lastModified },
-    { url: `${baseUrl}/contact`, changeFrequency: 'monthly' as const, priority: 0.5, lastModified },
-    { url: `${baseUrl}/faq`, changeFrequency: 'monthly' as const, priority: 0.4, lastModified },
-    { url: `${baseUrl}/accessible-travel`, changeFrequency: 'monthly' as const, priority: 0.4, lastModified },
-    { url: `${baseUrl}/egypt-travel-guide`, changeFrequency: 'monthly' as const, priority: 0.5, lastModified },
-    { url: `${baseUrl}/make-your-trip`, changeFrequency: 'monthly' as const, priority: 0.6, lastModified },
-    { url: `${baseUrl}/privacy`, changeFrequency: 'yearly' as const, priority: 0.1, lastModified },
-    { url: `${baseUrl}/terms`, changeFrequency: 'yearly' as const, priority: 0.1, lastModified },
+  const staticPaths = [
+    '', '/trips', '/egypt-tours/one-day-tours', '/egypt-tours/multi-days-tours',
+    '/egypt-tours/nile-cruises', '/egypt-tours/shore-excursions', '/destinations',
+    '/special-offers', '/blogs', '/events', '/rent-car', '/about', '/contact',
+    '/faq', '/accessible-travel', '/egypt-travel-guide', '/make-your-trip',
+    '/privacy', '/terms',
   ];
 
-  // Dynamic routes — DB-authoritative
-  const [tours, destinations, blogs, events, offers] = await Promise.all([
-    listTourRouteSlugs().catch(() => [] as string[]),
-    listDestinationSlugs().catch(() => [] as string[]),
-    listBlogSlugs().catch(() => [] as string[]),
-    listEventSlugs().catch(() => [] as string[]),
-    listOfferSlugs().catch(() => [] as string[]),
+  const excludedStaticPaths = new Set((await Promise.all(
+    Object.keys(SEO_PAGES).filter(isSeoPage).map(async (id) => {
+      const path = SEO_PAGES[id]!.route;
+      try {
+        const seo = currentSeo(await readSeoState(id), id);
+        if (seo.index === false || (seo.canonical && seo.canonical !== path)) return path;
+      } catch {
+        // Preserve the original static-route fallback when CMS state is unavailable.
+      }
+      return null;
+    }),
+  )).filter((path): path is string => path !== null));
+
+  // On repository failure omit that collection rather than inventing fallback URLs.
+  const [tours, destinations, blogs, events, offers, regions, categories] = await Promise.all([
+    listTours().catch(() => []),
+    getPublishedDestinations().catch(() => []),
+    listBlogSlugs().catch(() => []),
+    getPublishedDbEvents().catch(() => []),
+    getPublishedDbOffers().catch(() => []),
+    getPublishedOneDayDestinations().catch(() => []),
+    getPublishedCategories().catch(() => []),
   ]);
 
-  const dynamicRoutes: MetadataRoute.Sitemap = [
-    ...tours.map((slug) => ({
-      url: `${baseUrl}/egypt-tours/${slug}`,
-      changeFrequency: 'weekly' as const,
-      priority: 0.8,
-      lastModified,
-    })),
-    ...destinations.map((slug) => ({
-      url: `${baseUrl}/destinations/${slug}`,
-      changeFrequency: 'weekly' as const,
-      priority: 0.7,
-      lastModified,
-    })),
-    ...blogs.map((slug) => ({
-      url: `${baseUrl}/blogs/${slug}`,
-      changeFrequency: 'monthly' as const,
-      priority: 0.6,
-      lastModified,
-    })),
-    ...events.map((slug) => ({
-      url: `${baseUrl}/events/${slug}`,
-      changeFrequency: 'weekly' as const,
-      priority: 0.6,
-      lastModified,
-    })),
-    ...offers.map((slug) => ({
-      url: `${baseUrl}/special-offers/${slug}`,
-      changeFrequency: 'weekly' as const,
-      priority: 0.7,
-      lastModified,
-    })),
+  const dynamicRecords: { kind: RecordSeoKind; slug: string; path: string }[] = [
+    ...tours.filter(isTourPublished).map(({ slug }) => ({ kind: 'tour' as const, slug, path: `/egypt-tours/${slug}` })),
+    ...destinations.map(({ slug }) => ({ kind: 'destination' as const, slug, path: `/destinations/${slug}` })),
+    ...blogs.map((slug) => ({ kind: 'blog' as const, slug, path: `/blogs/${slug}` })),
+    ...events.map(({ slug }) => ({ kind: 'event' as const, slug, path: `/events/${slug}` })),
+    ...offers.filter((offer) => !offer.tourSlug && offer.isPublished !== false).map(({ slug }) => ({ kind: 'offer' as const, slug, path: `/special-offers/${slug}` })),
+    ...regions.map(({ slug }) => ({ kind: 'destination' as const, slug, path: `/egypt-tours/one-day-tours/${slug}` })),
+    ...categories.map(({ slug }) => ({ kind: 'category' as const, slug, path: `/egypt-tours/multi-days-tours/${slug}` })),
+  ];
+  const publishedSeo = new Map<string, Promise<Awaited<ReturnType<typeof getPublishedRecordSeo>> | undefined>>();
+  const included = await Promise.all(dynamicRecords.map(async ({ kind, slug, path }) => {
+    const key = `${kind}:${slug}`;
+    if (!publishedSeo.has(key)) publishedSeo.set(key, getPublishedRecordSeo(kind, slug).catch(() => undefined));
+    const seo = await publishedSeo.get(key);
+    if (seo === undefined) return null;
+    const canonical = publicRecordCanonical(seo?.canonical);
+    return seo?.index === false || (canonical && canonical !== path) ? null : path;
+  }));
+  const paths = [
+    ...staticPaths,
+    ...included.filter((path): path is string => path !== null),
+    ...cruiseTypes.map(({ slug }) => `/egypt-tours/nile-cruises/${slug}`),
   ];
 
-  return [...staticRoutes, ...dynamicRoutes];
+  return [...new Set(paths)].filter((path) => !excludedStaticPaths.has(path || '/'))
+    .map((path) => ({ url: `${baseUrl}${path}` }));
 }

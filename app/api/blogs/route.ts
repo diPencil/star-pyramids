@@ -1,10 +1,11 @@
 import { catalogueTranslationResponse, saveWithCatalogueTranslations } from '@/lib/server/catalogue-translations';
+import { preserveRecordSeo } from '@/lib/record-seo';
 import { validateCatalogueTranslations } from '@/lib/catalogue-translations';
 import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
 import { getCurrentUser, hasPermission } from '@/lib/server/auth';
-import { readJsonObject, writeJsonText } from '@/lib/json-text';
+import { readJsonObject } from '@/lib/json-text';
 import { BlogEditorialInputError, validateBlogEditorial } from '@/lib/blog-editorial';
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -97,7 +98,7 @@ export async function POST(request: Request) {
       excerpt: data.excerpt.trim().slice(0, 2000),
       isPublished: published,
       displayOrder: Number.isFinite(Number(data.displayOrder)) ? Number(data.displayOrder) : 999,
-      content: writeJsonText({ ...incomingContent, editorial }),
+      content: preserveRecordSeo({}, { ...incomingContent, editorial })!,
     },
   }));
 

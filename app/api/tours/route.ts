@@ -1,4 +1,5 @@
 import { decodeTourJson, encodeTourJson } from '@/lib/tour-json';
+import { preserveRecordSeo } from '@/lib/record-seo';
 import { applyLinkedOfferDeals } from '@/lib/server/special-offers';
 import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
@@ -121,7 +122,7 @@ export async function POST(request: Request) {
       groupSize: data.groupSize,
       travelStyle: data.travelStyle,
       deal: data.deal,
-      detail: data.detail,
+      detail: data.detail == null ? data.detail : preserveRecordSeo(null, data.detail, true),
       dayDetail: data.dayDetail,
       categorySlugs: data.categorySlugs || [],
       journeyVideos: data.journeyVideos || [],

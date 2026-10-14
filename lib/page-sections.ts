@@ -1,4 +1,5 @@
 import { ENABLED_LOCALES, type EnabledLocale } from './locale-config'
+import { validateSeoContent, type SeoContent } from './seo-content'
 import { homeStrings } from './homepage-copy'
 import { additionalSections, originalAdditionalPage, type PageDocumentId } from './additional-page-content'
 import { HeroValidationError, validateHeroMedia, type HeroAction } from './website-heroes'
@@ -7,8 +8,8 @@ export const CMS_ICON_IDS = ['Users', 'Award', 'MapPin', 'Star', 'MousePointerCl
 export type CmsIconId = typeof CMS_ICON_IDS[number]
 export type SectionItem = { id: string; visible: boolean; text: Record<EnabledLocale, Record<string, string>>; icon?: CmsIconId; href?: string; image?: string; value?: number; prefix?: string; suffix?: string; decimals?: number }
 export type PageSection = { id: string; visible: boolean; text: Record<EnabledLocale, Record<string, string>>; items?: SectionItem[]; href?: string; image?: string; selection?: string[]; selectionMode?: 'automatic' | 'selected'; limit?: number; media?: Record<string, string>; links?: Record<string, string> }
-export type PageContent = { sections: PageSection[]; seo: { text: Record<EnabledLocale, { title: string; description: string }>; image: string } }
-export type PageContentState = { version: 1; revision: number; mode: 'original' | 'published' | 'hidden'; draft: PageContent | null; published: PageContent | null; updatedAt: string | null }
+export type PageContent = { sections: PageSection[]; seo: SeoContent }
+export type PageContentState = { version: 1; revision: number; mode: 'original' | 'published' | 'hidden'; draft: PageContent | null; published: PageContent | null; updatedAt: string | null; seoDraft?: SeoContent | null; seoManaged?: boolean }
 export type PublicPageContent = { content: PageContent | null; unavailable?: boolean }
 export type SectionDefinition = { id: string; name: string; fields: readonly string[]; mandatory?: boolean; editor?: string; itemFields?: readonly string[]; itemHref?: boolean; itemImage?: boolean; minItems?: number; maxItems?: number; icons?: boolean; numbers?: boolean; href?: string; image?: string; source?: 'tours' | 'destinations' | 'blogs' | 'offers'; limit?: number; fieldLabels?: Record<string, string>; mediaFields?: readonly string[]; linkFields?: readonly string[] }
 
@@ -103,22 +104,20 @@ export function validatePageContent(input: unknown, pageId: PageDocumentId = 'ho
     }
     return result
   })
-  const seo = object(raw.seo); keys(seo, ['text', 'image'])
-  const seoText = text(seo.text, ['title', 'description'])
-  for (const locale of ENABLED_LOCALES) if (seoText[locale].title.length > 160 || seoText[locale].description.length > 320) throw new HeroValidationError('SEO title or description is too long.')
-  return { sections, seo: { text: seoText as PageContent['seo']['text'], image: validateHeroMedia(seo.image, 'image', true) } }
+  try { return { sections, seo: validateSeoContent(raw.seo) } }
+  catch (error) { throw new HeroValidationError((error as Error).message) }
 }
 export function initialPageState(): PageContentState { return { version: 1, revision: 0, mode: 'original', draft: null, published: null, updatedAt: null } }
 export function transitionPageContent(state: PageContentState, action: HeroAction, content?: unknown, pageId: PageDocumentId = 'homepage'): PageContentState {
   const next = { ...state, revision: state.revision + 1, updatedAt: new Date().toISOString() }
   if (action === 'save-draft') return { ...next, draft: validatePageContent(content, pageId) }
-  if (action === 'publish') { if (!state.draft) throw new HeroValidationError('Save a draft before publishing.'); return { ...next, mode: 'published', published: validatePageContent(state.draft, pageId) } }
+  if (action === 'publish') { if (!state.draft) throw new HeroValidationError('Save a draft before publishing.'); const content = validatePageContent(state.draft, pageId); return { ...next, mode: 'published', published: { ...content, seo: state.seoManaged && state.published ? state.published.seo : content.seo } } }
   if (action === 'unpublish') return { ...next, mode: 'hidden' }
-  if (action === 'restore') return { ...next, mode: 'original', draft: originalPageContent(pageId), published: null }
+  if (action === 'restore') return { ...next, mode: 'original', draft: originalPageContent(pageId), published: state.seoManaged && state.published ? { ...originalPageContent(pageId), seo: state.published.seo } : null }
   throw new HeroValidationError('Unsupported page action.')
 }
 export function publicPageContent(state: PageContentState, pageId: PageDocumentId = 'homepage'): PublicPageContent {
-  if (state.mode === 'original') return { content: originalPageContent(pageId) }
+  if (state.mode === 'original') { const content = originalPageContent(pageId); return { content: state.seoManaged && state.published ? { ...content, seo: state.published.seo } : content } }
   if (state.mode === 'published') return { content: state.published }
   const source = state.published ?? originalPageContent(pageId)
   return { content: { ...source, sections: source.sections.map((section) => ({ ...section, visible: !!pageSections(pageId).find((s) => s.id === section.id)?.mandatory })) } }

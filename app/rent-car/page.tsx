@@ -11,8 +11,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: 'Rent a Car in Egypt',
     description: 'Rent a car in Egypt with STAR PYRAMIDS. Wide selection of vehicles, airport transfers, and chauffeur services at the best rates.',
-    ...(await pageContentMetadata('cars')),
     alternates: { canonical: `${siteUrl}/rent-car`, languages: hreflang },
+    ...(await pageContentMetadata('cars')),
   }
 }
 

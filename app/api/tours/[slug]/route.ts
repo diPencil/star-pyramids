@@ -1,4 +1,5 @@
 import { decodeTourJson, encodeTourJson } from '@/lib/tour-json';
+import { preserveRecordSeo } from '@/lib/record-seo';
 import { applyLinkedOfferDeals } from '@/lib/server/special-offers';
 import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
@@ -140,7 +141,7 @@ export async function PUT(
   }
 
   const tour = await db.tour.update({
-    where: { slug: paramSlug },
+    where: { slug: paramSlug, detail: existing.detail, updatedAt: existing.updatedAt },
     data: encodeTourJson({
       slug: data.slug || existing.slug,
       aliases: data.aliases ?? existing.aliases,
@@ -160,7 +161,7 @@ export async function PUT(
       groupSize: data.groupSize,
       travelStyle: data.travelStyle,
       deal: data.deal,
-      detail: data.detail,
+      detail: preserveRecordSeo(existing.detail, data.detail, true, { kind: 'tour', oldSlug: existing.slug, newSlug: data.slug || existing.slug }),
       dayDetail: data.dayDetail,
       categorySlugs: data.categorySlugs ?? existing.categorySlugs,
       journeyVideos: data.journeyVideos ?? existing.journeyVideos,

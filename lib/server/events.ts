@@ -7,6 +7,7 @@
 import "server-only";
 
 import { db } from "./db";
+import { stripRecordSeo } from '../record-seo';
 import { getPublishedEvents as publishedEvents } from "@/lib/events";
 import type { Event } from "@/data/types";
 
@@ -57,7 +58,7 @@ const strArray = (v: unknown): string[] =>
 
 /** Map a Prisma Event row to the shared `Event` domain shape. */
 export function toEvent(row: DbEventRow): Event {
-  const content = (row.content ?? {}) as Record<string, unknown>;
+  const content = (stripRecordSeo(row.content) ?? {}) as Record<string, unknown>;
   return {
     title: row.title,
     titleAr: row.titleAr ?? undefined,

@@ -6,6 +6,8 @@ import { getToursByCategory } from '@/lib/server/tours'
 import { RegionTourPage } from '@/components/site'
 import { ServerShowcaseHero } from '@/components/server-showcase-hero'
 import { isCruiseHeroId } from '@/lib/compact-hero-defaults'
+import { pageContentMetadata } from '@/lib/server/page-content-metadata'
+import { getCanonicalUrl, getHreflangEntries } from '@/lib/seo'
 
 export function generateStaticParams() {
   return cruiseTypes.map((ct) => ({ type: ct.slug }))
@@ -14,10 +16,13 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ type: string }> }): Promise<Metadata> {
   const { type } = await params
   const ct = getCruiseTypeBySlug(type)
-  if (!ct) return {}
+  if (!ct || !isCruiseHeroId(type)) return { robots: { index: false, follow: false } }
+  const path = '/egypt-tours/nile-cruises/' + ct.slug
   return {
-    title: `${ct.titleEn} | STAR PYRAMIDS`,
+    title: { absolute: `${ct.titleEn} | STAR PYRAMIDS` },
     description: ct.descEn,
+    alternates: { canonical: await getCanonicalUrl(path), languages: await getHreflangEntries(path) },
+    ...(await pageContentMetadata(type)),
   }
 }
 

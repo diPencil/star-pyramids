@@ -24,6 +24,8 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
           '/booking/',
           '/api/',
           '/search',
+          '/website-cms-preview',
+          '/verify-voucher',
         ],
       },
     ],

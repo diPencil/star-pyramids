@@ -1,4 +1,5 @@
 import { catalogueTranslationResponse, saveWithCatalogueTranslations, deleteWithCatalogueTranslations } from '@/lib/server/catalogue-translations';
+import { preserveRecordSeo } from '@/lib/record-seo';
 import { validateCatalogueTranslations } from '@/lib/catalogue-translations';
 import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
@@ -64,7 +65,7 @@ export async function PUT(
   }
 
   const destination = await saveWithCatalogueTranslations('destination', data.translations, existing.slug, (tx) => tx.destination.update({
-    where: { slug: paramSlug },
+    where: { slug: paramSlug, detail: existing.detail, updatedAt: existing.updatedAt },
     data: {
       slug: data.slug ? String(data.slug).trim().toLowerCase() || existing.slug : existing.slug,
       title: typeof data.title === 'string' && data.title.trim() ? data.title.trim().slice(0, 120) : existing.title,
@@ -76,7 +77,7 @@ export async function PUT(
       showInDestinations: data.showInDestinations === undefined ? existing.showInDestinations : data.showInDestinations !== false,
       isPublished: data.isPublished === undefined ? existing.isPublished : data.isPublished !== false,
       displayOrder: data.displayOrder === undefined || data.displayOrder === '' ? existing.displayOrder : (Number.isFinite(Number(data.displayOrder)) ? Number(data.displayOrder) : existing.displayOrder),
-      detail: data.detail === undefined ? existing.detail : (data.detail ?? {}),
+      detail: preserveRecordSeo(existing.detail, data.detail === null ? {} : data.detail, false, { kind: 'destination', oldSlug: existing.slug, newSlug: data.slug ? String(data.slug).trim().toLowerCase() || existing.slug : existing.slug })!,
     },
   }));
 

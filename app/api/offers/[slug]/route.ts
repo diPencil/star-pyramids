@@ -1,4 +1,5 @@
 import { isOfferActive } from '@/lib/special-offers';
+import { preserveRecordSeo, recordSeoObject } from '@/lib/record-seo';
 import { campaignContent, linkedOfferFields, offerBody, offerError, offerTourSelect, presentOffer } from '@/lib/server/special-offers';
 import { catalogueTranslationResponse, saveWithCatalogueTranslations, deleteWithCatalogueTranslations } from '@/lib/server/catalogue-translations';
 import { validateCatalogueTranslations } from '@/lib/catalogue-translations';
@@ -6,7 +7,7 @@ import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
 import { getCurrentUser, hasPermission } from '@/lib/server/auth';
-import { readJsonObject, writeJsonText } from '@/lib/json-text';
+import { readJsonObject } from '@/lib/json-text';
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -91,7 +92,7 @@ export async function PUT(
     }
   }
 
-  const existingContent = readJsonObject(existing.content);
+  const existingContent = recordSeoObject(existing.content);
   const hasGallery = data.gallery !== undefined;
   const hasHighlights = data.highlights !== undefined;
   const hasCredits = data.photoCredits !== undefined;
@@ -112,7 +113,7 @@ export async function PUT(
   const offer = await saveWithCatalogueTranslations('offer', data.translations, existing.slug, async (tx) => {
     const linked = await linkedOfferFields(tx, data, existing);
     return tx.offer.update({
-    where: { slug: paramSlug },
+    where: { slug: paramSlug, content: existing.content, updatedAt: existing.updatedAt },
     data: {
       slug: data.slug ? String(data.slug).trim().toLowerCase() || existing.slug : existing.slug,
       title: typeof data.title === 'string' && data.title.trim() ? data.title.trim().slice(0, 200) : existing.title,
@@ -125,7 +126,7 @@ export async function PUT(
       originalPrice: data.originalPrice === undefined ? existing.originalPrice : numOrNull(data.originalPrice),
       isPublished: data.isPublished === undefined ? existing.isPublished : data.isPublished !== false,
       displayOrder: data.displayOrder === undefined || data.displayOrder === '' ? existing.displayOrder : (Number.isFinite(Number(data.displayOrder)) ? Number(data.displayOrder) : existing.displayOrder),
-      content: writeJsonText(campaignContent(data, { ...existingContent, gallery, highlights, photoCredits })),
+      content: preserveRecordSeo(existing.content, campaignContent(data, { ...existingContent, gallery, highlights, photoCredits }), false, { kind: 'offer', oldSlug: existing.slug, newSlug: data.slug ? String(data.slug).trim().toLowerCase() || existing.slug : existing.slug })!,
       ...linked,
     },
   }); });

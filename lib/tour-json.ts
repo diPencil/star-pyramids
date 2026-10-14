@@ -1,4 +1,5 @@
 import { readJsonText, writeJsonText } from './json-text'
+import { stripRecordSeo } from './record-seo'
 
 export const tourJsonFields = ['aliases', 'gallery', 'galleryCaptions', 'deal', 'detail', 'dayDetail', 'categorySlugs', 'journeyVideos', 'photoCredits'] as const
 
@@ -6,6 +7,7 @@ export const tourJsonFields = ['aliases', 'gallery', 'galleryCaptions', 'deal', 
 export function decodeTourJson<T extends object>(row: T): T {
   const result = { ...row } as Record<string, unknown>
   for (const key of tourJsonFields) if (key in result) result[key] = readJsonText(result[key])
+  if ('detail' in result) result.detail = stripRecordSeo(result.detail, true)
   return result as T
 }
 

@@ -1,4 +1,5 @@
 import { catalogueTranslationResponse, saveWithCatalogueTranslations, deleteWithCatalogueTranslations } from '@/lib/server/catalogue-translations';
+import { preserveRecordSeo } from '@/lib/record-seo';
 import { validateCatalogueTranslations } from '@/lib/catalogue-translations';
 import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
@@ -72,7 +73,7 @@ export async function PUT(
   const capacity = data.capacity === undefined ? existing.capacity : (data.capacity === null || data.capacity === '' ? null : Number(data.capacity));
 
   const event = await saveWithCatalogueTranslations('event', data.translations, existing.slug, (tx) => tx.event.update({
-    where: { slug: paramSlug },
+    where: { slug: paramSlug, content: existing.content, updatedAt: existing.updatedAt },
     data: {
       slug: data.slug ? String(data.slug).trim().toLowerCase() || existing.slug : existing.slug,
       title: typeof data.title === 'string' && data.title.trim() ? data.title.trim().slice(0, 200) : existing.title,
@@ -112,7 +113,7 @@ export async function PUT(
       organizerEmail: data.organizerEmail === undefined ? existing.organizerEmail : cleanText(data.organizerEmail, 200),
       isPublished: data.isPublished === undefined ? existing.isPublished : data.isPublished !== false,
       displayOrder: data.displayOrder === undefined || data.displayOrder === '' ? existing.displayOrder : (Number.isFinite(Number(data.displayOrder)) ? Number(data.displayOrder) : existing.displayOrder),
-      content: data.content === undefined ? existing.content : (data.content ?? {}),
+      content: preserveRecordSeo(existing.content, data.content === null ? {} : data.content, false, { kind: 'event', oldSlug: existing.slug, newSlug: data.slug ? String(data.slug).trim().toLowerCase() || existing.slug : existing.slug })!,
     },
   }));
 

@@ -1,8 +1,25 @@
 import type { Tour, Blog } from '@/data/types'
-import { COMPANY_ADDRESS, COMPANY_EMAIL, COMPANY_PHONE_E164, COMPANY_MAP_URL } from '@/data/company'
+import { COMPANY_EMAIL, COMPANY_PHONE_E164, COMPANY_MAP_URL } from '@/data/company'
+import { resolveSiteUrl } from '@/lib/seo'
+import { recordStructuredDataEnabled, type RecordSeoKind } from '@/lib/dynamic-seo'
+
+export async function RecordPageJsonLd({ kind, slug, name, path, collection = false }: {
+  kind: RecordSeoKind; slug: string; name: string; path: string; collection?: boolean
+}) {
+  if (!await recordStructuredDataEnabled(kind, slug)) return null
+  return renderJsonLd(generateRecordPageJsonLd({ name, path, collection }))
+}
+
+export function generateRecordPageJsonLd({ name, path, collection = false }: { name: string; path: string; collection?: boolean }) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': collection ? 'CollectionPage' : 'WebPage',
+    name,
+    url: `${resolveSiteUrl()}${path}`,
+  }
+}
 
 const SITE_NAME = 'STAR PYRAMIDS'
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://starpyramids.com'
 const SITE_DESCRIPTION = 'Discover ancient wonders, warm hospitality, and unforgettable journeys across Egypt.'
 
 export interface BreadcrumbItem {
@@ -10,10 +27,22 @@ export interface BreadcrumbItem {
   url: string
 }
 
+/** Rich preview requires the actual business record, not an SEO descriptor. */
+export function generateBuiltinRecordSchemaPreview(
+  source: { kind: 'tour'; record: Tour } | { kind: 'blog'; record: Blog },
+  structuredData = true,
+): object | null {
+  if (!structuredData) return null
+  return source.kind === 'tour'
+    ? generateTouristTripJsonLd(source.record)
+    : generateBlogPostingJsonLd(source.record)
+}
+
 /**
  * Generate Organization (TravelAgency) JSON-LD for homepage
  */
 export function generateOrganizationJsonLd(): object {
+  const SITE_URL = resolveSiteUrl()
   return {
     '@context': 'https://schema.org',
     '@type': 'TravelAgency',
@@ -21,7 +50,6 @@ export function generateOrganizationJsonLd(): object {
     alternateName: 'Star Pyramids Tours',
     url: SITE_URL,
     logo: `${SITE_URL}/logo.png`,
-    image: `${SITE_URL}/og-image.jpg`,
     description: SITE_DESCRIPTION,
     telephone: COMPANY_PHONE_E164,
     email: COMPANY_EMAIL,
@@ -31,23 +59,9 @@ export function generateOrganizationJsonLd(): object {
       addressLocality: 'El-Haram',
       addressRegion: 'Giza',
       addressCountry: 'EG',
-      postalCode: '',
     },
-    geo: {
-      '@type': 'GeoCoordinates',
-      latitude: 29.9753,
-      longitude: 31.1303,
-    },
-    sameAs: [
-      'https://www.facebook.com/starpyramids',
-      'https://www.instagram.com/starpyramids',
-      'https://twitter.com/starpyramids',
-      'https://www.youtube.com/@starpyramids',
-      'https://www.linkedin.com/company/starpyramids',
-    ],
-    priceRange: '$$',
-    currenciesAccepted: 'USD, EUR, EGP',
-    paymentAccepted: 'Cash, Credit Card, Bank Transfer',
+    currenciesAccepted: 'USD',
+    paymentAccepted: 'Cash, Bank Transfer',
     areaServed: 'EG',
     hasMap: COMPANY_MAP_URL,
   }
@@ -74,12 +88,13 @@ export function generateBreadcrumbJsonLd(items: BreadcrumbItem[]): object {
  * Only includes price when available and valid (not invented)
  */
 export function generateTouristTripJsonLd(tour: Tour, locale: 'en' | 'es' | 'it' | 'ar' = 'en'): object {
+  const SITE_URL = resolveSiteUrl()
   const tourUrl = `${SITE_URL}/egypt-tours/${tour.slug}`
   const title = locale === 'ar' && tour.titleAr ? tour.titleAr : tour.title
   const description = tour.summary
 
   // Only include price if it's a valid positive number
-  const hasValidPrice = typeof tour.price === 'number' && tour.price > 0
+  const hasValidPrice = typeof tour.price === 'number' && Number.isFinite(tour.price) && tour.price > 0
 
   const jsonLd: Record<string, unknown> = {
     '@context': 'https://schema.org',
@@ -117,8 +132,6 @@ export function generateTouristTripJsonLd(tour: Tour, locale: 'en' | 'es' | 'it'
       description: `Starting price for ${title}`,
       price: tour.price,
       priceCurrency: 'USD',
-      availability: 'https://schema.org/InStock',
-      validFrom: new Date().toISOString().split('T')[0],
       priceSpecification: {
         '@type': 'UnitPriceSpecification',
         price: tour.price,
@@ -142,6 +155,7 @@ export function generateTouristTripJsonLd(tour: Tour, locale: 'en' | 'es' | 'it'
     const baseItinerary = jsonLd.itinerary as Record<string, unknown>
     jsonLd.itinerary = {
       ...baseItinerary,
+      numberOfItems: tour.detail.locations.length,
       itemListElement: tour.detail.locations.map((loc, index) => {
         const locName = typeof loc === 'string' ? loc : loc.name
         return {
@@ -173,6 +187,7 @@ export function generateTouristTripJsonLd(tour: Tour, locale: 'en' | 'es' | 'it'
  * Generate BlogPosting JSON-LD for blog article pages
  */
 export function generateBlogPostingJsonLd(blog: Blog, locale: 'en' | 'es' | 'it' | 'ar' = 'en'): object {
+  const SITE_URL = resolveSiteUrl()
   const blogUrl = `${SITE_URL}/blogs/${blog.slug}`
   const title = blog.title
   const description = blog.excerpt
@@ -188,7 +203,6 @@ export function generateBlogPostingJsonLd(blog: Blog, locale: 'en' | 'es' | 'it'
     description,
     image: image ? [image] : [],
     datePublished,
-    dateModified: blog.date,
     author: {
       '@type': 'Organization',
       name: authorName,
@@ -219,7 +233,7 @@ export function renderJsonLd(data: object): React.ReactElement {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(data).replace(/</g, '\\u003c') }}
     />
   )
 }

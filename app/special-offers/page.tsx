@@ -11,8 +11,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: 'Special Offers',
     description: 'Discover exclusive STAR PYRAMIDS special offers on Egypt tours, Nile cruises, and travel packages. Save on your next Egypt adventure.',
-    ...(await pageContentMetadata('offers')),
     alternates: { canonical: `${siteUrl}/special-offers`, languages: hreflang },
+    ...(await pageContentMetadata('offers')),
   }
 }
 

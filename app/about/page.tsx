@@ -11,8 +11,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: 'About Us',
     description: 'Learn about STAR PYRAMIDS — your trusted Egypt travel partner for unforgettable journeys, expert guides, and personalized service.',
-    ...(await pageContentMetadata('about')),
     alternates: { canonical: `${siteUrl}/about`, languages: hreflang },
+    ...(await pageContentMetadata('about')),
   }
 }
 

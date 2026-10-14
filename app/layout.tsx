@@ -8,6 +8,8 @@ import { getServerLocale, getHtmlLang, getOgLocale } from '@/lib/server/locale'
 import { getSiteUrl } from '@/lib/seo'
 import { readPresentationStates, readPublishedPage } from '@/lib/server/page-sections'
 import { PresentationProvider } from '@/components/presentation-content-context'
+import { getSetting } from '@/lib/server/settings'
+import { getGlobalSeo } from '@/lib/server/global-seo'
 
 // Optimize font loading: preload critical weights, use display: swap
 const montserrat = Montserrat({
@@ -38,14 +40,17 @@ export async function generateMetadata(): Promise<Metadata> {
   const locale = await getServerLocale()
   const ogLocale = getOgLocale(locale)
   const siteUrl = await getSiteUrl()
+  const defaultSeoTitle = await getSetting('site.seoTitle').catch(() => null)
+  const globalSeo = await getGlobalSeo(locale).catch(() => ({} as Metadata))
 
   return {
     metadataBase: new URL(siteUrl),
     title: {
-      default: `${SITE_NAME} | Discover Egypt`,
+      default: defaultSeoTitle || `${SITE_NAME} | Discover Egypt`,
       template: `%s | ${SITE_NAME}`,
     },
-    description: SITE_DESCRIPTION,
+    description: globalSeo.description || SITE_DESCRIPTION,
+    ...(globalSeo.verification ? { verification: globalSeo.verification } : {}),
     keywords: ['Egypt tours', 'Nile cruises', 'Cairo day tours', 'Egypt travel', 'pyramids', 'luxor', 'aswan', 'shore excursions'],
     authors: [{ name: SITE_NAME }],
     creator: SITE_NAME,
@@ -56,11 +61,13 @@ export async function generateMetadata(): Promise<Metadata> {
       siteName: SITE_NAME,
       title: `${SITE_NAME} | Discover Egypt`,
       description: SITE_DESCRIPTION,
+      ...globalSeo.openGraph,
     },
     twitter: {
       card: 'summary_large_image',
       title: `${SITE_NAME} | Discover Egypt`,
       description: SITE_DESCRIPTION,
+      ...globalSeo.twitter,
     },
     robots: {
       index: true,

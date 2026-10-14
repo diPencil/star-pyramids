@@ -7,6 +7,7 @@ import { publicHeroState } from '@/lib/website-heroes'
 import type { PublicHomeHero } from '@/components/homepage-hero'
 import { readPublishedPage } from '@/lib/server/page-sections'
 import { getServerLocale } from '@/lib/server/locale'
+import { pageContentMetadata } from '@/lib/server/page-content-metadata'
 
 export async function generateMetadata(): Promise<Metadata> {
   const siteUrl = await getSiteUrl()
@@ -18,7 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const description = seoText?.description || 'Discover ancient wonders, warm hospitality, and unforgettable journeys across Egypt. Book Nile cruises, Cairo day tours, multi-day trips, and shore excursions with STAR PYRAMIDS.'
 
   return {
-    title,
+    title: { absolute: title },
     description,
     alternates: { canonical: siteUrl, languages: hreflang },
     openGraph: {
@@ -33,6 +34,7 @@ export async function generateMetadata(): Promise<Metadata> {
       description: seoText?.description || 'Discover ancient wonders, warm hospitality, and unforgettable journeys across Egypt.',
       ...(seo?.image ? { images: [seo.image] } : {}),
     },
+    ...(await pageContentMetadata('homepage')),
   }
 }
 
