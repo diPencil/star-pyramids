@@ -161,7 +161,12 @@ export function LocaleProvider({ children, initialLocale }: { children: ReactNod
     // Streamed Suspense boundaries may hydrate after the provider commits.
     // An idle task runs only after those urgent hydration tasks have yielded,
     // so persisted text never races the server's initial English snapshot.
-    const idleId = window.requestIdleCallback(applyPersistedPreferences)
+    // Safari may omit idle callbacks; keep initialization deferred without
+    // throwing during mount or cleanup on those browsers.
+    const supportsIdle = typeof window.requestIdleCallback === 'function' && typeof window.cancelIdleCallback === 'function'
+    const idleId = supportsIdle
+      ? window.requestIdleCallback(applyPersistedPreferences)
+      : window.setTimeout(applyPersistedPreferences, 0)
     // The DB snapshot often lands AFTER first paint. New visitors (no saved
     // preference) must adopt the late-arriving admin defaults; visitors with
     // an explicit choice keep it.
@@ -179,7 +184,8 @@ export function LocaleProvider({ children, initialLocale }: { children: ReactNod
     window.addEventListener('sp-currency', onRates)
     window.addEventListener('sp-l10n', onRates)
     return () => {
-      window.cancelIdleCallback(idleId)
+      if (supportsIdle) window.cancelIdleCallback(idleId)
+      else window.clearTimeout(idleId)
       window.removeEventListener('sp-currency', onRates)
       window.removeEventListener('sp-l10n', onRates)
     }
