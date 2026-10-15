@@ -2,6 +2,25 @@ import { readFileSync } from 'node:fs'
 import postcss from 'postcss'
 import { expect, it } from 'vitest'
 const css = postcss.parse(readFileSync('app/mobile-shell.css', 'utf8'))
+it('keeps mobile search outside the sticky header so it scrolls with the page', () => {
+  const source = readFileSync('components/site.tsx', 'utf8')
+  const headerStart = source.indexOf('<header ref={primaryHeaderRef}')
+  const headerEnd = source.indexOf('</header>', headerStart)
+  const searchStart = source.indexOf('<form className="mobile-header-search container"')
+  expect(headerStart).toBeGreaterThan(-1)
+  expect(searchStart).toBeGreaterThan(headerEnd)
+})
+it('keeps the public mobile and tablet header sticky without changing desktop positioning', () => {
+  let found = false
+  css.walkRules('.site-header', rule => {
+    if (rule.parent?.type !== 'atrule' || (rule.parent as postcss.AtRule).params !== 'screen and (max-width:1024px)') return
+    const declarations: Record<string, string> = {}
+    rule.walkDecls(declaration => { declarations[declaration.prop] = declaration.value })
+    expect(declarations).toMatchObject({ position: 'sticky', top: '0', 'z-index': '45' })
+    found = true
+  })
+  expect(found).toBe(true)
+})
 function mobileRule(selector: string) {
   let result: Record<string, string> = {}
   css.walkRules(rule => {

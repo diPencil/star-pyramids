@@ -4,6 +4,7 @@
 .trips-mobile-filter-toggle,.trips-mobile-filter-done,.mobile-booking-shortcut{display:none}
 
 @media screen and (max-width:1024px){
+  .site-header{position:sticky;top:0;z-index:45}
   .site-header .header-nav,.compact-sticky-header{display:none}
   .site-header .header-top{min-height:68px;gap:8px}
   .site-header .mobile-menu{display:grid;place-items:center;width:44px;height:44px;min-height:44px;flex:none;padding:0;border:0;background:transparent;color:var(--text)}
@@ -89,7 +90,7 @@
   .campaign-booking{min-width:0}
   .campaign-booking .primary-btn{min-width:0;white-space:normal;min-height:48px}
   body:has(.mobile-bottom-nav){--mobile-nav-height:calc(64px + env(safe-area-inset-bottom));padding-bottom:var(--mobile-nav-height);scroll-padding-bottom:calc(var(--mobile-nav-height) + 16px)}
-  .site-header .container{width:calc(100% - 24px)}
+  .site-header .container,.mobile-header-search.container{width:calc(100% - 24px)}
   .site-header .header-top .brand-img{max-width:140px;height:36px}
   .site-header .header-actions .icon-btn.header-cart{display:none!important}
   .site-header .header-actions .language{font-size:11px}

@@ -502,12 +502,6 @@ export function Header() {
         </div>
       </div>
 
-      <form className="mobile-header-search container" role="search" onSubmit={(event) => { event.preventDefault(); router.push('/search?q=' + encodeURIComponent(query.trim())) }}>
-        <Search size={18} aria-hidden="true" />
-        <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t.search} aria-label={t.search} enterKeyHint="search" />
-        <button type="submit" aria-label={ex.searchBtn}><ArrowRight size={18} /></button>
-      </form>
-
       <div className="header-nav">
         <div className="container header-nav-inner">
           <nav aria-label={tx(locale, { en: 'Primary navigation', es: 'Navegación principal', it: 'Navigazione principale', ar: 'القائمة الرئيسية' })}>
@@ -526,6 +520,11 @@ export function Header() {
         </div>
       </dialog>}
     </header>
+    <form className="mobile-header-search container" role="search" onSubmit={(event) => { event.preventDefault(); router.push('/search?q=' + encodeURIComponent(query.trim())) }}>
+      <Search size={18} aria-hidden="true" />
+      <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t.search} aria-label={t.search} enterKeyHint="search" />
+      <button type="submit" aria-label={ex.searchBtn}><ArrowRight size={18} /></button>
+    </form>
     <div className={scrolled ? 'compact-sticky-header is-open' : 'compact-sticky-header'} aria-hidden={!scrolled}>
       <div className="container compact-sticky-inner">
         <Logo/>
