@@ -924,7 +924,7 @@ export function CardGallery({ images: imgs, title, href, children }: { images: r
             className={i === idx ? 'on' : ''}
             fill
             sizes="(max-width: 760px) 100vw, (max-width: 1100px) 50vw, 25vw"
-            priority={i === 0}
+            loading="lazy"
             placeholder="blur"
             blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
           />

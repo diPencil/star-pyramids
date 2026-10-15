@@ -217,8 +217,8 @@ export default function DashboardPage() {
         eyebrow="Sales Report"
         title="Dashboard"
         titleAr="لوحة المؤشرات"
-        sub={`Friday plan · ${liveTours} live tours in catalogue`}
-        subAr={`خطة الجمعة · ${liveTours} رحلة منشورة في الكتالوج`}
+        sub="Welcome to STAR PYRAMIDS. Bring every journey together, support your travelers, and create unforgettable experiences across Egypt."
+        subAr="أهلًا بك في ستار بيراميدز. من هنا تجمع تفاصيل كل رحلة، وتتابع مسافريك، وتصنع لهم تجارب لا تُنسى في مصر."
         actions={
           <>
             <Popover.Root>
