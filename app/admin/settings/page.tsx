@@ -1,6 +1,9 @@
 'use client'
 
 import { ReviewIntegrationsSettings } from '@/components/admin/review-integrations'
+import { WebsiteAppearance } from '@/components/admin/website-appearance'
+import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
+import './pro-additions.css'
 import { useCallback, useEffect, useState } from 'react'
 import { Building2, CheckCircle2, CircleDollarSign, Cloud, Globe2, KeyRound, LogIn, Mail, MapPinned, Palette, PlugZap, Plus, QrCode, Share2, ShieldCheck } from 'lucide-react'
 import { WhatsAppGlyph } from '@/components/whatsapp-chat'
@@ -19,7 +22,6 @@ import { toInternational } from '@/lib/phone'
 import { ENABLED_LOCALES, LOCALE_LABELS, type EnabledLocale } from '@/lib/locale-config'
 import { useCurrentUser } from '@/lib/use-current-user'
 import { refreshStorefrontSettings } from '@/lib/storefront-settings'
-import { readAccessStrip } from '@/lib/access-strip'
 
 const TIMEZONES = [
   'Africa/Cairo', 'Africa/Tunis', 'Africa/Algiers', 'Africa/Casablanca',
@@ -35,9 +37,6 @@ type SettingsSnapshot = {
   rates: { eur: string; egp: string }
 }
 
-const FALLBACK_SEO_TITLE = 'STAR PYRAMIDS | Discover Egypt'
-const FALLBACK_PROMO = 'Add two nights to any multi-day package and save 15%, with a special upgrade included.'
-const FALLBACK_PROMO2 = 'Limited special offers on family escapes and Nile & Red Sea combinations.'
 
 function val(snapshot: SettingsSnapshot | null, key: string, fallback = ''): string {
   const stored = snapshot?.values[key]
@@ -475,86 +474,6 @@ function CurrencyTab({ snapshot, canWrite, onSaved }: TabShell) {
   )
 }
 
-function WebsiteTab({ snapshot, canWrite, onSaved }: TabShell) {
-  const ar = useAdminLocale() === 'ar'
-  const accessInitial = (snap: SettingsSnapshot | null) => {
-    const parsed = readAccessStrip(snap?.values['site.accessStrip'] || '')
-    return {
-      visible: parsed?.visible !== false,
-      noteEn: parsed?.note.en ?? '',
-      noteEs: parsed?.note.es ?? '',
-      noteIt: parsed?.note.it ?? '',
-      noteAr: parsed?.note.ar ?? '',
-      ctaEn: parsed?.ctaLabel.en ?? '',
-      ctaEs: parsed?.ctaLabel.es ?? '',
-      ctaIt: parsed?.ctaLabel.it ?? '',
-      ctaAr: parsed?.ctaLabel.ar ?? '',
-      href: parsed?.ctaHref ?? '',
-    }
-  }
-  const t = useTabState(snapshot, (snap) => ({
-    seoTitle: val(snap, 'site.seoTitle', FALLBACK_SEO_TITLE),
-    promoText: val(snap, 'site.promoText', FALLBACK_PROMO),
-    promo2Text: val(snap, 'site.promo2Text', FALLBACK_PROMO2),
-    access: accessInitial(snap),
-  }))
-
-  const save = async () => {
-    t.setSaving(true)
-    t.setError('')
-    t.setSaved('')
-    try {
-      const a = t.form.access
-      const pick = (entries: [string, string][]): Record<string, string> => {
-        const next: Record<string, string> = {}
-        for (const [locale, text] of entries) {
-          if (text.trim()) next[locale] = text.trim()
-        }
-        return next
-      }
-      const strip = {
-        visible: a.visible,
-        note: pick([['en', a.noteEn], ['es', a.noteEs], ['it', a.noteIt], ['ar', a.noteAr]]),
-        ctaLabel: pick([['en', a.ctaEn], ['es', a.ctaEs], ['it', a.ctaIt], ['ar', a.ctaAr]]),
-        ctaHref: a.href.trim(),
-      }
-      // A fully-default strip is stored as empty so the website renders its
-      // built-in accessibility notice verbatim.
-      const accessStrip = strip.visible && !strip.ctaHref && !Object.keys(strip.note).length && !Object.keys(strip.ctaLabel).length
-        ? ''
-        : JSON.stringify(strip)
-      const next = await patchSettings({
-        'site.seoTitle': t.form.seoTitle.trim() || FALLBACK_SEO_TITLE,
-        'site.promoText': t.form.promoText.trim() || FALLBACK_PROMO,
-        'site.promo2Text': t.form.promo2Text.trim() || FALLBACK_PROMO2,
-        'site.accessStrip': accessStrip,
-      })
-      onSaved(next)
-      t.setSaved(ar ? 'تم الحفظ بنجاح.' : 'Saved successfully.')
-    } catch (e) {
-      t.setError(e instanceof Error ? e.message : 'Save failed.')
-    } finally {
-      t.setSaving(false)
-    }
-  }
-
-  const setAccess = (patch: Partial<typeof t.form.access>) =>
-    t.setForm((f) => ({ ...f, access: { ...f.access, ...patch } }))
-
-  return (
-    <div className="sp-form">
-      <label><AdminText en="SEO title" ar="عنوان SEO" /><input value={t.form.seoTitle} onChange={(e) => t.setForm((f) => ({ ...f, seoTitle: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
-      <label><AdminText en="Promo bar text" ar="نص الشريط الترويجي" /><textarea rows={2} value={t.form.promoText} onChange={(e) => t.setForm((f) => ({ ...f, promoText: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
-      <label><AdminText en="Promo bar text (second announcement)" ar="نص الشريط الترويجي (الإعلان الثاني)" /><textarea rows={2} value={t.form.promo2Text} onChange={(e) => t.setForm((f) => ({ ...f, promo2Text: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
-      <p className="sp-group-title"><AdminText en="Accessibility strip (above the footer)" ar="شريط الإتاحة (فوق الفوتر)" /></p>
-      <p className="sp-integration-note"><AdminText en="This notice is now a Promotional Bars record in Special Offers. Edit its text, icon, button, visibility and schedule from /admin/offers — the promotional bar is the single source of truth, so this tab no longer duplicates it." ar="هذا الإشعار أصبح سجلاً في الأشرطة الترويجية داخل العروض الخاصة. عدّل نصه وأيقونته وزر وظهوره ومواعيده من /admin/offers — إذ إن الشريط الترويجي هو المصدر الوحيد، ولم يعد هذا التبويب يكرره." /></p>
-      {!canWrite && <ReadOnlyNote />}
-      <div><button type="button" className="sp-btn dark" onClick={save} disabled={!canWrite || t.saving}>{t.saving ? <AdminText en="Saving…" ar="جارٍ الحفظ…" /> : <AdminText en="Save" ar="حفظ" />}</button></div>
-      <SaveFeedback saved={t.saved} error={t.error} />
-    </div>
-  )
-}
-
 function EmailTab({ snapshot, canWrite, onSaved }: TabShell) {
   const ar = useAdminLocale() === 'ar'
   const t = useTabState(snapshot, (snap) => ({
@@ -664,7 +583,7 @@ const tabs = [
   { id: 'localization', icon: Globe2, en: 'Localization', ar: 'اللغة والمنطقة', sub: 'Language and regional defaults', subAr: 'اللغة والإعدادات الإقليمية' },
   { id: 'currency', icon: CircleDollarSign, en: 'Currency', ar: 'العملة', sub: 'Live conversion rates', subAr: 'أسعار التحويل الحية' },
   { id: 'social', icon: Share2, en: 'Social', ar: 'التواصل الاجتماعي', sub: 'Company profile links', subAr: 'روابط حسابات الشركة' },
-  { id: 'website', icon: Palette, en: 'Website Defaults', ar: 'افتراضيات الموقع', sub: 'SEO defaults', subAr: 'إعدادات تحسين محركات البحث' },
+  { id: 'website', icon: Palette, en: 'Website Appearance', ar: 'مظهر الموقع', sub: 'Public theme and design tokens', subAr: 'الثيم وإعدادات تصميم الموقع العام' },
   { id: 'email', icon: Mail, en: 'Email Configuration', ar: 'إعداد البريد', sub: 'SMTP and IMAP mailboxes', subAr: 'صناديق البريد الصادر والوارد' },
   { id: 'whatsapp', icon: WhatsAppGlyph, en: 'WhatsApp', ar: 'واتساب', sub: 'QR session or official Cloud API', subAr: 'جلسة QR أو واجهة Cloud الرسمية' },
   { id: 'google-maps', icon: MapPinned, en: 'Google Maps', ar: 'خرائط جوجل', sub: 'Maps, places and location services', subAr: 'الخرائط والأماكن وخدمات المواقع' },
@@ -723,6 +642,8 @@ function WhatsAppTab({ snapshot, canWrite, onSaved }: TabShell) {
   }
 
   return (
+    <div className="sp-pro-additions">
+      <div className="sp-pro-additions-content" inert aria-hidden="true">
     <div className="sp-integration-page">
       <div className="sp-integration-summary">
         <span className="sp-integration-icon green"><WhatsAppGlyph size={22} /></span>
@@ -767,6 +688,22 @@ function WhatsAppTab({ snapshot, canWrite, onSaved }: TabShell) {
           </div>
           <SaveFeedback saved={t.saved} error={t.error} />
         </section>
+      </div>
+    </div>
+      </div>
+      <div className="sp-pro-additions-overlay">
+        <div className="sp-pro-additions-box">
+          <span className="sp-pro-additions-icon"><KeyRound size={26} aria-hidden="true" /></span>
+          <strong>Pro Additions</strong>
+          <p><AdminText en="Bring WhatsApp into your team's workflow with a dedicated professional add-on." ar="اربط واتساب بسير عمل فريقك من خلال إضافة احترافية مخصصة." /></p>
+          <ul>
+            <li><CheckCircle2 size={17} aria-hidden="true" /><AdminText en="WhatsApp Business connection" ar="ربط حساب واتساب للأعمال" /></li>
+            <li><CheckCircle2 size={17} aria-hidden="true" /><AdminText en="Integration with your team's inbox" ar="تكامل الرسائل مع صندوق مراسلات فريقك" /></li>
+            <li><CheckCircle2 size={17} aria-hidden="true" /><AdminText en="Provider setup and activation assistance" ar="المساعدة في إعداد مزود الخدمة والتفعيل" /></li>
+          </ul>
+          <div className="sp-pro-additions-support"><Mail size={20} aria-hidden="true" /><div><b><AdminText en="Interested in this add-on?" ar="حابب تحصل على الإضافة؟" /></b><p><AdminText en="Contact developer support to request it and discuss setup, availability and activation requirements." ar="تواصل مع دعم المطوّر لطلب الإضافة ومعرفة تفاصيل الإعداد والتوفر ومتطلبات التفعيل." /></p></div></div>
+          <small><AdminText en="Not active on your website. Requires a separate integration and provider configuration." ar="الإضافة غير مفعلة حاليًا على موقعك. تتطلب تنفيذ تكامل منفصل وإعداد مزود الخدمة." /></small>
+        </div>
       </div>
     </div>
   )
@@ -925,6 +862,9 @@ export default function SettingsPage() {
   const [snapshot, setSnapshot] = useState<SettingsSnapshot | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
+  const [appearanceGuard, setAppearanceGuard] = useState(false)
+  const [appearanceBusy, setAppearanceBusy] = useState(false)
+  const [pendingTab, setPendingTab] = useState<(typeof tabs)[number]['id'] | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -961,7 +901,7 @@ export default function SettingsPage() {
         <Card title={<AdminText en="Settings" ar="الإعدادات" />}>
           <div className="sp-set-nav">
             {tabs.map((t) => (
-              <button key={t.id} type="button" className={cn(tab === t.id && 'active')} onClick={() => setTab(t.id)}>
+              <button key={t.id} type="button" className={cn(tab === t.id && 'active')} onClick={() => { if (t.id === tab) return; if (tab === 'website' && appearanceGuard) setPendingTab(t.id); else setTab(t.id) }}>
                 <t.icon size={18} />
                 <span><strong>{ar ? t.ar : t.en}</strong><small>{ar ? t.subAr : t.sub}</small></span>
               </button>
@@ -990,11 +930,12 @@ export default function SettingsPage() {
               {tab === 'localization' && <LocalizationTab {...shell} />}
               {tab === 'currency' && <CurrencyTab {...shell} />}
               {tab === 'social' && <SocialTab {...shell} />}
-              {tab === 'website' && <WebsiteTab {...shell} />}
+              {tab === 'website' && <WebsiteAppearance canWrite={canWrite} onGuardChange={setAppearanceGuard} onBusyChange={setAppearanceBusy} />}
             </>
           )}
         </Card>
       </div>
+      <AdminConfirmDialog open={pendingTab !== null} title="Leave appearance editor?" description="Save your appearance edits before switching tabs, or discard local changes." confirmLabel="Discard and leave" cancelLabel="Keep editing" canConfirm={!appearanceBusy} onClose={() => setPendingTab(null)} onConfirm={() => { if (!appearanceBusy && pendingTab) { setTab(pendingTab); setAppearanceGuard(false) }; setPendingTab(null) }} />
     </>
   )
 }

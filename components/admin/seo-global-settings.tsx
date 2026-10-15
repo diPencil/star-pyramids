@@ -108,7 +108,7 @@ export function SeoGlobalSettings({ canEdit = false }: { canEdit?: boolean }) {
     {!canEdit && <p>Read-only. Editing requires settings permission.</p>}
     <form onSubmit={save} className="cms-field-panel">
       <fieldset disabled={!canEdit || loading || saving || confirmReload || pendingNavigation !== null || !Object.keys(baseline).length}>
-        <legend>Website defaults</legend>
+        <legend>Global SEO defaults</legend>
         {fields.map(([key, label, maxLength]) => <label key={key}>
           <span>{label}</span>
           {key.startsWith('site.seoDescription')

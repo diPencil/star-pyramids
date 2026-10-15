@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { PublicAppearancePortal } from './public-appearance'
 import { Globe2, X } from 'lucide-react'
 import { tx, useLocale, type Currency, type Locale } from './locale'
 import { ENABLED_LOCALES, LOCALE_LABELS, LOCALE_SHORT_LABELS, type EnabledLocale } from '@/lib/locale-config'
@@ -30,7 +31,7 @@ export function LanguageModal({ locale, currency, onClose, onSelect, onCurrency 
   useEffect(() => { setMounted(true) }, [])
   if (!mounted) return null
   const node = <div className="language-backdrop" role="presentation" onMouseDown={onClose}><div className="language-modal" role="dialog" aria-modal="true" aria-labelledby="language-title" onMouseDown={event => event.stopPropagation()}><div className="language-modal-head"><h2 id="language-title">{text.modalTitle}</h2><button className="language-close" onClick={onClose} aria-label={tx(locale, { en: 'Close language and currency', es: 'Cerrar idioma y moneda', it: 'Chiudi lingua e valuta', ar: 'إغلاق اللغة والعملة' })}><X size={20} /></button></div><h3>{text.curTitle}</h3><div className="language-options currency-options">{currencies.map(([name, code, value]) => <button key={code} className={currency === value ? 'selected' : ''} onClick={() => { onCurrency(value); onClose() }} aria-pressed={currency === value}><span>{name}</span><strong>{code}</strong></button>)}</div><h3>{text.regTitle}</h3><div className="language-options region-options">{regions.map(([region, language, value]) => <button key={region} type="button" className={value === locale ? 'selected' : ''} onClick={() => { onSelect(value); onClose() }} aria-pressed={value === locale}><span>{region}</span><strong>{language}</strong></button>)}</div></div></div>
-  return createPortal(node, document.body)
+  return createPortal(<PublicAppearancePortal>{node}</PublicAppearancePortal>, document.body)
 }
 
 export function LanguageToggle({ label, onOpen }: { label: string; onOpen: () => void }) {

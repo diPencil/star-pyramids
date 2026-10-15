@@ -10,6 +10,8 @@ import { readPresentationStates, readPublishedPage } from '@/lib/server/page-sec
 import { PresentationProvider } from '@/components/presentation-content-context'
 import { getSetting } from '@/lib/server/settings'
 import { getGlobalSeo } from '@/lib/server/global-seo'
+import { readPublishedAppearance } from '@/lib/server/website-appearance'
+import { PublicAppearance } from '@/components/public-appearance'
 
 // Optimize font loading: preload critical weights, use display: swap
 const montserrat = Montserrat({
@@ -129,7 +131,7 @@ export default async function RootLayout({
       <body className={`${montserrat.variable} ${alexandria.variable} antialiased`}>
         <BrandFavicon />
         <EnquiryHistoryTracking />
-        <InitialLocaleProvider locale={locale}><PresentationProvider states={{ ...await readPresentationStates(), faq: await readPublishedPage('faq') }}>{children}</PresentationProvider></InitialLocaleProvider>
+        <InitialLocaleProvider locale={locale}><PresentationProvider states={{ ...await readPresentationStates(), faq: await readPublishedPage('faq') }}><PublicAppearance tokens={await readPublishedAppearance()}>{children}</PublicAppearance></PresentationProvider></InitialLocaleProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

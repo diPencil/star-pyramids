@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { PublicAppearancePortal } from './public-appearance'
 import { Star, CheckCircle2 } from 'lucide-react'
 import { useLocale, tx } from '@/components/locale'
 import { cn } from '@/lib/utils'
@@ -221,7 +222,7 @@ export function ReviewWriteModal({
     </div>
   )
 
-  return createPortal(modal, document.body)
+  return createPortal(<PublicAppearancePortal>{modal}</PublicAppearancePortal>, document.body)
 }
 
 export function TourReviewsSection({

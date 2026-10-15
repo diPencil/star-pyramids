@@ -97,6 +97,7 @@ const NAV_VIEW_PERMISSIONS: Record<string, string[]> = {
   '/admin/trip-requests': ['requests.view'],
   '/admin/customers': ['customers.view'],
   '/admin/inbox': ['support.view'],
+  '/admin/notifications': ['support.view'],
   '/admin/emails': ['emails.view'],
   '/admin/reviews': ['reviews.view'],
   '/admin/users': ['users.view', 'roles.view'],
@@ -177,6 +178,7 @@ const groups = [
       { href: '/admin/inbox', icon: MessageCircle, en: 'Inbox', ar: 'صندوق المراسلة' },
       { href: '/admin/emails', icon: Mail, en: 'Emails', ar: 'البريد' },
       { href: '/admin/reviews', icon: Sparkles, en: 'Reviews', ar: 'التقييمات' },
+      { href: '/admin/notifications', icon: Bell, en: 'Notifications', ar: 'الإشعارات' },
     ],
   },
   {
