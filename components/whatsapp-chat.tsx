@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { CheckCheck, Send, X } from 'lucide-react'
 import { useLocale, tx } from './locale'
 import { whatsappNumber } from '@/data/company'
@@ -47,6 +48,8 @@ export function WhatsAppWidget({ open, onOpen, onClose }: { open: boolean; onOpe
   const { locale } = useLocale()
   const brand = useBrandSettings()
   const t = copy[locale]
+  const [mobileTarget, setMobileTarget] = useState<HTMLElement | null>(null)
+  useEffect(() => { setMobileTarget(document.getElementById('mobile-whatsapp-trigger')) }, [])
   const [messages, setMessages] = useState<WaMsg[]>([])
   const [draft, setDraft] = useState('')
   const [typing, setTyping] = useState(false)
@@ -97,6 +100,7 @@ export function WhatsAppWidget({ open, onOpen, onClose }: { open: boolean; onOpe
   }
 
   return <div className="wa-wrap">
+    {mobileTarget && createPortal(<button type="button" className="mobile-support-trigger" onClick={() => (open ? onClose() : openPanel())} aria-expanded={open} aria-label={open ? t.closeLabel : t.openLabel}><span className="mobile-whatsapp-circle"><WhatsAppGlyph size={26}/></span><span>WhatsApp</span>{!open && unread > 0 && <b>{unread}</b>}</button>, mobileTarget)}
     {open && <section className="wa-panel" role="dialog" aria-label={t.name} aria-modal="false">
       <header className="wa-head">
         <span className="wa-avatar" aria-hidden="true"><img src="/favicon.png" alt="" /></span>

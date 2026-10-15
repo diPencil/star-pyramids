@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { Headset, Send, X } from 'lucide-react'
 import { getToursByCategory } from '@/data/tours'
@@ -125,6 +126,8 @@ export function LiveChatWidget({ open, onOpen, onClose }: { open: boolean; onOpe
   const { currency, locale } = useLocale()
   const brand = useBrandSettings()
   const t = copy[locale]
+  const [mobileTarget, setMobileTarget] = useState<HTMLElement | null>(null)
+  useEffect(() => { setMobileTarget(document.getElementById('mobile-livechat-trigger')) }, [])
   const [messages, setMessages] = useState<ChatMsg[]>(() => loadStored())
   const [chips, setChips] = useState<ChipId[]>(() => (loadStored().length ? [] : [...chipsHome]))
   const [draft, setDraft] = useState('')
@@ -203,6 +206,7 @@ export function LiveChatWidget({ open, onOpen, onClose }: { open: boolean; onOpe
   }
 
   return <div className="livechat-wrap">
+    {mobileTarget && createPortal(<button type="button" className="mobile-support-trigger" onClick={() => (open ? onClose() : openPanel())} aria-expanded={open} aria-label={open ? t.closeLabel : t.openLabel}><Headset size={21} aria-hidden="true"/><span>{({ en: 'Live Chat', es: 'Chat en vivo', it: 'Chat dal vivo', ar: 'دردشة مباشرة' })[locale]}</span>{!open && unread > 0 && <b>{unread}</b>}</button>, mobileTarget)}
     {teaser && !open && <button type="button" className="livechat-teaser" onClick={openPanel}>{t.teaser}</button>}
     {open && <section className="livechat-panel" role="dialog" aria-label={t.name} aria-modal="false">
       <header className="livechat-head">

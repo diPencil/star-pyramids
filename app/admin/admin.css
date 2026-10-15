@@ -562,6 +562,11 @@ button.sp-mx-pill:focus-visible { outline: 3px solid rgba(247,149,29,.28); outli
 .sp-dashboard-range-trigger { gap: 8px; max-width: 100%; }
 .sp-pagehead:has(.sp-dashboard-range-trigger) { flex-wrap: wrap; }
 .sp-pagehead-actions:has(.sp-dashboard-range-trigger) { flex-wrap: wrap; max-width: 100%; }
+@media (min-width: 1100px) {
+  .sp-pagehead:has(.sp-dashboard-range-trigger) { flex-wrap: nowrap; }
+  .sp-pagehead:has(.sp-dashboard-range-trigger) .sp-pagehead-title-row { flex: 1 1 0; }
+  .sp-pagehead-actions:has(.sp-dashboard-range-trigger) { flex: 0 0 auto; }
+}
 .sp-dashboard-range-trigger > span { min-width: 0; }
 .sp-dashboard-range-trigger > svg { flex: none; }
 .sp-dashboard-range-positioner { z-index: 75; }

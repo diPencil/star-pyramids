@@ -475,7 +475,6 @@ export function Header() {
   const mobileBottomLinks = [
     { href: '/', label: t.home, icon: Home, active: pathname === '/' },
     { href: '/trips', label: t.explore, icon: Compass, active: pathname === '/trips' || pathname.startsWith('/egypt-tours') || pathname.startsWith('/destinations') },
-    { href: staff ? '/cart' : '/account/bookings', label: staff ? t.cart : t.bookings, icon: staff ? ShoppingCart : CalendarCheck, active: staff ? pathname === '/cart' : pathname.startsWith('/account/bookings') },
     { href: mobileAccountHref, label: headerUser ? (staff ? t.dashboard : t.account) : t.signIn, icon: staff ? LayoutDashboard : UserRound, active: pathname === '/login' || pathname === '/register' || (pathname.startsWith('/account') && !pathname.startsWith('/account/bookings')) },
   ]
 
@@ -549,7 +548,10 @@ export function Header() {
       <span className="promo-icons" key={'pi' + activePromoIdx}>{promos[activePromoIdx].icons}</span><strong key={'pt' + activePromoIdx} className="promo-swap">{promos[activePromoIdx].text}</strong>{promos[activePromoIdx].href.startsWith('/') ? <Link key={'pl' + activePromoIdx} href={promos[activePromoIdx].href} className="promo-swap">{promos[activePromoIdx].label}</Link> : <a key={'pl' + activePromoIdx} href={promos[activePromoIdx].href} target="_blank" rel="noopener noreferrer" className="promo-swap">{promos[activePromoIdx].label}</a>}<span className="promo-dots">{promos.map((_, index) => <button key={index} type="button" className={index === activePromoIdx ? 'active' : ''} aria-label={'Show announcement ' + (index + 1)} aria-current={index === activePromoIdx} onClick={() => setPromoIdx(index)}/>)}</span>
     </div>}
     <nav className="mobile-bottom-nav" aria-label={tx(locale, { en: 'Quick navigation', es: 'Navegación rápida', it: 'Navigazione rapida', ar: 'التنقل السريع' })}>
-      {mobileBottomLinks.map((item) => <Link key={item.href} href={item.href} aria-current={item.active ? 'page' : undefined}><item.icon size={21} aria-hidden="true"/><span>{item.label}</span></Link>)}
+      {mobileBottomLinks.slice(0, 2).map((item) => <Link key={item.href} href={item.href} aria-current={item.active ? 'page' : undefined}><item.icon size={21} aria-hidden="true"/><span>{item.label}</span></Link>)}
+      <div id="mobile-whatsapp-trigger" className="mobile-support-slot"/>
+      <div id="mobile-livechat-trigger" className="mobile-support-slot"/>
+      <Link href={mobileBottomLinks[2].href} aria-current={mobileBottomLinks[2].active ? 'page' : undefined}>{(() => { const Icon = mobileBottomLinks[2].icon; return <Icon size={21} aria-hidden="true"/> })()}<span>{mobileBottomLinks[2].label}</span></Link>
     </nav>
   </>
 }
@@ -745,7 +747,7 @@ export function TripSearchEngine() {
           {/* Make Your Trip Tab */}
           {tab === 'Make Your Trip' && (
             <>
-              <div className="trip-question">
+              <div className="trip-question trip-time-selector">
                 <strong>{ex.qWhen}</strong>
                 {[['exact', ex.qExact], ['approx', ex.qApprox], ['unsure', ex.qUnsure]].map(
                   ([v, l]) => (
