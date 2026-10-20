@@ -153,6 +153,23 @@ describe('booking draft validation — price tampering prevention', () => {
       }),
     ).rejects.toThrow('Invalid request.');
   });
+
+  it('rejects a tour that has been unpublished', async () => {
+    vi.resetModules();
+    vi.doMock('@/lib/server/tours', () => ({
+      findTourBySlug: async () => ({ ...mockTour, status: 'draft' }),
+    }));
+    const { validateBookingDraft } = await import('@/lib/server/bookings');
+    await expect(
+      validateBookingDraft({
+        lines: [{ tourSlug: 'cairo-day-tour', date: '2026-12-01', adults: 2, children: 0, infants: 0, addons: [] }],
+        contact: { name: 'Test User', email: 'test@example.com', phone: '+201234567890' },
+        notes: '',
+        currency: 'USD',
+        idempotencyKey: 'abc12345-abc12345',
+      }),
+    ).rejects.toThrow('no longer available');
+  });
 });
 
 // ─── Guest booking access ──────────────────────────────────────────────────

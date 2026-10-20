@@ -6,12 +6,25 @@ import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
 import { getCurrentUser, hasPermission } from '@/lib/server/auth';
 import { readJsonText } from '@/lib/json-text';
+import { isTourPublished } from '@/lib/tour-publish';
 
 export async function GET(request: Request) {
-  // Public: list all tours (read-only, no auth required).
+  // Public: list published tours. Staff with tours.view may pass ?all=1 to
+  // include hidden/draft rows for the admin catalogue.
   // ?full=1 returns the complete Tour payload (all catalogue fields) for
   // storefront listings; the default summary keeps cards lightweight.
-  const full = new URL(request.url).searchParams.get('full') === '1';
+  const searchParams = new URL(request.url).searchParams;
+  const full = searchParams.get('full') === '1';
+  const includeAll = searchParams.get('all') === '1';
+  if (includeAll) {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+    }
+    if (!hasPermission(user, 'tours.view')) {
+      return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
+    }
+  }
   const tours = await db.tour.findMany({
     orderBy: { title: 'asc' },
     select: full
@@ -57,9 +70,10 @@ export async function GET(request: Request) {
           status: true,
         },
   });
+  const visible = includeAll ? tours : tours.filter(isTourPublished);
   // LONGTEXT galleries decode to arrays at the boundary (same contract as
   // blogs/cars/offers). Raw JSON strings would reach clients as text.
-  return NextResponse.json({ tours: (await applyLinkedOfferDeals(tours)).map(decodeTourJson) });
+  return NextResponse.json({ tours: (await applyLinkedOfferDeals(visible)).map(decodeTourJson) });
 }
 
 export async function POST(request: Request) {

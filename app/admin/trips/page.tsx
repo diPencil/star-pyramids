@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
-import { Anchor, ExternalLink, Eye, EyeOff, Layers3, MapPinned, Pencil, Plus, ShipWheel } from 'lucide-react'
+import { Anchor, ExternalLink, Eye, EyeOff, Layers3, MapPinned, Pencil, Plus, ShipWheel, Trash2 } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
+import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableTools, AdminTableWrap, AdminText, Card, StatusPill } from '@/components/admin/admin-ui'
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 import { useAdminLocale } from '@/components/admin/admin-locale'
@@ -34,6 +35,9 @@ export default function TripsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [busySlug, setBusySlug] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<TripRow | null>(null)
+  const [deleteBusy, setDeleteBusy] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
   const [actionError, setActionError] = useState('')
   const [actionOk, setActionOk] = useState('')
 
@@ -44,7 +48,7 @@ export default function TripsPage() {
       setLoading(true)
       setError('')
       try {
-        const res = await fetch('/api/tours', { credentials: 'same-origin' })
+        const res = await fetch('/api/tours?all=1', { credentials: 'same-origin' })
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Failed to load trips.')
         if (!cancelled) setTours(Array.isArray(data.tours) ? data.tours : [])
@@ -64,7 +68,7 @@ export default function TripsPage() {
       .filter((t) => (q ? (t.title + t.location).toLowerCase().includes(q.toLowerCase()) : true))
   }, [tours, cat, q])
   const setPublished = async (slug: string, published: boolean) => {
-    if (busySlug) return
+    if (busySlug || deleteBusy) return
     setBusySlug(slug)
     setActionError('')
     setActionOk('')
@@ -75,11 +79,12 @@ export default function TripsPage() {
         body: JSON.stringify({ status: published ? 'published' : 'draft' }),
         credentials: 'same-origin',
       })
+      const data = await res.json().catch(() => ({} as { error?: string; tour?: { status?: string } }))
       if (!res.ok) {
-        const data = await res.json().catch(() => ({} as { error?: string }))
         throw new Error(data.error || 'Failed to update visibility.')
       }
-      setTours((current) => current.map((t) => (t.slug === slug ? { ...t, status: published ? 'published' : 'draft' } : t)))
+      const status = typeof data.tour?.status === 'string' ? data.tour.status : (published ? 'published' : 'draft')
+      setTours((current) => current.map((t) => (t.slug === slug ? { ...t, status } : t)))
       invalidateToursCache()
       setActionOk(
         published
@@ -90,6 +95,32 @@ export default function TripsPage() {
       setActionError(err instanceof Error ? err.message : 'Failed to update visibility.')
     } finally {
       setBusySlug(null)
+    }
+  }
+
+  const removeTour = async () => {
+    if (!deleteTarget || deleteBusy) return
+    setDeleteBusy(true)
+    setDeleteError('')
+    setActionError('')
+    setActionOk('')
+    try {
+      const res = await fetch(`/api/tours/${encodeURIComponent(deleteTarget.slug)}`, {
+        method: 'DELETE',
+        credentials: 'same-origin',
+      })
+      const data = await res.json().catch(() => ({} as { error?: string }))
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to delete trip.')
+      }
+      setTours((current) => current.filter((t) => t.slug !== deleteTarget.slug))
+      invalidateToursCache()
+      setActionOk(ar ? `تم حذف "${deleteTarget.title}".` : `"${deleteTarget.title}" deleted.`)
+      setDeleteTarget(null)
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Failed to delete trip.')
+    } finally {
+      setDeleteBusy(false)
     }
   }
 
@@ -156,6 +187,21 @@ export default function TripsPage() {
                   >
                     {isTourPublished(t) ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
+                  {!isTourPublished(t) ? (
+                    <button
+                      type="button"
+                      className="sp-icon-btn danger"
+                      disabled={busySlug === t.slug || deleteBusy}
+                      onClick={() => {
+                        setDeleteError('')
+                        setDeleteTarget(t)
+                      }}
+                      aria-label={ar ? `حذف ${t.title}` : `Delete ${t.title}`}
+                      title={ar ? 'حذف' : 'Delete'}
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  ) : null}
                 </AdminTableActions></td>
               </tr>
             ))}
@@ -163,6 +209,22 @@ export default function TripsPage() {
         </table></AdminTableWrap> : <AdminEmpty title={<AdminText en="No trips found" ar="لا توجد رحلات" />} copy={<AdminText en="Try changing the search or filters." ar="جرب تغيير البحث أو الفلاتر." />} />}
         {rows.length > 0 && <AdminPagination page={paging.page} pageCount={paging.pageCount} onPage={paging.setPage} pageSize={paging.pageSize} onPageSize={paging.setPageSize} from={paging.from} to={paging.to} total={paging.total} />}
       </Card>
+      <AdminConfirmDialog
+        open={deleteTarget !== null}
+        onClose={() => { if (!deleteBusy) setDeleteTarget(null) }}
+        onConfirm={() => { void removeTour() }}
+        title={<AdminText en="Delete this trip?" ar="حذف هذه الرحلة؟" />}
+        description={<AdminText en="This permanently removes the trip from the admin catalogue. Trips linked to bookings, requests, reviews, favorites, offers, or gallery items cannot be deleted." ar="يزيل هذه الرحلة نهائيًا من كتالوج الإدارة. لا يمكن حذف الرحلات المرتبطة بحجوزات أو طلبات أو تقييمات أو مفضلات أو عروض أو عناصر معرض." />}
+        confirmLabel={<AdminText en={deleteBusy ? 'Deleting…' : 'Delete trip'} ar={deleteBusy ? 'جارٍ الحذف…' : 'حذف الرحلة'} />}
+        cancelLabel={<AdminText en="Keep" ar="إبقاء" />}
+        tone="danger"
+        canConfirm={!deleteBusy}
+      >
+        <div style={{ display: 'grid', gap: 8 }}>
+          <p style={{ margin: 0, fontWeight: 700 }}>{deleteTarget?.title}</p>
+          {deleteError ? <p role="alert" style={{ color: '#b91c1c', margin: 0 }}>{deleteError}</p> : null}
+        </div>
+      </AdminConfirmDialog>
     </>
   )
 }

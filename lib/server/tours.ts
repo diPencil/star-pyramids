@@ -46,6 +46,49 @@ const asArray = (value: unknown): any[] =>
 const asStringArray = (value: unknown): string[] =>
   Array.isArray(readJsonText(value)) ? (readJsonText(value) as unknown[]).filter((v): v is string => typeof v === "string") : [];
 
+export type TourDeletionBlocker =
+  | 'bookings'
+  | 'tripRequests'
+  | 'reviews'
+  | 'favorites'
+  | 'offers'
+  | 'gallery';
+
+/**
+ * Catalogue references that must survive a tour deletion. Snapshot columns
+ * (`BookingItem.tourSlug`, `TripRequest.tourSlug`, `FavoriteItem.itemSlug`,
+ * `Review.tourSlug`) have no foreign keys, so the route must check them
+ * explicitly; `Offer` and `JourneyGalleryTour` are real relations too.
+ * Aliases are included because bookings/favorites may store the alias the
+ * customer used.
+ */
+export async function findTourDeletionBlockers(
+  slug: string,
+  aliases: readonly string[] = [],
+): Promise<TourDeletionBlocker[]> {
+  const keys = [...new Set([slug, ...aliases])].filter(Boolean);
+  if (!keys.length) return [];
+  const [booking, tripRequest, review, favorite, offer, gallery] = await Promise.all([
+    db.bookingItem.findFirst({ where: { tourSlug: { in: keys } }, select: { id: true } }),
+    db.tripRequest.findFirst({ where: { tourSlug: { in: keys } }, select: { id: true } }),
+    db.review.findFirst({ where: { tourSlug: { in: keys } }, select: { id: true } }),
+    db.favoriteItem.findFirst({
+      where: { itemType: 'tour', itemSlug: { in: keys } },
+      select: { id: true },
+    }),
+    db.offer.findFirst({ where: { tourSlug: { in: keys } }, select: { slug: true } }),
+    db.journeyGalleryTour.findFirst({ where: { tourSlug: { in: keys } }, select: { id: true } }),
+  ]);
+  const blockers: TourDeletionBlocker[] = [];
+  if (booking) blockers.push('bookings');
+  if (tripRequest) blockers.push('tripRequests');
+  if (review) blockers.push('reviews');
+  if (favorite) blockers.push('favorites');
+  if (offer) blockers.push('offers');
+  if (gallery) blockers.push('gallery');
+  return blockers;
+}
+
 /** Map a Prisma Tour row to the shared `Tour` domain shape. */
 export function toTour(row: DbTourRow): Tour {
   row = decodeTourJson(row)

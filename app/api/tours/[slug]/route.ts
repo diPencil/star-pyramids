@@ -6,6 +6,17 @@ import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
 import { getCurrentUser, hasPermission } from '@/lib/server/auth';
 import { readJsonText } from '@/lib/json-text';
+import { isTourPublished } from '@/lib/tour-publish';
+import { findTourDeletionBlockers, type TourDeletionBlocker } from '@/lib/server/tours';
+
+const DELETION_BLOCKER_LABELS: Record<TourDeletionBlocker, string> = {
+  bookings: 'bookings',
+  tripRequests: 'trip requests',
+  reviews: 'reviews',
+  favorites: 'customer favorites',
+  offers: 'a special offer',
+  gallery: 'Journey Gallery assignments',
+};
 
 export async function GET(
   request: Request,
@@ -88,6 +99,13 @@ export async function GET(
 
   if (!tour) {
     return NextResponse.json({ notFound: true }, { status: 404 });
+  }
+
+  if (!isTourPublished(tour)) {
+    const user = await getCurrentUser();
+    if (!user || !hasPermission(user, 'tours.view')) {
+      return NextResponse.json({ notFound: true }, { status: 404 });
+    }
   }
 
   return NextResponse.json({ tour: decodeTourJson((await applyLinkedOfferDeals([tour]))[0]) });
@@ -194,9 +212,61 @@ export async function DELETE(
 
   const { slug: paramSlug } = await params;
 
-  await db.tour.delete({
+  const existing = await db.tour.findUnique({
     where: { slug: paramSlug },
+    select: { slug: true, status: true, aliases: true },
   });
+  if (!existing) {
+    return NextResponse.json({ error: 'Tour not found.' }, { status: 404 });
+  }
+  if (isTourPublished(existing)) {
+    return NextResponse.json(
+      {
+        error: 'Unpublish this trip before deleting it.',
+        code: 'TOUR_PUBLISHED',
+      },
+      { status: 409 },
+    );
+  }
+
+  const aliases = readJsonText(existing.aliases);
+  const blockers = await findTourDeletionBlockers(
+    existing.slug,
+    Array.isArray(aliases) ? aliases.filter((alias): alias is string => typeof alias === 'string') : [],
+  );
+  if (blockers.length) {
+    return NextResponse.json(
+      {
+        error: `This trip is still linked to ${blockers.map((blocker) => DELETION_BLOCKER_LABELS[blocker]).join(', ')}. Keep it hidden, or remove those links before deleting it.`,
+        code: 'TOUR_IN_USE',
+        blockers,
+      },
+      { status: 409 },
+    );
+  }
+
+  try {
+    const result = await db.tour.deleteMany({
+      where: { slug: existing.slug, status: existing.status },
+    });
+    if (result.count === 0) {
+      return NextResponse.json(
+        { error: 'This trip changed while you were deleting it. Reload and try again.', code: 'TOUR_CHANGED' },
+        { status: 409 },
+      );
+    }
+  } catch (error) {
+    if ((error as { code?: string }).code === 'P2003') {
+      return NextResponse.json(
+        {
+          error: 'This trip is still linked to other records. Keep it hidden, or remove those links before deleting it.',
+          code: 'TOUR_IN_USE',
+        },
+        { status: 409 },
+      );
+    }
+    throw error;
+  }
 
   return NextResponse.json({ deleted: true });
 }

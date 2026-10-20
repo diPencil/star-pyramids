@@ -18,6 +18,7 @@ import {
   normalizePhone,
 } from '../core/validation';
 import { dayTourTerms, getBookingTotal, getTravelerUnitPrices } from '@/data/tours';
+import { isTourPublished } from '@/lib/tour-publish';
 import { findTourBySlug } from './tours';
 import {
   BOOKING_FINANCIAL_REVIEW_CODE,
@@ -291,7 +292,7 @@ async function resolveLine(raw: unknown): Promise<ValidatedBookingLine> {
   }
   // DB-authoritative catalogue: pricing always resolves from the tours table.
   const tour = await findTourBySlug(tourSlug);
-  if (!tour) throw new Error('One of the selected tours is no longer available. Remove it and try again.');
+  if (!tour || !isTourPublished(tour)) throw new Error('One of the selected tours is no longer available. Remove it and try again.');
 
   const date = text(body.date) ?? '';
   if (date !== '' && !isValidPreferredDate(date)) throw new Error('Select a valid travel date.');

@@ -180,7 +180,7 @@ export function GalleryForm({ initial, editId }: { initial: GalleryItem | null; 
     let cancelled = false
     ;(async () => {
       try {
-        const res = await fetch('/api/tours', { credentials: 'same-origin' })
+        const res = await fetch('/api/tours?all=1', { credentials: 'same-origin' })
         const data = (await res.json()) as { tours?: Array<{ slug?: unknown; title?: unknown }> }
         if (!cancelled && res.ok && Array.isArray(data.tours)) {
           setTours(data.tours.filter((t) => typeof t.slug === 'string' && typeof t.title === 'string').map((t) => ({ slug: t.slug as string, title: t.title as string })).sort((a, b) => a.title.localeCompare(b.title)))
