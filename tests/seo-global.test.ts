@@ -41,6 +41,26 @@ describe('global SEO settings trust boundary', () => {
   });
 });
 
+describe('tracking settings trust boundary', () => {
+  it('accepts a valid GTM container and toggle as public settings', () => {
+    const values = { 'tracking.gtmEnabled': 'true', 'tracking.gtmContainerId': '  GTM-KQ8GR36H  ' };
+    expect(validateSettingsPatch({ values })).toEqual({
+      clean: { 'tracking.gtmEnabled': 'true', 'tracking.gtmContainerId': 'GTM-KQ8GR36H' },
+      errors: [],
+    });
+    for (const key of Object.keys(values)) {
+      expect(PUBLIC_SETTING_KEYS).toContain(key);
+      expect(SECRET_SETTING_KEYS).not.toContain(key);
+    }
+  });
+  it.each(['', 'GTM-', 'gtm-kq8gr36h', 'UA-12345', 'G-ABC123', '<script>', 'GTM-KQ8GR36H;alert(1)'])('rejects invalid GTM container %j', containerId => {
+    expect(validateSettingsPatch({ values: { 'tracking.gtmContainerId': containerId } }).errors).not.toHaveLength(0);
+  });
+  it.each(['1', 'yes', 'TRUE', ''])('rejects invalid tracking toggle %j', enabled => {
+    expect(validateSettingsPatch({ values: { 'tracking.gtmEnabled': enabled } }).errors).not.toHaveLength(0);
+  });
+});
+
 describe('global metadata reads real public strings only', () => {
   it.each([['en', 'En'], ['es', 'Es'], ['it', 'It'], ['ar', 'En']])('uses the %s description without taking over title', async (locale, suffix) => {
     const values: Record<string, string> = { [`site.seoDescription${suffix}`]: 'Localized description', 'site.seoImage': 'https://example.com/social.jpg', 'site.googleSiteVerification': 'public-token' };

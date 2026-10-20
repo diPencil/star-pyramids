@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { RotateCw, Save } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { protectEnquiryNavigation } from '@/lib/enquiry-navigation';
+import { DEFAULT_GTM_CONTAINER_ID } from '@/lib/tracking';
 import { Card } from './admin-ui';
 import { AdminConfirmDialog } from './admin-confirm-dialog';
 
@@ -16,13 +17,23 @@ const fields = [
   ['site.googleSiteVerification', 'Google Search Console verification token', 256],
 ] as const;
 
+const trackingFields = [
+  ['tracking.gtmEnabled', 'Enable Google Tag Manager', 5],
+  ['tracking.gtmContainerId', 'Google Tag Manager Container ID', 32],
+] as const;
+
+const allFields = [...fields, ...trackingFields] as const;
+
 function readValues(snapshot: unknown): Record<string, string> {
   if (!snapshot || typeof snapshot !== 'object' || !('values' in snapshot)
     || !snapshot.values || typeof snapshot.values !== 'object') throw new Error('Invalid settings response.');
   const publicValues = snapshot.values as Record<string, unknown>;
-  return Object.fromEntries(fields.map(([key]) => {
-    if (typeof publicValues[key] !== 'string') throw new Error('Invalid settings response.');
-    return [key, publicValues[key]];
+  return Object.fromEntries(allFields.map(([key]) => {
+    const stored = publicValues[key];
+    if (typeof stored !== 'string') throw new Error('Invalid settings response.');
+    if (key === 'tracking.gtmEnabled' && stored === '') return [key, 'true'];
+    if (key === 'tracking.gtmContainerId' && stored === '') return [key, DEFAULT_GTM_CONTAINER_ID];
+    return [key, stored];
   }));
 }
 
@@ -39,7 +50,7 @@ export function SeoGlobalSettings({ canEdit = false }: { canEdit?: boolean }) {
   const busy = useRef(false);
   const dirtyRef = useRef(false);
   const pendingRef = useRef(false);
-  const dirty = fields.some(([key]) => values[key] !== baseline[key]);
+  const dirty = allFields.some(([key]) => values[key] !== baseline[key]);
   dirtyRef.current = dirty;
   const load = useCallback(async () => {
     if (busy.current) return;
@@ -86,7 +97,7 @@ export function SeoGlobalSettings({ canEdit = false }: { canEdit?: boolean }) {
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canEdit || loading || busy.current || pendingRef.current) return;
-    const patch = Object.fromEntries(fields.filter(([key]) => values[key] !== baseline[key]).map(([key]) => [key, values[key]]));
+    const patch = Object.fromEntries(allFields.filter(([key]) => values[key] !== baseline[key]).map(([key]) => [key, values[key]]));
     if (!Object.keys(patch).length) return;
     busy.current = true; setSaving(true); setError(''); setSaved(false);
     try {
@@ -115,6 +126,30 @@ export function SeoGlobalSettings({ canEdit = false }: { canEdit?: boolean }) {
             ? <textarea maxLength={maxLength} value={values[key] ?? ''} onChange={event => { setValues(old => ({ ...old, [key]: event.target.value })); setSaved(false); }} />
             : <input maxLength={maxLength} required={key === 'site.seoTitle'} dir={key === 'site.googleSiteVerification' || key === 'site.seoImage' ? 'ltr' : undefined} pattern={key === 'site.googleSiteVerification' ? '[A-Za-z0-9_-]*' : undefined} value={values[key] ?? ''} onChange={event => { setValues(old => ({ ...old, [key]: event.target.value })); setSaved(false); }} />}
         </label>)}
+      </fieldset>
+      <fieldset disabled={!canEdit || loading || saving || confirmReload || pendingNavigation !== null || !Object.keys(baseline).length}>
+        <legend>Tracking &amp; Analytics</legend>
+        <label className="cms-checkbox">
+          <input
+            type="checkbox"
+            checked={values['tracking.gtmEnabled'] !== 'false'}
+            onChange={event => { setValues(old => ({ ...old, 'tracking.gtmEnabled': event.target.checked ? 'true' : 'false' })); setSaved(false); }}
+          />
+          Enable Google Tag Manager
+        </label>
+        <label>
+          <span>Google Tag Manager Container ID</span>
+          <input
+            maxLength={32}
+            required
+            dir="ltr"
+            pattern="GTM-[A-Z0-9]{4,12}"
+            placeholder={DEFAULT_GTM_CONTAINER_ID}
+            value={values['tracking.gtmContainerId'] ?? ''}
+            onChange={event => { setValues(old => ({ ...old, 'tracking.gtmContainerId': event.target.value.toUpperCase() })); setSaved(false); }}
+          />
+        </label>
+        <p>One container loads on public pages only. Admin, customer account and staff preview pages are excluded. Google Consent Mode v2 starts with non-essential consent denied until a visitor choice is stored.</p>
       </fieldset>
       <p>A configured verification token does not mean Google is authenticated or connected.</p>
       <button className="sp-btn" type="submit" disabled={!canEdit || loading || saving || confirmReload || pendingNavigation !== null || !Object.keys(baseline).length || !dirty}><Save size={16} aria-hidden="true" />{saving ? 'Saving...' : 'Save settings'}</button>

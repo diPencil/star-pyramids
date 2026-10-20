@@ -20,6 +20,7 @@ import { getActiveRate } from './fx';
 import { ENABLED_LOCALES } from '../locale-config';
 import { readAccessStrip, validateAccessStrip, type AccessStripOverride } from '../access-strip';
 import { validateHeroMedia } from '../website-heroes';
+import { normalizeGtmContainerId } from '../tracking';
 
 export const SETTING_KEYS = {
   siteName: 'site.name',
@@ -63,6 +64,9 @@ export const PUBLIC_SETTING_KEYS = [
   'site.seoDescriptionIt',
   'site.seoImage',
   'site.googleSiteVerification',
+  // Tracking and analytics (non-secret configuration only)
+  'tracking.gtmEnabled',
+  'tracking.gtmContainerId',
   'site.promoText',
   'site.promo2Text',
   // Footer accessibility strip override (JSON document, see lib/access-strip.ts)
@@ -392,6 +396,22 @@ export function validateSettingsPatch(input: {
         }
         clean[key] = value;
         break;
+      case 'tracking.gtmEnabled':
+        if (!isEnabledFlag(trimmed)) {
+          fail('Invalid toggle value for tracking.gtmEnabled.');
+          break;
+        }
+        clean[key] = trimmed;
+        break;
+      case 'tracking.gtmContainerId': {
+        const containerId = normalizeGtmContainerId(trimmed);
+        if (!containerId) {
+          fail('Enter a valid Google Tag Manager Container ID, such as GTM-KQ8GR36H.');
+          break;
+        }
+        clean[key] = containerId;
+        break;
+      }
       case 'site.seoImage':
         try {
           clean[key] = validateHeroMedia(value, 'image', true);
