@@ -9,22 +9,28 @@ import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-so
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
 import { getMultiDayToursForCategory, getToursByCategory } from '@/data/tours'
-import { useDbCategoriesStatus } from '@/lib/catalogue-client'
+import { invalidateCatalogueCache, useDbCategoriesStatus } from '@/lib/catalogue-client'
 import { useDbToursStatus } from '@/lib/tours-client'
+import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
+import { toast } from '@/components/admin/admin-toaster'
 
 export default function MultiDayCategoriesPage() {
   const ar = useAdminLocale() === 'ar'
   const [query, setQuery] = useState('')
+  const [removeTarget, setRemoveTarget] = useState<{ slug: string; name: string } | null>(null)
+  const [removeBusy, setRemoveBusy] = useState(false)
   const [removeError, setRemoveError] = useState('')
   // DB-authoritative catalogue with no static fallback: while the API is
   // loading or failing, the screen shows loading/error — never bootstrap
   // rows masquerading as database records.
-  const { data: categoryData, loading: categoriesLoading, error: categoriesError, retry: retryCategories } = useDbCategoriesStatus()
+  const { data: categoryData, loading: categoriesLoading, error: categoriesError, retry: retryCategories, refresh: refreshCategories } = useDbCategoriesStatus()
   const liveCategories = categoryData ?? []
-  const removeCategory = async (slug: string) => {
+  const removeCategory = async () => {
+    if (!removeTarget || removeBusy) return
+    setRemoveBusy(true)
     setRemoveError('')
     try {
-      const res = await fetch(`/api/multi-day-categories/${encodeURIComponent(slug)}`, {
+      const res = await fetch(`/api/multi-day-categories/${encodeURIComponent(removeTarget.slug)}`, {
         method: 'DELETE',
         credentials: 'same-origin',
       })
@@ -32,10 +38,16 @@ export default function MultiDayCategoriesPage() {
         const data = await res.json().catch(() => ({} as { error?: string }))
         throw new Error(data.error || 'Failed to delete category.')
       }
-      // Refresh from the DB source of truth.
-      window.location.reload()
+      toast.success(ar ? `تم حذف "${removeTarget.name}".` : `"${removeTarget.name}" deleted.`, { dedupeKey: `category-delete-${removeTarget.slug}` })
+      setRemoveTarget(null)
+      // Refresh from the DB source of truth without a full page reload.
+      invalidateCatalogueCache()
+      refreshCategories()
     } catch (err) {
       setRemoveError(err instanceof Error ? err.message : 'Failed to delete category.')
+      toast.error(err instanceof Error ? err.message : 'Failed to delete category.', { dedupeKey: 'category-delete-error' })
+    } finally {
+      setRemoveBusy(false)
     }
   }
   const { data: tourData, loading: toursLoading, error: toursError, retry: retryTours } = useDbToursStatus(getToursByCategory('multi-days-tours'))
@@ -69,7 +81,6 @@ export default function MultiDayCategoriesPage() {
     ]} />
     <Card title={<AdminText en="All categories" ar="كل الفئات" />} sub={<AdminText en={`${rows.length} of ${liveCategories.length} shown`} ar={`عرض ${rows.length} من ${liveCategories.length}`} />}>
       <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث في الفئات...' : 'Search categories...'} />
-      {removeError ? <p role="alert" style={{ color: '#b91c1c', margin: '8px 0 0' }}>{removeError}</p> : null}
       {loading ? <AdminEmpty title={<AdminText en="Loading categories…" ar="جارٍ تحميل الفئات…" />} copy={<AdminText en="Reading the authoritative catalogue." ar="تتم قراءة السجل المعتمد." />} />
       : loadError ? <><AdminEmpty title={<AdminText en="Could not load categories" ar="تعذر تحميل الفئات" />} copy={<AdminText en={loadError} ar={loadError} />} /><div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}><button type="button" className="sp-btn" onClick={retryAll}><AdminText en="Retry" ar="إعادة المحاولة" /></button></div></>
       : rows.length ? <AdminTableWrap><table className="sp-table">
@@ -83,11 +94,27 @@ export default function MultiDayCategoriesPage() {
           <td><AdminTableActions>
             <AdminIconAction icon={Pencil} label={ar ? `تعديل ${category.name}` : `Edit ${category.name}`} href={`/admin/multi-day-categories/new?slug=${category.slug}`} />
             <AdminIconAction icon={ExternalLink} label={ar ? `عرض ${category.name}` : `View ${category.name}`} href={`/egypt-tours/multi-days-tours/${category.slug}`} />
-            <AdminIconAction icon={Trash2} label={ar ? `حذف ${category.name}` : `Delete ${category.name}`} tone="danger" onClick={() => void removeCategory(category.slug)} />
+            <AdminIconAction icon={Trash2} label={ar ? `حذف ${category.name}` : `Delete ${category.name}`} tone="danger" onClick={() => { setRemoveError(''); setRemoveTarget({ slug: category.slug, name: ar ? category.nameAr : category.name }) }} />
           </AdminTableActions></td>
         </tr>)}</tbody>
       </table></AdminTableWrap> : <AdminEmpty title={<AdminText en="No categories found" ar="لا توجد فئات" />} copy={<AdminText en="Try changing the search or filters." ar="جرب تغيير البحث أو الفلاتر." />} />}
         {rows.length > 0 && <AdminPagination page={paging.page} pageCount={paging.pageCount} onPage={paging.setPage} pageSize={paging.pageSize} onPageSize={paging.setPageSize} from={paging.from} to={paging.to} total={paging.total} />}
     </Card>
+    <AdminConfirmDialog
+      open={removeTarget !== null}
+      onClose={() => { if (!removeBusy) setRemoveTarget(null) }}
+      onConfirm={() => { void removeCategory() }}
+      title={<AdminText en="Delete this category?" ar="حذف هذه الفئة؟" />}
+      description={<AdminText en="This permanently removes the themed collection; linked tours keep their category assignments and can be reassigned." ar="يزيل هذه المجموعة الموضوعية نهائيًا؛ تحتفظ الرحلات المرتبطة بتعييناتها ويمكن إعادة تعيينها." />}
+      confirmLabel={<AdminText en={removeBusy ? 'Deleting…' : 'Delete category'} ar={removeBusy ? 'جارٍ الحذف…' : 'حذف الفئة'} />}
+      cancelLabel={<AdminText en="Keep" ar="إبقاء" />}
+      tone="danger"
+      canConfirm={!removeBusy}
+    >
+      <div style={{ display: 'grid', gap: 8 }}>
+        <p style={{ margin: 0, fontWeight: 700 }}>{removeTarget ? (ar ? removeTarget.name || removeTarget.slug : removeTarget.name || removeTarget.slug) : null}</p>
+        {removeError ? <p role="alert" style={{ color: '#b91c1c', margin: 0 }}>{removeError}</p> : null}
+      </div>
+    </AdminConfirmDialog>
   </>
 }

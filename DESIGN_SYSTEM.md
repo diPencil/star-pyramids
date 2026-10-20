@@ -53,7 +53,9 @@ FAQ rows have one open item at a time and rotate their chevron. The language/cur
 The help panel is blue with inline fields on desktop and stacked fields on mobile. The footer is charcoal with logo/description, links, contact information, and copyright/legal row. Inputs retain white backgrounds and rounded 10px corners.
 
 ## 16. Motion and z-index
-Transitions are limited to 150ms ease-out for hover, accordion chevrons, cards, and button feedback. Header is z-index 20, search is z-index 3, floating controls 15, modal 50, toast 60.
+Transitions are limited to 150ms ease-out for hover, accordion chevrons, cards, and button feedback. Header is z-index 20, search is z-index 3, floating controls 15, modal 50, toast 60. In the admin dashboard the shared toaster (`.sp-toaster`, `components/admin/admin-toaster.tsx`) sits at z-index 60 — below the full-screen confirm modal backdrop at z-index 80 and toasts stack above the sticky user menu/search (50). Toasts never block interaction: `pointer-events:none` on the stack, `auto` on each toast.
+
+Admin modules surface backend action results through the shared `toast` API instead of inline success paragraphs: `toast.success/info` (auto-dismiss 4000ms), `toast.warning` (5000ms), `toast.error` (8000ms), and `toast.loading` (sticky until resolved, then updated in place). Pass a stable `dedupeKey` per logical action so retries replace the visible toast instead of stacking. Page-load failures keep inline error states with retry buttons; persistent notification history stays in the Notification Center, never in toasts. Toast copy must follow the module's English/Arabic (AdminText) conventions and toasts survive one page reload via a session-scoped snapshot but never persist to the notification store.
 
 ## 17. Accessibility
 All meaningful images have alt text, icon-only controls have accessible labels, modal close and buttons are keyboard targets, form fields have labels, status feedback uses `role=status`, and semantic header/nav/main/section/footer elements are used. Color is not the sole indicator of interaction state.

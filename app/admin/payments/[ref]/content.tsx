@@ -7,6 +7,7 @@ import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { AdminText, Card, StatusPill } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { useAdminCurrency } from '@/components/admin/admin-currency'
+import { toast } from '@/components/admin/admin-toaster'
 import { useCurrentUser } from '@/lib/use-current-user'
 import { SharedSelect } from '@/components/shared-select'
 import { paymentActivityLabel, paymentStatusLabel, type StaffPayment } from '@/lib/payment'
@@ -27,7 +28,6 @@ export function PaymentDetailContent({ reference }: { reference: string }) {
   const [item, setItem] = useState<StaffPayment | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
-  const [actionError, setActionError] = useState('')
   const [refundOpen, setRefundOpen] = useState(false)
   const [refAmount, setRefAmount] = useState('')
   const [refMethod, setRefMethod] = useState('bank_transfer')
@@ -42,13 +42,11 @@ export function PaymentDetailContent({ reference }: { reference: string }) {
     setRefExternal('')
     setRefNote('')
     setRefConfirmed(false)
-    setActionError('')
     setRefundOpen(true)
   }
 
   const submitRefund = () => {
     if (!item || refSaving) return
-    setActionError('')
     setRefSaving(true)
     fetch(`/api/admin/payments/${encodeURIComponent(item.reference)}/refund`, {
       method: 'POST',
@@ -70,9 +68,10 @@ export function PaymentDetailContent({ reference }: { reference: string }) {
       .then((row) => {
         setItem(row)
         setRefundOpen(false)
+        toast.success(ar ? 'تم تسجيل الاسترداد.' : 'Refund recorded.', { dedupeKey: 'payment-refund' })
       })
       .catch((error: unknown) => {
-        setActionError(error instanceof Error ? error.message : 'Could not record the refund.')
+        toast.error(error instanceof Error ? error.message : 'Could not record the refund.', { dedupeKey: 'payment-refund' })
       })
       .finally(() => setRefSaving(false))
   }
@@ -157,7 +156,6 @@ export function PaymentDetailContent({ reference }: { reference: string }) {
                   </button>
                 )}
               </div>
-              {actionError && <p className="evr-manage-hint" role="alert">{actionError}</p>}
             </div>
           </Card>
         </div>

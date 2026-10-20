@@ -5,6 +5,7 @@ import { ContentLanguageTabs, TranslatedInput, TranslatedTextarea } from '@/comp
 import { type CatalogueTranslations } from '@/lib/catalogue-translations'
 import { AdminText, Card } from './admin-ui'
 import { useAdminLocale } from './admin-locale'
+import { toast } from './admin-toaster'
 import { SharedSelect } from '@/components/shared-select'
 import { ImageField } from './image-field'
 import { slugify } from '@/lib/admin-store'
@@ -67,7 +68,7 @@ export function VehicleForm({
       copy: copy.trim() || title.trim(),
       })
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to save vehicle.')
+      toast.error(error instanceof Error ? error.message : (ar ? 'تعذر حفظ السيارة.' : 'Failed to save vehicle.'), { dedupeKey: 'car-editor-save' })
     } finally {
       pending.current = false
       setSaving(false)

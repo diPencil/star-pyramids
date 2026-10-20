@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, ExternalLink, Eye, E
 import { PageHead } from './admin-shell'
 import { AdminText, Card, StatusPill } from './admin-ui'
 import { useAdminLocale } from './admin-locale'
+import { toast } from './admin-toaster'
 import { invalidateToursCache } from '@/lib/tours-client'
 import { getTravelerUnitPrices, multiDayCategories, normalizeTourPricePeriods, tours } from '@/data/tours'
 import { destinations } from '@/data/content'
@@ -167,7 +168,6 @@ export function TripBuilder() {
   // ?slug= on load and after a successful POST so later saves update it.
   const [editingSlug, setEditingSlug] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-  const [savedSlug, setSavedSlug] = useState<string | null>(null)
   const [visBusy, setVisBusy] = useState(false)
   // Publish state of the loaded record (new tours publish on first save).
   const tourVisible = (sourceTour?.status ?? 'published') === 'published'
@@ -177,7 +177,6 @@ export function TripBuilder() {
     if (!editingSlug || visBusy) return
     setVisBusy(true)
     setError('')
-    setFeedback('')
     try {
       const res = await fetch(`/api/tours/${encodeURIComponent(editingSlug)}`, {
         method: 'PUT',
@@ -191,13 +190,14 @@ export function TripBuilder() {
       }
       setSourceTour((prev) => (prev ? { ...prev, status: published ? 'published' : 'draft' } : prev))
       invalidateToursCache()
-      setFeedback(
+      toast.success(
         published
           ? (ar ? 'تم نشر الرحلة. ستظهر في الموقع العام.' : 'Tour published. It now appears on the public website.')
           : (ar ? 'تم إخفاء الرحلة. لن تظهر في الموقع العام.' : 'Tour unpublished. It is now hidden from the public website.'),
+        { dedupeKey: 'tour-visibility' },
       )
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update visibility.')
+      toast.error(err instanceof Error ? err.message : 'Failed to update visibility.', { dedupeKey: 'tour-visibility-error' })
     } finally {
       setVisBusy(false)
     }
@@ -232,7 +232,6 @@ export function TripBuilder() {
   const [previewInfants, setPreviewInfants] = useState(0)
   // Route slug for a new tour (the slug field is read-only when editing).
   const [newSlug, setNewSlug] = useState('')
-  const [feedback, setFeedback] = useState('')
   const [error, setError] = useState('')
   // Serialized snapshot of the last persisted editor state. Compared
   // against the live editor state to decide whether Save & Publish shows.
@@ -292,7 +291,6 @@ export function TripBuilder() {
           load(data.tour as Tour)
           // Resolve to the canonical slug (supports opening via an alias).
           setEditingSlug((data.tour as Tour).slug)
-          setSavedSlug(null)
         }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load tour.')
@@ -382,7 +380,6 @@ export function TripBuilder() {
   const showSave = editingSlug === null || baseline === null || baseline !== currentSnapshot
 
   const publish = async () => {
-    setFeedback('')
     setError('')
     const missingEnglish = addOns.some((row) => row.translations && !row.title.trim())
       || itinerary.some((row) => row.translations && !row.title.trim() && !row.description.trim())
@@ -583,21 +580,18 @@ export function TripBuilder() {
       const persisted = (data.tour as Tour | undefined) ?? saved
       setSourceTour(persisted)
       setEditingSlug(persisted.slug)
-      setSavedSlug(persisted.slug)
       try {
         const nextUrl = new URL(window.location.href)
         nextUrl.searchParams.set('slug', persisted.slug)
         window.history.replaceState(null, '', nextUrl.toString())
       } catch { /* non-fatal */ }
       setDone(steps.map((_, index) => index))
-      setFeedback(ar ? 'تم حفظ الرحلة في قاعدة البيانات.' : 'Tour saved to the database.')
+      toast.success(ar ? 'تم حفظ الرحلة في قاعدة البيانات.' : 'Tour saved to the database.', { dedupeKey: 'tour-save' })
       // Successful save marks the editor clean, hiding Save & Publish until
       // the next edit. Failures leave the baseline untouched (button stays).
       setBaseline(currentSnapshot)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save tour to database.')
-      setFeedback('')
-      setSavedSlug(null)
+      toast.error(err instanceof Error ? err.message : (ar ? 'فشل حفظ الرحلة في قاعدة البيانات.' : 'Failed to save tour to database.'), { dedupeKey: 'tour-save-error' })
     } finally {
       setSaving(false)
     }
@@ -690,8 +684,6 @@ export function TripBuilder() {
           {step === 9 && <div className="sp-review-grid"><div><small><AdminText en="Tour" ar="الرحلة" /></small><strong>{form.title}</strong><span>{form.category} · {form.duration}</span></div><div><small><AdminText en="Content" ar="المحتوى" /></small><strong>{itinerary.length} <AdminText en="itinerary items" ar="عناصر برنامج" /></strong><span>{highlights.length} <AdminText en="highlight groups" ar="مجموعات أبرز المعالم" /> · {addOns.length} <AdminText en="add-ons" ar="إضافات" /> · {locations.length} <AdminText en="locations" ar="مواقع" /></span></div><div><small><AdminText en="Pricing" ar="التسعير" /></small><strong>{cleanTravelerPrices.length} <AdminText en="combined traveler tiers" ar="شرائح مسافرين مجمعة" /></strong><span><AdminText en={`${travelerPrices.adult.length} adult · ${travelerPrices.child.length} child · ${travelerPrices.infant.length} infant rates`} ar={`${travelerPrices.adult.length} بالغ · ${travelerPrices.child.length} طفل · ${travelerPrices.infant.length} رضيع`} /></span></div><div><small><AdminText en="Media" ar="الوسائط" /></small><strong>{gallery.length} <AdminText en="images" ar="صور" /></strong><span><AdminText en="First image is the cover" ar="الصورة الأولى هي الغلاف" /></span></div>{editingSlug && <div><small><AdminText en="Visibility" ar="الظهور" /></small><strong><StatusPill status={tourVisible ? 'published' : 'hidden'} /></strong><span><button type="button" className="sp-btn" onClick={() => void setVisibility(!tourVisible)} disabled={visBusy || saving}>{tourVisible ? <EyeOff size={16} /> : <Eye size={16} />}<AdminText en={tourVisible ? 'Unpublish' : 'Publish'} ar={tourVisible ? 'إخفاء' : 'نشر'} /></button><AdminText en={tourVisible ? 'Visible on the public website.' : 'Hidden from the public website.'} ar={tourVisible ? 'ظاهرة في الموقع العام.' : 'مخفية عن الموقع العام.'} /></span></div>}<p className="sp-builder-note full"><AdminText en="Save & Publish writes this tour to the database. The public tour page reads the same saved record." ar="الحفظ والنشر يكتبان هذه الرحلة في قاعدة البيانات. صفحة الرحلة العامة تقرأ نفس السجل المحفوظ." /></p></div>}
 
           {error&&<p className="sp-builder-feedback error" role="alert">{error}</p>}
-          {feedback&&<p className="sp-builder-feedback success" role="status"><CheckCircle2 size={17}/>{feedback}</p>}
-          {feedback&&savedSlug&&<p className="sp-builder-feedback success" role="status"><a href={`/egypt-tours/${savedSlug}`}><AdminText en="View tour" ar="عرض الرحلة" /></a>{' · '}<a href="/admin/trips"><AdminText en="Back to Trips" ar="رجوع إلى الرحلات" /></a></p>}
           <div className="sp-builder-actions">{activeStep>0&&<button type="button" className="sp-btn" onClick={() => setActiveStep((current) => current-1)} disabled={saving}><AdminText en="Back" ar="رجوع" /></button>}{!isLastStep?<button type="button" className="sp-btn primary" onClick={next} disabled={saving}><AdminText en="Continue" ar="متابعة" /></button>:showSave?<button type="button" className="sp-btn primary" onClick={publish} disabled={saving}><Save size={16}/><AdminText en="Save & Publish" ar="حفظ ونشر" /></button>:null}</div>
           </Tabs.Panel>
         </Tabs.Root>

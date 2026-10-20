@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
+import { toast } from '@/components/admin/admin-toaster'
 import { slugify } from '@/lib/admin-store'
 import { invalidateOffersBlogsCache, useDbBlogs } from '@/lib/offers-blogs-client'
 import { ImageField } from '@/components/admin/image-field'
@@ -91,12 +92,13 @@ function BlogForm({ initial, editSlug }: { initial: Blog | null; editSlug: strin
         throw new Error(data.error || 'Failed to save story.')
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save story.')
+      toast.error(err instanceof Error ? err.message : (ar ? 'تعذر حفظ المقال.' : 'Failed to save story.'), { dedupeKey: 'blog-editor-save' })
       setSaving(false)
       return
     }
     setSaving(false)
     invalidateOffersBlogsCache()
+    toast.success(published ? (ar ? 'تم حفظ ونشر المقال.' : 'Story saved and published.') : (ar ? 'تم حفظ المقال كمسودة.' : 'Story saved as a draft.'), { dedupeKey: 'blog-editor-save' })
     router.push('/admin/blogs')
   }
 

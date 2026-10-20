@@ -10,6 +10,7 @@ import { ImageField } from '@/components/admin/image-field'
 import { CountrySelect } from '@/components/country-select'
 import { InternationalPhoneInput } from '@/components/international-phone-input'
 import type { AuthenticatedUser } from '@/lib/auth-types'
+import { toast } from '@/components/admin/admin-toaster'
 
 export default function ProfilePage() {
   const ar = useAdminLocale() === 'ar'
@@ -28,7 +29,6 @@ export default function ProfilePage() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
-  const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -64,12 +64,9 @@ export default function ProfilePage() {
     return () => { cancelled = true }
   }, [ar])
 
-  const touch = () => setSaved(false)
-
   const onCountry = (code: string) => {
     setCountryCode(code)
     setPhoneCountry(code)
-    touch()
   }
 
   const save = async () => {
@@ -140,13 +137,16 @@ export default function ProfilePage() {
         const avatarData = await avatarResponse.json().catch(() => ({})) as { user?: AuthenticatedUser; error?: string }
         if (!avatarResponse.ok) {
           console.error('Avatar upload failed:', avatarData.error)
-        } else if (avatarData.user) {
+          toast.warning(ar ? 'تم حفظ البروفايل، لكن تعذر رفع الصورة الرمزية.' : 'Profile saved, but the avatar upload failed.', { dedupeKey: 'profile-save' })
+          return
+        }
+        if (avatarData.user) {
           setAvatar(avatarData.user.avatar ?? '')
           saveAdminProfile({ avatar: avatarData.user.avatar ?? '' })
         }
       }
 
-      setSaved(true)
+      toast.success(ar ? 'تم حفظ البروفايل بنجاح.' : 'Profile saved successfully.', { dedupeKey: 'profile-save' })
     } catch {
       setError(ar ? 'تعذر حفظ البروفايل. حاول مرة أخرى.' : 'Could not save the profile. Please try again.')
     } finally {
@@ -164,7 +164,7 @@ export default function ProfilePage() {
           <div style={{ display: 'grid', justifyItems: 'center', gap: 12 }}>
             <Avatar name={displayName} src={avatar} size={96} />
             <div className="sp-form" style={{ width: '100%' }}>
-              <ImageField value={avatar} onChange={(next) => { setAvatar(next); touch() }} scope="avatar" linkLabel={{ en: 'Avatar URL', ar: 'رابط الصورة الرمزية' }} uploadLabel={{ en: 'Upload avatar', ar: 'رفع صورة رمزية' }} />
+              <ImageField value={avatar} onChange={(next) => { setAvatar(next) }} scope="avatar" linkLabel={{ en: 'Avatar URL', ar: 'رابط الصورة الرمزية' }} uploadLabel={{ en: 'Upload avatar', ar: 'رفع صورة رمزية' }} />
             </div>
             <small style={{ color: 'var(--sp-muted)', fontSize: 11, textAlign: 'center' }}>
               <AdminText en="Changes are saved to your account and persist across devices." ar="التغييرات محفوظة في حسابك وتظهر على جميع الأجهزة." />
@@ -180,20 +180,20 @@ export default function ProfilePage() {
             : (
               <div className="sp-form">
                 <div className="sp-form-2">
-                  <label><AdminText en="First name" ar="الاسم الأول" /><input value={firstName} onChange={(e) => { setFirstName(e.target.value); touch() }} autoComplete="given-name" /></label>
-                  <label><AdminText en="Last name" ar="اسم العائلة" /><input value={lastName} onChange={(e) => { setLastName(e.target.value); touch() }} autoComplete="family-name" /></label>
+                  <label><AdminText en="First name" ar="الاسم الأول" /><input value={firstName} onChange={(e) => { setFirstName(e.target.value) }} autoComplete="given-name" /></label>
+                  <label><AdminText en="Last name" ar="اسم العائلة" /><input value={lastName} onChange={(e) => { setLastName(e.target.value) }} autoComplete="family-name" /></label>
                 </div>
                 <div className="sp-form-2">
-                  <label><AdminText en="Username" ar="اسم المستخدم" /><input value={username} onChange={(e) => { setUsername(e.target.value); touch() }} dir="ltr" autoComplete="username" /></label>
-                  <label><AdminText en="Email address" ar="البريد الإلكتروني" /><input type="email" value={email} onChange={(e) => { setEmail(e.target.value); touch() }} dir="ltr" autoComplete="email" /></label>
+                  <label><AdminText en="Username" ar="اسم المستخدم" /><input value={username} onChange={(e) => { setUsername(e.target.value) }} dir="ltr" autoComplete="username" /></label>
+                  <label><AdminText en="Email address" ar="البريد الإلكتروني" /><input type="email" value={email} onChange={(e) => { setEmail(e.target.value) }} dir="ltr" autoComplete="email" /></label>
                 </div>
                 <div className="sp-form-2">
                   <label><AdminText en="Country" ar="الدولة" /><CountrySelect value={countryCode} onChange={onCountry} locale={ar ? 'ar' : 'en'} /></label>
-                  <label><AdminText en="Mobile number" ar="رقم الموبايل" /><InternationalPhoneInput value={phone} onChange={(next) => { setPhone(next); touch() }} locale={ar ? 'ar' : 'en'} countryCode={phoneCountry} onCountryChange={(code) => { setPhoneCountry(code); touch() }} /></label>
+                  <label><AdminText en="Mobile number" ar="رقم الموبايل" /><InternationalPhoneInput value={phone} onChange={(next) => { setPhone(next) }} locale={ar ? 'ar' : 'en'} countryCode={phoneCountry} onCountryChange={(code) => { setPhoneCountry(code) }} /></label>
                 </div>
                 <div className="sp-form-2">
-                  <label><AdminText en="New password (optional, 6-64 characters)" ar="كلمة مرور جديدة (اختياري، 6-64 حرفًا)" /><input type="password" value={password} onChange={(e) => { setPassword(e.target.value); touch() }} placeholder={ar ? '6-64 حرفًا' : '6-64 characters'} dir="ltr" autoComplete="new-password" /></label>
-                  <label><AdminText en="Confirm password" ar="تأكيد كلمة المرور" /><input type="password" value={confirmPassword} onChange={(e) => { setConfirmPassword(e.target.value); touch() }} dir="ltr" autoComplete="new-password" /></label>
+                  <label><AdminText en="New password (optional, 6-64 characters)" ar="كلمة مرور جديدة (اختياري، 6-64 حرفًا)" /><input type="password" value={password} onChange={(e) => { setPassword(e.target.value) }} placeholder={ar ? '6-64 حرفًا' : '6-64 characters'} dir="ltr" autoComplete="new-password" /></label>
+                  <label><AdminText en="Confirm password" ar="تأكيد كلمة المرور" /><input type="password" value={confirmPassword} onChange={(e) => { setConfirmPassword(e.target.value) }} dir="ltr" autoComplete="new-password" /></label>
                 </div>
                 <div className="sp-form-2">
                   <label><AdminText en="Role" ar="الدور" /><input value={roles.join(' · ') || '-'} readOnly disabled /></label>
@@ -202,7 +202,6 @@ export default function ProfilePage() {
               </div>
             )}
         {error && <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>}
-        {saved && <p role="status" style={{ color: '#15803d' }}><AdminText en="Saved successfully." ar="تم الحفظ بنجاح." /></p>}
       </Card>
     </div>
   </>

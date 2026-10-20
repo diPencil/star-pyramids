@@ -7,6 +7,7 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminIconAction, AdminTableActions, AdminTableWrap, AdminText, Card, StatusPill } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { invalidateEventsCarsCache, useDbCarsStatus } from '@/lib/events-cars-client'
+import { toast } from '@/components/admin/admin-toaster'
 import type { StaffCarRequest } from '@/lib/car-request'
 
 /**
@@ -21,11 +22,10 @@ export function VehicleDetailContent({ vehicleSlug }: { vehicleSlug: string }) {
   const slug = decodeURIComponent(vehicleSlug)
   // DB-authoritative fleet with no static fallback; a failed API read
   // renders loading/error here, never bootstrap rows as fleet records.
-  const { data, loading, error, retry } = useDbCarsStatus()
+  const { data, loading, error, retry, refresh } = useDbCarsStatus()
   const liveCars = data ?? []
   const car = liveCars.find((entry) => entry.slug === slug)
   const [staffRequests, setStaffRequests] = useState<StaffCarRequest[]>([])
-  const [visibilityError, setVisibilityError] = useState('')
   useEffect(() => {
     let cancelled = false
     fetch('/api/admin/car-requests', { credentials: 'same-origin' })
@@ -51,7 +51,6 @@ export function VehicleDetailContent({ vehicleSlug }: { vehicleSlug: string }) {
 
   const setPublished = async (published: boolean) => {
     if (!car) return
-    setVisibilityError('')
     try {
       const res = await fetch(`/api/cars/${encodeURIComponent(car.slug)}`, {
         method: 'PUT',
@@ -64,10 +63,11 @@ export function VehicleDetailContent({ vehicleSlug }: { vehicleSlug: string }) {
         throw new Error(data.error || 'Failed to update visibility.')
       }
       invalidateEventsCarsCache()
+      toast.success(published ? (ar ? 'تمت إظهار السيارة في الموقع العام.' : 'Car published. It now appears on the public website.') : (ar ? 'تمت إخفاء السيارة.' : 'Car unpublished. It is now hidden from the public website.'), { dedupeKey: 'vehicle-visibility' })
       // Refresh from the DB source of truth.
-      window.location.reload()
+      refresh()
     } catch (err) {
-      setVisibilityError(err instanceof Error ? err.message : 'Failed to update visibility.')
+      toast.error(err instanceof Error ? err.message : 'Failed to update visibility.', { dedupeKey: 'vehicle-visibility' })
     }
   }
 
@@ -129,7 +129,6 @@ export function VehicleDetailContent({ vehicleSlug }: { vehicleSlug: string }) {
             ? <AdminText en="Show on website" ar="إظهار على الموقع" />
             : <AdminText en="Hide from website" ar="إخفاء عن الموقع" />}
         </button>
-        {visibilityError && <p role="alert" style={{ color: '#b91c1c', marginTop: 8 }}>{visibilityError}</p>}
       </Card>
     </div>
 

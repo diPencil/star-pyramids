@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowDown, ArrowUp, EyeOff, Plus, RotateCcw, Save, Send, Trash2 } from 'lucide-react'
 import { PageHead } from './admin-shell'
 import { AdminConfirmDialog } from './admin-confirm-dialog'
+import { toast } from './admin-toaster'
 import { SharedSelect } from '@/components/shared-select'
 import { ENABLED_LOCALES, type EnabledLocale } from '@/lib/locale-config'
 import { pageSections, CMS_ICON_IDS, originalPageContent, validatePageContent, type PageContent, type PageContentState, type PageSection, type SectionItem, type CmsIconId } from '@/lib/page-sections'
@@ -35,8 +36,7 @@ export function PageVisualEditor({ pageId = 'homepage' }: { pageId?: PageDocumen
   const [busy, setBusy] = useState(false)
   const [canEdit, setCanEdit] = useState(false)
   const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
-  const [confirm, setConfirm] = useState<HeroAction | 'reload' | null>(null)
+    const [confirm, setConfirm] = useState<HeroAction | 'reload' | null>(null)
   const [removeItem, setRemoveItem] = useState<string | null>(null)
   const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null)
   const lock = useRef(false)
@@ -65,7 +65,7 @@ export function PageVisualEditor({ pageId = 'homepage' }: { pageId?: PageDocumen
     finally { lock.current = false; setBusy(false) }
   }
   useEffect(() => { void load() }, [])
-  const change = (content: PageContent) => { setDraft(content); setDirty(true); setNotice('') }
+  const change = (content: PageContent) => { setDraft(content); setDirty(true) }
   const changeSection = (next: PageSection) => change({ ...draft, sections: draft.sections.map((section) => section.id === next.id ? next : section) })
   const section = draft.sections.find((section) => section.id === active)!
   const definition = definitions.find((section) => section.id === active)!
@@ -88,7 +88,7 @@ export function PageVisualEditor({ pageId = 'homepage' }: { pageId?: PageDocumen
   const addItem = () => { const fields = Object.fromEntries((definition.itemFields ?? []).map((field) => [field, ''])); changeSection({ ...section, items: [...(section.items ?? []), { id: 'item-' + crypto.randomUUID(), visible: true, text: { en: { ...fields }, es: { ...fields }, it: { ...fields } }, ...(definition.icons ? { icon: 'Star' as const } : {}), ...(definition.numbers ? { value: 0, prefix: '', suffix: '', decimals: 0 } : {}), ...(active === 'how' || definition.itemHref ? { href: '/contact' } : {}), ...(definition.itemImage ? { image: '/egypt-hero.png' } : {}) }] }) }
   const action = async (command: HeroAction) => {
     if (!state || !canEdit || lock.current) return
-    setError(''); setNotice('')
+    setError('')
     let content: PageContent | undefined
     if (command === 'save-draft') { try { content = validatePageContent(draft, pageId) } catch (error) { setError((error as Error).message); return } }
     lock.current = true; setBusy(true)
@@ -96,7 +96,10 @@ export function PageVisualEditor({ pageId = 'homepage' }: { pageId?: PageDocumen
       const response = await fetch(endpoint, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: command, revision: state.revision, ...(content ? { content } : {}) }) })
       const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Could not save the page.')
       setState(data.state); setDraft(data.state.draft ?? data.state.published ?? original()); setDirty(false); dirtyRef.current = false
-      setNotice(command === 'save-draft' ? 'Draft saved. The public page is unchanged.' : command === 'publish' ? 'Page sections and their order published.' : command === 'restore' ? 'Original page sections restored. Existing hero content is unchanged.' : 'Optional page sections unpublished. Search and forms remain available.')
+      if (command === 'save-draft') toast.success('Draft saved. The public page is unchanged.', { dedupeKey: 'page-visual-draft' })
+      else if (command === 'publish') toast.success('Page sections and their order published.', { dedupeKey: 'page-visual-publish' })
+      else if (command === 'restore') toast.success('Original page sections restored. Existing hero content is unchanged.', { dedupeKey: 'page-visual-restore' })
+      else toast.success('Optional page sections unpublished. Search and forms remain available.', { dedupeKey: 'page-visual-unpublish' })
     } catch (error) { setError(error instanceof Error ? error.message : 'Could not save the page.') }
     finally { lock.current = false; setBusy(false); setConfirm(null) }
   }
@@ -110,7 +113,7 @@ export function PageVisualEditor({ pageId = 'homepage' }: { pageId?: PageDocumen
       <button className="sp-btn" type="button" disabled={disabled || dirty || state?.mode !== 'published' || definitions.every(section => section.mandatory)} onClick={() => setConfirm('unpublish')}><EyeOff size={16} /> Unpublish</button>
       <button className="sp-btn" type="button" disabled={disabled} onClick={() => setConfirm('restore')}><RotateCcw size={16} /> Restore</button>
     </div></div>
-    {error && <p className="form-error" role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
+    {error && <p className="form-error" role="alert">{error}</p>}
     <div className="cms-visual-layout"><aside><h3>Page sections</h3><nav aria-label="Page sections">{draft.sections.map((item, index) => <div key={item.id}><button type="button" className="sp-btn" aria-pressed={active === item.id} onClick={() => setActive(item.id)}>{index + 1}. {definitions.find((s) => s.id === item.id)!.name}{!item.visible && ' · Hidden'}</button><div><button className="sp-btn" type="button" title="Move section up" aria-label={`Move ${item.id} up`} disabled={disabled || index <= 1} onClick={() => move(index, -1)}><ArrowUp size={14} /></button><button className="sp-btn" type="button" title="Move section down" aria-label={`Move ${item.id} down`} disabled={disabled || index === 0 || index === draft.sections.length - 1} onClick={() => move(index, 1)}><ArrowDown size={14} /></button></div></div>)}</nav></aside>
       <section className="cms-field-panel"><h2>{definition.name}</h2><fieldset disabled={disabled}>
         <label className="cms-checkbox"><input type="checkbox" checked={section.visible} disabled={disabled || definition.mandatory} onChange={(event) => changeSection({ ...section, visible: event.target.checked })} /> Visible on this page{definition.mandatory && ' (required)'}</label>

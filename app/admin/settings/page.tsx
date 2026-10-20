@@ -10,6 +10,7 @@ import { WhatsAppGlyph } from '@/components/whatsapp-chat'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
+import { toast } from '@/components/admin/admin-toaster'
 import { cn } from '@/lib/utils'
 import { defaultCurrencySettings, defaultLocalizationSettings } from '@/components/locale'
 import { defaultBrandSettings, defaultSocialLinks, SOCIAL_NETWORKS, type SocialLink } from '@/lib/admin-store'
@@ -62,10 +63,9 @@ async function patchSettings(
   return data
 }
 
-/** Inline success/error feedback (the project's established settings pattern). */
-function SaveFeedback({ saved, error }: { saved: string; error: string }) {
+/** Inline save-error feedback; success messages surface through shared admin toasts. */
+function SaveFeedback({ error }: { error: string }) {
   if (error) return <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>
-  if (saved) return <p role="status" style={{ color: '#15803d' }}><CheckCircle2 size={15} style={{ verticalAlign: '-2px' }} /> {saved}</p>
   return null
 }
 
@@ -147,16 +147,14 @@ type TabShell = {
 
 function useTabState<T>(snapshot: SettingsSnapshot | null, init: (snap: SettingsSnapshot | null) => T) {
   const [form, setForm] = useState<T>(() => init(snapshot))
-  const [saved, setSaved] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   useEffect(() => {
     setForm(init(snapshot))
-    setSaved('')
     setError('')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [snapshot])
-  return { form, setForm, saved, setSaved, error, setError, saving, setSaving }
+  return { form, setForm, error, setError, saving, setSaving }
 }
 
 function ReadOnlyNote() {
@@ -173,16 +171,15 @@ function LocalizationTab({ snapshot, canWrite, onSaved }: TabShell) {
   const save = async () => {
     t.setSaving(true)
     t.setError('')
-    t.setSaved('')
     try {
       const next = await patchSettings({
         'app.defaultLocale': t.form.defaultLanguage,
         'app.timezone': t.form.timezone,
       })
       onSaved(next)
-      t.setSaved(ar ? 'تم الحفظ بنجاح.' : 'Saved successfully.')
+      toast.success(ar ? 'تم الحفظ بنجاح.' : 'Saved successfully.', { dedupeKey: 'settings-save' })
     } catch (e) {
-      t.setError(e instanceof Error ? e.message : 'Save failed.')
+      toast.error(e instanceof Error ? e.message : (ar ? 'فشل الحفظ.' : 'Save failed.'), { dedupeKey: 'settings-error' })
     } finally {
       t.setSaving(false)
     }
@@ -198,7 +195,7 @@ function LocalizationTab({ snapshot, canWrite, onSaved }: TabShell) {
       </div>
       {!canWrite && <ReadOnlyNote />}
       <div><button type="button" className="sp-btn dark" onClick={save} disabled={!canWrite || t.saving}>{t.saving ? <AdminText en="Saving…" ar="جارٍ الحفظ…" /> : <AdminText en="Save" ar="حفظ" />}</button></div>
-      <SaveFeedback saved={t.saved} error={t.error} />
+      <SaveFeedback error={t.error} />
     </div>
   )
 }
@@ -238,14 +235,13 @@ function SocialTab({ snapshot, canWrite, onSaved }: TabShell) {
   const save = async () => {
     t.setSaving(true)
     t.setError('')
-    t.setSaved('')
     try {
       const clean = links.filter((link) => link.url.trim())
       const next = await patchSettings({ 'social.links': JSON.stringify(clean) })
       onSaved(next)
-      t.setSaved(ar ? 'تم الحفظ بنجاح.' : 'Saved successfully.')
+      toast.success(ar ? 'تم الحفظ بنجاح.' : 'Saved successfully.', { dedupeKey: 'settings-save' })
     } catch (e) {
-      t.setError(e instanceof Error ? e.message : 'Save failed.')
+      toast.error(e instanceof Error ? e.message : (ar ? 'فشل الحفظ.' : 'Save failed.'), { dedupeKey: 'settings-error' })
     } finally {
       t.setSaving(false)
     }
@@ -278,7 +274,7 @@ function SocialTab({ snapshot, canWrite, onSaved }: TabShell) {
       {group('footer', 'Footer', 'الفوتر', 'Shown under the footer logo', 'تظهر تحت شعار الفوتر')}
       {!canWrite && <ReadOnlyNote />}
       <div><button type="button" className="sp-btn dark" onClick={save} disabled={!canWrite || t.saving}>{t.saving ? <AdminText en="Saving…" ar="جارٍ الحفظ…" /> : <AdminText en="Save" ar="حفظ" />}</button></div>
-      <SaveFeedback saved={t.saved} error={t.error} />
+      <SaveFeedback error={t.error} />
     </div>
   )
 }
@@ -296,7 +292,6 @@ function GeneralTab({ snapshot, canWrite, onSaved }: TabShell) {
   const save = async () => {
     t.setSaving(true)
     t.setError('')
-    t.setSaved('')
     try {
       const next = await patchSettings({
         'site.name': t.form.companyName.trim() || defaultBrandSettings.companyName,
@@ -306,9 +301,9 @@ function GeneralTab({ snapshot, canWrite, onSaved }: TabShell) {
         'site.aboutAr': t.form.aboutAr.trim(),
       })
       onSaved(next)
-      t.setSaved(ar ? 'تم الحفظ بنجاح.' : 'Saved successfully.')
+      toast.success(ar ? 'تم الحفظ بنجاح.' : 'Saved successfully.', { dedupeKey: 'settings-save' })
     } catch (e) {
-      t.setError(e instanceof Error ? e.message : 'Save failed.')
+      toast.error(e instanceof Error ? e.message : (ar ? 'فشل الحفظ.' : 'Save failed.'), { dedupeKey: 'settings-error' })
     } finally {
       t.setSaving(false)
     }
@@ -326,7 +321,7 @@ function GeneralTab({ snapshot, canWrite, onSaved }: TabShell) {
       <label><AdminText en="About (AR)" ar="الوصف (AR)" /><input value={t.form.aboutAr} onChange={(e) => t.setForm((f) => ({ ...f, aboutAr: e.target.value }))} disabled={!canWrite || t.saving} /></label>
       {!canWrite && <ReadOnlyNote />}
       <div><button type="button" className="sp-btn dark" onClick={save} disabled={!canWrite || t.saving}>{t.saving ? <AdminText en="Saving…" ar="جارٍ الحفظ…" /> : <AdminText en="Save" ar="حفظ" />}</button></div>
-      <SaveFeedback saved={t.saved} error={t.error} />
+      <SaveFeedback error={t.error} />
     </div>
   )
 }
@@ -346,7 +341,6 @@ function ContactTab({ snapshot, canWrite, onSaved }: TabShell) {
   const save = async () => {
     t.setSaving(true)
     t.setError('')
-    t.setSaved('')
     try {
       // Normalize through canonical helpers so stored values never duplicate
       // the dial prefix (e.g. no `+20 01288…`). Country context is derived
@@ -364,9 +358,9 @@ function ContactTab({ snapshot, canWrite, onSaved }: TabShell) {
       }
       const next = await patchSettings(values)
       onSaved(next)
-      t.setSaved(ar ? 'تم الحفظ بنجاح.' : 'Saved successfully.')
+      toast.success(ar ? 'تم الحفظ بنجاح.' : 'Saved successfully.', { dedupeKey: 'settings-save' })
     } catch (e) {
-      t.setError(e instanceof Error ? e.message : 'Save failed.')
+      toast.error(e instanceof Error ? e.message : (ar ? 'فشل الحفظ.' : 'Save failed.'), { dedupeKey: 'settings-error' })
     } finally {
       t.setSaving(false)
     }
@@ -385,7 +379,7 @@ function ContactTab({ snapshot, canWrite, onSaved }: TabShell) {
     <label><AdminText en="Copyright (AR)" ar="حقوق النشر (AR)" /><input value={t.form.copyrightAr} onChange={(e) => t.setForm((f) => ({ ...f, copyrightAr: e.target.value }))} dir="rtl" required disabled={!canWrite || t.saving} /></label>
     {!canWrite && <ReadOnlyNote />}
     <div><button type="button" className="sp-btn dark" onClick={save} disabled={!canWrite || t.saving}>{t.saving ? <AdminText en="Saving…" ar="جارٍ الحفظ…" /> : <AdminText en="Save contact details" ar="حفظ بيانات التواصل" />}</button></div>
-    <SaveFeedback saved={t.saved} error={t.error} />
+    <SaveFeedback error={t.error} />
   </div>
 }
 
@@ -404,7 +398,6 @@ function CurrencyTab({ snapshot, canWrite, onSaved }: TabShell) {
   const save = async () => {
     t.setSaving(true)
     t.setError('')
-    t.setSaved('')
     if (!(eurNum > 0) || !(egpNum > 0)) {
       t.setError(ar ? 'أدخل أسعارا أكبر من الصفر.' : 'Enter rates greater than zero.')
       t.setSaving(false)
@@ -416,9 +409,9 @@ function CurrencyTab({ snapshot, canWrite, onSaved }: TabShell) {
         { eur: t.form.eur.trim(), egp: t.form.egp.trim() },
       )
       onSaved(next)
-      t.setSaved(ar ? 'تم الحفظ بنجاح.' : 'Saved successfully.')
+      toast.success(ar ? 'تم الحفظ بنجاح.' : 'Saved successfully.', { dedupeKey: 'settings-save' })
     } catch (e) {
-      t.setError(e instanceof Error ? e.message : 'Save failed.')
+      toast.error(e instanceof Error ? e.message : (ar ? 'فشل الحفظ.' : 'Save failed.'), { dedupeKey: 'settings-error' })
     } finally {
       t.setSaving(false)
     }
@@ -427,16 +420,15 @@ function CurrencyTab({ snapshot, canWrite, onSaved }: TabShell) {
   const reset = async () => {
     t.setSaving(true)
     t.setError('')
-    t.setSaved('')
     try {
       const next = await patchSettings(
         { 'app.defaultCurrency': defaultCurrencySettings.defaultCurrency },
         { eur: String(defaultCurrencySettings.eur), egp: String(defaultCurrencySettings.egp) },
       )
       onSaved(next)
-      t.setSaved(ar ? 'تم الحفظ بنجاح.' : 'Saved successfully.')
+      toast.success(ar ? 'تم الحفظ بنجاح.' : 'Saved successfully.', { dedupeKey: 'settings-save' })
     } catch (e) {
-      t.setError(e instanceof Error ? e.message : 'Save failed.')
+      toast.error(e instanceof Error ? e.message : (ar ? 'فشل الحفظ.' : 'Save failed.'), { dedupeKey: 'settings-error' })
     } finally {
       t.setSaving(false)
     }
@@ -465,7 +457,7 @@ function CurrencyTab({ snapshot, canWrite, onSaved }: TabShell) {
       </div>
       <p className="sp-integration-note"><AdminText en="Rates are manual. No live FX integration exists in this phase." ar="الأسعار يدوية. لا يوجد تكامل مباشر لأسعار الصرف في هذه المرحلة." /></p>
       {!canWrite && <ReadOnlyNote />}
-      <SaveFeedback saved={t.saved} error={t.error} />
+      <SaveFeedback error={t.error} />
       <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
         <button type="button" className="sp-btn" onClick={reset} disabled={!canWrite || t.saving}><AdminText en="Reset defaults" ar="استعادة الافتراضية" /></button>
         <button type="button" className="sp-btn dark" onClick={save} disabled={!canWrite || t.saving}>{t.saving ? <AdminText en="Saving…" ar="جارٍ الحفظ…" /> : <AdminText en="Save rates" ar="حفظ الأسعار" />}</button>
@@ -500,7 +492,6 @@ function EmailTab({ snapshot, canWrite, onSaved }: TabShell) {
   const save = async () => {
     t.setSaving(true)
     t.setError('')
-    t.setSaved('')
     try {
       const next = await patchSettings({
         'mail.fromName': t.form.fromName.trim(),
@@ -520,9 +511,9 @@ function EmailTab({ snapshot, canWrite, onSaved }: TabShell) {
         'mail.mailbox': t.form.mailbox.trim() || 'INBOX',
       })
       onSaved(next)
-      t.setSaved(ar ? 'تم حفظ الإعدادات. لم يتم التحقق من الاتصال بعد.' : 'Configuration saved. Connection not verified yet.')
+      toast.success(ar ? 'تم حفظ الإعدادات. لم يتم التحقق من الاتصال بعد.' : 'Configuration saved. Connection not verified yet.', { dedupeKey: 'settings-save' })
     } catch (e) {
-      t.setError(e instanceof Error ? e.message : 'Save failed.')
+      toast.error(e instanceof Error ? e.message : (ar ? 'فشل الحفظ.' : 'Save failed.'), { dedupeKey: 'settings-error' })
     } finally {
       t.setSaving(false)
     }
@@ -572,7 +563,7 @@ function EmailTab({ snapshot, canWrite, onSaved }: TabShell) {
         <button type="button" className="sp-btn" disabled title={ar ? 'يتطلب مرحلة تكامل البريد' : 'Requires the mail integration phase'}><AdminText en="Test connection" ar="اختبار الاتصال" /></button>
         <button type="button" className="sp-btn dark" onClick={save} disabled={!canWrite || t.saving}>{t.saving ? <AdminText en="Saving…" ar="جارٍ الحفظ…" /> : <AdminText en="Save" ar="حفظ" />}</button>
       </div>
-      <SaveFeedback saved={t.saved} error={t.error} />
+      <SaveFeedback error={t.error} />
     </div>
   )
 }
@@ -620,7 +611,6 @@ function WhatsAppTab({ snapshot, canWrite, onSaved }: TabShell) {
   const save = async () => {
     t.setSaving(true)
     t.setError('')
-    t.setSaved('')
     try {
       const next = await patchSettings({
         'whatsapp.enabled': t.form.enabled ? 'true' : 'false',
@@ -633,9 +623,9 @@ function WhatsAppTab({ snapshot, canWrite, onSaved }: TabShell) {
         'whatsapp.verifyToken': t.form.verifyToken,
       })
       onSaved(next)
-      t.setSaved(ar ? 'تم حفظ الإعدادات. الاتصال لم يتم التحقق منه بعد.' : 'Configuration saved. Connection not verified yet.')
+      toast.success(ar ? 'تم حفظ الإعدادات. الاتصال لم يتم التحقق منه بعد.' : 'Configuration saved. Connection not verified yet.', { dedupeKey: 'settings-save' })
     } catch (e) {
-      t.setError(e instanceof Error ? e.message : 'Save failed.')
+      toast.error(e instanceof Error ? e.message : (ar ? 'فشل الحفظ.' : 'Save failed.'), { dedupeKey: 'settings-error' })
     } finally {
       t.setSaving(false)
     }
@@ -686,7 +676,7 @@ function WhatsAppTab({ snapshot, canWrite, onSaved }: TabShell) {
             <button type="button" className="sp-btn" disabled title={ar ? 'يتطلب رد OAuth الخلفي (معلق)' : 'Requires the backend OAuth callback (pending)'}><PlugZap size={17} /> <AdminText en="Connect with Meta" ar="الربط مع Meta" /></button>
             <button type="button" className="sp-btn" disabled title={ar ? 'يتطلب تكامل المزود (معلق)' : 'Requires the provider integration (pending)'}><AdminText en="Test connection" ar="اختبار الاتصال" /></button>
           </div>
-          <SaveFeedback saved={t.saved} error={t.error} />
+          <SaveFeedback error={t.error} />
         </section>
       </div>
     </div>
@@ -724,7 +714,6 @@ function MapsTab({ snapshot, canWrite, onSaved }: TabShell) {
   const save = async () => {
     t.setSaving(true)
     t.setError('')
-    t.setSaved('')
     try {
       const next = await patchSettings({
         'maps.enabled': t.form.enabled ? 'true' : 'false',
@@ -736,9 +725,9 @@ function MapsTab({ snapshot, canWrite, onSaved }: TabShell) {
         'maps.services': t.form.services,
       })
       onSaved(next)
-      t.setSaved(ar ? 'تم حفظ الإعدادات. الخريطة غير متصلة بعد.' : 'Configuration saved. Map not connected yet.')
+      toast.success(ar ? 'تم حفظ الإعدادات. الخريطة غير متصلة بعد.' : 'Configuration saved. Map not connected yet.', { dedupeKey: 'settings-save' })
     } catch (e) {
-      t.setError(e instanceof Error ? e.message : 'Save failed.')
+      toast.error(e instanceof Error ? e.message : (ar ? 'فشل الحفظ.' : 'Save failed.'), { dedupeKey: 'settings-error' })
     } finally {
       t.setSaving(false)
     }
@@ -772,7 +761,7 @@ function MapsTab({ snapshot, canWrite, onSaved }: TabShell) {
           <button type="button" className="sp-btn primary" onClick={save} disabled={!canWrite || t.saving}>{t.saving ? <AdminText en="Saving…" ar="جارٍ الحفظ…" /> : <AdminText en="Save configuration" ar="حفظ الإعدادات" />}</button>
           <button type="button" className="sp-btn" disabled title={ar ? 'يتطلب مفتاحا مقيدا صالحا (معلق)' : 'Requires a valid restricted key (pending)'}><AdminText en="Test map" ar="اختبار الخريطة" /></button>
         </div>
-        <SaveFeedback saved={t.saved} error={t.error} />
+        <SaveFeedback error={t.error} />
       </section>
     </div>
   )
@@ -793,7 +782,6 @@ function OAuthTab({ provider, snapshot, canWrite, onSaved }: TabShell & { provid
   const save = async () => {
     t.setSaving(true)
     t.setError('')
-    t.setSaved('')
     try {
       const next = await patchSettings({
         [enabledKey]: t.form.enabled ? 'true' : 'false',
@@ -801,9 +789,9 @@ function OAuthTab({ provider, snapshot, canWrite, onSaved }: TabShell & { provid
         [secretKey]: t.form.clientSecret,
       })
       onSaved(next)
-      t.setSaved(ar ? 'تم حفظ الإعدادات. تسجيل الدخول غير مفعل بعد.' : 'Configuration saved. Social login not live yet.')
+      toast.success(ar ? 'تم حفظ الإعدادات. تسجيل الدخول غير مفعل بعد.' : 'Configuration saved. Social login not live yet.', { dedupeKey: 'settings-save' })
     } catch (e) {
-      t.setError(e instanceof Error ? e.message : 'Save failed.')
+      toast.error(e instanceof Error ? e.message : (ar ? 'فشل الحفظ.' : 'Save failed.'), { dedupeKey: 'settings-error' })
     } finally {
       t.setSaving(false)
     }
@@ -848,7 +836,7 @@ function OAuthTab({ provider, snapshot, canWrite, onSaved }: TabShell & { provid
           <button type="button" className="sp-btn" disabled title={ar ? 'يتطلب رد OAuth الخلفي (معلق)' : 'Requires the backend OAuth callback (pending)'}><LogIn size={17} /> {isGoogle ? <AdminText en="Connect Google" ar="ربط جوجل" /> : <AdminText en="Connect Facebook" ar="ربط فيسبوك" />}</button>
           <button type="button" className="sp-btn" disabled title={ar ? 'يتاح بعد تنفيذ رد OAuth' : 'Available after the OAuth callback is implemented'}><AdminText en="Test login" ar="اختبار الدخول" /></button>
         </div>
-        <SaveFeedback saved={t.saved} error={t.error} />
+        <SaveFeedback error={t.error} />
       </section>
     </div>
   )

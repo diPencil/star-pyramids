@@ -12,6 +12,7 @@ import { useAdminCurrency } from '@/components/admin/admin-currency'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
 import { invalidateToursCache } from '@/lib/tours-client'
 import { isTourPublished } from '@/lib/tour-publish'
+import { toast } from '@/components/admin/admin-toaster'
 
 type TripRow = {
   slug: string
@@ -39,8 +40,6 @@ export default function TripsPage() {
   const [deleteTarget, setDeleteTarget] = useState<TripRow | null>(null)
   const [deleteBusy, setDeleteBusy] = useState(false)
   const [deleteError, setDeleteError] = useState('')
-  const [actionError, setActionError] = useState('')
-  const [actionOk, setActionOk] = useState('')
 
   // DB-authoritative catalogue (no static fallback).
   useEffect(() => {
@@ -74,8 +73,6 @@ export default function TripsPage() {
   const setPublished = async (slug: string, published: boolean) => {
     if (busySlug || deleteBusy) return
     setBusySlug(slug)
-    setActionError('')
-    setActionOk('')
     try {
       const res = await fetch(`/api/tours/${encodeURIComponent(slug)}`, {
         method: 'PUT',
@@ -90,13 +87,14 @@ export default function TripsPage() {
       const status = typeof data.tour?.status === 'string' ? data.tour.status : (published ? 'published' : 'draft')
       setTours((current) => current.map((t) => (t.slug === slug ? { ...t, status } : t)))
       invalidateToursCache()
-      setActionOk(
+      toast.success(
         published
           ? (ar ? `تم نشر "${slug}". ستظهر في الموقع العام.` : `"${slug}" published. It now appears on the public website.`)
           : (ar ? `تم إخفاء "${slug}". لن تظهر في الموقع العام.` : `"${slug}" unpublished. It is now hidden from the public website.`),
+        { dedupeKey: `trip-publish-${slug}` },
       )
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to update visibility.')
+      toast.error(err instanceof Error ? err.message : 'Failed to update visibility.', { dedupeKey: `trip-publish-${slug}` })
     } finally {
       setBusySlug(null)
     }
@@ -106,8 +104,6 @@ export default function TripsPage() {
     if (!deleteTarget || deleteBusy) return
     setDeleteBusy(true)
     setDeleteError('')
-    setActionError('')
-    setActionOk('')
     try {
       const res = await fetch(`/api/tours/${encodeURIComponent(deleteTarget.slug)}`, {
         method: 'DELETE',
@@ -119,7 +115,7 @@ export default function TripsPage() {
       }
       setTours((current) => current.filter((t) => t.slug !== deleteTarget.slug))
       invalidateToursCache()
-      setActionOk(ar ? `تم حذف "${deleteTarget.title}".` : `"${deleteTarget.title}" deleted.`)
+      toast.success(ar ? `تم حذف "${deleteTarget.title}".` : `"${deleteTarget.title}" deleted.`, { dedupeKey: `trip-delete-${deleteTarget.slug}` })
       setDeleteTarget(null)
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : 'Failed to delete trip.')
@@ -161,8 +157,6 @@ export default function TripsPage() {
           ))}
           </div>
         </AdminTableTools>
-        {actionError ? <p role="alert" style={{ color: '#b91c1c', margin: '8px 0 0' }}>{actionError}</p> : null}
-        {actionOk ? <p role="status" style={{ color: '#0e9f6e', margin: '8px 0 0' }}>{actionOk}</p> : null}
         {loading ? <AdminEmpty title={<AdminText en="Loading trips…" ar="جارٍ تحميل الرحلات…" />} copy={<AdminText en="Reading the authoritative catalogue." ar="تتم قراءة السجل المعتمد." />} />
         : error ? <AdminEmpty title={<AdminText en="Could not load trips" ar="تعذر تحميل الرحلات" />} copy={<AdminText en={error} ar={error} />} />
         : rows.length ? <AdminTableWrap><table className="sp-table">

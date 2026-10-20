@@ -5,6 +5,7 @@ import { Monitor, Tablet, Smartphone, Save, Eye, RotateCcw, Undo2 } from 'lucide
 import { APPEARANCE_FIELDS, appearanceCss, contrastRatio, initialAppearance, validateAppearance, type AppearanceAction, type AppearanceState, type AppearanceToken, type AppearanceTokens } from '@/lib/website-appearance'
 import { protectEnquiryNavigation } from '@/lib/enquiry-navigation'
 import { AdminConfirmDialog } from './admin-confirm-dialog'
+import { toast } from './admin-toaster'
 import './website-appearance.css'
 
 const endpoint = '/api/admin/website-cms/appearance'
@@ -26,8 +27,7 @@ export function WebsiteAppearance({ canWrite, onGuardChange, onBusyChange }: { c
   const [busy, setBusy] = useState(false)
   const [allowed, setAllowed] = useState(false)
   const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
-  const [device, setDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop')
+    const [device, setDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop')
   const [group, setGroup] = useState<typeof groups[number]>('Colors')
   const [confirm, setConfirm] = useState<null | 'publish' | 'restore' | 'reset' | 'original' | 'reload'>(null)
   const [navigation, setNavigation] = useState<(() => void) | null>(null)
@@ -74,12 +74,13 @@ export function WebsiteAppearance({ canWrite, onGuardChange, onBusyChange }: { c
   async function change(action: AppearanceAction) {
     if (busyRef.current || !allowed || !canWrite || loading || (action !== 'save-draft' && dirty)) return
     try { if (action === 'save-draft') validateAppearance(tokens) } catch (e) { setError((e as Error).message); return }
-    busyRef.current = true; setBusy(true); setError(''); setNotice('')
+    busyRef.current = true; setBusy(true); setError('')
     try {
       const response = await fetch(endpoint, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ revision: state.revision, action, ...(action === 'save-draft' ? { content: tokens } : {}) }) })
       const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Unable to save appearance.')
       const next = data.state as AppearanceState; const content = next.draft ?? next.published ?? {}
-      setState(next); setTokens(content); setBaseline(content); setNotice(action === 'save-draft' ? 'Draft saved.' : action === 'publish' ? 'Appearance published.' : 'Previous published appearance restored.')
+      setState(next); setTokens(content); setBaseline(content)
+      toast.success(action === 'save-draft' ? 'Draft saved.' : action === 'publish' ? 'Appearance published.' : 'Previous published appearance restored.', { dedupeKey: 'appearance-action' })
       if (action !== 'save-draft') router.refresh()
     } catch (e) { setError(e instanceof Error ? e.message : 'Unable to save appearance.') }
     finally { busyRef.current = false; setBusy(false); setConfirm(null) }
@@ -90,7 +91,7 @@ export function WebsiteAppearance({ canWrite, onGuardChange, onBusyChange }: { c
   return <div className="appearance-manager">
     {loading && <p role="status">Loading appearance...</p>}
     {error && <div role="alert"><p>{error}</p><button type="button" className="sp-btn" disabled={loading || busy} onClick={() => setConfirm('reload')}>Reload</button></div>}
-    {notice && <p role="status">{notice}</p>}
+   
     {!loading && <>
       <div className="appearance-toolbar"><span>Revision {state.revision} · {state.draft !== null ? 'Draft available' : state.published !== null ? 'Published' : 'Original design'}</span><div>
         <button className="sp-btn" disabled={disabled || !dirty} onClick={() => void change('save-draft')}><Save size={16} />Save draft</button>

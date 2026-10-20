@@ -7,6 +7,7 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Card } from '@/components/admin/admin-ui'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { useAdminLocale } from '@/components/admin/admin-locale'
+import { toast } from '@/components/admin/admin-toaster'
 import { canTransitionEventRequest, eventActivityLabel, eventDisplayTitle, eventRequestStatusLabel, type EventRequestStatus, type StaffEventRequest } from '@/lib/event-request'
 import { displayInternationalPhone, telLink } from '@/lib/phone'
 import { countryDisplayName } from '@/data/countries'
@@ -76,7 +77,6 @@ export function EventRequestDetailContent({ requestId }: { requestId: string }) 
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [pending, setPending] = useState<EventRequestStatus | null>(null)
-  const [actionError, setActionError] = useState('')
   const [note, setNote] = useState('')
   const [savingNote, setSavingNote] = useState(false)
 
@@ -122,23 +122,24 @@ export function EventRequestDetailContent({ requestId }: { requestId: string }) 
   const phoneHref = telLink(item.nationality, item.contact.phone)
 
   const runTransition = (to: EventRequestStatus) => {
-    setActionError('')
     apiStaffMutate(item.reference, { status: to })
-      .then((row) => { setItem(row); setPending(null) })
+      .then((row) => {
+        setItem(row); setPending(null)
+        toast.success(ar ? `تم تحديث حالة الطلب إلى ${eventRequestStatusLabel(to, ar)}.` : `Request status updated to ${eventRequestStatusLabel(to, false)}.`, { dedupeKey: 'event-request-status' })
+      })
       .catch((error: unknown) => {
-        setActionError(error instanceof Error ? error.message : 'Could not update the request.')
+        toast.error(error instanceof Error ? error.message : 'Could not update the request.', { dedupeKey: 'event-request-status' })
         setPending(null)
       })
   }
 
   const saveNote = () => {
     if (!note.trim() || savingNote) return
-    setActionError('')
     setSavingNote(true)
     apiStaffMutate(item.reference, { note: note.trim() })
-      .then((row) => { setItem(row); setNote('') })
+      .then((row) => { setItem(row); setNote(''); toast.success(ar ? 'تم حفظ الملاحظة.' : 'Note saved.', { dedupeKey: 'event-request-note' }) })
       .catch((error: unknown) => {
-        setActionError(error instanceof Error ? error.message : 'Could not save the note.')
+        toast.error(error instanceof Error ? error.message : 'Could not save the note.', { dedupeKey: 'event-request-note' })
       })
       .finally(() => setSavingNote(false))
   }
@@ -198,7 +199,7 @@ export function EventRequestDetailContent({ requestId }: { requestId: string }) 
             ) : (
               <p className="evr-manage-hint"><AdminText en="No further transitions. Cancelled requests are terminal." ar="لا توجد انتقالات أخرى. الطلبات الملغاة نهائية." /></p>
             )}
-            {actionError && <p className="evr-manage-hint" role="alert">{actionError}</p>}
+
           </div>
         </Card>
         <Card title={<AdminText en="Internal note" ar="ملاحظة داخلية" />}>

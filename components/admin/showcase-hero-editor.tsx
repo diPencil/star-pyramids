@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Save, Send, RotateCcw, EyeOff } from 'lucide-react'
 import { PageHead } from './admin-shell'
 import { Card } from './admin-ui'
+import { toast } from './admin-toaster'
 import { AdminConfirmDialog } from './admin-confirm-dialog'
 import { SharedSelect } from '../shared-select'
 import { ENABLED_LOCALES, type EnabledLocale } from '@/lib/locale-config'
@@ -22,8 +23,7 @@ export function ShowcaseHeroEditor({ id }: { id: ShowcaseHeroId }) {
   const [busy, setBusy] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
-  const [confirm, setConfirm] = useState<HeroAction | null>(null)
+    const [confirm, setConfirm] = useState<HeroAction | null>(null)
   const lock = useRef(false)
   const frame = useRef<HTMLIFrameElement>(null)
   const sync = () => frame.current?.contentWindow?.postMessage({ type: 'star-showcase-preview', id, content: draft, locale }, window.location.origin)
@@ -43,16 +43,19 @@ export function ShowcaseHeroEditor({ id }: { id: ShowcaseHeroId }) {
     } catch { setError('Could not load hero. Reload to retry.') }
   }
   useEffect(() => { void load() }, [])
-  const change = (next: Partial<ShowcaseHero>) => { setDraft((previous) => ({ ...previous, ...next })); setDirty(true); setNotice('') }
+  const change = (next: Partial<ShowcaseHero>) => { setDraft((previous) => ({ ...previous, ...next })); setDirty(true) }
   const action = async (command: HeroAction) => {
     if (!state || !canEdit || lock.current) return
-    lock.current = true; setBusy(true); setError(''); setNotice('')
+    lock.current = true; setBusy(true); setError('')
     try {
       const response = await fetch('/api/admin/website-cms/showcase-heroes/' + id, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: command, revision: state.revision, ...(command === 'save-draft' ? { content: draft } : {}) }) })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Could not save hero.')
       setState(data.state); setDraft(data.state.draft ?? data.state.published ?? original()); setDirty(false)
-      setNotice(command === 'save-draft' ? 'Draft saved. Public content is unchanged.' : command === 'restore' ? 'Original hero restored.' : command === 'unpublish' ? 'Hero unpublished.' : 'Hero published.')
+      if (command === 'save-draft') toast.success('Draft saved. Public content is unchanged.', { dedupeKey: 'showcase-hero-draft' })
+      else if (command === 'restore') toast.success('Original hero restored.', { dedupeKey: 'showcase-hero-restore' })
+      else if (command === 'unpublish') toast.success('Hero unpublished.', { dedupeKey: 'showcase-hero-unpublish' })
+      else toast.success('Hero published.', { dedupeKey: 'showcase-hero-publish' })
     } catch (error) { setError(error instanceof Error ? error.message : 'Could not save hero.') }
     finally { lock.current = false; setBusy(false); setConfirm(null) }
   }
@@ -64,7 +67,7 @@ export function ShowcaseHeroEditor({ id }: { id: ShowcaseHeroId }) {
       const response = await fetch('/api/admin/website-cms/hero-media', { method: 'POST', body })
       const data = await response.json()
       if (!response.ok || typeof data.media?.url !== 'string') throw new Error(data.error || 'Upload failed.')
-      change({ [field]: data.media.url }); setNotice('Image ready. Save draft to retain its reference.')
+      change({ [field]: data.media.url }); toast.info('Image ready. Save draft to retain its reference.', { dedupeKey: 'showcase-hero-upload' })
     } catch (error) { setError(error instanceof Error ? error.message : 'Upload failed.') }
     finally { lock.current = false; setBusy(false) }
   }
@@ -73,7 +76,7 @@ export function ShowcaseHeroEditor({ id }: { id: ShowcaseHeroId }) {
   return <>
     <PageHead eyebrow="HERO SECTIONS" title={SHOWCASE_PAGES[id].name} backHref="/admin/website-cms/hero-sections" />
     <Card title="Hero content" sub={state ? `Revision ${state.revision} · ${state.mode}` : 'Loading…'}>
-      {error && <p className="form-error" role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
+      {error && <p className="form-error" role="alert">{error}</p>}
       {!state && <button className="sp-btn" type="button" onClick={() => void load()}>Reload</button>}
       <form className="cms-hero-form" onSubmit={(event) => { event.preventDefault(); void action('save-draft') }}>
         <fieldset disabled={disabled}>

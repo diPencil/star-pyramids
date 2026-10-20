@@ -10,6 +10,7 @@ import { useAdminLocale } from '@/components/admin/admin-locale'
 import { useAdminCurrency } from '@/components/admin/admin-currency'
 import { mutateCustomerStatus, useDbCustomerDetail } from '@/lib/admin-customers-client'
 import { startImpersonation } from '@/lib/admin-store'
+import { toast } from '@/components/admin/admin-toaster'
 
 const accountStatusMeta = {
   ACTIVE: { en: 'Active', ar: 'نشط', color: '#22c55e' },
@@ -39,22 +40,19 @@ export function CustomerDetailContent({ customerKey }: { customerKey: string }) 
   const [confirming, setConfirming] = useState<null | 'ACTIVE' | 'SUSPENDED'>(null)
   const [saving, setSaving] = useState(false)
   const [openingPreview, setOpeningPreview] = useState(false)
-  const [serverError, setServerError] = useState('')
-  const [successNote, setSuccessNote] = useState('')
 
   const submitStatus = async () => {
     if (!confirming) return
     setSaving(true)
-    setServerError('')
     try {
       await mutateCustomerStatus(key, confirming)
       setConfirming(null)
-      setSuccessNote(confirming === 'ACTIVE'
+      toast.success(confirming === 'ACTIVE'
         ? (ar ? 'تم تفعيل العميل.' : 'Customer activated.')
-        : (ar ? 'تم إيقاف العميل.' : 'Customer suspended.'))
+        : (ar ? 'تم إيقاف العميل.' : 'Customer suspended.'), { dedupeKey: 'customer-detail-status' })
       refresh()
     } catch (err) {
-      setServerError(err instanceof Error ? err.message : (ar ? 'تعذر تحديث الحالة.' : 'Could not update status.'))
+      toast.error(err instanceof Error ? err.message : (ar ? 'تعذر تحديث الحالة.' : 'Could not update status.'), { dedupeKey: 'customer-detail-status' })
     } finally {
       setSaving(false)
     }
@@ -63,11 +61,10 @@ export function CustomerDetailContent({ customerKey }: { customerKey: string }) 
   const openCustomerPreview = async () => {
     if (!customer) return
     setOpeningPreview(true)
-    setServerError('')
     try {
       await startImpersonation({ publicId: key, name, email: customer.email, avatar: customer.avatar ?? undefined })
     } catch (error) {
-      setServerError(error instanceof Error ? error.message : (ar ? 'تعذر فتح معاينة العميل.' : 'Could not open customer preview.'))
+      toast.error(error instanceof Error ? error.message : (ar ? 'تعذر فتح معاينة العميل.' : 'Could not open customer preview.'), { dedupeKey: 'customer-preview' })
     } finally {
       setOpeningPreview(false)
     }
@@ -105,8 +102,6 @@ export function CustomerDetailContent({ customerKey }: { customerKey: string }) 
         {canPreview ? <button type="button" className="sp-btn dark" disabled={openingPreview} onClick={() => void openCustomerPreview()}><Eye size={15} /> <AdminText en={openingPreview ? 'Opening…' : 'View as customer'} ar={openingPreview ? 'جارٍ الفتح…' : 'عرض كعميل'} /></button> : null}
       </>}
     />
-    {successNote ? <p role="status" style={{ color: '#15803d', margin: '0 0 12px' }}>{successNote}</p> : null}
-    {serverError && !confirming ? <p role="alert" style={{ color: '#b91c1c', margin: '0 0 12px' }}>{serverError}</p> : null}
 
     <AdminStats items={[
       { label: <AdminText en="Total spent" ar="إجمالي الإنفاق" />, value: formatUsd(customer.totalSpent), note: <AdminText en="All bookings" ar="كل الحجوزات" />, icon: Users },
@@ -131,7 +126,7 @@ export function CustomerDetailContent({ customerKey }: { customerKey: string }) 
           <div><small><AdminText en="Status" ar="الحالة" /></small><strong>{ar ? status.ar : status.en}</strong></div>
         </div>
         {canManage ? <AdminTableActions>
-          <AdminIconAction icon={suspended ? UserCheck : UserX} label={suspended ? (ar ? `تفعيل ${name}` : `Activate ${name}`) : (ar ? `إيقاف ${name}` : `Suspend ${name}`)} tone={suspended ? 'success' : 'danger'} onClick={() => { setServerError(''); setConfirming(suspended ? 'ACTIVE' : 'SUSPENDED') }} />
+          <AdminIconAction icon={suspended ? UserCheck : UserX} label={suspended ? (ar ? `تفعيل ${name}` : `Activate ${name}`) : (ar ? `إيقاف ${name}` : `Suspend ${name}`)} tone={suspended ? 'success' : 'danger'} onClick={() => setConfirming(suspended ? 'ACTIVE' : 'SUSPENDED')} />
         </AdminTableActions> : null}
       </Card>
 
@@ -244,7 +239,6 @@ export function CustomerDetailContent({ customerKey }: { customerKey: string }) 
       tone={confirming === 'ACTIVE' ? 'primary' : 'danger'}
       canConfirm={!saving}
     >
-      {serverError ? <p role="alert" style={{ color: '#b91c1c' }}>{serverError}</p> : null}
     </AdminConfirmDialog>
   </>
 }

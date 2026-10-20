@@ -11,6 +11,7 @@ import { AdminPagination, usePagination } from '@/components/admin/admin-paginat
 import { SharedSelect } from '@/components/shared-select'
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 import { mutateCustomerStatus, useDbCustomersStatus, type DirectoryCustomer } from '@/lib/admin-customers-client'
+import { toast } from '@/components/admin/admin-toaster'
 
 const accountStatusMeta: Record<DirectoryCustomer['status'], { en: string; ar: string; color: string }> = {
   ACTIVE: { en: 'Active', ar: 'نشط', color: '#22c55e' },
@@ -24,8 +25,6 @@ export default function CustomersPage() {
   const { formatUsd } = useAdminCurrency()
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<'all' | DirectoryCustomer['status']>('all')
-  const [actionError, setActionError] = useState('')
-  const [successNote, setSuccessNote] = useState('')
   // DB-authoritative directory with no static fallback: while the API is
   // loading or failing, the screen shows loading/error — never mock rows
   // masquerading as database records.
@@ -44,10 +43,9 @@ export default function CustomersPage() {
     try {
       await mutateCustomerStatus(statusTarget.customer.publicId, statusTarget.to)
       setStatusTarget(null)
-      setSuccessNote(statusTarget.to === 'ACTIVE'
+      toast.success(statusTarget.to === 'ACTIVE'
         ? (ar ? 'تم تفعيل العميل.' : 'Customer activated.')
-        : (ar ? 'تم إيقاف العميل.' : 'Customer suspended.'))
-      setActionError('')
+        : (ar ? 'تم إيقاف العميل.' : 'Customer suspended.'), { dedupeKey: 'customers-status' })
       refresh()
     } catch (err) {
       setStatusServerError(err instanceof Error ? err.message : (ar ? 'تعذر تحديث الحالة.' : 'Could not update status.'))
@@ -83,8 +81,6 @@ export default function CustomersPage() {
       <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث بعميل أو بريد أو هاتف...' : 'Search customer, email or phone...'}>
         <SharedSelect value={status} onChange={(next) => setStatus(next as typeof status)} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حسب حالة الحساب' : 'Filter by account status'} options={[{ value: 'all', label: ar ? 'كل الحالات' : 'All statuses' }, { value: 'ACTIVE', label: ar ? 'نشط' : 'Active' }, { value: 'PENDING', label: ar ? 'بانتظار التفعيل' : 'Pending' }, { value: 'SUSPENDED', label: ar ? 'موقوف' : 'Suspended' }]} />
       </AdminTableTools>
-      {actionError ? <p role="alert" style={{ color: '#b91c1c', margin: '8px 0 0' }}>{actionError}</p> : null}
-      {successNote ? <p role="status" style={{ color: '#15803d', margin: '8px 0 0' }}>{successNote}</p> : null}
       {loading ? <AdminEmpty title={<AdminText en="Loading customers…" ar="جارٍ تحميل العملاء…" />} copy={<AdminText en="Reading the customer directory." ar="تتم قراءة دليل العملاء." />} />
       : error ? <><AdminEmpty title={<AdminText en="Could not load customers" ar="تعذر تحميل العملاء" />} copy={<AdminText en={error} ar={error} />} /><div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}><button type="button" className="sp-btn" onClick={retry}><AdminText en="Retry" ar="إعادة المحاولة" /></button></div></>
       : rows.length ? <AdminTableWrap><table className="sp-table">

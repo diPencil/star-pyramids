@@ -9,6 +9,7 @@ import { ExternalLink, Plus, Trash2 } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
+import { toast } from '@/components/admin/admin-toaster'
 import { useDbDestinationsStatus, invalidateCatalogueCache, dbSlugify } from '@/lib/catalogue-client'
 import { useDbTours } from '@/lib/tours-client'
 import { ImageField } from '@/components/admin/image-field'
@@ -143,7 +144,7 @@ export default function DestinationEditorPage() {
         throw new Error(data.error || 'Failed to save destination.')
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save destination.')
+      toast.error(err instanceof Error ? err.message : (ar ? 'تعذر حفظ الوجهة.' : 'Failed to save destination.'), { dedupeKey: 'destination-editor-save' })
       setSaving(false)
       return
     }
@@ -172,10 +173,11 @@ export default function DestinationEditorPage() {
         await putTour(tourSlug, null)
       }
       if (failures.length) {
-        setError(ar ? `تعذر حفظ ارتباط الرحلات في قاعدة البيانات: ${failures.join(', ')}` : `Could not save tour links to the database: ${failures.join(', ')}`)
+        toast.error(ar ? `تعذر حفظ ارتباط الرحلات في قاعدة البيانات: ${failures.join(', ')}` : `Could not save tour links to the database: ${failures.join(', ')}`, { dedupeKey: 'destination-editor-links' })
         return
       }
       invalidateCatalogueCache()
+      toast.success(editSlug ? (ar ? 'تم حفظ الوجهة.' : 'Destination saved.') : (ar ? 'تم إنشاء الوجهة.' : 'Destination created.'), { dedupeKey: 'destination-editor-save' })
       router.push('/admin/destinations')
     } finally {
       setSaving(false)

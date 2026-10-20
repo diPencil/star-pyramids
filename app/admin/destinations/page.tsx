@@ -8,21 +8,27 @@ import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableT
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
-import { useDbDestinationsStatus } from '@/lib/catalogue-client'
+import { invalidateCatalogueCache, useDbDestinationsStatus } from '@/lib/catalogue-client'
+import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
+import { toast } from '@/components/admin/admin-toaster'
 
 export default function DestinationsPage() {
   const ar = useAdminLocale() === 'ar'
   const [query, setQuery] = useState('')
+  const [removeTarget, setRemoveTarget] = useState<{ slug: string; title: string } | null>(null)
+  const [removeBusy, setRemoveBusy] = useState(false)
   const [removeError, setRemoveError] = useState('')
   // DB-authoritative catalogue with no static fallback: while the API is
   // loading or failing, the screen shows loading/error — never bootstrap
   // rows masquerading as database records.
-  const { data, loading, error, retry } = useDbDestinationsStatus()
+  const { data, loading, error, retry, refresh } = useDbDestinationsStatus()
   const liveDestinations = data ?? []
-  const removeDestination = async (slug: string) => {
+  const removeDestination = async () => {
+    if (!removeTarget || removeBusy) return
+    setRemoveBusy(true)
     setRemoveError('')
     try {
-      const res = await fetch(`/api/destinations/${encodeURIComponent(slug)}`, {
+      const res = await fetch(`/api/destinations/${encodeURIComponent(removeTarget.slug)}`, {
         method: 'DELETE',
         credentials: 'same-origin',
       })
@@ -30,10 +36,16 @@ export default function DestinationsPage() {
         const data = await res.json().catch(() => ({} as { error?: string }))
         throw new Error(data.error || 'Failed to delete destination.')
       }
-      // Refresh from the DB source of truth.
-      window.location.reload()
+      toast.success(ar ? `تم حذف "${removeTarget.title}".` : `"${removeTarget.title}" deleted.`, { dedupeKey: `destination-delete-${removeTarget.slug}` })
+      setRemoveTarget(null)
+      // Refresh from the DB source of truth without a full page reload.
+      invalidateCatalogueCache()
+      refresh()
     } catch (err) {
       setRemoveError(err instanceof Error ? err.message : 'Failed to delete destination.')
+      toast.error(err instanceof Error ? err.message : 'Failed to delete destination.', { dedupeKey: 'destination-delete-error' })
+    } finally {
+      setRemoveBusy(false)
     }
   }
   const rows = useMemo(() => liveDestinations.filter((d) =>
@@ -61,7 +73,6 @@ export default function DestinationsPage() {
     ]} />
     <Card title={<AdminText en="All destinations" ar="كل الوجهات" />} sub={<AdminText en={`${rows.length} of ${liveDestinations.length} shown`} ar={`عرض ${rows.length} من ${liveDestinations.length}`} />}>
       <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث في الوجهات...' : 'Search destinations...'} />
-      {removeError ? <p role="alert" style={{ color: '#b91c1c', margin: '8px 0 0' }}>{removeError}</p> : null}
       {loading ? <AdminEmpty title={<AdminText en="Loading destinations…" ar="جارٍ تحميل الوجهات…" />} copy={<AdminText en="Reading the authoritative catalogue." ar="تتم قراءة السجل المعتمد." />} />
       : error ? <><AdminEmpty title={<AdminText en="Could not load destinations" ar="تعذر تحميل الوجهات" />} copy={<AdminText en={error} ar={error} />} /><div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}><button type="button" className="sp-btn" onClick={retry}><AdminText en="Retry" ar="إعادة المحاولة" /></button></div></>
       : rows.length ? <AdminTableWrap><table className="sp-table">
@@ -76,11 +87,27 @@ export default function DestinationsPage() {
           <td><AdminTableActions>
             <AdminIconAction icon={Pencil} label={ar ? `تعديل ${d.title}` : `Edit ${d.title}`} href={`/admin/destinations/new?slug=${d.slug}`} />
             <AdminIconAction icon={ExternalLink} label={ar ? `عرض ${d.title}` : `View ${d.title}`} href={d.showInDestinations === false ? `/egypt-tours/one-day-tours/${d.slug}` : `/destinations/${d.slug}`} />
-            <AdminIconAction icon={Trash2} label={ar ? `حذف ${d.title}` : `Delete ${d.title}`} tone="danger" onClick={() => void removeDestination(d.slug)} />
+            <AdminIconAction icon={Trash2} label={ar ? `حذف ${d.title}` : `Delete ${d.title}`} tone="danger" onClick={() => { setRemoveError(''); setRemoveTarget({ slug: d.slug, title: d.title }) }} />
           </AdminTableActions></td>
         </tr>)}</tbody>
       </table></AdminTableWrap> : <AdminEmpty title={<AdminText en="No destinations found" ar="لا توجد وجهات" />} copy={<AdminText en="Try changing the search or filters." ar="جرب تغيير البحث أو الفلاتر." />} />}
         {rows.length > 0 && <AdminPagination page={paging.page} pageCount={paging.pageCount} onPage={paging.setPage} pageSize={paging.pageSize} onPageSize={paging.setPageSize} from={paging.from} to={paging.to} total={paging.total} />}
     </Card>
+    <AdminConfirmDialog
+      open={removeTarget !== null}
+      onClose={() => { if (!removeBusy) setRemoveTarget(null) }}
+      onConfirm={() => { void removeDestination() }}
+      title={<AdminText en="Delete this destination?" ar="حذف هذه الوجهة؟" />}
+      description={<AdminText en="This permanently removes the destination landing page and its content from the admin catalogue." ar="يزيل هذه الوجهة ومحتواها نهائيًا من كتالوج الإدارة." />}
+      confirmLabel={<AdminText en={removeBusy ? 'Deleting…' : 'Delete destination'} ar={removeBusy ? 'جارٍ الحذف…' : 'حذف الوجهة'} />}
+      cancelLabel={<AdminText en="Keep" ar="إبقاء" />}
+      tone="danger"
+      canConfirm={!removeBusy}
+    >
+      <div style={{ display: 'grid', gap: 8 }}>
+        <p style={{ margin: 0, fontWeight: 700 }}>{removeTarget?.title}</p>
+        {removeError ? <p role="alert" style={{ color: '#b91c1c', margin: 0 }}>{removeError}</p> : null}
+      </div>
+    </AdminConfirmDialog>
   </>
 }

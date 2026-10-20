@@ -9,6 +9,7 @@ import { CountrySelect } from '@/components/country-select'
 import { CountryFlag } from '@/components/country-flag'
 import { countries, defaultCountry } from '@/data/countries'
 import { mutateCustomerProfile, useDbCustomerDetail } from '@/lib/admin-customers-client'
+import { toast } from '@/components/admin/admin-toaster'
 
 /**
  * CRM editor backed entirely by the database.
@@ -30,7 +31,6 @@ export function EditCustomerContent({ customerKey }: { customerKey: string }) {
   const [phone, setPhone] = useState('')
   const [avatar, setAvatar] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
-  const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
   const pending = useRef(false)
   const hydrated = useRef(false)
@@ -71,7 +71,6 @@ export function EditCustomerContent({ customerKey }: { customerKey: string }) {
       return
     }
     setErrorMessage('')
-    setSaved(false)
     pending.current = true
     setSaving(true)
     try {
@@ -83,10 +82,10 @@ export function EditCustomerContent({ customerKey }: { customerKey: string }) {
         phone: phone.trim(),
         avatar: avatar.trim(),
       })
-      setSaved(true)
+      toast.success(ar ? 'تم الحفظ بنجاح.' : 'Saved successfully.', { dedupeKey: 'customer-edit-save' })
       refresh()
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : (ar ? 'تعذر حفظ التغييرات.' : 'Could not save the changes.'))
+      toast.error(err instanceof Error ? err.message : (ar ? 'تعذر حفظ التغييرات.' : 'Could not save the changes.'), { dedupeKey: 'customer-edit-save' })
     } finally {
       pending.current = false
       setSaving(false)
@@ -117,7 +116,6 @@ export function EditCustomerContent({ customerKey }: { customerKey: string }) {
         <ImageField value={avatar} onChange={setAvatar} />
       </div>
       {errorMessage && <p role="alert" style={{ color: '#b91c1c' }}>{errorMessage}</p>}
-      {saved && !errorMessage && <p role="status" style={{ color: '#15803d' }}><AdminText en="Saved successfully." ar="تم الحفظ بنجاح." /></p>}
       <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
         <button type="button" className="sp-btn primary" onClick={save} disabled={saving || !canManage}>{saving ? <AdminText en="Saving..." ar="جارٍ الحفظ..." /> : <AdminText en="Save changes" ar="حفظ التغييرات" />}</button>
       </div>

@@ -42,6 +42,7 @@ import { LanguageToggle } from '@/components/language-selector'
 import { ENABLED_LOCALES, LOCALE_LABELS, LOCALE_REGIONS, LOCALE_SHORT_LABELS, sanitizeLocale, type EnabledLocale } from '@/lib/locale-config'
 import { readAdminProfile } from '@/lib/admin-store'
 import { useMobileDrawer } from '@/lib/use-mobile-drawer'
+import { Toaster } from './admin-toaster'
 
 function timeAgo(iso: string, ar: boolean): string {
   const then = new Date(iso).getTime()
@@ -483,6 +484,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           onCurrency={changeCurrency}
         />
       )}
+      <Toaster />
     </div>
   )
 }

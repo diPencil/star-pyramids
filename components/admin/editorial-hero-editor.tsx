@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Eye, EyeOff, RotateCcw, Save, Send, Upload } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { Card } from '@/components/admin/admin-ui'
+import { toast } from './admin-toaster'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { SharedSelect } from '@/components/shared-select'
 import { ENABLED_LOCALES, type EnabledLocale } from '@/lib/locale-config'
@@ -25,8 +26,7 @@ export function EditorialHeroEditor({ id }: { id: EditorialHeroId }) {
   const [busy, setBusy] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
-  const [confirm, setConfirm] = useState<HeroAction | null>(null)
+    const [confirm, setConfirm] = useState<HeroAction | null>(null)
   const [preview, setPreview] = useState(false)
   const [width, setWidth] = useState('desktop')
   const lock = useRef(false)
@@ -40,16 +40,19 @@ export function EditorialHeroEditor({ id }: { id: EditorialHeroId }) {
     } catch { setError('Could not load hero. Reload to retry.') }
   }
   useEffect(() => { void load() }, [])
-  const change = (next: Partial<FaqHero>) => { setDraft((previous) => ({ ...previous, ...next })); setDirty(true); setNotice(''); setPreview(false) }
+  const change = (next: Partial<FaqHero>) => { setDraft((previous) => ({ ...previous, ...next })); setDirty(true); setPreview(false) }
   const action = async (command: HeroAction) => {
     if (!state || !canEdit || lock.current) return
-    lock.current = true; setBusy(true); setError(''); setNotice('')
+    lock.current = true; setBusy(true); setError('')
     try {
       const response = await fetch(endpoint, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: command, revision: state.revision, ...(command === 'save-draft' ? { content: draft } : {}) }) })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Could not save hero.')
       setState(data.state); setDraft(data.state.draft ?? data.state.published ?? original()); setDirty(false)
-      setNotice(command === 'save-draft' ? 'Draft saved. Public content is unchanged.' : command === 'publish' ? hasPageSections ? 'Page content published.' : 'Hero published.' : command === 'restore' ? hasPageSections ? 'Original hero and page sections restored and published.' : 'Original hero restored and published.' : 'Hero unpublished. Page content is unchanged.')
+      if (command === 'save-draft') toast.success('Draft saved. Public content is unchanged.', { dedupeKey: 'editorial-hero-draft' })
+      else if (command === 'publish') toast.success(hasPageSections ? 'Page content published.' : 'Hero published.', { dedupeKey: 'editorial-hero-publish' })
+      else if (command === 'restore') toast.success(hasPageSections ? 'Original hero and page sections restored and published.' : 'Original hero restored and published.', { dedupeKey: 'editorial-hero-restore' })
+      else toast.success('Hero unpublished. Page content is unchanged.', { dedupeKey: 'editorial-hero-unpublish' })
     } catch (error) { setError(error instanceof Error ? error.message : 'Could not save hero.') }
     finally { lock.current = false; setBusy(false); setConfirm(null) }
   }
@@ -61,7 +64,7 @@ export function EditorialHeroEditor({ id }: { id: EditorialHeroId }) {
       const response = await fetch('/api/admin/website-cms/hero-media', { method: 'POST', body })
       const data = await response.json()
       if (!response.ok || typeof data.media?.url !== 'string') throw new Error(data.error || 'Upload failed.')
-      change({ image: data.media.url }); setNotice('Image uploaded. Reference is not published yet.')
+      change({ image: data.media.url }); toast.info('Image uploaded. Reference is not published yet.', { dedupeKey: 'editorial-hero-upload' })
     } catch (error) { setError(error instanceof Error ? error.message : 'Upload failed.') }
     finally { lock.current = false; setBusy(false) }
   }
@@ -71,7 +74,7 @@ export function EditorialHeroEditor({ id }: { id: EditorialHeroId }) {
   return <>
     <PageHead eyebrow="HERO SECTIONS" title={page.name} backHref="/admin/website-cms/hero-sections" />
     <Card title="Hero content" sub={state ? `Revision ${state.revision} · ${state.mode}` : 'Loading…'}>
-      {error && <p className="form-error" role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
+      {error && <p className="form-error" role="alert">{error}</p>}
       {!state && <button type="button" className="sp-btn" onClick={() => void load()}>Reload</button>}
       <form className="cms-hero-form" onSubmit={(event) => { event.preventDefault(); void action('save-draft') }}>
         <fieldset disabled={disabled}>

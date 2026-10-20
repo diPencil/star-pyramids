@@ -6,17 +6,19 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminText, Card } from '@/components/admin/admin-ui'
 import { VehicleForm } from '@/components/admin/vehicle-form'
 import { invalidateEventsCarsCache } from '@/lib/events-cars-client'
+import { toast } from '@/components/admin/admin-toaster'
+import { useAdminLocale } from '@/components/admin/admin-locale'
 import type { Car } from '@/data/types'
 
 function NewCarInner() {
   const router = useRouter()
   const params = useSearchParams()
+  const ar = useAdminLocale() === 'ar'
   const slug = params.get('slug')
   // Single source of truth: the DB record. Base snapshots would leave
   // admin-created slugs unresolvable and risk stale form state.
   const [record, setRecord] = useState<Car | null | undefined>(slug ? undefined : null)
   const [loadError, setLoadError] = useState('')
-  const [saveError, setSaveError] = useState('')
   const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
@@ -49,7 +51,6 @@ function NewCarInner() {
   }, [slug, attempt])
 
   const save = async (car: Car) => {
-    setSaveError('')
     try {
       const url = slug ? `/api/cars/${encodeURIComponent(slug)}` : '/api/cars'
       const res = await fetch(url, {
@@ -63,10 +64,11 @@ function NewCarInner() {
         throw new Error(data.error || 'Failed to save vehicle.')
       }
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Failed to save vehicle.')
+      toast.error(err instanceof Error ? err.message : (ar ? 'تعذر حفظ السيارة.' : 'Failed to save vehicle.'), { dedupeKey: 'car-editor-save' })
       return
     }
     invalidateEventsCarsCache()
+    toast.success(slug ? (ar ? 'تم حفظ السيارة.' : 'Car saved.') : (ar ? 'تمت إضافة السيارة إلى الأسطول.' : 'Vehicle added to the fleet.'), { dedupeKey: 'car-editor-save' })
     router.push('/admin/cars')
   }
 
@@ -108,7 +110,6 @@ function NewCarInner() {
     {record
       ? <VehicleForm key={record.slug} initial={record} submitLabel={<AdminText en="Save changes" ar="حفظ التغييرات" />} onSubmit={save} />
       : <VehicleForm submitLabel={<AdminText en="Add vehicle" ar="إضافة السيارة" />} onSubmit={save} />}
-    {saveError && <p role="alert" style={{ color: '#b91c1c' }}>{saveError}</p>}
   </>
 }
 

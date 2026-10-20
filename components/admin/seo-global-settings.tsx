@@ -7,6 +7,7 @@ import { protectEnquiryNavigation } from '@/lib/enquiry-navigation';
 import { DEFAULT_GTM_CONTAINER_ID } from '@/lib/tracking';
 import { Card } from './admin-ui';
 import { AdminConfirmDialog } from './admin-confirm-dialog';
+import { toast } from './admin-toaster';
 
 const fields = [
   ['site.seoTitle', 'Default SEO title', 160],
@@ -44,7 +45,6 @@ export function SeoGlobalSettings({ canEdit = false }: { canEdit?: boolean }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [saved, setSaved] = useState(false);
   const [confirmReload, setConfirmReload] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null);
   const busy = useRef(false);
@@ -55,7 +55,7 @@ export function SeoGlobalSettings({ canEdit = false }: { canEdit?: boolean }) {
   const load = useCallback(async () => {
     if (busy.current) return;
     busy.current = true;
-    setLoading(true); setError(''); setSaved(false);
+    setLoading(true); setError('');
     try {
       const response = await fetch('/api/admin/settings', { cache: 'no-store' });
       if (!response.ok) throw new Error('Unable to load settings.');
@@ -99,32 +99,32 @@ export function SeoGlobalSettings({ canEdit = false }: { canEdit?: boolean }) {
     if (!canEdit || loading || busy.current || pendingRef.current) return;
     const patch = Object.fromEntries(allFields.filter(([key]) => values[key] !== baseline[key]).map(([key]) => [key, values[key]]));
     if (!Object.keys(patch).length) return;
-    busy.current = true; setSaving(true); setError(''); setSaved(false);
+    busy.current = true; setSaving(true); setError('');
     try {
       const response = await fetch('/api/admin/settings', {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ values: patch }),
       });
       if (!response.ok) throw new Error(response.status === 403 ? 'You do not have permission to edit settings.' : 'Unable to save settings. Check the entered values and retry.');
       const next = readValues(await response.json());
-      setValues(next); setBaseline(next); setSaved(true); dirtyRef.current = false;
+      setValues(next); setBaseline(next); dirtyRef.current = false;
+      toast.success('Settings saved.', { dedupeKey: 'seo-global-save' });
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Unable to save settings.');
+      toast.error(cause instanceof Error ? cause.message : 'Unable to save settings.', { dedupeKey: 'seo-global-save' });
     } finally { busy.current = false; setSaving(false); }
   }
 
   return <Card title="Global SEO settings">
     {loading && <p role="status">Loading settings...</p>}
     {error && <p role="alert">{error}</p>}
-    {saved && <p role="status">Settings saved.</p>}
-    {!canEdit && <p>Read-only. Editing requires settings permission.</p>}
+        {!canEdit && <p>Read-only. Editing requires settings permission.</p>}
     <form onSubmit={save} className="cms-field-panel">
       <fieldset disabled={!canEdit || loading || saving || confirmReload || pendingNavigation !== null || !Object.keys(baseline).length}>
         <legend>Global SEO defaults</legend>
         {fields.map(([key, label, maxLength]) => <label key={key}>
           <span>{label}</span>
           {key.startsWith('site.seoDescription')
-            ? <textarea maxLength={maxLength} value={values[key] ?? ''} onChange={event => { setValues(old => ({ ...old, [key]: event.target.value })); setSaved(false); }} />
-            : <input maxLength={maxLength} required={key === 'site.seoTitle'} dir={key === 'site.googleSiteVerification' || key === 'site.seoImage' ? 'ltr' : undefined} pattern={key === 'site.googleSiteVerification' ? '[A-Za-z0-9_-]*' : undefined} value={values[key] ?? ''} onChange={event => { setValues(old => ({ ...old, [key]: event.target.value })); setSaved(false); }} />}
+            ? <textarea maxLength={maxLength} value={values[key] ?? ''} onChange={event => { setValues(old => ({ ...old, [key]: event.target.value })); }} />
+            : <input maxLength={maxLength} required={key === 'site.seoTitle'} dir={key === 'site.googleSiteVerification' || key === 'site.seoImage' ? 'ltr' : undefined} pattern={key === 'site.googleSiteVerification' ? '[A-Za-z0-9_-]*' : undefined} value={values[key] ?? ''} onChange={event => { setValues(old => ({ ...old, [key]: event.target.value })); }} />}
         </label>)}
       </fieldset>
       <fieldset disabled={!canEdit || loading || saving || confirmReload || pendingNavigation !== null || !Object.keys(baseline).length}>
@@ -133,7 +133,7 @@ export function SeoGlobalSettings({ canEdit = false }: { canEdit?: boolean }) {
           <input
             type="checkbox"
             checked={values['tracking.gtmEnabled'] !== 'false'}
-            onChange={event => { setValues(old => ({ ...old, 'tracking.gtmEnabled': event.target.checked ? 'true' : 'false' })); setSaved(false); }}
+            onChange={event => { setValues(old => ({ ...old, 'tracking.gtmEnabled': event.target.checked ? 'true' : 'false' })); }}
           />
           Enable Google Tag Manager
         </label>
@@ -146,7 +146,7 @@ export function SeoGlobalSettings({ canEdit = false }: { canEdit?: boolean }) {
             pattern="GTM-[A-Z0-9]{4,12}"
             placeholder={DEFAULT_GTM_CONTAINER_ID}
             value={values['tracking.gtmContainerId'] ?? ''}
-            onChange={event => { setValues(old => ({ ...old, 'tracking.gtmContainerId': event.target.value.toUpperCase() })); setSaved(false); }}
+            onChange={event => { setValues(old => ({ ...old, 'tracking.gtmContainerId': event.target.value.toUpperCase() })); }}
           />
         </label>
         <p>One container loads on public pages only. Admin, customer account and staff preview pages are excluded. Google Consent Mode v2 starts with non-essential consent denied until a visitor choice is stored.</p>

@@ -8,6 +8,7 @@ import { AdminText, Card } from '@/components/admin/admin-ui'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { useAdminCurrency } from '@/components/admin/admin-currency'
+import { toast } from '@/components/admin/admin-toaster'
 import { useCurrentUser } from '@/lib/use-current-user'
 import { SharedSelect } from '@/components/shared-select'
 import { bookingActivityLabel, bookingPaymentStatusLabel, bookingStatusLabel, canTransitionBooking, type BookingStatus, type StaffBooking } from '@/lib/booking'
@@ -142,7 +143,6 @@ export function BookingDetailContent({ reference }: { reference: string }) {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [pending, setPending] = useState<BookingStatus | null>(null)
-  const [actionError, setActionError] = useState('')
   const [note, setNote] = useState('')
   const [savingNote, setSavingNote] = useState(false)
   const [reviewing, setReviewing] = useState<string | null>(null)
@@ -239,13 +239,11 @@ export function BookingDetailContent({ reference }: { reference: string }) {
     setRecMethod('bank_transfer')
     setRecNote('')
     setRecKey(typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`)
-    setActionError('')
     setRecordOpen(true)
   }
 
   const submitRecord = () => {
     if (!item || recSaving) return
-    setActionError('')
     setRecSaving(true)
     fetch('/api/admin/payments/record', {
       method: 'POST',
@@ -268,9 +266,10 @@ export function BookingDetailContent({ reference }: { reference: string }) {
       .then((row) => {
         setItem(row)
         setRecordOpen(false)
+        toast.success(ar ? 'تم تسجيل الدفعة.' : 'Payment recorded.', { dedupeKey: 'booking-record-payment' })
       })
       .catch((error: unknown) => {
-        setActionError(error instanceof Error ? error.message : 'Could not record the payment.')
+        toast.error(error instanceof Error ? error.message : 'Could not record the payment.', { dedupeKey: 'booking-record-payment' })
       })
       .finally(() => setRecSaving(false))
   }
@@ -332,26 +331,27 @@ export function BookingDetailContent({ reference }: { reference: string }) {
   }
 
   const runTransition = (to: BookingStatus) => {
-    setActionError('')
     apiStaffMutate(item.reference, { status: to })
-      .then((row) => { setItem(row); setPending(null) })
+      .then((row) => {
+        setItem(row); setPending(null)
+        toast.success(ar ? `تم تحديث حالة الحجز إلى ${to}.` : `Booking status updated to ${to}.`, { dedupeKey: 'booking-status' })
+      })
       .catch((error: unknown) => {
         const code = (error as { code?: unknown } | null)?.code
-        setActionError(code === 'BOOKING_FINANCIAL_REVIEW'
+        toast.error(code === 'BOOKING_FINANCIAL_REVIEW'
           ? financialReviewBlockMessage(ar)
-          : (error instanceof Error ? error.message : 'Could not update the booking.'))
+          : (error instanceof Error ? error.message : 'Could not update the booking.'), { dedupeKey: 'booking-status' })
         setPending(null)
       })
   }
 
   const saveNote = () => {
     if (!note.trim() || savingNote) return
-    setActionError('')
     setSavingNote(true)
     apiStaffMutate(item.reference, { note: note.trim() })
-      .then((row) => { setItem(row); setNote('') })
+      .then((row) => { setItem(row); setNote(''); toast.success(ar ? 'تم حفظ الملاحظة.' : 'Note saved.', { dedupeKey: 'booking-note' }) })
       .catch((error: unknown) => {
-        setActionError(error instanceof Error ? error.message : 'Could not save the note.')
+        toast.error(error instanceof Error ? error.message : 'Could not save the note.', { dedupeKey: 'booking-note' })
       })
       .finally(() => setSavingNote(false))
   }
@@ -489,7 +489,7 @@ export function BookingDetailContent({ reference }: { reference: string }) {
               ) : (
                 <p className="evr-manage-hint"><AdminText en="No further transitions. Completed and cancelled bookings are terminal." ar="لا توجد انتقالات أخرى. الحجوزات المكتملة والملغاة نهائية." /></p>
               )}
-              {actionError && <p className="evr-manage-hint" role="alert">{actionError}</p>}
+
             </div>
           </Card>
           <Card title={<AdminText en="Documents" ar="المستندات" />}>

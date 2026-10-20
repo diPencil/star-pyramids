@@ -7,6 +7,7 @@ import { PageHead } from './admin-shell'
 import { Card, AdminStats, AdminTableTools, AdminTableWrap, AdminTableActions, AdminIconAction } from './admin-ui'
 import { AdminPagination, usePagination } from './admin-pagination'
 import { AdminConfirmDialog } from './admin-confirm-dialog'
+import { toast } from './admin-toaster'
 import { SharedSelect } from '@/components/shared-select'
 import { SEO_PAGES, currentSeo, type SeoAction } from '@/lib/seo-manager'
 import { validateSeoContent, type SeoContent } from '@/lib/seo-content'
@@ -95,8 +96,7 @@ export function SeoEditor({ pageKey, recordKey }: { pageKey: PageDocumentId; rec
   const [canEdit, setCanEdit] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
-  const [conflict, setConflict] = useState(false)
+    const [conflict, setConflict] = useState(false)
   const [locale, setLocale] = useState<EnabledLocale>('en')
   const [device, setDevice] = useState('desktop')
   const [confirm, setConfirm] = useState<SeoAction | 'reload' | null>(null)
@@ -110,7 +110,7 @@ export function SeoEditor({ pageKey, recordKey }: { pageKey: PageDocumentId; rec
   const endpoint = recordKey ? '/api/admin/website-cms/seo/records/' + encodeURIComponent(recordKey.kind) + '/' + encodeURIComponent(recordKey.slug) : '/api/admin/website-cms/seo/' + encodeURIComponent(pageKey)
   const load = useCallback(async () => {
     if (lock.current) return
-    lock.current = true; setBusy(true); setError(''); setNotice('')
+    lock.current = true; setBusy(true); setError('')
     setSavedPreview(null); setPreviewError('')
     try {
       const response = await fetch(endpoint, { cache: 'no-store' })
@@ -140,7 +140,7 @@ export function SeoEditor({ pageKey, recordKey }: { pageKey: PageDocumentId; rec
     return () => { cleanup(); document.removeEventListener('click', click, true) }
   }, [router])
   const disabled = busy || !canEdit || conflict || !(state || recordData)
-  const change = (next: SeoContent & { structuredData?: boolean }) => { if (disabled) return; setContent(next); setNotice(''); setSavedPreview(null); setPreviewError('') }
+  const change = (next: SeoContent & { structuredData?: boolean }) => { if (disabled) return; setContent(next); setSavedPreview(null); setPreviewError('') }
   const validateSavedPreview = async () => {
     if (!recordKey || !recordData || dirty || busy || conflict || lock.current) return
     lock.current = true; setBusy(true); setSavedPreview(null); setPreviewError('')
@@ -153,7 +153,7 @@ export function SeoEditor({ pageKey, recordKey }: { pageKey: PageDocumentId; rec
     let validated: SeoContent | undefined
     try { if (command === 'save-draft') validated = recordKey ? validateRecordSeoContent(content) : validateSeoContent(content) }
     catch (error) { setError(error instanceof Error ? error.message : 'Check the SEO fields.'); return }
-    lock.current = true; setBusy(true); setError(''); setNotice('')
+    lock.current = true; setBusy(true); setError('')
     setSavedPreview(null); setPreviewError('')
     try {
       const response = await fetch(endpoint, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: command, revision: recordData?.state.revision ?? state!.revision, ...(validated ? { content: validated } : {}) }) })
@@ -164,7 +164,7 @@ export function SeoEditor({ pageKey, recordKey }: { pageKey: PageDocumentId; rec
       if (recordKey) { const next = data as SeoRecordResponse; setRecordData(next); setContent(next.state.draft ?? next.state.published ?? emptyRecordSeo()); setCanEdit(next.canEdit) }
       else { const next: PageContentState = data.state; setState(next); setContent(next.seoDraft ?? currentSeo(next, pageKey)) }
       dirtyRef.current = false
-      setNotice(command === 'save-draft' ? 'SEO draft saved. Public metadata is unchanged.' : command === 'publish' ? 'Saved SEO published. Page section drafts are unchanged.' : 'Original SEO restored. Saved SEO draft cleared; page section drafts are unchanged.')
+      toast.success(command === 'save-draft' ? 'SEO draft saved. Public metadata is unchanged.' : command === 'publish' ? 'Saved SEO published. Page section drafts are unchanged.' : 'Original SEO restored. Saved SEO draft cleared; page section drafts are unchanged.', { dedupeKey: 'seo-editor-command' })
     } catch (error) { setError(error instanceof Error ? error.message : 'Could not save SEO.') }
     finally { lock.current = false; setBusy(false); setConfirm(null) }
   }
@@ -183,7 +183,7 @@ export function SeoEditor({ pageKey, recordKey }: { pageKey: PageDocumentId; rec
       <button className="sp-btn primary" type="button" disabled={disabled || dirty || !draft || JSON.stringify(draft) === JSON.stringify(published)} onClick={() => setConfirm('publish')}><Send size={16} /> Publish SEO</button>
       <button className="sp-btn" type="button" disabled={disabled} onClick={() => setConfirm('restore')}><RotateCcw size={16} /> Restore original SEO</button>
     </div></div>
-    {error && <p className="form-error" role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
+    {error && <p className="form-error" role="alert">{error}</p>}
     {busy && <p role="status">Loading or saving SEO...</p>}
     {(state || recordData) && !canEdit && <p role="status">Read only. Editing permission is required to save, publish or restore SEO.</p>}
     {recordData && <p className="cms-coverage-note">Content: {recordData.record.published ? 'Published' : 'Hidden'}. SEO: {recordData.state.published ? 'Published override' : 'Original defaults'}{recordData.state.draft ? ' | Saved draft' : ''}. Publishing SEO does not publish hidden content. {safeEditor(recordData.record.sourceEditor) && <a href={recordData.record.sourceEditor}>Open original content editor</a>}</p>}

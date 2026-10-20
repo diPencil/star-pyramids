@@ -11,6 +11,7 @@ import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
 import { SharedSelect } from '@/components/shared-select'
 import { invalidateOffersBlogsCache, useDbBlogsStatus } from '@/lib/offers-blogs-client'
+import { toast } from '@/components/admin/admin-toaster'
 
 export default function BlogsPage() {
   const ar = useAdminLocale() === 'ar'
@@ -18,15 +19,14 @@ export default function BlogsPage() {
   const [category, setCategory] = useState('all')
   const [visibility, setVisibility] = useState<'all' | 'published' | 'hidden'>('all')
   const [deleteSlug, setDeleteSlug] = useState<string | null>(null)
-  const [actionError, setActionError] = useState('')
   // DB-authoritative catalogue with no static fallback: while the API is
   // loading or failing, the screen shows loading/error — never bootstrap
   // rows masquerading as database records.
-  const { data, loading, error, retry } = useDbBlogsStatus()
+  const { data, loading, error, retry, refresh } = useDbBlogsStatus()
   const liveBlogs = data ?? []
 
   const setPublished = async (slug: string, published: boolean) => {
-    setActionError('')
+    const dedupeKey = `blog-publish-${slug}`
     try {
       const res = await fetch(`/api/blogs/${encodeURIComponent(slug)}`, {
         method: 'PUT',
@@ -39,15 +39,20 @@ export default function BlogsPage() {
         throw new Error(data.error || 'Failed to update visibility.')
       }
       invalidateOffersBlogsCache()
-      // Refresh from the DB source of truth.
-      window.location.reload()
+      toast.success(
+        published
+          ? (ar ? 'تم نشر المقال. ظهر على الموقع العام.' : 'Story published. It now appears on the public website.')
+          : (ar ? 'تم إخفاء المقال عن الموقع العام.' : 'Story hidden from the public website.'),
+        { dedupeKey },
+      )
+      // Refresh from the DB source of truth without a full page reload.
+      refresh()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to update visibility.')
+      toast.error(err instanceof Error ? err.message : 'Failed to update visibility.', { dedupeKey })
     }
   }
 
   const removeBlog = async (slug: string) => {
-    setActionError('')
     try {
       const res = await fetch(`/api/blogs/${encodeURIComponent(slug)}`, {
         method: 'DELETE',
@@ -58,10 +63,11 @@ export default function BlogsPage() {
         throw new Error(data.error || 'Failed to delete story.')
       }
       invalidateOffersBlogsCache()
-      // Refresh from the DB source of truth.
-      window.location.reload()
+      toast.success(ar ? 'تم حذف المقال.' : 'Story deleted.', { dedupeKey: `blog-delete-${slug}` })
+      // Refresh from the DB source of truth without a full page reload.
+      refresh()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to delete story.')
+      toast.error(err instanceof Error ? err.message : 'Failed to delete story.', { dedupeKey: 'blog-delete-error' })
     }
   }
 
@@ -93,7 +99,6 @@ export default function BlogsPage() {
           <SharedSelect value={category} onChange={setCategory} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حسب التصنيف' : 'Filter by category'} popupWidth="trigger" options={[{ value: 'all', label: ar ? 'كل التصنيفات' : 'All categories' }, ...categories.map((c) => ({ value: c, label: c }))]} />
           <SharedSelect value={visibility} onChange={(next) => setVisibility(next as typeof visibility)} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حسب الظهور' : 'Filter by visibility'} options={[{ value: 'all', label: ar ? 'الكل' : 'All' }, { value: 'published', label: ar ? 'المنشورة' : 'Published' }, { value: 'hidden', label: ar ? 'المخفية' : 'Hidden' }]} />
       </AdminTableTools>
-      {actionError ? <p role="alert" style={{ color: '#b91c1c', margin: '8px 0 0' }}>{actionError}</p> : null}
       {loading ? <AdminEmpty title={<AdminText en="Loading stories…" ar="جارٍ تحميل المقالات…" />} copy={<AdminText en="Reading the authoritative catalogue." ar="تتم قراءة السجل المعتمد." />} />
       : error ? <><AdminEmpty title={<AdminText en="Could not load stories" ar="تعذر تحميل المقالات" />} copy={<AdminText en={error} ar={error} />} /><div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}><button type="button" className="sp-btn" onClick={retry}><AdminText en="Retry" ar="إعادة المحاولة" /></button></div></>
       : rows.length ? <AdminTableWrap><table className="sp-table">

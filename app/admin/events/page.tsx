@@ -13,6 +13,7 @@ import { SharedSelect } from '@/components/shared-select'
 import { invalidateEventsCarsCache, useDbEventsStatus } from '@/lib/events-cars-client'
 import { getEventStatus, isEventPublished } from '@/lib/events'
 import { requestsForEventSlug, type StaffEventRequest } from '@/lib/event-request'
+import { toast } from '@/components/admin/admin-toaster'
 
 export default function EventsPage() {
   const ar = useAdminLocale() === 'ar'
@@ -20,17 +21,16 @@ export default function EventsPage() {
   const [location, setLocation] = useState('all')
   const [visibility, setVisibility] = useState<'all' | 'published' | 'hidden'>('all')
   const [deleteSlug, setDeleteSlug] = useState<string | null>(null)
-  const [actionError, setActionError] = useState('')
   // DB-authoritative catalogue with no static fallback: while the API is
   // loading or failing, the screen shows loading/error — never bootstrap
   // rows masquerading as database records.
-  const { data, loading, error, retry } = useDbEventsStatus()
+  const { data, loading, error, retry, refresh } = useDbEventsStatus()
   const liveEvents = data ?? []
   const hidden = useMemo(() => liveEvents.filter((e) => e.isPublished === false).map((e) => e.slug), [liveEvents])
   const [requests, setRequests] = useState<StaffEventRequest[]>([])
 
   const setPublished = async (slug: string, published: boolean) => {
-    setActionError('')
+    const dedupeKey = `event-publish-${slug}`
     try {
       const res = await fetch(`/api/events/${encodeURIComponent(slug)}`, {
         method: 'PUT',
@@ -43,15 +43,20 @@ export default function EventsPage() {
         throw new Error(data.error || 'Failed to update visibility.')
       }
       invalidateEventsCarsCache()
-      // Refresh from the DB source of truth.
-      window.location.reload()
+      toast.success(
+        published
+          ? (ar ? 'تم نشر الفعالية. ظهرت على الموقع العام.' : 'Event published. It now appears on the public website.')
+          : (ar ? 'تم إخفاء الفعالية عن الموقع العام.' : 'Event hidden from the public website.'),
+        { dedupeKey },
+      )
+      // Refresh from the DB source of truth without a full page reload.
+      refresh()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to update visibility.')
+      toast.error(err instanceof Error ? err.message : 'Failed to update visibility.', { dedupeKey })
     }
   }
 
   const removeEvent = async (slug: string) => {
-    setActionError('')
     try {
       const res = await fetch(`/api/events/${encodeURIComponent(slug)}`, {
         method: 'DELETE',
@@ -62,10 +67,11 @@ export default function EventsPage() {
         throw new Error(data.error || 'Failed to delete event.')
       }
       invalidateEventsCarsCache()
-      // Refresh from the DB source of truth.
-      window.location.reload()
+      toast.success(ar ? 'تم حذف الفعالية.' : 'Event deleted.', { dedupeKey: `event-delete-${slug}` })
+      // Refresh from the DB source of truth without a full page reload.
+      refresh()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to delete event.')
+      toast.error(err instanceof Error ? err.message : 'Failed to delete event.', { dedupeKey: 'event-delete-error' })
     }
   }
 
@@ -114,7 +120,6 @@ export default function EventsPage() {
           <SharedSelect value={location} onChange={setLocation} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حسب الموقع' : 'Filter events by location'} popupWidth="trigger" options={[{ value: 'all', label: ar ? 'كل المواقع' : 'All locations' }, ...locations.map((item) => ({ value: item, label: item }))]} />
           <SharedSelect value={visibility} onChange={(next) => setVisibility(next as typeof visibility)} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حسب الظهور' : 'Filter by visibility'} options={[{ value: 'all', label: ar ? 'الكل' : 'All' }, { value: 'published', label: ar ? 'المنشورة' : 'Published' }, { value: 'hidden', label: ar ? 'المخفية' : 'Hidden' }]} />
       </AdminTableTools>
-      {actionError ? <p role="alert" style={{ color: '#b91c1c', margin: '8px 0 0' }}>{actionError}</p> : null}
       {loading ? <AdminEmpty title={<AdminText en="Loading events…" ar="جارٍ تحميل الفعاليات…" />} copy={<AdminText en="Reading the authoritative catalogue." ar="تتم قراءة السجل المعتمد." />} />
       : error ? <><AdminEmpty title={<AdminText en="Could not load events" ar="تعذر تحميل الفعاليات" />} copy={<AdminText en={error} ar={error} />} /><div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}><button type="button" className="sp-btn" onClick={retry}><AdminText en="Retry" ar="إعادة المحاولة" /></button></div></>
       : rows.length ? <AdminTableWrap><table className="sp-table">

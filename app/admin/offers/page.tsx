@@ -14,6 +14,7 @@ import { AdminPagination, usePagination } from '@/components/admin/admin-paginat
 import { SharedSelect } from '@/components/shared-select'
 import { invalidateOffersBlogsCache, useDbOffersStatus } from '@/lib/offers-blogs-client'
 import { isPromoBar } from '@/lib/marketing-campaigns'
+import { toast } from '@/components/admin/admin-toaster'
 
 export default function OffersPage() {
   const ar = useAdminLocale() === 'ar'
@@ -24,15 +25,14 @@ export default function OffersPage() {
   const [badge, setBadge] = useState('all')
   const [visibility, setVisibility] = useState<'all' | 'published' | 'hidden'>('all')
   const [deleteSlug, setDeleteSlug] = useState<string | null>(null)
-  const [actionError, setActionError] = useState('')
   // DB-authoritative catalogue with no static fallback: while the API is
   // loading or failing, the screen shows loading/error — never bootstrap
   // rows masquerading as database records.
-  const { data, loading, error, retry } = useDbOffersStatus()
+  const { data, loading, error, retry, refresh } = useDbOffersStatus()
   const liveOffers = data ?? []
 
   const setPublished = async (slug: string, published: boolean) => {
-    setActionError('')
+    const dedupeKey = `offer-publish-${slug}`
     try {
       const res = await fetch(`/api/offers/${encodeURIComponent(slug)}`, {
         method: 'PUT',
@@ -45,15 +45,20 @@ export default function OffersPage() {
         throw new Error(data.error || 'Failed to update visibility.')
       }
       invalidateOffersBlogsCache()
-      // Refresh from the DB source of truth.
-      window.location.reload()
+      toast.success(
+        published
+          ? (ar ? 'تم نشر العرض. ظهر على الموقع العام.' : 'Offer published. It now appears on the public website.')
+          : (ar ? 'تم إخفاء العرض عن الموقع العام.' : 'Offer hidden from the public website.'),
+        { dedupeKey },
+      )
+      // Refresh from the DB source of truth without a full page reload.
+      refresh()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to update visibility.')
+      toast.error(err instanceof Error ? err.message : 'Failed to update visibility.', { dedupeKey })
     }
   }
 
   const removeOffer = async (slug: string) => {
-    setActionError('')
     try {
       const res = await fetch(`/api/offers/${encodeURIComponent(slug)}`, {
         method: 'DELETE',
@@ -64,10 +69,11 @@ export default function OffersPage() {
         throw new Error(data.error || 'Failed to delete offer.')
       }
       invalidateOffersBlogsCache()
-      // Refresh from the DB source of truth.
-      window.location.reload()
+      toast.success(ar ? 'تم حذف العرض.' : 'Offer deleted.', { dedupeKey: `offer-delete-${slug}` })
+      // Refresh from the DB source of truth without a full page reload.
+      refresh()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to delete offer.')
+      toast.error(err instanceof Error ? err.message : 'Failed to delete offer.', { dedupeKey: 'offer-delete-error' })
     }
   }
 
@@ -102,7 +108,6 @@ export default function OffersPage() {
         <SharedSelect value={badge} onChange={setBadge} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حسب الشارة' : 'Filter by campaign label'} popupWidth="trigger" options={[{ value: 'all', label: ar ? 'كل الشارات' : 'All labels' }, ...badges.map((item) => ({ value: item, label: item }))]} />
         <SharedSelect value={visibility} onChange={(next) => setVisibility(next as typeof visibility)} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حسب الظهور' : 'Filter by visibility'} options={[{ value: 'all', label: ar ? 'الكل' : 'All' }, { value: 'published', label: ar ? 'المنشورة' : 'Published' }, { value: 'hidden', label: ar ? 'المخفية' : 'Hidden' }]} />
       </AdminTableTools>
-      {actionError ? <p role="alert" style={{ color: '#b91c1c', margin: '8px 0 0' }}>{actionError}</p> : null}
       {loading ? <AdminEmpty title={<AdminText en="Loading offers…" ar="جارٍ تحميل العروض…" />} copy={<AdminText en="Reading the authoritative catalogue." ar="تتم قراءة السجل المعتمد." />} />
       : error ? <><AdminEmpty title={<AdminText en="Could not load offers" ar="تعذر تحميل العروض" />} copy={<AdminText en={error} ar={error} />} /><div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}><button type="button" className="sp-btn" onClick={retry}><AdminText en="Retry" ar="إعادة المحاولة" /></button></div></>
       : rows.length ? <AdminTableWrap><table className="sp-table">

@@ -7,6 +7,7 @@ import { Film, Plus } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminTableTools, AdminText, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
+import { toast } from '@/components/admin/admin-toaster'
 import { ImageField } from '@/components/admin/image-field'
 import { SharedSelect } from '@/components/shared-select'
 import { invalidateJourneyGalleryCache } from '@/lib/journey-gallery-client'
@@ -135,7 +136,7 @@ function VideoUploadField({ value, onChange, disabled }: { value: string; onChan
       }
       onChange(url)
     } catch (err) {
-      setError(err instanceof Error ? err.message : (ar ? 'تعذر رفع الفيديو.' : 'Could not upload that video.'))
+      toast.error(err instanceof Error ? err.message : (ar ? 'تعذر رفع الفيديو.' : 'Could not upload that video.'), { dedupeKey: 'gallery-video-upload' })
     } finally {
       setUploading(false)
     }
@@ -227,9 +228,10 @@ export function GalleryForm({ initial, editId }: { initial: GalleryItem | null; 
       const data = (await res.json().catch(() => null)) as { error?: unknown } | null
       if (!res.ok) throw new Error(typeof data?.error === 'string' ? data.error : 'Could not save that item.')
       invalidateJourneyGalleryCache()
+      toast.success(editing ? (ar ? 'تم حفظ عنصر المعرض.' : 'Gallery item saved.') : (ar ? 'تمت إضافة عنصر المعرض.' : 'Gallery item added.'), { dedupeKey: 'gallery-form-save' })
       router.push('/admin/gallery')
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Could not save that item.')
+      toast.error(err instanceof Error ? err.message : (ar ? 'تعذر حفظ العنصر.' : 'Could not save that item.'), { dedupeKey: 'gallery-form-save' })
     } finally {
       setSaving(false)
     }

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Eye, Save, Send, RotateCcw, EyeOff, Upload } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { Card } from '@/components/admin/admin-ui'
+import { toast } from '@/components/admin/admin-toaster'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { SharedSelect } from '@/components/shared-select'
 import { ENABLED_LOCALES, type EnabledLocale } from '@/lib/locale-config'
@@ -19,7 +20,6 @@ export default function HomepageHeroEditor() {
   const [busy, setBusy] = useState(false)
   const lock = useRef(false)
   const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
   const [dirty, setDirty] = useState(false)
   const [confirm, setConfirm] = useState<HeroAction | null>(null)
   const [preview, setPreview] = useState(false)
@@ -43,15 +43,16 @@ export default function HomepageHeroEditor() {
     } catch { setError('Could not load hero. Reload to retry; unsaved edits are not sent automatically.') }
   }
   useEffect(() => { void load() }, [])
-  const change = (next: Partial<HomeHero>) => { setDraft((previous) => ({ ...previous, ...next })); setDirty(true); setNotice('') }
+  const change = (next: Partial<HomeHero>) => { setDraft((previous) => ({ ...previous, ...next })); setDirty(true) }
   const action = async (command: HeroAction) => {
     if (!state || lock.current || !canEdit) return
-    lock.current = true; setBusy(true); setError(''); setNotice('')
+    lock.current = true; setBusy(true); setError('')
     try {
       const response = await fetch('/api/admin/website-cms/hero-sections', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: command, revision: state.revision, ...(command === 'save-draft' ? { content: draft } : {}) }) })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Could not save hero.')
-      setState(data.state); setDraft(data.state.draft ?? data.state.published ?? originalHomeHero()); setDirty(false); setNotice(command === 'save-draft' ? 'Draft saved. Public content is unchanged.' : command === 'publish' ? 'Hero published.' : command === 'restore' ? 'Original content restored and published.' : 'Hero unpublished. Search forms remain available.')
+      setState(data.state); setDraft(data.state.draft ?? data.state.published ?? originalHomeHero()); setDirty(false)
+      toast.success(command === 'save-draft' ? 'Draft saved. Public content is unchanged.' : command === 'publish' ? 'Hero published.' : command === 'restore' ? 'Original content restored and published.' : 'Hero unpublished. Search forms remain available.', { dedupeKey: 'home-hero-command' })
     } catch (error) { setError(error instanceof Error ? error.message : 'Could not save hero.') }
     finally { lock.current = false; setBusy(false); setConfirm(null) }
   }
@@ -63,7 +64,7 @@ export default function HomepageHeroEditor() {
       const response = await fetch('/api/admin/website-cms/hero-media', { method: 'POST', body })
       const data = await response.json()
       if (!response.ok || typeof data.media?.url !== 'string') throw new Error(data.error || 'Upload failed.')
-      change({ [field]: data.media.url }); setNotice('Upload ready. Save the draft to retain this reference.')
+      change({ [field]: data.media.url }); toast.info('Upload ready. Save the draft to retain this reference.', { dedupeKey: 'home-hero-upload' })
     } catch (error) { setError(error instanceof Error ? error.message : 'Upload failed.') }
     finally { lock.current = false; setBusy(false) }
   }
@@ -72,7 +73,7 @@ export default function HomepageHeroEditor() {
   return <>
     <PageHead eyebrow="HERO SECTIONS" title="Homepage" sub="Original search and trip-planning controls are preserved" />
     <Card title="Hero content" sub={state ? 'Revision ' + state.revision + ' · ' + state.mode : 'Loading…'}>
-      {error && <p className="form-error" role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
+      {error && <p className="form-error" role="alert">{error}</p>}
       {!state && <button type="button" className="sp-btn" onClick={() => void load()}>Reload</button>}
       <form onSubmit={(event) => { event.preventDefault(); void action('save-draft') }} className="cms-hero-form">
         <fieldset disabled={disabled}>

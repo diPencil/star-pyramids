@@ -11,6 +11,8 @@ import { useAdminCurrency } from '@/components/admin/admin-currency'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
 import { SharedSelect } from '@/components/shared-select'
 import { invalidateEventsCarsCache, useDbCarsStatus } from '@/lib/events-cars-client'
+import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
+import { toast } from '@/components/admin/admin-toaster'
 
 export default function CarsPage() {
   const ar = useAdminLocale() === 'ar'
@@ -18,16 +20,19 @@ export default function CarsPage() {
   const { formatUsd } = useAdminCurrency()
   const [query, setQuery] = useState('')
   const [transmission, setTransmission] = useState('all')
-  const [actionError, setActionError] = useState('')
+  const [removeTarget, setRemoveTarget] = useState<{ slug: string; title: string } | null>(null)
+  const [removeBusy, setRemoveBusy] = useState(false)
+  const [removeError, setRemoveError] = useState('')
   // DB-authoritative fleet with no static fallback: while the API is
   // loading or failing, the screen shows loading/error — never bootstrap
   // rows masquerading as database records.
-  const { data, loading, error, retry } = useDbCarsStatus()
+  const { data, loading, error, retry, refresh } = useDbCarsStatus()
   const liveCars = data ?? []
   const isHidden = (slug: string) => liveCars.find((car) => car.slug === slug)?.isPublished === false
   const visibility = (slug: string) => (isHidden(slug) ? 'hidden' : 'active')
   const setPublished = async (slug: string, published: boolean) => {
-    setActionError('')
+    const label = liveCars.find((car) => car.slug === slug)?.title ?? slug
+    const dedupeKey = `car-publish-${slug}`
     try {
       const res = await fetch(`/api/cars/${encodeURIComponent(slug)}`, {
         method: 'PUT',
@@ -40,16 +45,24 @@ export default function CarsPage() {
         throw new Error(data.error || 'Failed to update visibility.')
       }
       invalidateEventsCarsCache()
-      // Refresh from the DB source of truth.
-      window.location.reload()
+      toast.success(
+        published
+          ? (ar ? `تم إظهار "${label}" على الموقع العام.` : `"${label}" is now visible on the public fleet page.`)
+          : (ar ? `تم إخفاء "${label}" عن الموقع العام.` : `"${label}" is now hidden from the public fleet page.`),
+        { dedupeKey },
+      )
+      // Refresh from the DB source of truth without a full page reload.
+      refresh()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to update visibility.')
+      toast.error(err instanceof Error ? err.message : 'Failed to update visibility.', { dedupeKey })
     }
   }
-  const removeCar = async (slug: string) => {
-    setActionError('')
+  const removeCar = async () => {
+    if (!removeTarget || removeBusy) return
+    setRemoveBusy(true)
+    setRemoveError('')
     try {
-      const res = await fetch(`/api/cars/${encodeURIComponent(slug)}`, {
+      const res = await fetch(`/api/cars/${encodeURIComponent(removeTarget.slug)}`, {
         method: 'DELETE',
         credentials: 'same-origin',
       })
@@ -58,10 +71,16 @@ export default function CarsPage() {
         throw new Error(data.error || 'Failed to delete vehicle.')
       }
       invalidateEventsCarsCache()
-      // Refresh from the DB source of truth.
-      window.location.reload()
+      toast.success(ar ? `تم حذف "${removeTarget.title}".` : `"${removeTarget.title}" deleted.`, { dedupeKey: `car-delete-${removeTarget.slug}` })
+      setRemoveTarget(null)
+      // Refresh from the DB source of truth without a full page reload.
+      refresh()
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to delete vehicle.')
+      const message = err instanceof Error ? err.message : 'Failed to delete vehicle.'
+      setRemoveError(message)
+      toast.error(message, { dedupeKey: 'car-delete-error' })
+    } finally {
+      setRemoveBusy(false)
     }
   }
   const transmissions = [...new Set(liveCars.map((car) => car.transmission))]
@@ -89,14 +108,29 @@ export default function CarsPage() {
       <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث بمركبة أو سعة...' : 'Search vehicle or capacity...'}>
         <SharedSelect value={transmission} onChange={setTransmission} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حسب ناقل الحركة' : 'Filter by transmission'} options={[{ value: 'all', label: ar ? 'كل النواقل' : 'All transmissions' }, ...transmissions.map((item) => ({ value: item, label: item }))]} />
       </AdminTableTools>
-      {actionError ? <p role="alert" style={{ color: '#b91c1c', margin: '8px 0 0' }}>{actionError}</p> : null}
       {loading ? <AdminEmpty title={<AdminText en="Loading fleet…" ar="جارٍ تحميل الأسطول…" />} copy={<AdminText en="Reading the authoritative catalogue." ar="تتم قراءة السجل المعتمد." />} />
       : error ? <><AdminEmpty title={<AdminText en="Could not load fleet" ar="تعذر تحميل الأسطول" />} copy={<AdminText en={error} ar={error} />} /><div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}><button type="button" className="sp-btn" onClick={retry}><AdminText en="Retry" ar="إعادة المحاولة" /></button></div></>
       : rows.length ? <AdminTableWrap><table className="sp-table">
         <thead><tr><th className="sp-row-number">#</th><SortableTh label={<AdminText en="Vehicle" ar="المركبة" />} column="vehicle" {...carSort} onSort={carSort.sortBy} /><SortableTh label={<AdminText en="Capacity" ar="السعة" />} column="capacity" {...carSort} onSort={carSort.sortBy} /><SortableTh label={<AdminText en="Transmission" ar="ناقل الحركة" />} column="transmission" {...carSort} onSort={carSort.sortBy} /><SortableTh label={<AdminText en="Daily rate" ar="السعر اليومي" />} column="rate" {...carSort} onSort={carSort.sortBy} /><SortableTh label={<AdminText en="Status" ar="الحالة" />} column="status" {...carSort} onSort={carSort.sortBy} /><th></th></tr></thead>
-        <tbody>{paging.pageRows.map((car, index) => <tr key={car.slug}><td className="sp-row-number">{paging.from + index}</td><td><span className="sp-cust"><img className="sp-record-thumb" src={car.image} alt="" /><span><strong>{car.title}</strong><small>{car.slug}</small></span></span></td><td>{car.seats}</td><td>{car.transmission}</td><td>{formatUsd(car.dailyPrice)}</td><td><StatusPill status={visibility(car.slug)} /></td><td><AdminTableActions><AdminIconAction icon={Pencil} label={ar ? `تعديل ${car.title}` : `Edit ${car.title}`} href={`/admin/cars/new?slug=${car.slug}`} /><AdminIconAction icon={ExternalLink} label={ar ? 'عرض صفحة الأسطول' : 'View fleet page'} href="/rent-car" /><AdminIconAction icon={isHidden(car.slug) ? EyeOff : Eye} label={isHidden(car.slug) ? (ar ? `إظهار ${car.title} على الموقع` : `Show ${car.title} on website`) : (ar ? `إخفاء ${car.title} عن الموقع` : `Hide ${car.title} from website`)} tone={isHidden(car.slug) ? 'success' : undefined} onClick={() => void setPublished(car.slug, isHidden(car.slug) ? true : false)} /><AdminIconAction icon={Trash2} label={ar ? `حذف ${car.title}` : `Delete ${car.title}`} tone="danger" onClick={() => void removeCar(car.slug)} /></AdminTableActions></td></tr>)}</tbody>
+        <tbody>{paging.pageRows.map((car, index) => <tr key={car.slug}><td className="sp-row-number">{paging.from + index}</td><td><span className="sp-cust"><img className="sp-record-thumb" src={car.image} alt="" /><span><strong>{car.title}</strong><small>{car.slug}</small></span></span></td><td>{car.seats}</td><td>{car.transmission}</td><td>{formatUsd(car.dailyPrice)}</td><td><StatusPill status={visibility(car.slug)} /></td><td><AdminTableActions><AdminIconAction icon={Pencil} label={ar ? `تعديل ${car.title}` : `Edit ${car.title}`} href={`/admin/cars/new?slug=${car.slug}`} /><AdminIconAction icon={ExternalLink} label={ar ? 'عرض صفحة الأسطول' : 'View fleet page'} href="/rent-car" /><AdminIconAction icon={isHidden(car.slug) ? EyeOff : Eye} label={isHidden(car.slug) ? (ar ? `إظهار ${car.title} على الموقع` : `Show ${car.title} on website`) : (ar ? `إخفاء ${car.title} عن الموقع` : `Hide ${car.title} from website`)} tone={isHidden(car.slug) ? 'success' : undefined} onClick={() => void setPublished(car.slug, isHidden(car.slug) ? true : false)} /><AdminIconAction icon={Trash2} label={ar ? `حذف ${car.title}` : `Delete ${car.title}`} tone="danger" onClick={() => { setRemoveError(''); setRemoveTarget({ slug: car.slug, title: car.title }) }} /></AdminTableActions></td></tr>)}</tbody>
       </table></AdminTableWrap> : <AdminEmpty title={<AdminText en="No vehicles found" ar="لا توجد مركبات" />} copy={<AdminText en="Try changing the search or filters." ar="جرب تغيير البحث أو الفلاتر." />} />}
         {rows.length > 0 && <AdminPagination page={paging.page} pageCount={paging.pageCount} onPage={paging.setPage} pageSize={paging.pageSize} onPageSize={paging.setPageSize} from={paging.from} to={paging.to} total={paging.total} />}
     </Card>
+    <AdminConfirmDialog
+      open={removeTarget !== null}
+      onClose={() => { if (!removeBusy) setRemoveTarget(null) }}
+      onConfirm={() => { void removeCar() }}
+      title={<AdminText en="Delete this vehicle?" ar="حذف هذه المركبة؟" />}
+      description={<AdminText en="This permanently removes the vehicle from the admin fleet and the public rent-car page." ar="يزيل هذه المركبة نهائيًا من أسطول الإدارة ومن صفحة تأجير السيارات العامة." />}
+      confirmLabel={<AdminText en={removeBusy ? 'Deleting…' : 'Delete vehicle'} ar={removeBusy ? 'جارٍ الحذف…' : 'حذف المركبة'} />}
+      cancelLabel={<AdminText en="Keep" ar="إبقاء" />}
+      tone="danger"
+      canConfirm={!removeBusy}
+    >
+      <div style={{ display: 'grid', gap: 8 }}>
+        <p style={{ margin: 0, fontWeight: 700 }}>{removeTarget?.title}</p>
+        {removeError ? <p role="alert" style={{ color: '#b91c1c', margin: 0 }}>{removeError}</p> : null}
+      </div>
+    </AdminConfirmDialog>
   </>
 }

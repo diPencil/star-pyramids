@@ -61,6 +61,9 @@ export type DbListStatus<T> = {
   loading: boolean;
   error: string | null;
   retry(): void;
+  /** Drop the cached rows and refetch from the API in place, without a
+   * full page reload, so write-back screens can update the open table. */
+  refresh(): void;
 };
 
 function createCache<T>(url: string, map: (row: Record<string, unknown>) => T | null, label: string): CacheEntry<T> & { load(): void; invalidate(): void; use(base: readonly T[]): T[]; useStatus(): DbListStatus<T> } {
@@ -151,6 +154,13 @@ function createCache<T>(url: string, map: (row: Record<string, unknown>) => T | 
           loading: entry.list === null && entry.error === null,
           error: entry.list === null ? entry.error : null,
           retry: () => {
+            entry.error = null;
+            entry.inflight = null;
+            setVersion((n) => n + 1);
+            load();
+          },
+          refresh: () => {
+            entry.list = null;
             entry.error = null;
             entry.inflight = null;
             setVersion((n) => n + 1);

@@ -10,6 +10,7 @@ import { AdminPagination, usePagination } from '@/components/admin/admin-paginat
 import { SharedSelect } from '@/components/shared-select'
 import { mutateDirectoryRole, mutateDirectoryUser, useDbRolesStatus, useDbUsersStatus, type CatalogPermission, type DirectoryRole, type DirectoryUser } from '@/lib/admin-users-client'
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
+import { toast } from '@/components/admin/admin-toaster'
 
 const SYSTEM_ORDER = ['SUPER_ADMIN', 'ADMIN', 'STAFF']
 
@@ -95,8 +96,6 @@ export default function UsersPage() {
   const ar = useAdminLocale() === 'ar'
   const [query, setQuery] = useState('')
   const [role, setRole] = useState('all')
-  const [actionError, setActionError] = useState('')
-  const [successNote, setSuccessNote] = useState('')
   // DB-authoritative directory with no static fallback: while the API is
   // loading or failing, the screen shows loading/error — never mock rows
   // masquerading as database records.
@@ -176,7 +175,6 @@ export default function UsersPage() {
   const [roleErrors, setRoleErrors] = useState<FieldErrors>({})
   const [roleServerError, setRoleServerError] = useState('')
   const [roleSaving, setRoleSaving] = useState(false)
-  const [matrixError, setMatrixError] = useState('')
 
   const openInvite = () => {
     setInviteFirst('')
@@ -238,8 +236,7 @@ export default function UsersPage() {
         roleKey: inviteRole,
       })
       setInviteOpen(false)
-      setSuccessNote(ar ? 'تمت دعوة العضو بنجاح.' : 'Team member invited.')
-      setActionError('')
+      toast.success(ar ? 'تمت دعوة العضو بنجاح.' : 'Team member invited.', { dedupeKey: 'users-invite' })
       refresh()
     } catch (err) {
       setInviteServerError(err instanceof Error ? err.message : (ar ? 'تعذر إتمام الدعوة.' : 'Could not invite the member.'))
@@ -276,7 +273,7 @@ export default function UsersPage() {
     }
     if (Object.keys(payload).length === 0) {
       setEditTarget(null)
-      setSuccessNote(ar ? 'لا توجد تغييرات للحفظ.' : 'No changes to save.')
+      toast.info(ar ? 'لا توجد تغييرات للحفظ.' : 'No changes to save.', { dedupeKey: 'users-edit-noop' })
       return
     }
     setEditSaving(true)
@@ -284,8 +281,7 @@ export default function UsersPage() {
     try {
       await mutateDirectoryUser('PUT', `/api/admin/users/${encodeURIComponent(editTarget.publicId)}`, payload)
       setEditTarget(null)
-      setSuccessNote(ar ? 'تم حفظ التعديلات.' : 'Changes saved.')
-      setActionError('')
+      toast.success(ar ? 'تم حفظ التعديلات.' : 'Changes saved.', { dedupeKey: 'users-edit' })
       refresh()
     } catch (err) {
       setEditServerError(err instanceof Error ? err.message : (ar ? 'تعذر حفظ التعديلات.' : 'Could not save changes.'))
@@ -303,10 +299,9 @@ export default function UsersPage() {
         status: statusTarget.to,
       })
       setStatusTarget(null)
-      setSuccessNote(statusTarget.to === 'ACTIVE'
+      toast.success(statusTarget.to === 'ACTIVE'
         ? (ar ? 'تم تفعيل العضو.' : 'Member activated.')
-        : (ar ? 'تم إيقاف العضو.' : 'Member suspended.'))
-      setActionError('')
+        : (ar ? 'تم إيقاف العضو.' : 'Member suspended.'), { dedupeKey: 'users-status' })
       refresh()
     } catch (err) {
       setStatusServerError(err instanceof Error ? err.message : (ar ? 'تعذر تحديث الحالة.' : 'Could not update status.'))
@@ -327,13 +322,12 @@ export default function UsersPage() {
     try {
       if (roleDialog.mode === 'create') {
         await mutateDirectoryRole('POST', '/api/admin/roles', { name: roleName.trim(), description: roleDescription.trim() || undefined })
-        setSuccessNote(ar ? 'تم إنشاء الدور. حدد صلاحياته من المصفوفة.' : 'Role created. Assign its permissions in the matrix.')
+        toast.success(ar ? 'تم إنشاء الدور. حدد صلاحياته من المصفوفة.' : 'Role created. Assign its permissions in the matrix.', { dedupeKey: 'users-role-create' })
       } else {
         await mutateDirectoryRole('PUT', `/api/admin/roles/${encodeURIComponent(roleDialog.role.key)}`, { name: roleName.trim(), description: roleDescription.trim() || null })
-        setSuccessNote(ar ? 'تم حفظ الدور.' : 'Role saved.')
+        toast.success(ar ? 'تم حفظ الدور.' : 'Role saved.', { dedupeKey: 'users-role-edit' })
       }
       setRoleDialog(null)
-      setActionError('')
       refreshRoles()
     } catch (err) {
       setRoleServerError(err instanceof Error ? err.message : (ar ? 'تعذر حفظ الدور.' : 'Could not save the role.'))
@@ -343,15 +337,14 @@ export default function UsersPage() {
   }
 
   const toggleMatrixPermission = async (role: DirectoryRole, permission: string, granted: boolean) => {
-    setMatrixError('')
     try {
       await mutateDirectoryRole('PUT', `/api/admin/roles/${encodeURIComponent(role.key)}/permissions`, {
         permissions: granted ? role.permissions.filter((key) => key !== permission) : [...role.permissions, permission],
       })
-      setSuccessNote(ar ? `تم تحديث صلاحيات ${role.name}.` : `${role.name} permissions updated.`)
+      toast.success(ar ? `تم تحديث صلاحيات ${role.name}.` : `${role.name} permissions updated.`, { dedupeKey: `users-permissions-${role.key}` })
       refreshRoles()
     } catch (err) {
-      setMatrixError(err instanceof Error ? err.message : (ar ? 'تعذر تحديث الصلاحيات.' : 'Could not update permissions.'))
+      toast.error(err instanceof Error ? err.message : (ar ? 'تعذر تحديث الصلاحيات.' : 'Could not update permissions.'), { dedupeKey: `users-permissions-${role.key}` })
     }
   }
 
@@ -406,8 +399,6 @@ export default function UsersPage() {
       <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث بعضو أو بريد...' : 'Search member or email...'}>
         <SharedSelect value={role} onChange={setRole} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حسب الدور' : 'Filter by role'} options={[{ value: 'all', label: ar ? 'كل الأدوار' : 'All roles' }, ...orderedRoles.map((item) => ({ value: item.key, label: roleLabel(item, item.key, ar) }))]} />
       </AdminTableTools>
-      {actionError ? <p role="alert" style={{ color: '#b91c1c', margin: '8px 0 0' }}>{actionError}</p> : null}
-      {successNote ? <p role="status" style={{ color: '#15803d', margin: '8px 0 0' }}>{successNote}</p> : null}
       {loading ? <AdminEmpty title={<AdminText en="Loading team…" ar="جارٍ تحميل الفريق…" />} copy={<AdminText en="Reading the team directory." ar="تتم قراءة دليل الفريق." />} />
       : error ? <><AdminEmpty title={<AdminText en="Could not load team" ar="تعذر تحميل الفريق" />} copy={<AdminText en={error} ar={error} />} /><div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}><button type="button" className="sp-btn" onClick={retry}><AdminText en="Retry" ar="إعادة المحاولة" /></button></div></>
       : rows.length ? <AdminTableWrap><table className="sp-table">
@@ -438,7 +429,6 @@ export default function UsersPage() {
       </table></AdminTableWrap>}
     </Card>
     <Card title={<AdminText en="Permission matrix" ar="مصفوفة الصلاحيات" />} sub={<AdminText en="Live role permissions from the database - Super Admins toggle cells to change access" ar="صلاحيات الأدوار الحية من قاعدة البيانات - يبدّل المدير العام الخلايا لتغيير الوصول" />}>
-      {matrixError ? <p role="alert" style={{ color: '#b91c1c', margin: '0 0 8px' }}>{matrixError}</p> : null}
       {rolesLoading ? <AdminEmpty title={<AdminText en="Loading matrix…" ar="جارٍ تحميل المصفوفة…" />} copy={<AdminText en="Reading role permissions." ar="تتم قراءة صلاحيات الأدوار." />} />
       : rolesError ? <><AdminEmpty title={<AdminText en="Could not load matrix" ar="تعذر تحميل المصفوفة" />} copy={<AdminText en={rolesError} ar={rolesError} />} /><div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}><button type="button" className="sp-btn" onClick={retryRoles}><AdminText en="Retry" ar="إعادة المحاولة" /></button></div></>
       : <><div className="sp-mx-legend">

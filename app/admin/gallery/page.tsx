@@ -11,6 +11,7 @@ import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
 import { SharedSelect } from '@/components/shared-select'
 import { invalidateJourneyGalleryCache } from '@/lib/journey-gallery-client'
+import { toast } from '@/components/admin/admin-toaster'
 import {
   galleryPlatformLabel,
   type GalleryItem,
@@ -53,7 +54,6 @@ export default function JourneyGalleryPage() {
   const [visibility, setVisibility] = useState<'all' | 'published' | 'hidden'>('all')
   const [target, setTarget] = useState('all')
   const [deleteId, setDeleteId] = useState<string | null>(null)
-  const [actionError, setActionError] = useState('')
   const [actionBusy, setActionBusy] = useState('')
 
   const load = async () => {
@@ -76,10 +76,11 @@ export default function JourneyGalleryPage() {
   const refresh = async () => { invalidateJourneyGalleryCache(); await load() }
 
   const mutate = async (fn: () => Promise<void>, busyKey: string) => {
-    setActionError('')
     setActionBusy(busyKey)
     try { await fn(); await refresh() }
-    catch (err) { setActionError(err instanceof Error ? err.message : 'Action failed.') }
+    catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Action failed.', { dedupeKey: `${busyKey}-error` })
+    }
     finally { setActionBusy('') }
   }
 
@@ -93,6 +94,12 @@ export default function JourneyGalleryPage() {
       })
       const data = (await res.json().catch(() => null)) as { error?: unknown } | null
       if (!res.ok) throw new Error(typeof data?.error === 'string' ? data.error : 'Failed to update visibility.')
+      toast.success(
+        published
+          ? (ar ? `تم نشر "${item.title}". ظهر على الموقع العام.` : `"${item.title}" published. It now appears on the public website.`)
+          : (ar ? `تم إخفاء "${item.title}" عن الموقع العام.` : `"${item.title}" hidden from the public website.`),
+        { dedupeKey: `gallery-publish-${item.id}` },
+      )
     }, `publish-${item.id}`)
 
   const removeItem = (id: string) =>
@@ -100,6 +107,7 @@ export default function JourneyGalleryPage() {
       const res = await fetch(`/api/journey-gallery/${encodeURIComponent(id)}`, { method: 'DELETE', credentials: 'same-origin' })
       const data = (await res.json().catch(() => null)) as { error?: unknown } | null
       if (!res.ok) throw new Error(typeof data?.error === 'string' ? data.error : 'Failed to delete item.')
+      toast.success(ar ? 'تم حذف عنصر المعرض.' : 'Gallery item deleted.', { dedupeKey: `gallery-delete-${id}` })
     }, `delete-${id}`)
 
   const liveItems = items ?? []
@@ -168,7 +176,6 @@ export default function JourneyGalleryPage() {
         <SharedSelect value={visibility} onChange={(next) => setVisibility(next as typeof visibility)} locale={ar ? 'ar' : 'en'} label={ar ? 'الظهور' : 'Visibility'} options={[{ value: 'all', label: ar ? 'الكل' : 'All' }, { value: 'published', label: ar ? 'المنشورة' : 'Published' }, { value: 'hidden', label: ar ? 'المخفية' : 'Hidden' }]} />
         <SharedSelect value={target} onChange={setTarget} locale={ar ? 'ar' : 'en'} label={ar ? 'مكان العرض' : 'Placement'} options={[{ value: 'all', label: ar ? 'كل الأماكن' : 'All placements' }, { value: 'homepage', label: ar ? 'الرئيسية' : 'Homepage' }, { value: 'tours', label: ar ? 'صفحات الرحلات' : 'Tour pages' }]} />
       </AdminTableTools>
-      {actionError ? <p role="alert" style={{ color: '#b91c1c', margin: '8px 0 0' }}>{actionError}</p> : null}
       {items === null && !loadError ? <AdminEmpty title={<AdminText en="Loading gallery…" ar="جارٍ تحميل المعرض…" />} copy={<AdminText en="Reading the authoritative gallery." ar="تتم قراءة المعرض المعتمد." />} />
       : loadError ? <><AdminEmpty title={<AdminText en="Could not load the gallery" ar="تعذر تحميل المعرض" />} copy={<AdminText en={loadError} ar={loadError} />} /><div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}><button type="button" className="sp-btn" onClick={() => void load()}><AdminText en="Retry" ar="إعادة المحاولة" /></button></div></>
       : rows.length ? <AdminTableWrap><table className="sp-table">

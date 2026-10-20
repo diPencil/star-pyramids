@@ -9,6 +9,7 @@ import { AdminEmpty, AdminIconAction, AdminTableActions, AdminTableTools, AdminT
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
+import { toast } from '@/components/admin/admin-toaster'
 
 const statusTabs = [
   { id: 'all', en: 'All', ar: 'الكل' },
@@ -93,10 +94,15 @@ export default function ReviewsPage() {
         const data = (await res.json()) as { review?: ReviewRow; error?: string }
         if (!res.ok) throw new Error(data.error || 'Could not update the review.')
         setReviews((prev) => prev.map((r) => (r.publicId === data.review?.publicId ? data.review! : r)))
-        setLoadError('')
+        toast.success(action === 'publish'
+          ? (ar ? 'تم نشر التقييم.' : 'Review published.')
+          : action === 'reject'
+            ? (ar ? 'تم رفض التقييم.' : 'Review rejected.')
+            : (ar ? 'أُعيد التقييم للمراجعة.' : 'Review returned to pending.'),
+        { dedupeKey: `reviews-${action}` })
       })
       .catch((error: unknown) => {
-        setLoadError(error instanceof Error ? error.message : 'Could not update the review.')
+        toast.error(error instanceof Error ? error.message : 'Could not update the review.', { dedupeKey: 'reviews-moderate-error' })
       })
   }
 
