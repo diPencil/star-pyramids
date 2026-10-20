@@ -23,6 +23,7 @@ type TripRow = {
   deal?: unknown
   aliases?: string[]
   status?: string
+  bookingCount?: number
 }
 
 export default function TripsPage() {
@@ -48,7 +49,10 @@ export default function TripsPage() {
       setLoading(true)
       setError('')
       try {
-        const res = await fetch('/api/tours?all=1', { credentials: 'same-origin' })
+        const res = await fetch('/api/tours?all=1&withBookingCounts=1', {
+          credentials: 'same-origin',
+          cache: 'no-store',
+        })
         const data = await res.json()
         if (!res.ok) throw new Error(data.error || 'Failed to load trips.')
         if (!cancelled) setTours(Array.isArray(data.tours) ? data.tours : [])
@@ -126,7 +130,8 @@ export default function TripsPage() {
 
   const tripSort = useAdminTableSort(rows, {
     tour: (row) => row.title, category: (row) => row.category, location: (row) => row.location,
-    price: (row) => Number(row.price), status: (row) => row.status ?? 'published',
+    price: (row) => Number(row.price), bookings: (row) => row.bookingCount ?? 0,
+    status: (row) => row.status ?? 'published',
   }, 'tour', 'asc')
   const paging = usePagination(tripSort.sortedRows)
 
@@ -162,7 +167,7 @@ export default function TripsPage() {
         : error ? <AdminEmpty title={<AdminText en="Could not load trips" ar="تعذر تحميل الرحلات" />} copy={<AdminText en={error} ar={error} />} />
         : rows.length ? <AdminTableWrap><table className="sp-table">
           <thead>
-            <tr><th className="sp-row-number">#</th><SortableTh label={<AdminText en="Tour" ar="الرحلة" />} column="tour" {...tripSort} onSort={tripSort.sortBy} /><SortableTh label={<AdminText en="Category" ar="التصنيف" />} column="category" {...tripSort} onSort={tripSort.sortBy} /><SortableTh label={<AdminText en="Location" ar="الموقع" />} column="location" {...tripSort} onSort={tripSort.sortBy} /><SortableTh label={<AdminText en="Price" ar="السعر" />} column="price" {...tripSort} onSort={tripSort.sortBy} /><SortableTh label={<AdminText en="Status" ar="الحالة" />} column="status" {...tripSort} onSort={tripSort.sortBy} /><th></th></tr>
+            <tr><th className="sp-row-number">#</th><SortableTh label={<AdminText en="Tour" ar="الرحلة" />} column="tour" {...tripSort} onSort={tripSort.sortBy} /><SortableTh label={<AdminText en="Category" ar="التصنيف" />} column="category" {...tripSort} onSort={tripSort.sortBy} /><SortableTh label={<AdminText en="Location" ar="الموقع" />} column="location" {...tripSort} onSort={tripSort.sortBy} /><SortableTh label={<AdminText en="Price" ar="السعر" />} column="price" {...tripSort} onSort={tripSort.sortBy} /><SortableTh label={<AdminText en="Bookings" ar="الحجوزات" />} column="bookings" {...tripSort} onSort={tripSort.sortBy} /><SortableTh label={<AdminText en="Status" ar="الحالة" />} column="status" {...tripSort} onSort={tripSort.sortBy} /><th></th></tr>
           </thead>
           <tbody>
             {paging.pageRows.map((t, index) => (
@@ -172,6 +177,7 @@ export default function TripsPage() {
                 <td>{ar ? ({'all': 'الكل', 'one-day-tours': 'رحلات اليوم الواحد', 'multi-days-tours': 'رحلات متعددة الأيام', 'nile-cruises': 'رحلات النيل', 'shore-excursions': 'رحلات الشواطئ'}[t.category] ?? t.category) : ({'all': 'All', 'one-day-tours': 'One day tours', 'multi-days-tours': 'Multi days tours', 'nile-cruises': 'Nile cruises', 'shore-excursions': 'Shore excursions'}[t.category] ?? t.category)}</td>
                 <td>{t.location}</td>
                 <td>{formatUsd(Number(t.price) || 0)}</td>
+                <td>{t.bookingCount ?? 0}</td>
                 <td><StatusPill status={isTourPublished(t) ? 'published' : 'hidden'} /></td>
                 <td><AdminTableActions>
                   <AdminIconAction icon={Pencil} label={ar ? `تعديل ${t.title}` : `Edit ${t.title}`} href={`/admin/trips/builder?slug=${t.slug}`} />

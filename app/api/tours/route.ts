@@ -7,6 +7,7 @@ import { db } from '@/lib/server/db';
 import { getCurrentUser, hasPermission } from '@/lib/server/auth';
 import { readJsonText } from '@/lib/json-text';
 import { isTourPublished } from '@/lib/tour-publish';
+import { getTourBookingCounts } from '@/lib/server/tours';
 
 export async function GET(request: Request) {
   // Public: list published tours. Staff with tours.view may pass ?all=1 to
@@ -16,6 +17,7 @@ export async function GET(request: Request) {
   const searchParams = new URL(request.url).searchParams;
   const full = searchParams.get('full') === '1';
   const includeAll = searchParams.get('all') === '1';
+  const withBookingCounts = includeAll && searchParams.get('withBookingCounts') === '1';
   if (includeAll) {
     const user = await getCurrentUser();
     if (!user) {
@@ -71,9 +73,18 @@ export async function GET(request: Request) {
         },
   });
   const visible = includeAll ? tours : tours.filter(isTourPublished);
+  const [decorated, bookingCounts] = await Promise.all([
+    applyLinkedOfferDeals(visible),
+    withBookingCounts ? getTourBookingCounts(visible) : Promise.resolve(null),
+  ]);
   // LONGTEXT galleries decode to arrays at the boundary (same contract as
   // blogs/cars/offers). Raw JSON strings would reach clients as text.
-  return NextResponse.json({ tours: (await applyLinkedOfferDeals(visible)).map(decodeTourJson) });
+  const records = decorated.map(decodeTourJson);
+  return NextResponse.json({
+    tours: bookingCounts
+      ? records.map((tour) => ({ ...tour, bookingCount: bookingCounts.get(tour.slug) ?? 0 }))
+      : records,
+  });
 }
 
 export async function POST(request: Request) {

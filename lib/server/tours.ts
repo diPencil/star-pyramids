@@ -54,6 +54,58 @@ export type TourDeletionBlocker =
   | 'offers'
   | 'gallery';
 
+export type TourBookingCountSource = {
+  slug: string;
+  aliases?: unknown;
+};
+
+/**
+ * Historical booking frequency per canonical tour. Booking items store the
+ * slug the customer booked (canonical or alias), so one query fetches the
+ * distinct booking/slug pairs and JavaScript maps aliases to the canonical
+ * tour. A Set keeps each booking counted once even if it contains the same
+ * trip twice or mixes the canonical slug with an alias. No booking-status
+ * filter is applied: cancelled history still counts.
+ */
+export async function getTourBookingCounts(
+  tours: readonly TourBookingCountSource[],
+): Promise<Map<string, number>> {
+  const canonicalByKey = new Map<string, string>();
+  const keys = new Set<string>();
+  for (const tour of tours) {
+    canonicalByKey.set(tour.slug, tour.slug);
+    keys.add(tour.slug);
+    for (const alias of asStringArray(tour.aliases)) {
+      canonicalByKey.set(alias, tour.slug);
+      keys.add(alias);
+    }
+  }
+
+  const counts = new Map(tours.map((tour) => [tour.slug, 0]));
+  if (!keys.size) return counts;
+
+  const rows = await db.bookingItem.findMany({
+    where: { tourSlug: { in: [...keys] } },
+    select: { bookingId: true, tourSlug: true },
+    distinct: ['bookingId', 'tourSlug'],
+  });
+
+  const bookingIds = new Map<string, Set<string>>();
+  for (const row of rows) {
+    const canonical = canonicalByKey.get(row.tourSlug);
+    if (!canonical) continue;
+    let seen = bookingIds.get(canonical);
+    if (!seen) {
+      seen = new Set<string>();
+      bookingIds.set(canonical, seen);
+    }
+    seen.add(row.bookingId);
+  }
+
+  for (const [slug, seen] of bookingIds) counts.set(slug, seen.size);
+  return counts;
+}
+
 /**
  * Catalogue references that must survive a tour deletion. Snapshot columns
  * (`BookingItem.tourSlug`, `TripRequest.tourSlug`, `FavoriteItem.itemSlug`,

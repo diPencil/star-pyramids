@@ -6,6 +6,29 @@ import { ChevronDown, ChevronUp, ChevronsUpDown } from 'lucide-react'
 type SortDirection = 'asc' | 'desc'
 type SortValue = string | number | boolean | null | undefined
 
+export function sortAdminRows<T>(
+  rows: readonly T[],
+  accessors: Record<string, (row: T) => SortValue>,
+  sortKey: string,
+  direction: SortDirection,
+) {
+  const accessor = accessors[sortKey]
+  if (!accessor) return [...rows]
+  const factor = direction === 'asc' ? 1 : -1
+  return rows
+    .map((row, index) => ({ row, index }))
+    .sort((left, right) => {
+      const a = accessor(left.row)
+      const b = accessor(right.row)
+      let result = 0
+      if (typeof a === 'number' && typeof b === 'number') result = a - b
+      else if (typeof a === 'boolean' && typeof b === 'boolean') result = Number(a) - Number(b)
+      else result = String(a ?? '').localeCompare(String(b ?? ''), undefined, { numeric: true, sensitivity: 'base' })
+      return result === 0 ? left.index - right.index : result * factor
+    })
+    .map(({ row }) => row)
+}
+
 export function useAdminTableSort<T>(
   rows: readonly T[],
   accessors: Record<string, (row: T) => SortValue>,
@@ -15,23 +38,10 @@ export function useAdminTableSort<T>(
   const [sortKey, setSortKey] = useState(initialKey)
   const [direction, setDirection] = useState<SortDirection>(initialDirection)
 
-  const sortedRows = useMemo(() => {
-    const accessor = accessors[sortKey]
-    if (!accessor) return [...rows]
-    const factor = direction === 'asc' ? 1 : -1
-    return rows
-      .map((row, index) => ({ row, index }))
-      .sort((left, right) => {
-        const a = accessor(left.row)
-        const b = accessor(right.row)
-        let result = 0
-        if (typeof a === 'number' && typeof b === 'number') result = a - b
-        else if (typeof a === 'boolean' && typeof b === 'boolean') result = Number(a) - Number(b)
-        else result = String(a ?? '').localeCompare(String(b ?? ''), undefined, { numeric: true, sensitivity: 'base' })
-        return result === 0 ? left.index - right.index : result * factor
-      })
-      .map(({ row }) => row)
-  }, [accessors, direction, rows, sortKey])
+  const sortedRows = useMemo(
+    () => sortAdminRows(rows, accessors, sortKey, direction),
+    [accessors, direction, rows, sortKey],
+  )
 
   const sortBy = (key: string) => {
     if (key === sortKey) setDirection((value) => value === 'asc' ? 'desc' : 'asc')
