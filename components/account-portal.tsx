@@ -28,7 +28,7 @@ import { useInquiries, useBrandSettings, readImpersonation, stopImpersonation, t
 import { useDbCars } from '@/lib/events-cars-client'
 import { useDbTours } from '@/lib/tours-client'
 import { cars } from '@/data/content'
-import { carActivityLabel, carRequestStatusLabel, fleetVehicleTitle, type CarRequest, type CarRequestStatus } from '@/lib/car-request'
+import { carActivityLabel, carRequestStatusLabel, fleetVehicleTitle, formatQuoteAmount, type CarRequest, type CarRequestStatus } from '@/lib/car-request'
 import { usePagination } from '@/components/admin/admin-pagination'
 import {
   saveCustomerProfile, useCustomerFavorites,
@@ -1346,7 +1346,21 @@ function CarRequestDetailSection({ reference }: { reference: string }) {
         <div><small>{tx(locale, { en: 'Pickup', es: 'Recogida', it: 'Prelievo', ar: 'نقطة الانطلاق' })}</small><strong>{item.pickup}</strong></div>
         <div><small>{tx(locale, { en: 'Drop-off', es: 'Destino', it: 'Destinazione', ar: 'الوجهة' })}</small><strong>{item.dropoff}</strong></div>
         <div><small>{tx(locale, { en: 'Pick-up date', es: 'Fecha de recogida', it: 'Data di prelievo', ar: 'تاريخ الانطلاق' })}</small><strong dir="ltr">{formatCarDate(item.preferredPickupDate, locale)}</strong></div>
+        {item.pickupTime ? <div><small>{tx(locale, { en: 'Pick-up time', es: 'Hora de recogida', it: 'Ora di prelievo', ar: 'وقت الانطلاق' })}</small><strong dir="ltr">{item.pickupTime}</strong></div> : null}
         <div><small>{tx(locale, { en: 'Return date', es: 'Fecha de regreso', it: 'Data di ritorno', ar: 'تاريخ العودة' })}</small><strong dir="ltr">{item.tripType === 'Round Trip' && item.preferredReturnDate ? formatCarDate(item.preferredReturnDate, locale) : '-'}</strong></div>
+        {item.tripType === 'Round Trip' && item.returnTime ? <div><small>{tx(locale, { en: 'Return time', es: 'Hora de regreso', it: 'Ora di ritorno', ar: 'وقت العودة' })}</small><strong dir="ltr">{item.returnTime}</strong></div> : null}
+        {item.quote ? (
+          <div><small>{tx(locale, { en: 'Estimated transfer price (when requested)', es: 'Precio estimado del traslado (al solicitar)', it: 'Prezzo stimato del trasferimento (alla richiesta)', ar: 'سعر النقل التقديري (عند الطلب)' })}</small>
+            <strong dir="ltr">{item.quote.cents > 0
+              ? `${formatQuoteAmount(item.quote.roundTripCents ?? item.quote.cents, item.quote.currency, locale)}`
+              : tx(locale, { en: 'Price on request', es: 'Precio a su pedido', it: 'Prezzo alla richiesta', ar: 'السعر عند الطلب' })}</strong>
+            <small>{item.quote.basis === 'manual'
+              ? tx(locale, { en: 'Fixed round-trip rate', es: 'Tarifa fija de ida y vuelta', it: 'Tariffa fissa andata e ritorno', ar: 'سعر ثابت ذهاب وعودة' })
+              : item.quote.basis === 'multiplier'
+                ? tx(locale, { en: 'Outbound leg plus return-multiplier estimate', es: 'Tramo de ida más estimación de retorno', it: 'Tratta di andata più stima di ritorno', ar: 'ذهاب + تقدير مضاعفة العودة' })
+                : tx(locale, { en: 'Priced per travel legs', es: 'Precios por tramos', it: 'Prezzi per tratte', ar: 'سعر لكل اتجاه منفصل' })}</small>
+          </div>
+        ) : <div><small>{tx(locale, { en: 'Estimated transfer price (when requested)', es: 'Precio estimado del traslado (al solicitar)', it: 'Prezzo stimato del trasferimento (alla richiesta)', ar: 'سعر النقل التقديري (عند الطلب)' })}</small><strong>{tx(locale, { en: 'Price on request', es: 'Precio a su pedido', it: 'Prezzo alla richiesta', ar: 'السعر عند الطلب' })}</strong></div>}
       </div>
     </section>
 

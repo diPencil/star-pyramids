@@ -28,7 +28,7 @@ import { phoneHref, whatsappHref } from '@/data/company'
 import { catalogTours, getDealPrice, getToursBySlugs } from '@/data/tours'
 import type { Blog, Car, Event, Offer, Tour } from '@/data/types'
 import { parseCarRequestQuery, parseSearchQuery } from '@/lib/query'
-import { CAR_LOCATION_MAX, CAR_NOTE_MAX, hasCarErrors, isCarReference, sanitizeCarDraft, validateCarRequest, type CarFieldErrors, type CarRequest, type CarRequestDraft } from '@/lib/car-request'
+import { CAR_LOCATION_MAX, CAR_NOTE_MAX, formatQuoteAmount, hasCarErrors, isCarReference, sanitizeCarDraft, validateCarRequest, type CarFieldErrors, type CarRequest, type CarRequestDraft } from '@/lib/car-request'
 import { ImpersonationBanner } from './impersonation-banner'
 import { useLocale, formatPrice, tx, type Locale } from './locale'
 import { Breadcrumb, Heading, HelpCTA, Logo, PageShowcaseHero, SiteShell, TourCard, extra, images } from '@/components/site'
@@ -338,7 +338,7 @@ export function CarCard({ car }: { car: Car }) {
           event.currentTarget.src = '/fleet-vehicle-fallback.svg'
         }}
       />
-      <span className="fleet-price-badge">{formatPrice(car.dailyPrice, currency, locale)}<small>{tx(locale, { en: ' per day', es: ' por día', it: ' al giorno', ar: ' في اليوم' })}</small></span>
+      <span className="fleet-price-badge">{tx(locale, { en: 'Price on request', es: 'Precio a consultar', it: 'Prezzo su richiesta', ar: 'السعر عند الطلب' })}</span>
     </div>
     <div className="fleet-card-body">
       <div className="fleet-specs"><span><Users size={14} />{car.seats}</span><span><CarFront size={14} />{vehicleTransmissionLabel(car.transmission, locale)}</span></div>
@@ -350,7 +350,61 @@ export function CarCard({ car }: { car: Car }) {
   </article>
 }
 
-type CarRequestValues = { vehicleSlug: string; tripType: '' | 'One Way' | 'Round Trip'; pickup: string; dropoff: string; pickupDate: string; returnDate: string; passengers: string; fullName: string; email: string; phone: string; notes: string }
+type CarRequestValues = { vehicleSlug: string; tripType: '' | 'One Way' | 'Round Trip'; pickup: string; dropoff: string; pickupLocationSlug: string; dropoffLocationSlug: string; pickupTime: string; returnTime: string; pickupDate: string; returnDate: string; passengers: string; fullName: string; email: string; phone: string; notes: string }
+
+/** Select sentinel: "no structured location — free-text address". */
+const CAR_OTHER_LOCATION = '__other__'
+
+type CarLocationOption = { id: string; slug: string; nameEn: string; nameEs: string; nameIt: string; nameAr: string; kind: string }
+
+function carLocationKindLabel(kind: string, locale: Locale): string {
+  const label: Record<string, { en: string; es: string; it: string; ar: string }> = {
+    AIRPORT: { en: 'Airport', es: 'Aeropuerto', it: 'Aeroporto', ar: 'مطار' },
+    HOTEL: { en: 'Hotel', es: 'Hotel', it: 'Hotel', ar: 'فندق' },
+    CITY: { en: 'City', es: 'Ciudad', it: 'Città', ar: 'مدينة' },
+    CUSTOM: { en: 'Custom', es: 'Personalizado', it: 'Personalizzato', ar: 'مخصص' },
+  }
+  const entry = label[kind] ?? label.CUSTOM
+  return tx(locale, entry)
+}
+
+function carLocationName(item: CarLocationOption, locale: Locale): string {
+  const name = tx(locale, { en: item.nameEn, es: item.nameEs, it: item.nameIt, ar: item.nameAr })
+  return name || item.nameEn
+}
+
+/** Joined chauffeur locations — public API; on failure use the legacy free-text flow. */
+function useCarLocations(): CarLocationOption[] {
+  const [locations, setLocations] = useState<CarLocationOption[]>([])
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/rent-car/locations', { credentials: 'same-origin' })
+      .then(async (res) => {
+        if (!res.ok) return
+        const data = (await res.json()) as { locations?: CarLocationOption[] }
+        if (!cancelled) setLocations(Array.isArray(data.locations) ? data.locations : [])
+      })
+      .catch(() => { /* empty list falls back to the legacy free-text locations */ })
+    return () => { cancelled = true }
+  }, [])
+  return locations
+}
+
+type CarQuoteView =
+  | { kind: 'quote'; currency: string; cents: number; basis: string }
+  | { kind: 'por' }
+  | { kind: 'unavailable' }
+  | null
+
+function carQuoteBasisLabel(basis: string, locale: Locale): string {
+  const map: Record<string, { en: string; es: string; it: string; ar: string }> = {
+    legs: { en: 'outbound + real return leg', es: 'ida + tramo real de regreso', it: 'andata + tratta reale di ritorno', ar: 'ذهاب + مسار العودة الحقيقي' },
+    multiplier: { en: 'outbound × fixed multiplier', es: 'ida × multiplicador fijo', it: 'andata × moltiplicatore fisso', ar: 'ذهاب × معامل ثابت' },
+    manual: { en: 'fixed round-trip rate', es: 'tarifa fija de ida y vuelta', it: 'tariffa fissa andata e ritorno', ar: 'سعر ثابت ذهاب وعودة' },
+  }
+  const entry = map[basis]
+  return entry ? tx(locale, entry) : ''
+}
 
 function carTodayLocal(): string {
   const now = new Date()
@@ -366,8 +420,8 @@ function focusCarField(id: string) {
   }
 }
 
-function CarRequestForm({ values, errors, summary, submitting, editing, onChange, onSubmit }: { values: CarRequestValues; errors: CarFieldErrors; summary: string; submitting: boolean; editing: boolean; onChange: (patch: Partial<CarRequestValues>) => void; onSubmit: (e: React.FormEvent) => void }) {
-  const { currency, locale } = useLocale()
+function CarRequestForm({ values, errors, summary, submitting, editing, locations, onChange, onSubmit }: { values: CarRequestValues; errors: CarFieldErrors; summary: string; submitting: boolean; editing: boolean; locations: CarLocationOption[]; onChange: (patch: Partial<CarRequestValues>) => void; onSubmit: (e: React.FormEvent) => void }) {
+  const { locale } = useLocale()
   const ar = locale === 'ar'
   const liveCars = useDbCars(cars)
   const today = carTodayLocal()
@@ -383,6 +437,8 @@ function CarRequestForm({ values, errors, summary, submitting, editing, onChange
       pickupDate: code === 'required' ? 'Enter your preferred pick-up date.' : 'Enter a valid preferred pick-up date (today or later).',
       returnDate: code === 'required' ? 'Enter your preferred return date.' : 'Enter a valid preferred return date on or after the pick-up date.',
       passengers: 'Passengers must be a whole number from 1 to 50.',
+      pickupTime: 'Enter a valid pick-up time (HH:MM).',
+      returnTime: 'Enter a valid return time (HH:MM).',
       name: code === 'required' ? 'Enter your full name.' : 'Enter a name with at least 2 letters.',
       email: code === 'required' ? 'Enter your email address.' : 'Enter a valid email address (name@example.com).',
       phone: code === 'required' ? 'Enter your phone number.' : 'Enter a valid phone number (at least 7 digits).',
@@ -396,6 +452,8 @@ function CarRequestForm({ values, errors, summary, submitting, editing, onChange
       pickupDate: code === 'required' ? 'أدخل تاريخ الاستلام المفضل.' : 'أدخل تاريخ استلام مفضلًا صالحًا (اليوم أو بعده).',
       returnDate: code === 'required' ? 'أدخل تاريخ العودة المفضل.' : 'أدخل تاريخ عودة مفضلًا صالحًا في تاريخ الاستلام أو بعده.',
       passengers: 'يجب أن يكون عدد الركاب رقمًا صحيحًا من 1 إلى 50.',
+      pickupTime: 'أدخل وقت استلام صالحًا (HH:MM).',
+      returnTime: 'أدخل وقت عودة صالحًا (HH:MM).',
       name: code === 'required' ? 'أدخل اسمك الكامل.' : 'أدخل اسمًا من حرفين على الأقل.',
       email: code === 'required' ? 'أدخل بريدك الإلكتروني.' : 'أدخل بريدًا إلكترونيًا صالحًا (name@example.com).',
       phone: code === 'required' ? 'أدخل رقم هاتفك.' : 'أدخل رقم هاتف صالحًا (7 أرقام على الأقل).',
@@ -409,6 +467,8 @@ function CarRequestForm({ values, errors, summary, submitting, editing, onChange
       pickupDate: code === 'required' ? 'Indica la fecha de recogida preferida.' : 'Indica una fecha de recogida válida (hoy o posterior).',
       returnDate: code === 'required' ? 'Indica la fecha de regreso preferida.' : 'Indica una fecha de regreso válida igual o posterior a la de recogida.',
       passengers: 'El número de pasajeros debe ser un número entero entre 1 y 50.',
+      pickupTime: 'Indica una hora de recogida válida (HH:MM).',
+      returnTime: 'Indica una hora de regreso válida (HH:MM).',
       name: code === 'required' ? 'Indica tu nombre completo.' : 'Indica un nombre con al menos 2 letras.',
       email: code === 'required' ? 'Indica tu correo electrónico.' : 'Indica un correo válido (nombre@ejemplo.com).',
       phone: code === 'required' ? 'Indica tu número de teléfono.' : 'Indica un teléfono válido (al menos 7 dígitos).',
@@ -422,6 +482,8 @@ function CarRequestForm({ values, errors, summary, submitting, editing, onChange
       pickupDate: code === 'required' ? 'Indica la data di ritiro preferita.' : 'Indica una data di ritiro valida (oggi o successiva).',
       returnDate: code === 'required' ? 'Indica la data di ritorno preferita.' : 'Indica una data di ritorno valida pari o successiva a quella di ritiro.',
       passengers: 'Il numero di passeggeri deve essere un intero da 1 a 50.',
+      pickupTime: 'Indica un orario di ritiro valido (HH:MM).',
+      returnTime: 'Indica un orario di ritorno valido (HH:MM).',
       name: code === 'required' ? 'Indica il tuo nome completo.' : 'Indica un nome di almeno 2 lettere.',
       email: code === 'required' ? 'Indica il tuo indirizzo email.' : 'Indica un indirizzo email valido (nome@esempio.com).',
       phone: code === 'required' ? 'Indica il tuo numero di telefono.' : 'Indica un numero valido (almeno 7 cifre).',
@@ -432,10 +494,20 @@ function CarRequestForm({ values, errors, summary, submitting, editing, onChange
   return <form className="contact-form" onSubmit={onSubmit} noValidate>
     {summary !== '' && <p className="co-error" role="alert" style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 6px' }}><CircleAlert size={15} />{summary}</p>}
     <div className="form-grid">
-      <label className="full" htmlFor="car-vehicle">{tx(locale, { en: 'Vehicle', es: 'Vehículo', it: 'Veicolo', ar: 'السيارة' })} <em className="req" aria-hidden="true">*</em><SharedSelect id="car-vehicle" value={values.vehicleSlug} onChange={(next) => onChange({ vehicleSlug: next })} locale={locale} invalid={Boolean(errors.vehicle)} describedBy={errors.vehicle ? 'car-vehicle-error' : undefined} options={[{ value: '', label: tx(locale, { en: 'Select a vehicle', es: 'Selecciona un vehículo', it: 'Seleziona un veicolo', ar: 'اختر السيارة' }) }, ...liveCars.filter((c) => c.isPublished !== false).map((c) => ({ value: c.slug, label: `${c.title} (${formatPrice(c.dailyPrice, currency, locale)}${tx(locale, { en: ' per day', es: ' por día', it: ' al giorno', ar: ' في اليوم' })})` }))]} />{errors.vehicle && <span className="field-error" id="car-vehicle-error" role="alert">{errText('vehicle')}</span>}</label>
+      <label className="full" htmlFor="car-vehicle">{tx(locale, { en: 'Vehicle', es: 'Vehículo', it: 'Veicolo', ar: 'السيارة' })} <em className="req" aria-hidden="true">*</em><SharedSelect id="car-vehicle" value={values.vehicleSlug} onChange={(next) => onChange({ vehicleSlug: next })} locale={locale} invalid={Boolean(errors.vehicle)} describedBy={errors.vehicle ? 'car-vehicle-error' : undefined} options={[{ value: '', label: tx(locale, { en: 'Select a vehicle', es: 'Selecciona un vehículo', it: 'Seleziona un veicolo', ar: 'اختر السيارة' }) }, ...liveCars.filter((c) => c.isPublished !== false).map((c) => ({ value: c.slug, label: `${c.title} · ${c.seats}` }))]} />{errors.vehicle && <span className="field-error" id="car-vehicle-error" role="alert">{errText('vehicle')}</span>}</label>
       <div className="full req-trip-type"><span id="req-trip-label">{tx(locale, { en: 'Trip type', es: 'Tipo de viaje', it: 'Tipo di viaggio', ar: 'نوع الرحلة' })} <em className="req" aria-hidden="true">*</em></span><div role="radiogroup" aria-labelledby="req-trip-label" aria-describedby={errors.tripType ? 'car-triptype-error' : undefined}>{(['One Way', 'Round Trip'] as const).map((opt) => <button key={opt} type="button" role="radio" aria-checked={values.tripType === opt} className={values.tripType === opt ? 'active' : ''} onClick={() => onChange({ tripType: values.tripType === opt ? '' : opt })}>{opt === 'One Way' ? (tx(locale, { en: 'One Way', es: 'Solo ida', it: 'Solo andata', ar: 'ذهاب فقط' })) : (tx(locale, { en: 'Round Trip', es: 'Ida y vuelta', it: 'Andata e ritorno', ar: 'ذهاب وعودة' }))}</button>)}</div>{errors.tripType && <span className="field-error" id="car-triptype-error" role="alert">{errText('tripType')}</span>}</div>
-      <label className="full" htmlFor="car-pickup">{tx(locale, { en: 'Pick-up location', es: 'Lugar de recogida', it: 'Luogo di ritiro', ar: 'مكان الاستلام' })} <em className="req" aria-hidden="true">*</em><input id="car-pickup" required placeholder={tx(locale, { en: 'Airport, hotel, or city', es: 'Aeropuerto, hotel o ciudad', it: 'Aeroporto, hotel o città', ar: 'المطار أو الفندق أو المدينة' })} maxLength={CAR_LOCATION_MAX} value={values.pickup} onChange={(e) => onChange({ pickup: e.target.value })} aria-invalid={Boolean(errors.pickup)} aria-describedby={errors.pickup ? 'car-pickup-error' : undefined} />{errors.pickup && <span className="field-error" id="car-pickup-error" role="alert">{errText('pickup')}</span>}</label>
-      <label className="full" htmlFor="car-dropoff">{tx(locale, { en: 'Drop-off location', es: 'Lugar de entrega', it: 'Luogo di riconsegna', ar: 'مكان الوصول' })} <em className="req" aria-hidden="true">*</em><input id="car-dropoff" required placeholder={tx(locale, { en: 'Where are you going?', es: '¿A dónde vas?', it: 'Dove sei diretto?', ar: 'إلى أين تريد الذهاب؟' })} maxLength={CAR_LOCATION_MAX} value={values.dropoff} onChange={(e) => onChange({ dropoff: e.target.value })} aria-invalid={Boolean(errors.dropoff)} aria-describedby={errors.dropoff ? 'car-dropoff-error' : undefined} />{errors.dropoff && <span className="field-error" id="car-dropoff-error" role="alert">{errText('dropoff')}</span>}</label>
+      {locations.length > 0 ? <>
+        <label className="full" htmlFor="car-pickup">{tx(locale, { en: 'Pick-up location', es: 'Lugar de recogida', it: 'Luogo di ritiro', ar: 'مكان الاستلام' })} <em className="req" aria-hidden="true">*</em><SharedSelect id="car-pickup" value={values.pickupLocationSlug} onChange={(next) => onChange({ pickupLocationSlug: next })} locale={locale} invalid={Boolean(errors.pickup)} describedBy={errors.pickup ? 'car-pickup-error' : undefined} options={[{ value: '', label: tx(locale, { en: 'Select a pick-up location', es: 'Selecciona un lugar de recogida', it: 'Seleziona il luogo di ritiro', ar: 'اختر مكان الاستلام' }) }, ...locations.map((item) => ({ value: item.slug, label: `${carLocationName(item, locale)}${item.kind !== 'CUSTOM' ? ` · ${carLocationKindLabel(item.kind, locale)}` : ''}` })), { value: CAR_OTHER_LOCATION, label: tx(locale, { en: 'Other — enter address manually', es: 'Otro — introducir dirección manualmente', it: 'Altro — inserisci l\'indirizzo manualmente', ar: 'أخرى — أدخل العنوان يدويًا' }) }]} />{errors.pickup && <span className="field-error" id="car-pickup-error" role="alert">{errText('pickup')}</span>}</label>
+        {values.pickupLocationSlug === '' ? <label className="full" htmlFor="car-pickup-custom">{tx(locale, { en: 'Pick-up address (custom)', es: 'Dirección de recogida (personalizada)', it: 'Indirizzo di ritiro (personalizzato)', ar: 'عنوان الاستلام (مخصص)' })}<input id="car-pickup-custom" placeholder={tx(locale, { en: 'Airport, hotel, or city', es: 'Aeropuerto, hotel o ciudad', it: 'Aeroporto, hotel o città', ar: 'المطار أو الفندق أو المدينة' })} maxLength={CAR_LOCATION_MAX} value={values.pickup} onChange={(e) => onChange({ pickup: e.target.value })} /></label> : null}
+        <label className="full" htmlFor="car-dropoff">{tx(locale, { en: 'Drop-off location', es: 'Lugar de entrega', it: 'Luogo di riconsegna', ar: 'مكان الوصول' })} <em className="req" aria-hidden="true">*</em><SharedSelect id="car-dropoff" value={values.dropoffLocationSlug} onChange={(next) => onChange({ dropoffLocationSlug: next })} locale={locale} invalid={Boolean(errors.dropoff)} describedBy={errors.dropoff ? 'car-dropoff-error' : undefined} options={[{ value: '', label: tx(locale, { en: 'Select a drop-off location', es: 'Selecciona un lugar de entrega', it: 'Seleziona il luogo di riconsegna', ar: 'اختر مكان الوصول' }) }, ...locations.map((item) => ({ value: item.slug, label: `${carLocationName(item, locale)}${item.kind !== 'CUSTOM' ? ` · ${carLocationKindLabel(item.kind, locale)}` : ''}` })), { value: CAR_OTHER_LOCATION, label: tx(locale, { en: 'Other — enter address manually', es: 'Otro — introducir dirección manualmente', it: 'Altro — inserisci l\'indirizzo manualmente', ar: 'أخرى — أدخل العنوان يدويًا' }) }]} />{errors.dropoff && <span className="field-error" id="car-dropoff-error" role="alert">{errText('dropoff')}</span>}</label>
+        {values.dropoffLocationSlug === '' ? <label className="full" htmlFor="car-dropoff-custom">{tx(locale, { en: 'Drop-off address (custom)', es: 'Dirección de entrega (personalizada)', it: 'Indirizzo di riconsegna (personalizzato)', ar: 'عنوان الوصول (مخصص)' })}<input id="car-dropoff-custom" placeholder={tx(locale, { en: 'Where are you going?', es: '¿A dónde vas?', it: 'Dove sei diretto?', ar: 'إلى أين تريد الذهاب؟' })} maxLength={CAR_LOCATION_MAX} value={values.dropoff} onChange={(e) => onChange({ dropoff: e.target.value })} /></label> : null}
+      </>
+      : <>
+        <label className="full" htmlFor="car-pickup">{tx(locale, { en: 'Pick-up location', es: 'Lugar de recogida', it: 'Luogo di ritiro', ar: 'مكان الاستلام' })} <em className="req" aria-hidden="true">*</em><input id="car-pickup" required placeholder={tx(locale, { en: 'Airport, hotel, or city', es: 'Aeropuerto, hotel o ciudad', it: 'Aeroporto, hotel o città', ar: 'المطار أو الفندق أو المدينة' })} maxLength={CAR_LOCATION_MAX} value={values.pickup} onChange={(e) => onChange({ pickup: e.target.value })} aria-invalid={Boolean(errors.pickup)} aria-describedby={errors.pickup ? 'car-pickup-error' : undefined} />{errors.pickup && <span className="field-error" id="car-pickup-error" role="alert">{errText('pickup')}</span>}</label>
+        <label className="full" htmlFor="car-dropoff">{tx(locale, { en: 'Drop-off location', es: 'Lugar de entrega', it: 'Luogo di riconsegna', ar: 'مكان الوصول' })} <em className="req" aria-hidden="true">*</em><input id="car-dropoff" required placeholder={tx(locale, { en: 'Where are you going?', es: '¿A dónde vas?', it: 'Dove sei diretto?', ar: 'إلى أين تريد الذهاب؟' })} maxLength={CAR_LOCATION_MAX} value={values.dropoff} onChange={(e) => onChange({ dropoff: e.target.value })} aria-invalid={Boolean(errors.dropoff)} aria-describedby={errors.dropoff ? 'car-dropoff-error' : undefined} />{errors.dropoff && <span className="field-error" id="car-dropoff-error" role="alert">{errText('dropoff')}</span>}</label>
+      </>}
+      <label htmlFor="car-pickup-time">{tx(locale, { en: 'Pick-up time (optional)', es: 'Hora de recogida (opcional)', it: 'Orario di ritiro (facoltativo)', ar: 'وقت الاستلام (اختياري)' })}<input id="car-pickup-time" type="time" dir="ltr" value={values.pickupTime} onChange={(e) => onChange({ pickupTime: e.target.value.slice(0, 5) })} aria-invalid={Boolean(errors.pickupTime)} aria-describedby={errors.pickupTime ? 'car-pickup-time-error' : undefined} />{errors.pickupTime && <span className="field-error" id="car-pickup-time-error" role="alert">{errText('pickupTime')}</span>}</label>
+      {values.tripType === 'Round Trip' && <label htmlFor="car-return-time">{tx(locale, { en: 'Return time (optional)', es: 'Hora de regreso (opcional)', it: 'Orario di ritorno (facoltativo)', ar: 'وقت العودة (اختياري)' })}<input id="car-return-time" type="time" dir="ltr" value={values.returnTime} onChange={(e) => onChange({ returnTime: e.target.value.slice(0, 5) })} aria-invalid={Boolean(errors.returnTime)} aria-describedby={errors.returnTime ? 'car-return-time-error' : undefined} />{errors.returnTime && <span className="field-error" id="car-return-time-error" role="alert">{errText('returnTime')}</span>}</label>}
       <label htmlFor="car-pickup-date">{tx(locale, { en: 'Preferred pick-up date', es: 'Fecha de recogida preferida', it: 'Data di ritiro preferita', ar: 'تاريخ الاستلام المفضل' })} <em className="req" aria-hidden="true">*</em><DateInput id="car-pickup-date" required min={today} dir="ltr" value={values.pickupDate} onChange={(e) => onChange({ pickupDate: e.target.value })} aria-invalid={Boolean(errors.pickupDate)} aria-describedby={errors.pickupDate ? 'car-pickup-date-error' : undefined} />{errors.pickupDate && <span className="field-error" id="car-pickup-date-error" role="alert">{errText('pickupDate')}</span>}</label>
       {values.tripType === 'Round Trip'
         ? <label htmlFor="car-return-date">{tx(locale, { en: 'Preferred return date', es: 'Fecha de regreso preferida', it: 'Data di ritorno preferita', ar: 'تاريخ العودة المفضل' })} <em className="req" aria-hidden="true">*</em><DateInput id="car-return-date" required min={values.pickupDate || today} dir="ltr" value={values.returnDate} onChange={(e) => onChange({ returnDate: e.target.value })} aria-invalid={Boolean(errors.returnDate)} aria-describedby={errors.returnDate ? 'car-return-date-error' : undefined} />{errors.returnDate && <span className="field-error" id="car-return-date-error" role="alert">{errText('returnDate')}</span>}</label>
@@ -466,14 +538,63 @@ function CarRequestContent() {
   const ar = locale === 'ar'
   const { user: sessionUser } = useCurrentUser()
   const liveCars = useDbCars(cars)
-  const [values, setValues] = useState<CarRequestValues>({ vehicleSlug: initial.vehicleSlug || rawVehicleSlug, tripType: initial.tripType ?? '', pickup: initial.pickup, dropoff: initial.dropoff, pickupDate: initial.date, returnDate: '', passengers: '', fullName: '', email: '', phone: '', notes: '' })
+  const [values, setValues] = useState<CarRequestValues>({ vehicleSlug: initial.vehicleSlug || rawVehicleSlug, tripType: initial.tripType ?? '', pickup: initial.pickup, dropoff: initial.dropoff, pickupLocationSlug: '', dropoffLocationSlug: '', pickupTime: '', returnTime: '', pickupDate: initial.date, returnDate: '', passengers: '', fullName: '', email: '', phone: '', notes: '' })
   const [placed, setPlaced] = useState<CarRequest | null>(null)
   const [editingRef, setEditingRef] = useState<string | null>(null)
   const [errors, setErrors] = useState<CarFieldErrors>({})
   const [summary, setSummary] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const locations = useCarLocations()
+  const [quote, setQuote] = useState<CarQuoteView>(null)
+  const [quoteLoading, setQuoteLoading] = useState(false)
   const patch = (p: Partial<CarRequestValues>) => setValues((v) => ({ ...v, ...p }))
   const vehicle = liveCars.find((car) => car.slug === values.vehicleSlug)
+  const quoteReady = Boolean(
+    vehicle &&
+    values.pickupLocationSlug !== '' && values.pickupLocationSlug !== CAR_OTHER_LOCATION &&
+    values.dropoffLocationSlug !== '' && values.dropoffLocationSlug !== CAR_OTHER_LOCATION &&
+    values.tripType !== '' &&
+    /^\d+$/.test(values.passengers.trim()) &&
+    Number(values.passengers) >= 1 && Number(values.passengers) <= 50,
+  )
+  // Live server quote for the picked route/vehicle/trip/passengers. The
+  // endpoint is the single pricing authority; the browser here only renders
+  // what the server returns and never sends a price on submit.
+  useEffect(() => {
+    let cancelled = false
+    let timer = 0
+    if (!quoteReady) {
+      setQuote(null)
+      setQuoteLoading(false)
+      return
+    }
+    timer = window.setTimeout(() => {
+      const q = new URLSearchParams({
+        vehicle: values.vehicleSlug,
+        from: values.pickupLocationSlug,
+        to: values.dropoffLocationSlug,
+        trip: values.tripType === 'Round Trip' ? 'round-trip' : 'one-way',
+        passengers: values.passengers.trim(),
+      })
+      setQuoteLoading(true)
+      fetch(`/api/rent-car/quote?${q.toString()}`, { credentials: 'same-origin' })
+        .then(async (res) => {
+          const data = (await res.json()) as { quote?: { currency: string; oneWayCents: number; roundTripCents: number; roundTripBasis: string }; priceOnRequest?: boolean; error?: string }
+          if (cancelled) return
+          if (res.ok && data.quote) {
+            setQuote({ kind: 'quote', currency: data.quote.currency, cents: values.tripType === 'Round Trip' ? data.quote.roundTripCents : data.quote.oneWayCents, basis: data.quote.roundTripBasis })
+          } else if (res.ok && data.priceOnRequest) {
+            setQuote({ kind: 'por' })
+          } else {
+            setQuote({ kind: 'unavailable' })
+          }
+        })
+        .catch(() => { if (!cancelled) setQuote({ kind: 'unavailable' }) })
+        .finally(() => { if (!cancelled) setQuoteLoading(false) })
+    }, 400)
+    return () => { cancelled = true; window.clearTimeout(timer) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quoteReady, values.vehicleSlug, values.pickupLocationSlug, values.dropoffLocationSlug, values.tripType, values.passengers])
   const step = placed ? 3 : vehicle ? 2 : 1
   const notSet = tx(locale, { en: 'Not set', es: 'Sin definir', it: 'Non definito', ar: 'لم يحدد' })
   const tripLabel = values.tripType === '' ? notSet : values.tripType === 'One Way' ? (tx(locale, { en: 'One Way', es: 'Solo ida', it: 'Solo andata', ar: 'ذهاب فقط' })) : (tx(locale, { en: 'Round Trip', es: 'Ida y vuelta', it: 'Andata e ritorno', ar: 'ذهاب وعودة' }))
@@ -530,6 +651,10 @@ function CarRequestContent() {
           tripType: shaped.tripType,
           pickup: shaped.pickup,
           dropoff: shaped.dropoff,
+          pickupLocationSlug: shaped.pickupLocationSlug ?? CAR_OTHER_LOCATION,
+          dropoffLocationSlug: shaped.dropoffLocationSlug ?? CAR_OTHER_LOCATION,
+          pickupTime: shaped.pickupTime ?? '',
+          returnTime: shaped.returnTime ?? '',
           pickupDate: shaped.preferredPickupDate,
           returnDate: shaped.preferredReturnDate,
           passengers: String(shaped.passengers),
@@ -549,11 +674,19 @@ function CarRequestContent() {
 
   const buildDraft = (): CarRequestDraft => {
     const pax = values.passengers.trim()
+    const pickupSlug = values.pickupLocationSlug === CAR_OTHER_LOCATION ? '' : values.pickupLocationSlug
+    const dropSlug = values.dropoffLocationSlug === CAR_OTHER_LOCATION ? '' : values.dropoffLocationSlug
+    const pickupName = pickupSlug === '' ? values.pickup.trim() : (locations.find((item) => item.slug === pickupSlug) ? carLocationName(locations.find((item) => item.slug === pickupSlug) as CarLocationOption, locale) : values.pickup.trim())
+    const dropName = dropSlug === '' ? values.dropoff.trim() : (locations.find((item) => item.slug === dropSlug) ? carLocationName(locations.find((item) => item.slug === dropSlug) as CarLocationOption, locale) : values.dropoff.trim())
     return {
       vehicleSlug: values.vehicleSlug,
       tripType: values.tripType,
-      pickup: values.pickup.trim(),
-      dropoff: values.dropoff.trim(),
+      pickup: pickupName,
+      dropoff: dropName,
+      pickupLocationSlug: pickupSlug,
+      dropoffLocationSlug: dropSlug,
+      pickupTime: values.pickupTime,
+      returnTime: values.tripType === 'Round Trip' ? values.returnTime : '',
       preferredPickupDate: values.pickupDate,
       preferredReturnDate: values.tripType === 'Round Trip' ? values.returnDate : '',
       passengers: pax === '' ? Number.NaN : Number(pax),
@@ -572,8 +705,8 @@ function CarRequestContent() {
     setErrors(errs)
     if (hasCarErrors(errs)) {
       setSummary(tx(locale, { en: 'Could not submit the request. Review the highlighted fields below.', es: 'No se pudo enviar la solicitud. Revisa los campos marcados abajo.', it: 'Impossibile inviare la richiesta. Controlla i campi evidenziati qui sotto.', ar: 'تعذر إرسال الطلب. راجع الحقول الموضحة أدناه.' }))
-      const ids: Record<keyof CarFieldErrors, string> = { vehicle: 'car-vehicle', tripType: 'req-trip-label', pickup: 'car-pickup', dropoff: 'car-dropoff', pickupDate: 'car-pickup-date', returnDate: 'car-return-date', passengers: values.tripType === 'Round Trip' ? 'car-passengers-rt' : 'car-passengers', name: 'car-name', email: 'car-email', phone: 'car-phone', notes: 'car-notes' }
-      const order: Array<keyof CarFieldErrors> = ['vehicle', 'tripType', 'pickup', 'dropoff', 'pickupDate', 'returnDate', 'passengers', 'name', 'email', 'phone', 'notes']
+      const ids: Record<keyof CarFieldErrors, string> = { vehicle: 'car-vehicle', tripType: 'req-trip-label', pickup: 'car-pickup', dropoff: 'car-dropoff', pickupDate: 'car-pickup-date', returnDate: 'car-return-date', passengers: values.tripType === 'Round Trip' ? 'car-passengers-rt' : 'car-passengers', pickupTime: 'car-pickup-time', returnTime: 'car-return-time', name: 'car-name', email: 'car-email', phone: 'car-phone', notes: 'car-notes' }
+      const order: Array<keyof CarFieldErrors> = ['vehicle', 'tripType', 'pickup', 'dropoff', 'pickupDate', 'returnDate', 'passengers', 'pickupTime', 'returnTime', 'name', 'email', 'phone', 'notes']
       for (const field of order) {
         if (errs[field]) {
           focusCarField(ids[field])
@@ -629,6 +762,10 @@ function CarRequestContent() {
     const dateRows = d.tripType === 'Round Trip' && d.preferredReturnDate !== ''
       ? [{ label: tx(locale, { en: 'Preferred return date', es: 'Fecha de regreso preferida', it: 'Data di ritorno preferita', ar: 'تاريخ العودة المفضل' }), value: d.preferredReturnDate, ltr: true }]
       : []
+    const timeRows: { label: string; value: string }[] = [
+      ...(record.pickupTime ? [{ label: tx(locale, { en: 'Pick-up time', es: 'Hora de recogida', it: 'Orario di ritiro', ar: 'وقت الاستلام' }), value: record.pickupTime }] : []),
+      ...(record.returnTime ? [{ label: tx(locale, { en: 'Return time', es: 'Hora de regreso', it: 'Orario di ritorno', ar: 'وقت العودة' }), value: record.returnTime }] : []),
+    ]
     return <div className="form-success large">
       <Check size={42} />
       <h1 id="car-preview-title" tabIndex={-1}>{tx(locale, { en: 'Car request submitted', es: 'Solicitud de coche enviada', it: 'Richiesta auto inviata', ar: 'تم إرسال طلب السيارة' })}</h1>
@@ -640,6 +777,8 @@ function CarRequestContent() {
         <div><span>{tx(locale, { en: 'To', es: 'Hasta', it: 'A', ar: 'إلى' })}</span><strong>{d.dropoff}</strong></div>
         <div><span>{tx(locale, { en: 'Preferred pick-up date', es: 'Fecha de recogida preferida', it: 'Data di ritiro preferita', ar: 'تاريخ الاستلام المفضل' })}</span><strong dir="ltr">{d.preferredPickupDate}</strong></div>
         {dateRows.map((row) => <div key={row.label}><span>{row.label}</span><strong dir="ltr">{row.value}</strong></div>)}
+        {timeRows.map((row) => <div key={row.label}><span>{row.label}</span><strong dir="ltr">{row.value}</strong></div>)}
+        {(record.quote || record.pickupLocationSlug) && <div><span>{tx(locale, { en: 'Estimated transfer price', es: 'Precio estimado del traslado', it: 'Prezzo stimato del trasferimento', ar: 'السعر التقديري للرحلة' })}</span><strong>{record.quote ? `${formatQuoteAmount(record.quote.cents, record.quote.currency, locale)} · ${carQuoteBasisLabel(record.quote.basis, locale)}` : (tx(locale, { en: 'Price on request', es: 'Precio a consultar', it: 'Prezzo su richiesta', ar: 'السعر عند الطلب' }))}</strong></div>}
         <div><span>{tx(locale, { en: 'Passengers', es: 'Pasajeros', it: 'Passeggeri', ar: 'الركاب' })}</span><strong>{d.passengers}</strong></div>
         <div><span>{tx(locale, { en: 'Full name', es: 'Nombre completo', it: 'Nome completo', ar: 'الاسم الكامل' })}</span><strong>{d.contact.fullName}</strong></div>
         <div><span>{tx(locale, { en: 'Email', es: 'Correo electrónico', it: 'Email', ar: 'البريد الإلكتروني' })}</span><strong dir="ltr">{d.contact.email}</strong></div>
@@ -687,7 +826,7 @@ function CarRequestContent() {
             <div>
               <span className="eyebrow">{tx(locale, { en: 'Your summary', es: 'Tu resumen', it: 'Il tuo riepilogo', ar: 'ملخص طلبك' })}</span>
               {vehicle
-                ? <div className="req-vehicle-mini"><img src={vehicle.image} alt={vehicle.title} /><div><strong>{vehicle.title}</strong><span>{formatPrice(vehicle.dailyPrice, currency, locale)}{tx(locale, { en: ' per day', es: ' por día', it: ' al giorno', ar: ' في اليوم' })}</span></div></div>
+                ? <div className="req-vehicle-mini"><img src={vehicle.image} alt={vehicle.title} /><div><strong>{vehicle.title}</strong><span><Users size={13} style={{ verticalAlign: '-2px' }} /> {vehicle.seats}</span></div></div>
                 : <p className="req-novehicle">{tx(locale, { en: 'Select a vehicle in the form to see your summary here.', es: 'Selecciona un vehículo en el formulario para ver tu resumen aquí.', it: 'Seleziona un veicolo nel modulo per vedere qui il riepilogo.', ar: 'اختر السيارة من النموذج ليظهر ملخصك هنا.' })}</p>}
               <div className="req-summary-rows">
                 <div><span>{tx(locale, { en: 'Trip type', es: 'Tipo', it: 'Tipo', ar: 'النوع' })}</span><strong>{tripLabel}</strong></div>
@@ -696,12 +835,15 @@ function CarRequestContent() {
                 <div><span>{tx(locale, { en: 'Preferred pick-up date', es: 'Fecha de recogida preferida', it: 'Data di ritiro preferita', ar: 'تاريخ الاستلام المفضل' })}</span><strong dir="ltr">{values.pickupDate || notSet}</strong></div>
                 {values.tripType === 'Round Trip' && <div><span>{tx(locale, { en: 'Preferred return date', es: 'Fecha de regreso preferida', it: 'Data di ritorno preferita', ar: 'تاريخ العودة المفضل' })}</span><strong dir="ltr">{values.returnDate || notSet}</strong></div>}
                 <div><span>{tx(locale, { en: 'Passengers', es: 'Pasajeros', it: 'Passeggeri', ar: 'الركاب' })}</span><strong>{values.passengers || notSet}</strong></div>
+                {quoteReady && (quoteLoading
+                  ? <div><span>{tx(locale, { en: 'Estimated transfer price', es: 'Precio estimado del traslado', it: 'Prezzo stimato del trasferimento', ar: 'السعر التقديري للرحلة' })}</span><strong>{tx(locale, { en: 'Updating…', es: 'Actualizando…', it: 'Aggiornamento…', ar: 'جارٍ التحديث…' })}</strong></div>
+                  : <div><span>{tx(locale, { en: 'Estimated transfer price', es: 'Precio estimado del traslado', it: 'Prezzo stimato del trasferimento', ar: 'السعر التقديري للرحلة' })}</span><strong>{quote?.kind === 'quote' ? `${formatQuoteAmount(quote.cents, quote.currency, locale)} · ${carQuoteBasisLabel(quote.basis, locale)}` : quote?.kind === 'unavailable' ? (tx(locale, { en: 'Not bookable for this vehicle', es: 'No disponible para este vehículo', it: 'Non disponibile per questo veicolo', ar: 'غير متاح لهذه السيارة' })) : (tx(locale, { en: 'Price on request', es: 'Precio a consultar', it: 'Prezzo su richiesta', ar: 'السعر عند الطلب' }))}</strong></div>)}
               </div>
               <p><ShieldCheck size={15} />{tx(locale, { en: 'Private driver and A/C included', es: 'Conductor privado y aire acondicionado incluidos', it: 'Autista privato e aria condizionata inclusi', ar: 'شامل سائق خاص وتكييف' })}</p>
               <a className="req-wa" href={whatsappHref(brand.whatsapp)} target="_blank" rel="noreferrer">{tx(locale, { en: 'Chat on WhatsApp', es: 'Hablar por WhatsApp', it: 'Chat su WhatsApp', ar: 'تواصل عبر واتساب' })}</a>
             </div>
           </aside>
-          <div className="car-form-card"><CarRequestForm values={values} errors={errors} summary={summary} submitting={submitting} editing={editingRef !== null} onChange={patch} onSubmit={handleSubmit} /></div>
+          <div className="car-form-card"><CarRequestForm values={values} errors={errors} summary={summary} submitting={submitting} editing={editingRef !== null} locations={locations} onChange={patch} onSubmit={handleSubmit} /></div>
         </div>}
     </main>
   </>
