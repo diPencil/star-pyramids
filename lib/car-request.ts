@@ -52,11 +52,24 @@ export type CarRequestDraft = {
   notes: string
   contact: CarRequestContact
   currency: Currency
+  /**
+   * Optional structured transfer references (Rent Cars routes). When both
+   * slugs are provided they must match active published locations; the
+   * server resolves the directional route and captures the authoritative
+   * quote snapshot. Prices are NEVER part of the draft.
+   */
+  pickupLocationSlug?: string
+  dropoffLocationSlug?: string
+  /** Optional requested times (HH:MM, local, 24h). */
+  pickupTime?: string
+  returnTime?: string
 }
 
 const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 const SLUG_PATTERN = /^[a-z0-9-]{1,80}$/
+/** Requested time of day (HH:MM, 24h). Validated structurally only. */
+const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/
 
 /**
  * Official + legacy-tolerant reference shape for route params and links.
@@ -82,6 +95,26 @@ export function isValidCarDate(value: string): boolean {
   return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
 }
 
+/** True when `value` is a structurally valid HH:MM time of day. */
+export function isTimeOfDay(value: string): boolean {
+  return TIME_PATTERN.test(value.trim())
+}
+
+/**
+ * Structured location slugs follow the location-management slug shape.
+ * Empty string means "no structured location" (legacy free-text flow).
+ */
+export function sanitizeLocationSlug(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  const slug = value.trim()
+  return slug === '' || SLUG_PATTERN.test(slug) ? slug : ''
+}
+
+/** True for a sanitized location slug value, '' included. */
+export function isValidLocationSlugDraft(slug: string): boolean {
+  return SLUG_PATTERN.test(slug)
+}
+
 /** True when the preferred date is before today (local calendar day). */
 export function isPastCarDate(value: string): boolean {
   if (!isValidCarDate(value)) return false
@@ -91,7 +124,7 @@ export function isPastCarDate(value: string): boolean {
 }
 
 export type CarFieldErrors = Partial<Record<
-  'vehicle' | 'tripType' | 'pickup' | 'dropoff' | 'pickupDate' | 'returnDate' | 'passengers' | 'name' | 'email' | 'phone' | 'notes',
+  'vehicle' | 'tripType' | 'pickup' | 'dropoff' | 'pickupDate' | 'returnDate' | 'passengers' | 'name' | 'email' | 'phone' | 'notes' | 'pickupTime' | 'returnTime',
   'required' | 'invalid'
 >>
 
@@ -155,6 +188,9 @@ export function validateCarRequest(draft: CarRequestDraft): CarFieldErrors {
 
   if (draft.notes.length > CAR_NOTE_MAX) errors.notes = 'invalid'
 
+  if (draft.pickupTime && !isTimeOfDay(draft.pickupTime)) errors.pickupTime = 'invalid'
+  if (draft.returnTime && (!isTimeOfDay(draft.returnTime) || draft.tripType !== 'Round Trip')) errors.returnTime = 'invalid'
+
   return errors
 }
 
@@ -179,6 +215,8 @@ export function sanitizeCarDraft(value: unknown): CarRequestDraft | null {
   const preferredReturnDate = tripType === 'Round Trip' && typeof raw.preferredReturnDate === 'string' && (raw.preferredReturnDate === '' || isValidCarDate(raw.preferredReturnDate))
     ? raw.preferredReturnDate
     : ''
+  const pickupTime = typeof raw.pickupTime === 'string' && isTimeOfDay(raw.pickupTime) ? raw.pickupTime : ''
+  const returnTime = tripType === 'Round Trip' && typeof raw.returnTime === 'string' && isTimeOfDay(raw.returnTime) ? raw.returnTime : ''
   return {
     vehicleSlug: safeSlug(raw.vehicleSlug),
     tripType,
@@ -188,6 +226,10 @@ export function sanitizeCarDraft(value: unknown): CarRequestDraft | null {
     preferredReturnDate,
     passengers: safeCount(raw.passengers, 1, CAR_PASSENGER_MAX, 1),
     notes: safeText(raw.notes, CAR_NOTE_MAX),
+    pickupLocationSlug: sanitizeLocationSlug(raw.pickupLocationSlug),
+    dropoffLocationSlug: sanitizeLocationSlug(raw.dropoffLocationSlug),
+    pickupTime,
+    returnTime,
     contact: {
       fullName: safeText(contact.fullName, CAR_NAME_MAX),
       email: safeText(contact.email, CAR_EMAIL_MAX),
@@ -238,6 +280,20 @@ export type CarRequest = {
   createdAt: string
   updatedAt: string
   activity: CarRequestActivity[]
+  /** Optional structured references captured server-side (never client-sent prices). */
+  pickupLocationSlug?: string
+  dropoffLocationSlug?: string
+  routeId?: string
+  pickupTime?: string
+  returnTime?: string
+  /** Authoritative quote snapshot (NULL/undefined amounts mean Price on Request). */
+  quote?: {
+    currency: string
+    cents: number
+    roundTripCents?: number
+    basis: 'legs' | 'multiplier' | 'manual'
+    quotedAt: string
+  } | null
 }
 
 /** Linked registered account info (staff views only, never customer-facing). */
@@ -285,6 +341,39 @@ export function carRequestStatusLabel(status: CarRequestStatus, ar: boolean | Lo
     case 'confirmed': return pickLocaleText(locale, { en: 'Confirmed', es: 'Confirmada', it: 'Confermata', ar: 'مؤكد' })
     case 'cancelled': return pickLocaleText(locale, { en: 'Cancelled', es: 'Cancelada', it: 'Annullata', ar: 'ملغي' })
   }
+}
+
+/**
+ * Format an integer-cents amount ALREADY denominated in `currency` (route
+ * quotes carry their own currency and are never converted client-side by
+ * formatPrice's USD-based rates). Mirrors formatPrice's fraction behavior;
+ * unsupported codes fall back to the ISO code verbatim.
+ */
+export function formatQuoteAmount(cents: number, currency: string, locale: Locale): string {
+  const intlLocale =
+    locale === 'ar' ? 'ar-EG' : locale === 'es' ? 'es-ES' : locale === 'it' ? 'it-IT' : 'en-US'
+  if (!['USD', 'EUR', 'EGP'].includes(currency)) {
+    return `${(cents / 100).toFixed(2)} ${currency}`
+  }
+  return new Intl.NumberFormat(intlLocale, {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: currency === 'EGP' ? 0 : 2,
+  }).format(cents / 100)
+}
+
+/**
+ * Strict vehicle-capacity parser for `Car.seats` display strings.
+ * Returns the seat count ONLY for unambiguous values — a whole number,
+ * optionally suffixed with "seat"/"seats" ("4", "4 seats", "14 Seats").
+ * Ambiguous or descriptive values ("2-4 seats", "Up to 8", "", prose)
+ * return null so callers can reject confirmation instead of guessing.
+ */
+export function parseVehicleCapacity(seats: string): number | null {
+  const match = /^(\d+)(?:\s*seats?)?$/i.exec(seats.trim())
+  if (!match) return null
+  const count = Number(match[1])
+  return count >= 1 && count <= 100 ? count : null
 }
 
 /**

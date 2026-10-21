@@ -342,9 +342,34 @@ model CarRequest {
   activities          CarRequestActivity[]
   user                User?                @relation(fields: [userId], references: [id])
 
+  // Phase 6 (Rent Cars transfer pricing): optional structured references.
+  // All legacy columns above stay authoritative for display copy
+  // (pickup/dropoff keep a human-readable snapshot). Location slugs FK to
+  // active locations only conceptually (protected by service validation, no
+  // hard FK so legacy/renamed rows keep updating); `routeId` FKs to
+  // car_routes with SET NULL so route deletion never breaks old requests.
+  pickupLocationSlug  String?              @db.VarChar(80)
+  dropoffLocationSlug String?              @db.VarChar(80)
+  routeId             String?
+  pickupTime          String?              @db.VarChar(5)
+  returnTime          String?              @db.VarChar(5)
+
+  // Immutable quote snapshot captured server-side at submit/edit time.
+  // Prices are NEVER read from the client; when no configured rate exists
+  // (or Price on Request), the amount stays NULL and the basis is NULL.
+  quoteCurrency       String?              @db.Char(3)
+  quotedCents         Int?
+  quoteBasis          String?              @db.VarChar(16) // legs | multiplier | manual
+  quoteRoundTripCents Int?                 // full round-trip figure when tripType = ROUND_TRIP
+  quotedAt            DateTime?
+
+  // Phantom relation referenced by CarRoute for integrity-free history.
+  route CarRoute? @relation(fields: [routeId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
   @@index([userId, createdAt])
   @@index([status, createdAt])
   @@index([contactEmail])
+  @@index([routeId])
   @@map("car_requests")
 }
 
@@ -1021,7 +1046,92 @@ model Car {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  routePrices  CarRoutePrice[]
+
   @@map("cars")
+}
+
+/// Phase 2 (Rent Cars): reusable structured pickup/drop-off location.
+/// Additive to the legacy workflow — existing CarRequest rows keep their
+/// free-text pickup/dropoff columns untouched; these rows back structured
+/// location selection and directional route pricing. Row visibility to the
+/// public matches `isActive=false` hiding (same idea as Car.isPublished).
+model CarLocation {
+  id        String          @id @default(cuid())
+  slug      String          @unique @db.VarChar(80)
+  nameEn    String          @db.VarChar(120)
+  nameEs    String?         @db.VarChar(120)
+  nameIt    String?         @db.VarChar(120)
+  nameAr    String?         @db.VarChar(120)
+  kind      CarLocationKind @default(CITY)
+  isActive  Boolean         @default(true)
+  sortOrder Int             @default(999)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  originRoutes      CarRoute[] @relation("carRouteOrigin")
+  destinationRoutes CarRoute[] @relation("carRouteDestination")
+
+  @@index([isActive, sortOrder])
+  @@map("car_locations")
+}
+
+/// Directional route between two structured locations. Route identity is the
+/// (origin, destination) pair: Cairo Airport → Giza and Giza → Cairo Airport
+/// are separate rows and may carry completely different vehicle prices.
+model CarRoute {
+  id              String      @id @default(cuid())
+  originSlug      String      @db.VarChar(80)
+  destinationSlug String      @db.VarChar(80)
+  isActive        Boolean     @default(true)
+  sortOrder       Int         @default(999)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  origin          CarLocation @relation("carRouteOrigin", fields: [originSlug], references: [slug], onDelete: Restrict, onUpdate: Cascade)
+  destination     CarLocation @relation("carRouteDestination", fields: [destinationSlug], references: [slug], onDelete: Restrict, onUpdate: Cascade)
+  prices          CarRoutePrice[]
+
+  @@unique([originSlug, destinationSlug])
+  @@index([destinationSlug])
+  @@index([isActive])
+  @@map("car_routes")
+
+  // Requests that quote this route historically. Deleting the route keeps
+  // every request (snapshot fields survive with a NULL routeId).
+  requests CarRequest[]
+}
+
+/// Vehicle-specific rate for one route. All money is stored as integer minor
+/// units (`oneWayCents`, `roundTripCents`) — no floating-point arithmetic for
+/// financial amounts. Round-trip mode:
+///   MANUAL    → `roundTripCents` holds the staff-approved round-trip price.
+///   AUTOMATIC → the return leg is priced from the actual reverse-route rate
+///               when one exists (sum of the two directional leg prices);
+///               otherwise the configured multiplier applies to the outbound
+///               rate (`roundTripMultiplierBp`, hundredths: 200 = ×2.00).
+///               A reverse route is never assumed to cost the same.
+/// `carSlug` is an FK to cars.slug (deleting a vehicle removes its derived
+/// price rows); `routeId` is Restrict so pricing never silently loses its
+/// route. One price row per (route, vehicle).
+model CarRoutePrice {
+  id                    String           @id @default(cuid())
+  routeId               String
+  carSlug               String           @db.VarChar(80)
+  currency              String           @default("USD") @db.Char(3)
+  oneWayCents           Int
+  roundTripMode         CarRoundTripMode @default(AUTOMATIC)
+  roundTripCents        Int?
+  roundTripMultiplierBp Int              @default(200)
+  isActive              Boolean          @default(true)
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  car                   Car              @relation(fields: [carSlug], references: [slug], onDelete: Cascade, onUpdate: Cascade)
+  route                 CarRoute         @relation(fields: [routeId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([routeId, carSlug])
+  @@index([carSlug])
+  @@index([isActive])
+  @@map("car_route_prices")
 }
 
 /// Phase 3D: special-offer catalogue.
@@ -1365,4 +1475,16 @@ enum JourneyGalleryMediaType {
 enum JourneyGalleryTourScope {
   ALL_TOURS
   SELECTED_TOURS
+}
+
+enum CarLocationKind {
+  AIRPORT
+  HOTEL
+  CITY
+  CUSTOM
+}
+
+enum CarRoundTripMode {
+  AUTOMATIC
+  MANUAL
 }
