@@ -33,6 +33,10 @@ const nextConfig = {
   // Experimental: optimize package imports
   experimental: {
     optimizePackageImports: ['lucide-react', '@base-ui/react'],
+    // Limit build worker concurrency (page-data collection + export).
+    // Shared hosting (e.g. Hostinger) reports many cores but cannot spawn
+    // 60+ worker threads ("OS can't spawn worker thread" / EAGAIN); 2 is safe.
+    cpus: 2,
   },
 }
 
