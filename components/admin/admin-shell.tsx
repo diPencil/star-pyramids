@@ -22,6 +22,7 @@ import {
   MessageCircle,
   Newspaper,
   PanelLeftClose,
+  Route,
   Search,
   Settings,
   ShoppingCart,
@@ -94,6 +95,7 @@ const NAV_VIEW_PERMISSIONS: Record<string, string[]> = {
   '/admin/blogs': ['blogs.view'],
   '/admin/gallery': ['gallery.view'],
   '/admin/cars': ['cars.view'],
+  '/admin/rent-cars': ['cars.view'],
   '/admin/car-requests': ['requests.view'],
   '/admin/trip-requests': ['requests.view'],
   '/admin/customers': ['customers.view'],
@@ -151,7 +153,8 @@ const groups = [
     labelEn: 'EVENTS & CARS',
     items: [
       { href: '/admin/events', icon: CalendarCheck, en: 'Events', ar: 'الفعاليات' },
-      { href: '/admin/cars', icon: CarFront, en: 'Rent Cars', ar: 'تأجير السيارات' },
+      { href: '/admin/cars', icon: CarFront, en: 'Rent Cars Fleet', ar: 'أسطول تأجير السيارات' },
+      { href: '/admin/rent-cars', icon: Route, en: 'Rent Cars Routes & Prices', ar: 'الأسعار والخطوط' },
     ],
   },
   {

@@ -10,6 +10,7 @@ import { AdminPagination, usePagination } from '@/components/admin/admin-paginat
 import { useDbCars } from '@/lib/events-cars-client'
 import { cars } from '@/data/content'
 import { SharedSelect } from '@/components/shared-select'
+import { toast } from '@/components/admin/admin-toaster'
 import { carRequestStatusLabel, type CarRequestStatus, type StaffCarRequest } from '@/lib/car-request'
 
 const statusTabs = [
@@ -45,9 +46,14 @@ export default function CarRequestsPage() {
   const [requests, setRequests] = useState<StaffCarRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
+  // Reload-safe retry: increments to re-run the load in place. Filters and
+  // pagination keep their state across retries; the page is never reloaded.
+  const [refreshTick, setRefreshTick] = useState(0)
 
   useEffect(() => {
     let cancelled = false
+    setLoading(true)
+    setLoadError('')
     fetch('/api/admin/car-requests', { credentials: 'same-origin' })
       .then(async (res) => {
         if (cancelled) return
@@ -64,7 +70,7 @@ export default function CarRequestsPage() {
       })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [refreshTick])
 
   const vehicleOptions = useMemo(
     () => Array.from(new Map(requests.map((row) => [row.vehicleSlug, vehicleTitle(liveCars, row.vehicleSlug)])).entries()),
@@ -117,7 +123,11 @@ export default function CarRequestsPage() {
         {!loading && loadError && (
           <div className="sp-form">
             <p role="alert" style={{ color: '#b91c1c' }}>{loadError}</p>
-            <div><button type="button" className="sp-btn" onClick={() => window.location.reload()}><AdminText en="Retry" ar="إعادة المحاولة" /></button></div>
+            <div><button type="button" className="sp-btn" onClick={() => {
+              if (loading) return
+              setRefreshTick((tick) => tick + 1)
+              toast.success(ar ? 'جارٍ إعادة تحميل قائمة الطلبات.' : 'Retrying the request list without leaving this page.', { dedupeKey: 'car-requests-retry' })
+            }}><AdminText en="Retry" ar="إعادة المحاولة" /></button></div>
           </div>
         )}
         {!loading && !loadError && (

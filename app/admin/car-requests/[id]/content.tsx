@@ -16,6 +16,7 @@ import {
   carActivityLabel,
   carRequestStatusLabel,
   fleetVehicleTitle,
+  formatQuoteAmount,
   type CarRequestStatus,
   type StaffCarRequest,
 } from '@/lib/car-request'
@@ -244,9 +245,17 @@ export function CarRequestDetailContent({ requestId }: { requestId: string }) {
             <dl className="evr-kv">
               <div><dt><AdminText en="Pickup" ar="الاستلام" /></dt><dd><MapPin size={13} style={{ display: 'inline', verticalAlign: '-2px' }} /> {item.pickup}</dd></div>
               <div><dt><AdminText en="Drop-off" ar="التسليم" /></dt><dd><MapPin size={13} style={{ display: 'inline', verticalAlign: '-2px' }} /> {item.dropoff}</dd></div>
+              {item.pickupLocationSlug && <div><dt><AdminText en="Route (slugs)" ar="المسار (معرفات)" /></dt><dd dir="ltr">{item.pickupLocationSlug} → {item.dropoffLocationSlug}{item.routeId ? '' : (ar ? ' · بدون مسار مكوّن' : ' · no configured route')}</dd></div>}
+              {item.pickupTime && <div><dt><AdminText en="Pickup time" ar="وقت الاستلام" /></dt><dd dir="ltr">{item.pickupTime}</dd></div>}
+              {item.returnTime && <div><dt><AdminText en="Return time" ar="وقت العودة" /></dt><dd dir="ltr">{item.returnTime}</dd></div>}
               <div><dt><AdminText en="Preferred pickup date" ar="تاريخ الاستلام المفضل" /></dt><dd><CalendarDays size={14} /><span dir="ltr">{item.preferredPickupDate || (ar ? 'غير محدد' : 'Not set')}</span></dd></div>
               <div><dt><AdminText en="Preferred return date" ar="تاريخ العودة المفضل" /></dt><dd><span dir="ltr">{item.tripType === 'Round Trip' && item.preferredReturnDate ? item.preferredReturnDate : '-'}</span></dd></div>
               <div><dt><AdminText en="Passengers" ar="الركاب" /></dt><dd><Users size={14} />{item.passengers}</dd></div>
+              <div><dt><AdminText en="Quoted amount (submit-time snapshot)" ar="المبلغ المُسعّر (لقطة وقت الإرسال)" /></dt><dd dir="ltr">
+                {item.quote
+                  ? `${formatQuoteAmount(item.quote.cents, item.quote.currency, ar ? 'ar' : 'en')} · ${item.quote.basis}${item.quote.roundTripCents !== undefined && item.quote.roundTripCents !== item.quote.cents ? ` (1-way ${formatQuoteAmount(item.quote.cents, item.quote.currency, ar ? 'ar' : 'en')})` : ''}`
+                  : item.pickupLocationSlug ? (ar ? 'السعر عند الطلب' : 'Price on request') : (ar ? '-' : '-')}
+              </dd></div>
             </dl>
           </Card>
         </div>
@@ -279,13 +288,13 @@ export function CarRequestDetailContent({ requestId }: { requestId: string }) {
                   locale={ar ? 'ar' : 'en'}
                   label={ar ? 'المركبة المخصصة' : 'Assigned vehicle'}
                   popupWidth="trigger"
-                  options={[{ value: '', label: ar ? 'بدون تخصيص' : 'Not assigned' }, ...liveCars.map((car) => ({ value: car.slug, label: `${car.title} · ${car.slug}${car.isPublished === false ? (ar ? ' · مخفي من الموقع' : ' · Hidden from website') : ''}` }))]} />
+                  options={[{ value: '', label: ar ? 'بدون تخصيص' : 'Not assigned' }, ...liveCars.filter((car) => car.isPublished !== false).map((car) => ({ value: car.slug, label: `${car.title} · ${car.slug}` }))]} />
               </label>
             </div>
             <p style={{ margin: 0, color: 'var(--sp-muted)', fontSize: 12.5, lineHeight: 1.6 }}>
               <AdminText
-                en="Assignment only - availability has not been checked. A vehicle must be assigned before confirming."
-                ar="تخصيص فقط - لم يتم التحقق من التوافر. يجب تخصيص مركبة قبل التأكيد."
+                en="Assignment only - availability has not been checked. A published fleet vehicle must be assigned before confirming; its seat capacity must cover the passengers."
+                ar="تخصيص فقط - لم يتم التحقق من التوافر. يجب تخصيص مركبة منشورة قبل التأكيد وتغطي سعتها عدد الركاب."
               />
             </p>
           </Card>
