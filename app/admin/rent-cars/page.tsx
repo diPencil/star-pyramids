@@ -215,7 +215,9 @@ function LocationsTab({ ar, list }: { ar: boolean; list: ListState<LocationRow> 
 function LocationDialog({ mode, row, onClose, onSaved }: { mode: 'create' | 'edit'; row?: LocationRow; onClose: () => void; onSaved: () => void }) {
   const ar = useAdminLocale() === 'ar'
   const [slug, setSlug] = useState(row?.slug ?? '')
-  const [names, setNames] = useState({ en: row?.nameEn ?? '', es: row?.nameEs ?? '', it: row?.nameIt ?? '', ar: row?.nameAr ?? '' })
+  // Arabic is a disabled locale, so the admin never edits Arabic names:
+  // the stored nameAr value is preserved unchanged on edit and never sent.
+  const [names, setNames] = useState({ en: row?.nameEn ?? '', es: row?.nameEs ?? '', it: row?.nameIt ?? '' })
   const [kind, setKind] = useState(row?.kind ?? 'CITY')
   const [isActive, setIsActive] = useState(row?.isActive ?? true)
   const [sortOrder, setSortOrder] = useState(String(row?.sortOrder ?? 999))
@@ -226,8 +228,8 @@ function LocationDialog({ mode, row, onClose, onSaved }: { mode: 'create' | 'edi
     setBusy(true)
     setError('')
     const payload = mode === 'create'
-      ? { slug, nameEn: names.en, nameEs: names.es || null, nameIt: names.it || null, nameAr: names.ar || null, kind, isActive, sortOrder: Number(sortOrder) || 0 }
-      : { nameEn: names.en, nameEs: names.es || null, nameIt: names.it || null, nameAr: names.ar || null, kind, isActive, sortOrder: Number(sortOrder) || 0 }
+      ? { slug, nameEn: names.en, nameEs: names.es || null, nameIt: names.it || null, nameAr: null, kind, isActive, sortOrder: Number(sortOrder) || 0 }
+      : { nameEn: names.en, nameEs: names.es || null, nameIt: names.it || null, nameAr: row?.nameAr ?? null, kind, isActive, sortOrder: Number(sortOrder) || 0 }
     staffRequest<{ location: unknown }>(mode === 'create' ? '/api/admin/rent-car/locations' : `/api/admin/rent-car/locations/${encodeURIComponent(row?.slug ?? '')}`, mode === 'create' ? 'POST' : 'PATCH', payload)
       .then(() => {
         toast.success(ar
@@ -257,10 +259,9 @@ function LocationDialog({ mode, row, onClose, onSaved }: { mode: 'create' | 'edi
       <label><AdminText en="Name (English, required)" ar="الاسم (إنجليزي، مطلوب)" />
         <input value={names.en} onChange={(e) => setNames({ ...names, en: e.target.value })} maxLength={120} />
       </label>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         <label><AdminText en="Name (Español)" ar="الاسم (إسباني)" /><input value={names.es} onChange={(e) => setNames({ ...names, es: e.target.value })} maxLength={120} /></label>
         <label><AdminText en="Name (Italiano)" ar="الاسم (إيطالي)" /><input value={names.it} onChange={(e) => setNames({ ...names, it: e.target.value })} maxLength={120} /></label>
-        <label dir="rtl"><AdminText en="Name (العربية)" ar="الاسم (العربية)" /><input value={names.ar} onChange={(e) => setNames({ ...names, ar: e.target.value })} maxLength={120} /></label>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8 }}>
         <label><AdminText en="Type" ar="النوع" />
