@@ -43,6 +43,26 @@ export async function listCars(): Promise<Car[]> {
   return rows.map((r) => toCar(r as unknown as DbCarRow));
 }
 
+/**
+ * Confirmed car-request bookings per assigned vehicle, keyed by slug.
+ * `assignedVehicleSlug` (the staff assignment) is the booked vehicle —
+ * `vehicleSlug` is only the customer's preference at submission time.
+ * Only requests currently CONFIRMED count: a request that was never
+ * confirmed, was cancelled, or has no assignment yet is not a booking.
+ */
+export async function getCarBookingCounts(): Promise<Map<string, number>> {
+  const rows = await db.carRequest.findMany({
+    where: { assignedVehicleSlug: { not: null }, status: "CONFIRMED" },
+    select: { assignedVehicleSlug: true },
+  });
+  const counts = new Map<string, number>();
+  for (const row of rows as readonly { assignedVehicleSlug: string | null }[]) {
+    const slug = (row.assignedVehicleSlug ?? "").trim();
+    if (slug) counts.set(slug, (counts.get(slug) ?? 0) + 1);
+  }
+  return counts;
+}
+
 /** Canonical slugs only. */
 export async function listCarSlugs(): Promise<string[]> {
   const rows = await db.car.findMany({ select: { slug: true } });
