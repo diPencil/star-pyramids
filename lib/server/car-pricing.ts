@@ -250,6 +250,7 @@ export interface CarRouteDraft {
   originSlug: string;
   destinationSlug: string;
   isActive: boolean;
+  sortOrder: number;
 }
 
 /**
@@ -261,7 +262,7 @@ export interface CarRouteDraft {
 export async function createCarRoute(input: unknown): Promise<CarRouteDraft & { id: string }> {
   if (typeof input !== 'object' || input === null) throw new Error('Invalid request.');
   const body = input as Record<string, unknown>;
-  const allowed = new Set(['originSlug', 'destinationSlug', 'isActive']);
+  const allowed = new Set(['originSlug', 'destinationSlug', 'isActive', 'sortOrder']);
   for (const key of Object.keys(body)) {
     if (!allowed.has(key)) throw new Error('Invalid request.');
   }
@@ -277,6 +278,8 @@ export async function createCarRoute(input: unknown): Promise<CarRouteDraft & { 
     throw new Error('Invalid request.');
   }
   const isActive = body.isActive === undefined ? true : body.isActive;
+  const sortOrder = body.sortOrder === undefined ? 999 : validSortOrder(body.sortOrder);
+  if (sortOrder === null) throw new Error('Sort order must be a whole number from 0 to 100000.');
 
   const [origin, destination] = await Promise.all([
     db.carLocation.findUnique({ where: { slug: originSlug } }),
@@ -288,9 +291,9 @@ export async function createCarRoute(input: unknown): Promise<CarRouteDraft & { 
 
   try {
     const row = await db.carRoute.create({
-      data: { originSlug, destinationSlug, isActive },
+      data: { originSlug, destinationSlug, isActive, sortOrder },
     });
-    return { id: row.id, originSlug, destinationSlug, isActive };
+    return { id: row.id, originSlug, destinationSlug, isActive, sortOrder };
   } catch (error) {
     if (isPrismaUniqueOrForeignKey(error) && error.code === 'P2002') {
       throw new Error('This route already exists.');
