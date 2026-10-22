@@ -146,24 +146,24 @@ const groups = [
       { href: '/admin/trips', icon: Map, en: 'Trips', ar: 'الرحلات' },
       { href: '/admin/destinations', icon: MapPinned, en: 'Destinations', ar: 'الوجهات' },
       { href: '/admin/multi-day-categories', icon: Tags, en: 'Multi Day Categories', ar: 'فئات الرحلات' },
+      { href: '/admin/trip-requests', icon: Compass, en: 'Trip Requests', ar: 'طلبات الرحلات' },
     ],
   },
   {
-    label: 'الفعاليات والسيارات',
-    labelEn: 'EVENTS & CARS',
+    label: 'إدارة السيارات',
+    labelEn: 'CAR MANAGEMENT',
     items: [
-      { href: '/admin/events', icon: CalendarCheck, en: 'Events', ar: 'الفعاليات' },
       { href: '/admin/cars', icon: CarFront, en: 'Rent Cars Fleet', ar: 'أسطول تأجير السيارات' },
       { href: '/admin/rent-cars', icon: Route, en: 'Rent Cars Routes & Prices', ar: 'الأسعار والخطوط' },
+      { href: '/admin/car-requests', icon: ClipboardList, en: 'Car Requests', ar: 'طلبات السيارات' },
     ],
   },
   {
-    label: 'الطلبات',
-    labelEn: 'REQUESTS',
+    label: 'إدارة الفعاليات',
+    labelEn: 'EVENT MANAGEMENT',
     items: [
-      { href: '/admin/trip-requests', icon: Compass, en: 'Trip Requests', ar: 'طلبات الرحلات' },
+      { href: '/admin/events', icon: CalendarCheck, en: 'Events', ar: 'الفعاليات' },
       { href: '/admin/event-requests', icon: ClipboardList, en: 'Event Requests', ar: 'طلبات الفعاليات' },
-      { href: '/admin/car-requests', icon: ClipboardList, en: 'Car Requests', ar: 'طلبات السيارات' },
     ],
   },
   {
