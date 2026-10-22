@@ -294,8 +294,10 @@ function RoutesTab({ ar, list, locations }: { ar: boolean; list: ListState<Route
 
   return <Card
     title={<AdminText en="Routes" ar="الخطوط" />}
-    sub={<AdminText en="A→B and B→A are priced separately" ar="أ→ب وب→أ يُسعّران بشكل منفصل" />}
-    action={<button type="button" className="sp-btn primary" disabled={locations.data.length < 2} onClick={() => setDialog({ mode: 'create' })}><Plus size={16} /> <AdminText en="New route" ar="خط جديد" /></button>}
+    sub={locations.data.length < 2
+      ? <AdminText en="Locked: a route needs an origin and a destination — add a second location first." ar="مقفل: الخط يحتاج انطلاقًا ووصولًا — أضف موقعًا ثانيًا أولًا." />
+      : <AdminText en="A→B and B→A are priced separately" ar="أ→ب وب→أ يُسعّران بشكل منفصل" />}
+    action={<button type="button" className="sp-btn primary" title={locations.data.length < 2 ? (ar ? 'أضف موقعًا ثانيًا لإنشاء خط' : 'Add a second location to create routes') : undefined} disabled={locations.data.length < 2} onClick={() => setDialog({ mode: 'create' })}><Plus size={16} /> <AdminText en="New route" ar="خط جديد" /></button>}
   >
     <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث بالخط…' : 'Search routes…'} />
     {list.loading || locations.loading ? <AdminEmpty title={<AdminText en="Loading routes…" ar="جارٍ تحميل الخطوط…" />} />
@@ -431,10 +433,16 @@ function PricesTab({ ar, list, routes, vehicles }: { ar: boolean; list: ListStat
   }, 'route', 'asc')
   const paging = usePagination(sort.sortedRows)
 
+  const priceLockedReason = routes.data.length < 1
+    ? <AdminText en="Locked: create at least one route first." ar="مقفل: أنشئ خطًا واحدًا على الأقل أولًا." />
+    : vehicles.length < 1
+      ? <AdminText en="Locked: no fleet vehicles are available." ar="مقفل: لا توجد مركبات في الأسطول." />
+      : <AdminText en="All amounts are stored as exact integer cents" ar="كل المبالغ محفوظة بالسنت الصحيح" />
+
   return <Card
     title={<AdminText en="Pricing" ar="الأسعار" />}
-    sub={<AdminText en="All amounts are stored as exact integer cents" ar="كل المبالغ محفوظة بالسنت الصحيح" />}
-    action={<button type="button" className="sp-btn primary" disabled={routes.data.length < 1 || vehicles.length < 1} onClick={() => setDialog({ mode: 'create' })}><Plus size={16} /> <AdminText en="New price" ar="سعر جديد" /></button>}
+    sub={priceLockedReason}
+    action={<button type="button" className="sp-btn primary" title={routes.data.length < 1 ? (ar ? 'أنشئ خطًا أولًا' : 'Create a route first') : undefined} disabled={routes.data.length < 1 || vehicles.length < 1} onClick={() => setDialog({ mode: 'create' })}><Plus size={16} /> <AdminText en="New price" ar="سعر جديد" /></button>}
   >
     <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث بالخط أو المركبة…' : 'Search by route or vehicle…'} />
     {list.loading || routes.loading ? <AdminEmpty title={<AdminText en="Loading prices…" ar="جارٍ تحميل الأسعار…" />} />
