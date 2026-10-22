@@ -373,6 +373,16 @@ function carLocationName(item: CarLocationOption, locale: Locale): string {
   return name || item.nameEn
 }
 
+/** Display name for the summary card: resolved location name, custom text, or the Not set/placeholder fallback. */
+function carLocationDisplayName(slug: string, customText: string, list: CarLocationOption[], locale: Locale, fallback: string): string {
+  if (slug === '' || slug === CAR_OTHER_LOCATION) {
+    const text = customText.trim()
+    return text !== '' ? text : fallback
+  }
+  const item = list.find((entry) => entry.slug === slug)
+  return item ? carLocationName(item, locale) : fallback
+}
+
 /** Joined chauffeur locations — public API; on failure use the legacy free-text flow. */
 function useCarLocations(): CarLocationOption[] {
   const [locations, setLocations] = useState<CarLocationOption[]>([])
@@ -830,8 +840,8 @@ function CarRequestContent() {
                 : <p className="req-novehicle">{tx(locale, { en: 'Select a vehicle in the form to see your summary here.', es: 'Selecciona un vehículo en el formulario para ver tu resumen aquí.', it: 'Seleziona un veicolo nel modulo per vedere qui il riepilogo.', ar: 'اختر السيارة من النموذج ليظهر ملخصك هنا.' })}</p>}
               <div className="req-summary-rows">
                 <div><span>{tx(locale, { en: 'Trip type', es: 'Tipo', it: 'Tipo', ar: 'النوع' })}</span><strong>{tripLabel}</strong></div>
-                <div><span>{tx(locale, { en: 'From', es: 'Desde', it: 'Da', ar: 'من' })}</span><strong>{values.pickup || notSet}</strong></div>
-                <div><span>{tx(locale, { en: 'To', es: 'Hasta', it: 'A', ar: 'إلى' })}</span><strong>{values.dropoff || notSet}</strong></div>
+                <div><span>{tx(locale, { en: 'From', es: 'Desde', it: 'Da', ar: 'من' })}</span><strong>{carLocationDisplayName(values.pickupLocationSlug, values.pickup, locations, locale, notSet)}</strong></div>
+                <div><span>{tx(locale, { en: 'To', es: 'Hasta', it: 'A', ar: 'إلى' })}</span><strong>{carLocationDisplayName(values.dropoffLocationSlug, values.dropoff, locations, locale, notSet)}</strong></div>
                 <div><span>{tx(locale, { en: 'Preferred pick-up date', es: 'Fecha de recogida preferida', it: 'Data di ritiro preferita', ar: 'تاريخ الاستلام المفضل' })}</span><strong dir="ltr">{values.pickupDate || notSet}</strong></div>
                 {values.tripType === 'Round Trip' && <div><span>{tx(locale, { en: 'Preferred return date', es: 'Fecha de regreso preferida', it: 'Data di ritorno preferita', ar: 'تاريخ العودة المفضل' })}</span><strong dir="ltr">{values.returnDate || notSet}</strong></div>}
                 <div><span>{tx(locale, { en: 'Passengers', es: 'Pasajeros', it: 'Passeggeri', ar: 'الركاب' })}</span><strong>{values.passengers || notSet}</strong></div>
