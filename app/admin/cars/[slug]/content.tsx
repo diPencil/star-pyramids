@@ -101,7 +101,6 @@ export function VehicleDetailContent({ vehicleSlug }: { vehicleSlug: string }) {
           <div><small><AdminText en="Slug" ar="المعرف" /></small><strong>{car.slug}</strong></div>
           <div><small><AdminText en="Capacity" ar="السعة" /></small><strong>{car.seats || '-'}</strong></div>
           <div><small><AdminText en="Transmission" ar="ناقل الحركة" /></small><strong>{car.transmission || '-'}</strong></div>
-          <div><small><AdminText en="Daily rate" ar="السعر اليومي" /></small><strong>${car.dailyPrice}</strong></div>
         </div>
         <div>
           <span className={hidden ? 'sp-pill is-hidden' : 'sp-pill is-active'}>

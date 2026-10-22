@@ -23,6 +23,11 @@ export function VehicleForm({
 }: {
   initial?: Car
   submitLabel: React.ReactNode
+  /**
+   * Receives only the edited fields. The legacy daily-rate field no longer
+   * exists on `Car`: route prices are the sole customer-facing transfer
+   * pricing source, so the form never sends a daily rate in any direction.
+   */
   onSubmit: (car: Car) => void | Promise<void>
 }) {
   const ar = useAdminLocale() === 'ar'
@@ -30,7 +35,6 @@ export function VehicleForm({
   const [title, setTitle] = useState(initial?.title ?? '')
   const [seats, setSeats] = useState(initial?.seats ?? '')
   const [transmission, setTransmission] = useState(initial?.transmission ?? '')
-  const [dailyPrice, setDailyPrice] = useState(initial?.dailyPrice != null ? String(initial.dailyPrice) : '')
   const [image, setImage] = useState(initial?.image ?? '')
   const [copy, setCopy] = useState(initial?.copy ?? '')
   const [error, setError] = useState('')
@@ -41,15 +45,10 @@ export function VehicleForm({
     if (pending.current) return
     if (!title.trim()) { setError(ar ? 'اكتب اسم السيارة.' : 'Enter the vehicle name.'); return }
     // Capacity stays free text (matches the Car type and public display) but
-    // must contain a positive seat count; rate must be a positive finite number.
+    // must contain a positive seat count.
     const seatsCount = Number.parseInt(seats, 10)
     if (!seats.trim() || !Number.isSafeInteger(seatsCount) || seatsCount < 1) {
       setError(ar ? 'أدخل سعة صالحة (عدد مقاعد 1 على الأقل).' : 'Enter a valid capacity (at least 1 seat).')
-      return
-    }
-    const rate = Number(dailyPrice)
-    if (!Number.isFinite(rate) || rate <= 0) {
-      setError(ar ? 'أدخل سعرًا يوميًا صالحًا أكبر من الصفر.' : 'Enter a valid daily rate greater than zero.')
       return
     }
     setError('')
@@ -57,14 +56,12 @@ export function VehicleForm({
     setSaving(true)
     try {
       await onSubmit({
-      ...initial,
       translations,
       title: title.trim(),
       slug: initial?.slug ?? slugify(title),
       image: image.trim(),
       seats: seats.trim(),
       transmission,
-      dailyPrice: rate,
       copy: copy.trim() || title.trim(),
       })
     } catch (error) {
@@ -85,7 +82,6 @@ export function VehicleForm({
         </div>
         <div className="sp-form-2">
           <label><AdminText en="Transmission" ar="ناقل الحركة" /><SharedSelect value={transmission} onChange={setTransmission} locale={ar ? 'ar' : 'en'} options={[{ value: 'Automatic', label: 'Automatic' }, { value: 'Manual', label: 'Manual' }]} /></label>
-          <label><AdminText en="Daily rate (USD)" ar="السعر اليومي (USD)" /><input type="number" value={dailyPrice} onChange={(e) => setDailyPrice(e.target.value)} placeholder={ar ? 'مثال: 45' : 'e.g. 45'} /></label>
         </div>
         <ImageField value={image} onChange={setImage} />
         <label><AdminText en="Description" ar="الوصف" /><TranslatedTextarea field="copy" rows={3} value={copy} onChange={(e) => setCopy(e.target.value)} /></label>

@@ -10,7 +10,7 @@ import { useCatalogueLanguage } from '@/lib/use-catalogue-language'
 import { ContentLanguageTabs, TranslatedInput } from '@/components/admin/content-language-tabs'
 
 describe('catalogue language consumers', () => {
-  const source = { slug: 'vehicle', title: 'Vehicle', copy: 'English', dailyPrice: 45, translations: { es: { title: 'Vehículo' } } }
+  const source = { slug: 'vehicle', title: 'Vehicle', copy: 'English', year: 2026, translations: { es: { title: 'Vehículo' } } }
   function readRows() {
     let result: (typeof source)[] = []
     function Probe() { result = useCatalogueLanguage([source], 'car'); return null }
@@ -21,7 +21,7 @@ describe('catalogue language consumers', () => {
   it('renders Spanish content publicly while retaining numeric values', () => {
     context.pathname = '/rent-car'
     context.locale = 'es'
-    expect(readRows()[0]).toMatchObject({ title: 'Vehículo', dailyPrice: 45 })
+    expect(readRows()[0]).toMatchObject({ title: 'Vehículo', year: 2026 })
     expect(source.title).toBe('Vehicle')
   })
 

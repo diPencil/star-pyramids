@@ -212,7 +212,6 @@ export type Car = {
   image: string
   seats: string
   transmission: string
-  dailyPrice: number
   copy: string
   credit?: {
     label: string

@@ -18,7 +18,6 @@ function carToData(item: Car) {
     image: item.image,
     seats: item.seats,
     transmission: item.transmission,
-    dailyPrice: item.dailyPrice,
     copy: item.copy,
     credit: item.credit ? toJson(item.credit) : null,
     isPublished: item.isPublished !== false,

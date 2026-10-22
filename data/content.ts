@@ -181,10 +181,10 @@ export const destinations: Destination[] = [
 ]
 
 export const cars: Car[] = [
-  { title: 'Toyota Corolla', slug: 'toyota-corolla', image: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1200&q=88', seats: '4 seats', transmission: 'Automatic', dailyPrice: 45, copy: 'Reliable comfort for city transfers and day trips.' },
-  { title: 'Hyundai H1 Van', slug: 'hyundai-h1-van', image: 'https://images.unsplash.com/photo-1549924231-f129b911e442?auto=format&fit=crop&w=1200&q=88', seats: '8 seats', transmission: 'Automatic', dailyPrice: 75, copy: 'Spacious private transport for families and groups.' },
-  { title: 'Mercedes E-Class', slug: 'mercedes-e-class', image: 'https://images.unsplash.com/photo-1503736334956-4c8f8e92946d?auto=format&fit=crop&w=1200&q=88', seats: '3 seats', transmission: 'Automatic', dailyPrice: 110, copy: 'Quiet, polished travel for executive transfers.' },
-  { title: 'Toyota Hiace', slug: 'toyota-hiace', image: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=1200&q=88', seats: '14 seats', transmission: 'Manual', dailyPrice: 95, copy: 'A practical choice for larger groups and excursions.' },
+  { title: 'Toyota Corolla', slug: 'toyota-corolla', image: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1200&q=88', seats: '4 seats', transmission: 'Automatic', copy: 'Reliable comfort for city transfers and day trips.' },
+  { title: 'Hyundai H1 Van', slug: 'hyundai-h1-van', image: 'https://images.unsplash.com/photo-1549924231-f129b911e442?auto=format&fit=crop&w=1200&q=88', seats: '8 seats', transmission: 'Automatic', copy: 'Spacious private transport for families and groups.' },
+  { title: 'Mercedes E-Class', slug: 'mercedes-e-class', image: 'https://images.unsplash.com/photo-1503736334956-4c8f8e92946d?auto=format&fit=crop&w=1200&q=88', seats: '3 seats', transmission: 'Automatic', copy: 'Quiet, polished travel for executive transfers.' },
+  { title: 'Toyota Hiace', slug: 'toyota-hiace', image: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=1200&q=88', seats: '14 seats', transmission: 'Manual', copy: 'A practical choice for larger groups and excursions.' },
 ]
 
 export const blogs: Blog[] = [

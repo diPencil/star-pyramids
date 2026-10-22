@@ -1,8 +1,8 @@
 ﻿// Rent Cars server-integrity tests (Phase 1). All database boundaries are
 // mocked â€” no production or client-facing records are touched. Covers:
 // confirmation vehicle-assignment gate, published-fleet resolution, strict
-// seat-capacity parsing, request vehicle resolution on create/update, and
-// PUT /api/cars/[slug] daily-rate validation.
+// seat-capacity parsing, and PUT /api/cars/[slug] independence from the 
+// removed legacy daily-rate field.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -374,7 +374,6 @@ function seedCar(slug: string, seats: string, isPublished = true): void {
     image: '',
     seats,
     transmission: 'Automatic',
-    dailyPrice: 45,
     copy: '',
     credit: null,
     isPublished,
@@ -523,7 +522,7 @@ describe('assignStaffCarVehicle', () => {
     seq += 1
     store.cars.set('toyota-corolla', {
       id: `c-${seq}`, slug: 'toyota-corolla', title: 'Toyota Corolla', image: '', seats: '4 seats',
-      transmission: 'Automatic', dailyPrice: 45, copy: '', credit: null, isPublished: false,
+      transmission: 'Automatic', copy: '', credit: null, isPublished: false,
       createdAt: new Date(), updatedAt: new Date(),
     })
     const row = seedRequest()
@@ -614,7 +613,7 @@ describe('confirmation integrity in transitionStaffCarRequest', () => {
   })
 })
 
-// ---- PUT /api/cars/[slug] daily-rate validation ----
+// ---- PUT /api/cars/[slug] legacy daily-rate field handling ----
 
 function putRequest(body: Record<string, unknown>): Request {
   return new Request('http://localhost/api/cars/toyota-corolla', {
@@ -626,40 +625,84 @@ function putRequest(body: Record<string, unknown>): Request {
 
 const routeContext = () => ({ params: Promise.resolve({ slug: 'toyota-corolla' }) })
 
-describe('PUT /api/cars/[slug] dailyPrice validation', () => {
+describe('PUT /api/cars/[slug] has no daily-rate surface at all', () => {
   beforeEach(() => {
     seq += 1
     store.cars.set('toyota-corolla', {
       id: `c-${seq}`, slug: 'toyota-corolla', title: 'Toyota Corolla', image: '', seats: '4 seats',
-      transmission: 'Automatic', dailyPrice: 45, copy: '', credit: null, isPublished: true,
+      transmission: 'Automatic', copy: '', credit: null, isPublished: true,
       createdAt: new Date(), updatedAt: new Date(),
     })
   })
 
-  it('returns 400 instead of silently keeping the previous rate for a non-numeric value', async () => {
-    const res = await PUT(putRequest({ dailyPrice: 'abc' }), routeContext())
-    expect(res.status).toBe(400)
-    expect(await res.json()).toMatchObject({ error: 'Enter a valid daily rate.' })
-    expect(store.cars.get('toyota-corolla').dailyPrice).toBe(45)
-  })
-
-  it('returns 400 for a negative rate', async () => {
-    const res = await PUT(putRequest({ dailyPrice: -5 }), routeContext())
-    expect(res.status).toBe(400)
-    expect(store.cars.get('toyota-corolla').dailyPrice).toBe(45)
-  })
-
-  it('accepts a valid rate update', async () => {
+  it('ignores a client-supplied legacy dailyPrice key without any 400', async () => {
     const res = await PUT(putRequest({ dailyPrice: 99 }), routeContext())
     expect(res.status).toBe(200)
-    expect(store.cars.get('toyota-corolla').dailyPrice).toBe(99)
+    const body = await res.json()
+    expect(body.car.dailyPrice).toBeUndefined()
+    expect(Object.hasOwn(store.cars.get('toyota-corolla'), 'dailyPrice')).toBe(false)
   })
 
-  it('keeps the previous rate when dailyPrice is omitted (visibility-only saves)', async () => {
+  it('an invalid daily value is equally ignored: no 400, update proceeds', async () => {
+    const res = await PUT(putRequest({ dailyPrice: 'abc' }), routeContext())
+    expect(res.status).toBe(200)
+    expect(store.cars.get('toyota-corolla').isPublished).toBe(true)
+  })
+
+  it('visibility-only saves succeed with no daily-rate semantics involved', async () => {
     const res = await PUT(putRequest({ isPublished: false }), routeContext())
     expect(res.status).toBe(200)
-    expect(store.cars.get('toyota-corolla').dailyPrice).toBe(45)
     expect(store.cars.get('toyota-corolla').isPublished).toBe(false)
+  })
+})
+
+// ---- Legacy daily-rate UI removal guards (source scan) ----
+
+describe('legacy daily-rate UI is removed from vehicle management surfaces', () => {
+  it('the vehicle create/edit form no longer renders or validates a daily rate', () => {
+    const form = readFileSync(path.resolve(__dirname, '../components/admin/vehicle-form.tsx'), 'utf8')
+    expect(form).not.toContain('Daily rate')
+    expect(form).not.toContain('السعر اليومي')
+    expect(form).not.toContain('setDailyPrice')
+    expect(form).not.toContain('dailyPrice: rate')
+  })
+
+  it('POST /api/cars creates vehicles with no daily-rate field in any payload', () => {
+    const post = readFileSync(path.resolve(__dirname, '../app/api/cars/route.ts'), 'utf8')
+    expect(post).not.toContain('dailyPrice')
+    expect(post).not.toContain('Enter a valid daily rate.')
+  })
+
+  it('PUT /api/cars/[slug] never touches a daily rate: none exists to preserve', () => {
+    const put = readFileSync(path.resolve(__dirname, '../app/api/cars/[slug]/route.ts'), 'utf8')
+    expect(put).not.toContain('Enter a valid daily rate.')
+    expect(put).not.toMatch(/data:\s*\{[\s\S]*dailyPrice:/)
+    expect(put).not.toContain('dailyPrice')
+  })
+
+  it('the admin fleet list and detail no longer show daily-rate columns or stats', () => {
+    const list = readFileSync(path.resolve(__dirname, '../app/admin/cars/page.tsx'), 'utf8')
+    expect(list).not.toContain('Average daily rate')
+    expect(list).not.toContain('Daily rate')
+    expect(list).not.toContain('formatUsd')
+    expect(list).not.toContain('dailyPrice')
+    const detail = readFileSync(path.resolve(__dirname, '../app/admin/cars/[slug]/content.tsx'), 'utf8')
+    expect(detail).not.toContain('Daily rate')
+    expect(detail).not.toContain('car.dailyPrice')
+  })
+
+  it('the vehicle form, shared mapping, client mapping, types and import script have no dailyPrice reference', () => {
+    for (const file of [
+      'components/admin/vehicle-form.tsx',
+      'lib/server/cars.ts',
+      'lib/events-cars-client.ts',
+      'data/types.ts',
+      'data/content.ts',
+      'prisma/import-cars.ts',
+    ]) {
+      const source = readFileSync(path.resolve(__dirname, '..', file), 'utf8')
+      expect(source, file).not.toContain('dailyPrice')
+    }
   })
 })
 

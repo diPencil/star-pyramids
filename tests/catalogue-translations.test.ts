@@ -11,7 +11,7 @@ describe('catalogue translation boundaries', () => {
   })
 
   it.each(['destination', 'category', 'event', 'offer', 'blog', 'car'] as CatalogueKind[])('rejects changes to shared values for %s', (kind) => {
-    for (const key of ['slug', 'price', 'dailyPrice', 'image', 'isPublished', '__proto__']) {
+    for (const key of ['slug', 'price', 'image', 'isPublished', '__proto__']) {
       expect(() => validateCatalogueTranslations(kind, { es: { [key]: 'changed' } })).toThrow()
     }
   })
@@ -24,11 +24,11 @@ describe('catalogue translation boundaries', () => {
   })
 
   it('preserves shared values and English fallback without mutating the source', () => {
-    const source = { slug: 'car', title: 'Vehicle', copy: 'English description', dailyPrice: 45, image: '/car.jpg', translations: { es: { title: 'Vehículo', price: '0' } } }
+    const source = { slug: 'car', title: 'Vehicle', copy: 'English description', year: 2026, image: '/car.jpg', translations: { es: { title: 'Vehículo', price: '0' } } }
     const spanish = localizeCatalogue(source, 'car', 'es')
     expect(spanish.title).toBe('Vehículo')
     expect(spanish.copy).toBe('English description')
-    expect(spanish.dailyPrice).toBe(45)
+    expect(spanish.year).toBe(2026)
     expect(spanish.image).toBe('/car.jpg')
     expect(source.title).toBe('Vehicle')
     expect(localizeCatalogue(source, 'car', 'en')).toBe(source)

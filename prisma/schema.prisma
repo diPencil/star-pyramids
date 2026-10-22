@@ -1039,7 +1039,6 @@ model Car {
   image        String   @db.VarChar(2000)
   seats        String   @db.VarChar(60)
   transmission String   @db.VarChar(60)
-  dailyPrice   Float
   copy         String   @db.VarChar(2000)
   credit       String?  @db.LongText
   isPublished  Boolean  @default(true)

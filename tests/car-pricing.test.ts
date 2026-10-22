@@ -238,7 +238,6 @@ function seedCar(slug = 'giza-van', seats = '6 seats', isPublished = true) {
     image: '',
     seats,
     transmission: '',
-    dailyPrice: 100,
     copy: '',
     credit: null,
     isPublished,
@@ -706,12 +705,24 @@ describe('admin pricing API authorization and CSRF', () => {
 });
 
 describe('legacy compatibility surfaces', () => {
-  it('schema keeps dailyPrice and the legacy free-text car request columns', () => {
+  it('schema has no dailyPrice field and keeps the legacy free-text car request columns', () => {
     const schema = readFileSync(path.join(REPO_ROOT, 'prisma', 'schema.prisma'), 'utf8');
     expect(schema).toContain('model CarRequest');
-    expect(schema).toContain('dailyPrice   Float');
+    // Regression guard: the legacy daily rental rate must never return to the
+    // schema. Route prices are the sole transfer pricing source.
+    expect(schema).not.toContain('dailyPrice');
     expect(schema).toContain('pickup              String               @db.VarChar(160)');
     expect(schema).toContain('dropoff             String               @db.VarChar(160)');
+  });
+
+  it('the dailyPrice drop migration is narrowly scoped to the cars daily rate column', () => {
+    const migration = readFileSync(
+      path.join(REPO_ROOT, 'prisma', 'migrations', '20261022000000_remove_cars_daily_price', 'migration.sql'),
+      'utf8',
+    );
+    expect(migration).toContain('ALTER TABLE `cars` DROP COLUMN `dailyPrice`');
+    expect(migration).not.toMatch(/DROP TABLE/i);
+    expect(migration).not.toMatch(/DELETE FROM|TRUNCATE|RENAME TABLE|DROP COLUMN `(?!`?dailyPrice)/i);
   });
 
   it('the Phase 2 migration is purely additive', () => {

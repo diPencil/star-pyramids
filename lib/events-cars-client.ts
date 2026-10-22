@@ -73,7 +73,6 @@ function toCar(row: Record<string, unknown>): Car {
     image: String(row.image ?? ''),
     seats: String(row.seats ?? ''),
     transmission: String(row.transmission ?? ''),
-    dailyPrice: typeof row.dailyPrice === 'number' ? row.dailyPrice : 0,
     copy: String(row.copy ?? ''),
     credit:
       credit && typeof credit.label === 'string' && typeof credit.url === 'string'

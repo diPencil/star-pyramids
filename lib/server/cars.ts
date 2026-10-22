@@ -14,7 +14,6 @@ type DbCarRow = {
   image: string;
   seats: string;
   transmission: string;
-  dailyPrice: number;
   copy: string;
   credit: unknown;
   isPublished: boolean;
@@ -29,7 +28,6 @@ export function toCar(row: DbCarRow): Car {
     image: row.image,
     seats: row.seats,
     transmission: row.transmission,
-    dailyPrice: row.dailyPrice,
     copy: row.copy,
     credit:
       credit && typeof credit.label === "string" && typeof credit.url === "string"

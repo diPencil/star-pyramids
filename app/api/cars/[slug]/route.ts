@@ -64,15 +64,6 @@ export async function PUT(
     }
   }
 
-  // Invalid rates are rejected, not silently retained: a present-but-bad
-  // dailyPrice value must fail so the admin sees the error (matches POST).
-  if (data.dailyPrice !== undefined) {
-    const dailyPrice = Number(data.dailyPrice);
-    if (!Number.isFinite(dailyPrice) || (dailyPrice as number) < 0) {
-      return NextResponse.json({ error: 'Enter a valid daily rate.' }, { status: 400 });
-    }
-  }
-
   const car = await saveWithCatalogueTranslations('car', data.translations, existing.slug, (tx) => tx.car.update({
     where: { slug: paramSlug },
     data: {
@@ -81,7 +72,6 @@ export async function PUT(
       image: typeof data.image === 'string' ? data.image.trim().slice(0, 2000) : existing.image,
       seats: typeof data.seats === 'string' ? data.seats.trim().slice(0, 60) : existing.seats,
       transmission: typeof data.transmission === 'string' ? data.transmission.trim().slice(0, 60) : existing.transmission,
-      dailyPrice: data.dailyPrice === undefined ? existing.dailyPrice : Number(data.dailyPrice),
       copy: typeof data.copy === 'string' ? data.copy.trim().slice(0, 2000) : existing.copy,
       credit: data.credit === undefined ? existing.credit : (data.credit && typeof data.credit.label === 'string' && typeof data.credit.url === 'string'
         ? writeJsonText({ label: data.credit.label.slice(0, 200), url: data.credit.url.slice(0, 2000) })

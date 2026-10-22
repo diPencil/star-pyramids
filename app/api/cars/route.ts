@@ -42,10 +42,6 @@ export async function POST(request: Request) {
   if (!data.title || typeof data.title !== 'string' || !data.title.trim()) {
     return NextResponse.json({ error: 'Enter the vehicle title.' }, { status: 400 });
   }
-  const dailyPrice = Number(data.dailyPrice);
-  if (!Number.isFinite(dailyPrice) || dailyPrice < 0) {
-    return NextResponse.json({ error: 'Enter a valid daily rate.' }, { status: 400 });
-  }
 
   const existing = await db.car.findUnique({ where: { slug } });
   if (existing) {
@@ -64,7 +60,6 @@ export async function POST(request: Request) {
       image: typeof data.image === 'string' ? data.image.trim().slice(0, 2000) : '',
       seats: typeof data.seats === 'string' ? data.seats.trim().slice(0, 60) : '',
       transmission: typeof data.transmission === 'string' ? data.transmission.trim().slice(0, 60) : '',
-      dailyPrice,
       copy: typeof data.copy === 'string' ? data.copy.trim().slice(0, 2000) : '',
       credit,
       isPublished: data.isPublished !== false,
