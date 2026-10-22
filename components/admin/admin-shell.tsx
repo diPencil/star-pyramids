@@ -154,7 +154,7 @@ const groups = [
     labelEn: 'CAR MANAGEMENT',
     items: [
       { href: '/admin/cars', icon: CarFront, en: 'Rent Cars Fleet', ar: 'أسطول تأجير السيارات' },
-      { href: '/admin/rent-cars', icon: Route, en: 'Rent Cars Routes & Prices', ar: 'الأسعار والخطوط' },
+      { href: '/admin/rent-cars', icon: Route, en: 'Routes & Prices', ar: 'الأسعار والخطوط' },
       { href: '/admin/car-requests', icon: ClipboardList, en: 'Car Requests', ar: 'طلبات السيارات' },
     ],
   },
