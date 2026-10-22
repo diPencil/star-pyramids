@@ -55,15 +55,21 @@ export function AdminConfirmDialog({
   // when inline arrow functions are passed (common pattern).
   const onCloseRef = useRef(onClose)
   const onConfirmRef = useRef(onConfirm)
+  const canConfirmRef = useRef(canConfirm)
+  const hideConfirmRef = useRef(hideConfirm)
   onCloseRef.current = onClose
   onConfirmRef.current = onConfirm
+  canConfirmRef.current = canConfirm
+  hideConfirmRef.current = hideConfirm
 
   useEffect(() => {
     if (!open) return
     restoreRef.current = document.activeElement
     // Focus the confirm control when usable so keyboard users land on the
     // action; single-action dialogs land on the neutral footer button.
-    const target = hideConfirm ? cancelRef.current : canConfirm ? confirmRef.current : panelRef.current
+    // Initial focus only: re-running on every canConfirm flip would steal
+    // focus from the very form field that toggles it mid-typing.
+    const target = hideConfirmRef.current ? cancelRef.current : canConfirmRef.current ? confirmRef.current : panelRef.current
     target?.focus()
     const focusables = () => {
       if (!panelRef.current) return [] as HTMLElement[]
@@ -100,7 +106,7 @@ export function AdminConfirmDialog({
       document.removeEventListener('keydown', onKey)
       if (restoreRef.current instanceof HTMLElement) restoreRef.current.focus()
     }
-  }, [open, canConfirm, hideConfirm])
+  }, [open])
 
   if (!open) return null
 
