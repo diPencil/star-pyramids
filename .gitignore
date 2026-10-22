@@ -57,3 +57,8 @@ storage/
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Accidental credential copies (e.g. an editor's " - Copy.env") - never commit
+*Copy.env
+*.env.bak
+*.env.copy
