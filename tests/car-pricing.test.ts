@@ -447,6 +447,15 @@ describe('route validation, directionality, and duplicate prevention', () => {
     expect(await listActiveCarRoutes()).toHaveLength(2);
   });
 
+  it('honors sortOrder on creation and rejects invalid values', async () => {
+    seedLocation('cairo', 'Cairo');
+    seedLocation('giza', 'Giza');
+    const created = await createCarRoute({ originSlug: 'cairo', destinationSlug: 'giza', sortOrder: 12 });
+    expect(created).toMatchObject({ originSlug: 'cairo', destinationSlug: 'giza', sortOrder: 12 });
+    await expect(createCarRoute({ originSlug: 'cairo', destinationSlug: 'giza', sortOrder: -1 })).rejects.toThrow('Sort order must be a whole number from 0 to 100000.');
+    await expect(createCarRoute({ originSlug: 'cairo', destinationSlug: 'giza', sortOrder: 1.5 })).rejects.toThrow('Sort order must be a whole number from 0 to 100000.');
+  });
+
   it('rejects duplicates of the same directional pair with a friendly message', async () => {
     seedLocation('cairo', 'Cairo');
     seedLocation('giza', 'Giza');
