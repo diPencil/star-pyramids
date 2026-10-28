@@ -4,6 +4,7 @@ import { usePublishedNavigation } from './navigation-context'
 import { useMarketingNotifications } from '@/lib/marketing-notifications-client'
 import { localizedNotification } from '@/lib/marketing-notifications'
 import { useShowcaseHero } from './showcase-hero-context'
+import { searchHref } from '@/lib/site-search'
 import { useSharedCopy } from './presentation-content-context'
 import { SharedHelpCTA } from './shared-help-cta'
 
@@ -399,8 +400,8 @@ export function Header() {
       <div className="header-top container">
         <button ref={mobileMenuTriggerRef} type="button" className="mobile-menu" onClick={(event) => { event.stopPropagation(); setMenu(true) }} aria-label={tx(locale, { en: 'Open menu', es: 'Abrir el menú', it: 'Apri il menu', ar: 'فتح القائمة' })} aria-expanded={menu} aria-controls="public-mobile-menu"><Menu/></button>
         <Logo/>
-        <form className="site-search" role="search" onSubmit={(event) => { event.preventDefault(); router.push('/search?q=' + encodeURIComponent(query)) }}>
-          <Search size={19}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t.search} aria-label={t.search}/>
+        <form className="site-search" role="search" onSubmit={(event) => { event.preventDefault(); router.push(searchHref(query)) }}>
+          <button type="submit" aria-label={ex.searchBtn} style={{ display: 'flex', alignItems: 'center', border: 0, background: 'transparent', color: 'inherit', padding: 0, cursor: 'pointer' }}><Search size={19}/></button><input type="search" maxLength={120} enterKeyHint="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t.search} aria-label={t.search}/>
         </form>
         <div className="header-actions">
           <LanguageToggle label={LOCALE_SHORT_LABELS[locale] + ' - ' + currency} onOpen={() => setLanguageOpen(true)}/>
@@ -434,9 +435,9 @@ export function Header() {
         </div>
       </dialog>}
     </header>
-    <form className="mobile-header-search container" role="search" onSubmit={(event) => { event.preventDefault(); router.push('/search?q=' + encodeURIComponent(query.trim())) }}>
+    <form className="mobile-header-search container" role="search" onSubmit={(event) => { event.preventDefault(); router.push(searchHref(query)) }}>
       <Search size={18} aria-hidden="true" />
-      <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t.search} aria-label={t.search} enterKeyHint="search" />
+      <input type="search" maxLength={120} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t.search} aria-label={t.search} enterKeyHint="search" />
       <button type="submit" aria-label={ex.searchBtn}><ArrowRight size={18} /></button>
     </form>
     <div className={scrolled ? 'compact-sticky-header is-open' : 'compact-sticky-header'} aria-hidden={!scrolled}>

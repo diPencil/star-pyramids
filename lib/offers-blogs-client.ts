@@ -231,3 +231,8 @@ export function useDbOffersStatus(): DbListStatus<Offer> {
 export function useDbBlogsStatus(): DbListStatus<Blog> {
   return adminBlogsCache.useStatus();
 }
+
+/** Public search must not request the private admin blog collection. */
+export function usePublicBlogsStatus(): DbListStatus<Blog> {
+  return blogsCache.useStatus();
+}
