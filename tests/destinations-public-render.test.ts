@@ -11,7 +11,7 @@ vi.mock('@/lib/customer-account', () => ({ useCustomerFavorites: () => ({ has: (
 // Keep the real TourCard (including its canonical link); omit unrelated shell providers.
 vi.mock('@/components/site', async () => ({ ...await vi.importActual<typeof import('@/components/site')>('@/components/site'), SiteShell: ({ children }: { children: ReactNode }) => children }))
 vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams(), usePathname: () => '/destinations', useRouter: () => ({}), notFound: mocks.notFound }))
-vi.mock('@/lib/server/destinations', () => ({ getPublishedDestinations: mocks.list, findDestinationBySlug: mocks.find, listDestinationSlugs: mocks.slugs }))
+vi.mock('@/lib/server/destinations', () => ({ getPublishedDestinationDetails: mocks.list, findDestinationBySlug: mocks.find, listDestinationSlugs: mocks.slugs }))
 vi.mock('@/lib/server/tours', () => ({ listTours: mocks.listTours }))
 vi.mock('@/lib/server/faq-hero', () => ({ readFaqHeroState: mocks.hero }))
 vi.mock('@/lib/server/page-content-metadata', () => ({ pageContentMetadata: vi.fn() }))
@@ -56,7 +56,7 @@ describe('public destination SSR using server seeds and live catalogue status', 
   it.each([['en', 'Database Oasis', 'Saved destination story'], ['es', 'Oasis guardado', 'Historia guardada'], ['it', 'Oasi salvata', 'Storia salvata']])('renders saved listing/detail content in %s before client fetch', (locale, title, story) => {
     mocks.locale = locale
     const html = listing()
-    expect(html).toContain(`<h2>${title}</h2>`)
+    expect(html).toContain(`>${title}</a></h2>`)
     expect(html).toContain('href="/destinations/database-oasis"')
     expect(html).toContain('src="/saved-card.jpg"')
     expect(html).not.toContain('Loading destinations')
@@ -67,12 +67,12 @@ describe('public destination SSR using server seeds and live catalogue status', 
     expect(page).toContain(`alt="${locale === 'en' ? 'Saved hero alt' : title}"`)
   })
 
-  it('excludes unpublished and listing-hidden records, while listing-hidden published detail stays reachable', () => {
+  it('shows every published destination on the full catalogue while excluding unpublished records', () => {
     const hidden = destination({ slug: 'listing-hidden', title: 'Hidden listing title', showInDestinations: false })
     const unpublished = destination({ slug: 'unpublished', title: 'Private destination', isPublished: false })
     const html = listing([destination(), hidden, unpublished])
     expect(html).toContain('Database Oasis')
-    expect(html).not.toContain('Hidden listing title')
+    expect(html).toContain('Hidden listing title')
     expect(html).not.toContain('Private destination')
     expect(detail(hidden)).toContain('<h1>Hidden listing title</h1>')
     mocks.destinations.mockReturnValue({ data: [unpublished], error: null, retry: vi.fn() })
@@ -166,12 +166,12 @@ describe('public destination SSR using server seeds and live catalogue status', 
     hero.href = '/contact'
     const overridden = render(createElement(FaqHeroProvider, { state: { hidden: false, content: hero }, children: createElement(DestinationsPage, { initialDestinations: [destination()] }) }))
     expect(overridden).toContain('<h1>Hero pubblicato dal CMS</h1>')
-    expect(overridden).toContain('src="/published-cms-hero.jpg"')
+    expect(overridden).toContain(encodeURIComponent('/published-cms-hero.jpg'))
     expect(overridden).toContain('href="/contact"')
     expect(overridden).toContain('Oasi salvata')
     for (const state of [{ hidden: true, content: null }, { hidden: false, content: null, unavailable: true }]) {
       const hidden = render(createElement(FaqHeroProvider, { state, children: createElement(DestinationsPage, { initialDestinations: [destination()] }) }))
-      expect(hidden).not.toContain('editorial-hero')
+      expect(hidden).not.toContain('events-page-hero')
       expect(hidden).toContain('Oasi salvata')
     }
   })
@@ -180,11 +180,11 @@ describe('public destination SSR using server seeds and live catalogue status', 
     const hero = originalEditorialHero('destinations')
     hero.image = '   '
     hero.text.en.heading = 'Published copy with default media'
-    const original = listing()
-    const defaultImage = original.match(/<section class="editorial-hero"><img src="([^"]+)"/)?.[1]
+    const defaultImage = encodeURIComponent(originalEditorialHero('destinations').image)
     expect(defaultImage).toBeTruthy()
     const html = render(createElement(FaqHeroProvider, { state: { hidden: false, content: hero }, children: createElement(DestinationsPage, { initialDestinations: [destination()] }) }))
-    expect(html).toContain(`<section class="editorial-hero"><img src="${defaultImage}"`)
+    expect(html).toContain(defaultImage)
+    expect(html).toContain('events-page-hero tour-category-page-hero')
     expect(html).toContain('<h1>Published copy with default media</h1>')
     expect(html).toContain('href="/destinations/database-oasis"')
   })

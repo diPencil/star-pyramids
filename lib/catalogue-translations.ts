@@ -13,7 +13,7 @@ export function vehicleTransmissionLabel(value: string, locale: Locale): string 
 }
 
 const fields: Record<CatalogueKind, RegExp> = {
-  destination: /^(title|copy|stay|bestFor|detail\.(heroAlt|eyebrow|intro|facts\.\d+\.(label|value)|experiences\.\d+\.(title|copy|alt)|rhythm\.\d+\.(label|title|copy)|practical\.\d+\.(title|copy)))$/,
+  destination: /^(title|copy|stay|bestFor|detail\.(heroAlt|eyebrow|intro|bestFor\.\d+|facts\.\d+\.(label|value)|experiences\.\d+\.(title|copy|alt)|rhythm\.\d+\.(label|title|copy)|practical\.\d+\.(title|copy)))$/,
   category: /^(name|copy)$/,
   event: /^(title|category|copy|intro|location|venueName|address|city|organizerName|included\.\d+|excluded\.\d+|highlights\.\d+\.(title|description)|program\.\d+\.(day|title|description)|addOns\.\d+\.title)$/,
   offer: /^(title|badge|copy|duration|highlights|campaign\.(body|terms|ctaLabel|priceLabel))$/,
@@ -119,7 +119,8 @@ export function localizeCatalogue<T extends { slug: string } & TranslatedContent
           if (!next || typeof next !== 'object') { valid = false; break }
           target = next as Record<string, unknown>
         }
-        if (valid) target[parts[parts.length - 1]] = text
+        const last = parts[parts.length - 1]
+        if (valid && (!Array.isArray(target) || Number(last) < target.length)) target[last] = text
       } else if (key === 'stay') {
         const facts = detail.facts as { label: string; value: string }[] | undefined
         if (facts?.length) detail.facts = facts.map((fact, index) => index === 0 ? { ...fact, value: text } : fact)

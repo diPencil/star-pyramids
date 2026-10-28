@@ -25,7 +25,7 @@ describe('Destination admin rendered permissions and state', () => {
     expect(html).toContain('href="/destinations/cairo"')
     expect(html).not.toContain('/egypt-tours/one-day-tours/cairo')
     expect(html).toContain('Filter by publication')
-    expect(html).toContain('Filter by listing visibility')
+    expect(html).toContain('Filter by featured selection')
     expect(m.fetch).not.toHaveBeenCalled()
   })
   it('hides create/edit/delete operations from a read-only staff member', () => {

@@ -15,7 +15,7 @@ describe('editorial hero identity and original content', () => {
     let hero: ts.JsxSelfClosingElement | undefined
     const visit = (node: ts.Node) => {
       if (ts.isFunctionDeclaration(node) && node.name?.text === 'DestinationsPageContent') {
-        const find = (child: ts.Node) => { if (ts.isJsxSelfClosingElement(child) && child.tagName.getText(file) === 'EditorialHero') hero = child; ts.forEachChild(child, find) }
+        const find = (child: ts.Node) => { if (ts.isJsxSelfClosingElement(child) && child.tagName.getText(file) === 'DestinationCatalogueHero') hero = child; ts.forEachChild(child, find) }
         ts.forEachChild(node, find)
       }
       ts.forEachChild(node, visit)

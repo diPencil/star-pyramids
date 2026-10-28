@@ -51,7 +51,7 @@ describe('all existing static showcase heroes', () => {
   it('captures exact localized copy from all original PageShowcaseHero instances', () => {
     for (const [path, ids] of [['components/about-page.tsx', ['about']], ['components/extended-pages.tsx', ['contact', 'cars', 'blogs', 'offers']]] as const) {
       const root = parse(path), tags: ts.JsxSelfClosingElement[] = []
-      visit(root, (node) => { if (ts.isJsxSelfClosingElement(node) && node.tagName.getText() === 'PageShowcaseHero') tags.push(node) })
+      visit(root, (node) => { if (ts.isJsxSelfClosingElement(node) && node.tagName.getText() === 'PageShowcaseHero' && !node.getText().includes('railHref="#destinations-catalogue"')) tags.push(node) })
       for (const [index, id] of ids.entries()) {
         const original = originalShowcaseHero(id)
         for (const attr of tags[index].attributes.properties) {

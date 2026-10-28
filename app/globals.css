@@ -1422,3 +1422,17 @@ limited. These selectors are intentionally scoped to Select, not DateInput. */
 @keyframes review-marquee{to{transform:translateX(-50%)}}
 @media(max-width:760px){.rev-marquee-group{gap:14px;padding-inline-end:14px}.rev-marquee-item{width:min(82vw,320px)}}
 @media(prefers-reduced-motion:reduce){.rev-marquee{overflow-x:auto}.rev-marquee-track{animation:none;will-change:auto}.rev-marquee-group[aria-hidden=true]{display:none}}
+
+/* Destinations catalogue: shared Events hero, image-led brand cards. */
+.destinations-catalogue .destination-large-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}
+.destinations-catalogue .destination-large{display:flex;flex-direction:column;min-width:0;border:1px solid var(--border);border-radius:22px;background:var(--surface,#fff);overflow:hidden}
+.destinations-catalogue .destination-large>img{display:block;width:100%;height:auto;min-height:0;aspect-ratio:16/10;object-fit:cover}
+.destinations-catalogue .destination-large>div{display:flex;flex:1;flex-direction:column;align-items:flex-start;padding:24px}
+.destinations-catalogue .destination-large h2{margin:10px 0;font-size:22px;line-height:1.3;font-weight:800;overflow-wrap:anywhere}
+.destinations-catalogue .destination-large h2 a{color:inherit;text-decoration:none}
+.destinations-catalogue .destination-large p{margin:0 0 24px;color:var(--muted);font-size:14px;line-height:1.75;overflow-wrap:anywhere}
+.destinations-catalogue .destination-large .text-link{margin-top:auto;font-size:14px;min-height:44px}
+.destinations-catalogue .destination-large a:focus-visible{outline:2px solid var(--blue);outline-offset:4px;border-radius:4px}
+.destinations-catalogue .destination-large h2 a:hover{color:var(--blue)}
+@media(max-width:1100px){.destinations-catalogue .destination-large-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.destinations-catalogue .destination-large-grid{grid-template-columns:minmax(0,1fr);gap:20px}.destinations-catalogue .destination-large>div{padding:20px}.destinations-catalogue .destination-large h2{font-size:20px}}

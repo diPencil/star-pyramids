@@ -82,7 +82,7 @@ export default function DestinationsPage() {
     <Card title={<AdminText en="All destinations" ar="كل الوجهات" />} sub={<AdminText en={`${rows.length} of ${liveDestinations.length} shown`} ar={`عرض ${rows.length} من ${liveDestinations.length}`} />}>
       <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث في الوجهات...' : 'Search destinations...'}>
         <SharedSelect value={visibility} onChange={setVisibility} label="Filter by publication" options={[{ value: 'all', label: 'All publication states' }, { value: 'published', label: 'Published' }, { value: 'hidden', label: 'Unpublished' }]} />
-        <SharedSelect value={listing} onChange={setListing} label="Filter by listing visibility" options={[{ value: 'all', label: 'All listing states' }, { value: 'listed', label: 'Shown in Destinations' }, { value: 'excluded', label: 'Excluded from listing' }]} />
+        <SharedSelect value={listing} onChange={setListing} label="Filter by featured selection" options={[{ value: 'all', label: 'All featured states' }, { value: 'listed', label: 'Featured destinations' }, { value: 'excluded', label: 'Not featured' }]} />
       </AdminTableTools>
       {loading ? <AdminEmpty title={<AdminText en="Loading destinations…" ar="جارٍ تحميل الوجهات…" />} copy={<AdminText en="Reading the authoritative catalogue." ar="تتم قراءة السجل المعتمد." />} />
       : error ? <><AdminEmpty title={<AdminText en="Could not load destinations" ar="تعذر تحميل الوجهات" />} copy={<AdminText en={error} ar={error} />} /><div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}><button type="button" className="sp-btn" onClick={retry}><AdminText en="Retry" ar="إعادة المحاولة" /></button></div></>

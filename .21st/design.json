@@ -219,6 +219,16 @@
         "Do not change pricing, draft save, publishing, or preview behavior",
         "Keep Arabic disabled; retain enabled content language controls"
       ]
+    },
+    {
+      "area": "destinations-directory",
+      "direction": "Shared Events hero and image-led catalogue cards",
+      "summary": "Reuse PageShowcaseHero with existing editorial CMS data; use scoped 3/2/1 image-first cards and show all published destinations in the full directory.",
+      "constraints": [
+        "Preserve existing CMS identity, publication, EN/ES/IT and detail pages",
+        "Retain showInDestinations for curated/homepage selections without changing saved flags",
+        "No browser QA or production changes"
+      ]
     }
   ]
 }

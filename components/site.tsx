@@ -955,11 +955,6 @@ export function TourCard({ tour, variant = 'multi' }: { tour: Tour; variant?: To
   const href = `/egypt-tours/${tour.slug}`
   const title = pickLocaleText(plc, { en: tour.title, ar: tour.titleAr })
   const saved = favorites.has(tour.slug)
-  const cruiseTypeInfo = variant === 'cruise' && tour.cruiseType ? getCruiseTypeBySlug(tour.cruiseType) : undefined
-  let offset = 0
-  for (const ch of tour.slug) offset = (offset + ch.charCodeAt(0)) % images.length
-  const gallery = (tour.gallery && tour.gallery.length > 0) ? tour.gallery : [tour.image, ...images.slice(offset), ...images.slice(0, offset)].filter((src, index, all) => all.indexOf(src) === index).slice(0, 5)
-
   const share = async () => {
     const url = window.location.origin + href
     if (navigator.share) {
@@ -973,11 +968,24 @@ export function TourCard({ tour, variant = 'multi' }: { tour: Tour; variant?: To
     } catch { /* clipboard can be unavailable */ }
   }
 
+  return <TourCardPresentation tour={tour} variant={variant} saved={saved} copied={copied} onToggle={() => favorites.toggle(tour.slug)} onShare={share}/>
+}
+
+/** Same visual card for public interactivity and read-only editor previews. No account/network hooks. */
+export function TourCardPresentation({ tour, variant = 'multi', saved = false, copied = false, onToggle, onShare, passive = false }: { tour: Tour; variant?: TourVariant; saved?: boolean; copied?: boolean; onToggle?: () => void; onShare?: () => void; passive?: boolean }) {
+  const { currency, locale: plc } = useLocale()
+  const href = `/egypt-tours/${tour.slug}`
+  const title = pickLocaleText(plc, { en: tour.title, ar: tour.titleAr })
+  const cruiseTypeInfo = variant === 'cruise' && tour.cruiseType ? getCruiseTypeBySlug(tour.cruiseType) : undefined
+  let offset = 0
+  for (const ch of tour.slug) offset = (offset + ch.charCodeAt(0)) % images.length
+  const gallery = (tour.gallery && tour.gallery.length > 0) ? tour.gallery : [tour.image, ...images.slice(offset), ...images.slice(0, offset)].filter((src, index, all) => all.indexOf(src) === index).slice(0, 5)
+
   return <article className={`tour-card ${variant}`}>
     <div className="tour-image">
       <CardGallery images={gallery} title={title} href={href}>
-        <button type="button" className="tour-fav" aria-label={saved ? tx(plc, { en: 'Remove from saved', es: 'Quitar de guardados', it: 'Rimuovi dai salvati', ar: 'إزالة من المحفوظات' }) : tx(plc, { en: 'Save tour', es: 'Guardar el viaje', it: 'Salva il viaggio', ar: 'حفظ الرحلة' })} aria-pressed={saved} onClick={() => favorites.toggle(tour.slug)}><Heart size={17} fill={saved ? '#f7951d' : 'none'} color={saved ? '#f7951d' : '#1f2937'} strokeWidth={2} /></button>
-        <button type="button" className="tour-share" aria-label={copied ? tx(plc, { en: 'Link copied', es: 'Enlace copiado', it: 'Link copiato', ar: 'تم نسخ الرابط' }) : tx(plc, { en: 'Share tour', es: 'Compartir el viaje', it: 'Condividi il viaggio', ar: 'مشاركة الرحلة' })} onClick={share}>{copied ? <Check size={17} color="#1d4ed8" /> : <Share2 size={17} color="#1f2937" />}</button>
+        <button type="button" className="tour-fav" aria-label={saved ? tx(plc, { en: 'Remove from saved', es: 'Quitar de guardados', it: 'Rimuovi dai salvati', ar: 'إزالة من المحفوظات' }) : tx(plc, { en: 'Save tour', es: 'Guardar el viaje', it: 'Salva il viaggio', ar: 'حفظ الرحلة' })} aria-pressed={saved} disabled={passive} onClick={onToggle}><Heart size={17} fill={saved ? '#f7951d' : 'none'} color={saved ? '#f7951d' : '#1f2937'} strokeWidth={2} /></button>
+        <button type="button" className="tour-share" aria-label={copied ? tx(plc, { en: 'Link copied', es: 'Enlace copiado', it: 'Link copiato', ar: 'تم نسخ الرابط' }) : tx(plc, { en: 'Share tour', es: 'Compartir el viaje', it: 'Condividi il viaggio', ar: 'مشاركة الرحلة' })} disabled={passive} onClick={onShare}>{copied ? <Check size={17} color="#1d4ed8" /> : <Share2 size={17} color="#1f2937" />}</button>
       </CardGallery>
     </div>
     <div className="tour-body">

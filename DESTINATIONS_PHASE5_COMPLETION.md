@@ -158,3 +158,12 @@ No known uncovered in-scope code requirement remains. This is implementation/cod
 8. Confirm destination metadata and sitemap include published detail URLs irrespective of the listing flag, subject to SEO noindex/canonical overrides.
 9. Check re-entry after a publication change does not restore stale cards or hidden tour references.
 10. After the local Prisma DLL is released, rerun pnpm build. No commit/push/deploy is part of this phase.
+
+
+## Follow-up — destination visual alignment and full directory
+
+The subsequent user request supersedes the directory listing rule above: `/destinations` now displays every published destination, including records with showInDestinations=false. The flag and database records remain unchanged; curated/homepage surfaces retain their flag filtering. Admin field descriptions clarify that distinction.
+
+The destination hero now reuses PageShowcaseHero, the established Events-style hero/layout, while retaining the same editorial CMS identity and published translations/media/CTA/hidden states. Its count uses actual rendered destinations. Cards use a scoped image-first brand layout with 3/2/1 responsive columns, consistent borders/radii, linked headings, accessible focus, and full descriptions. Existing detail pages are unchanged. No browser testing, database writes, commits or pushes performed for this follow-up.
+
+Follow-up verification: TypeScript passed; full safe suite 142 files / 1821 tests passed; Next.js build passed 282/282 pages; git diff --check passed. Browser/layout appearance remains unverified manually, per project instructions.

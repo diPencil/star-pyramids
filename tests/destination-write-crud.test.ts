@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { changeDestinationRow, destinationBuilderTranslations } from '@/lib/destination-builder'
 import { stripRecordSeo, initialRecordSeoState } from '@/lib/record-seo'
 import { destinationEditorRecord, validateDestinationWrite } from '@/lib/destination-write'
 
@@ -93,6 +94,25 @@ beforeEach(() => {
 })
 
 describe('Destination CRUD validation and security', () => {
+  it('round-trips builder additions, translations, ordering and removals through actual handlers', async () => {
+    const initial = destinationEditorRecord({ slug: 'new-oasis', title: 'Oasis', image: '', copy: '', isPublished: false, showInDestinations: false, showInOneDayTours: false, detail: { heroImage: '', heroAlt: '', eyebrow: '', intro: '', facts: [], bestFor: [], experiences: [], rhythm: [], practical: [], tourSlugs: [] } })
+    let draft = changeDestinationRow(initial, 'experiences', 'add')
+    draft = changeDestinationRow(draft, 'experiences', 'add')
+    draft = { ...draft, detail: { ...draft.detail, experiences: [{ title: 'First', copy: 'A', image: '/first.jpg', alt: 'First' }, { title: 'Second', copy: 'B', image: '/second.jpg', alt: 'Second' }] }, translations: { es: { 'detail.experiences.0.title': 'Primero', 'detail.experiences.1.title': 'Segundo' }, it: { 'detail.experiences.0.title': 'Primo' } } }
+    draft = changeDestinationRow(draft, 'experiences', 'move', 0, 1)
+    const body = { slug: draft.slug, title: draft.title, image: draft.image, copy: draft.copy, isPublished: false, showInDestinations: false, translations: draft.translations, detail: draft.detail }
+    expect((await POST(request('POST', body))).status).toBe(201)
+    const saved = destinationEditorRecord((await (await detail(request('GET', undefined, '?admin=1'), context(draft.slug))).json()).destination)
+    expect(saved.detail.experiences.map(row => row.title)).toEqual(['Second', 'First'])
+    expect(saved.translations?.es?.['detail.experiences.0.title']).toBe('Segundo')
+    const cleared = changeDestinationRow(changeDestinationRow({ ...saved, translations: destinationBuilderTranslations(saved) }, 'experiences', 'remove', 1), 'experiences', 'remove', 0)
+    expect((await PUT(request('PUT', { expectedUpdatedAt: saved.updatedAt, detail: cleared.detail, translations: cleared.translations }), context(draft.slug))).status).toBe(200)
+    const reopened = destinationEditorRecord((await (await detail(request('GET', undefined, '?admin=1'), context(draft.slug))).json()).destination)
+    expect(reopened.detail.experiences).toEqual([])
+    expect(reopened.translations?.es?.['detail.experiences.0.title']).toBeUndefined()
+    expect(reopened.isPublished).toBe(false)
+    expect(reopened.showInDestinations).toBe(false)
+  })
   it('creates and reopens a configured destination with translations and explicit false flags', async () => {
     const response = await POST(request('POST', { slug: 'siwa', title: 'Siwa', image: '/siwa.jpg', isPublished: false, showInDestinations: false, showInOneDayTours: false, translations: { it: { title: 'Oasi di Siwa' } }, detail: { intro: 'Oasis' } }))
     expect(response.status).toBe(201)

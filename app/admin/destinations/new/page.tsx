@@ -2,7 +2,10 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
-import { ContentLanguageTabs, TranslatedInput, TranslatedTextarea } from '@/components/admin/content-language-tabs'
+import { DestinationSectionsEditor, DestinationCoverEditor } from '@/components/admin/destination-sections-editor'
+import { DestinationBuilderPreview } from '@/components/admin/destination-builder-preview'
+import { decodeTourJson } from '@/lib/tour-json'
+import { destinationBuilderRecord, destinationBuilderTranslations } from '@/lib/destination-builder'
 import { type CatalogueTranslations } from '@/lib/catalogue-translations'
 import { useRouter } from 'next/navigation'
 import { ExternalLink, Plus, Trash2 } from 'lucide-react'
@@ -14,10 +17,8 @@ import { invalidateCatalogueCache, dbSlugify } from '@/lib/catalogue-client'
 import { invalidateToursCache } from '@/lib/tours-client'
 import { useCurrentUser } from '@/lib/use-current-user'
 import { destinationEditorRecord, validateDestinationWrite, type DestinationTourChange } from '@/lib/destination-write'
-import type { Destination } from '@/data/types'
-import { ImageField } from '@/components/admin/image-field'
+import type { Destination, Tour } from '@/data/types'
 
-const lines = (v: string) => v.split('\n').map((s) => s.trim()).filter(Boolean)
 type AssociationTour = { slug: string; title: string; location: string; duration: string; image: string; category: string; destinationSlug: string | null; status: string }
 const emptyDetail: Destination['detail'] = { heroImage: '', heroAlt: '', eyebrow: '', intro: '', facts: [], bestFor: [], experiences: [], rhythm: [], practical: [], tourSlugs: [] }
 
@@ -25,11 +26,13 @@ export default function DestinationEditorPage() {
   const ar = useAdminLocale() === 'ar'
   const router = useRouter()
   const [editSlug, setEditSlug] = useState('')
+  const [identityReady, setIdentityReady] = useState(false)
   // DB-authoritative catalogue with no static fallback: a failed API read
   // renders loading/error here, never bootstrap rows as editor records.
   const { user } = useCurrentUser()
   const can = (permission: string) => Boolean(user && (user.roles.includes('SUPER_ADMIN') || user.permissions?.includes(permission)))
   const canSave = can(editSlug ? 'destinations.edit' : 'destinations.create')
+  const canViewTours = can('tours.view')
   const canEditTours = can('tours.edit') && can('tours.view')
   const [catalogueLoading, setCatalogueLoading] = useState(true)
   const [catalogueError, setCatalogueError] = useState('')
@@ -42,7 +45,10 @@ export default function DestinationEditorPage() {
   // edited record itself (not list identities) changes.
   const [editing, setEditing] = useState<(Destination & { updatedAt: string }) | undefined>()
   const [detailDraft, setDetailDraft] = useState<Destination['detail']>(emptyDetail)
-  const [uploading, setUploading] = useState(false)
+  const [uploads, setUploads] = useState<Record<string, boolean>>({})
+  const uploading = Object.values(uploads).some(Boolean)
+  const onUpload = (key: string, active: boolean) => setUploads(current => ({ ...current, [key]: active }))
+  const [previewTours, setPreviewTours] = useState<Tour[]>([])
 
   const [translations, setTranslations] = useState<CatalogueTranslations>({})
   const [title, setTitle] = useState('')
@@ -51,8 +57,6 @@ export default function DestinationEditorPage() {
   const [image, setImage] = useState('')
   const [copy, setCopy] = useState('')
   const [copyAr, setCopyAr] = useState('')
-  const [stay, setStay] = useState('')
-  const [bestFor, setBestFor] = useState('')
   const [tourSlugs, setTourSlugs] = useState('')
   const [showInDestinations, setShowInDestinations] = useState(true)
   const [showInOneDayTours, setShowInOneDayTours] = useState(false)
@@ -67,9 +71,11 @@ export default function DestinationEditorPage() {
 
   useEffect(() => {
     setEditSlug(new URLSearchParams(window.location.search).get('slug') ?? '')
+    setIdentityReady(true)
   }, [])
 
   useEffect(() => {
+    if (!identityReady) return
     let active = true
     setCatalogueLoading(true)
     setCatalogueError('')
@@ -84,10 +90,10 @@ export default function DestinationEditorPage() {
       finally { if (active) setCatalogueLoading(false) }
     })()
     return () => { active = false }
-  }, [editSlug, reload])
+  }, [identityReady, editSlug, reload])
 
   useEffect(() => {
-    if (!canEditTours) return
+    if (!canViewTours) return
     let active = true
     setToursReady(false)
     void (async () => {
@@ -97,6 +103,7 @@ export default function DestinationEditorPage() {
         if (!response.ok || !Array.isArray(body.tours)) throw new Error(body.error || 'Could not load tour associations.')
         const tours: AssociationTour[] = body.tours.filter((tour: AssociationTour) => tour.category === 'one-day-tours')
         if (active) {
+          setPreviewTours(body.tours.map((row: Record<string, unknown>) => decodeTourJson(row)) as Tour[])
           setLiveTours(tours)
           const linked = tours.filter(tour => tour.destinationSlug === editSlug).map(tour => tour.slug)
           setLinkedSlugs(linked); setInitialSlugs(linked); setToursReady(true); setTourError('')
@@ -104,21 +111,19 @@ export default function DestinationEditorPage() {
       } catch (error) { if (active) setTourError(error instanceof Error ? error.message : 'Could not load tour associations.') }
     })()
     return () => { active = false }
-  }, [canEditTours, editSlug])
+  }, [canViewTours, editSlug])
 
   useEffect(() => {
-    if (catalogueLoading) return
+    if (!identityReady || catalogueLoading) return
     if (editing) {
       setDetailDraft(editing.detail)
-      setTranslations(editing.translations ?? {})
+      setTranslations(destinationBuilderTranslations(editing))
       setTitle(editing.title)
       setNameAr(editing.nameAr ?? '')
       setSlug(editing.slug)
       setImage(editing.image)
       setCopy(editing.copy)
       setCopyAr(editing.copyAr ?? '')
-      setStay(editing.detail.facts[0]?.value ?? 'Flexible')
-      setBestFor(editing.detail.bestFor.join('\n'))
       setTourSlugs(editing.detail.tourSlugs.join(', '))
       setShowInDestinations(editing.showInDestinations !== false)
       setShowInOneDayTours(editing.showInOneDayTours === true)
@@ -126,7 +131,7 @@ export default function DestinationEditorPage() {
       setOrder(editing.displayOrder === undefined ? '' : String(editing.displayOrder))
     }
     setReady(true)
-  }, [editSlug, editing, catalogueLoading])
+  }, [identityReady, editSlug, editing, catalogueLoading])
 
   const availableTours = useMemo(() => {
     const q = tourQuery.trim().toLowerCase()
@@ -138,9 +143,21 @@ export default function DestinationEditorPage() {
     [linkedSlugs, liveTours],
   )
   const saveDisabled = saving || uploading || !canSave || !ready || catalogueLoading || Boolean(catalogueError) || Boolean(editSlug && !editing)
-  const updateDetailRow = (section: 'facts' | 'experiences' | 'rhythm' | 'practical', index: number, key: string, value: string) => {
-    setDetailDraft(current => ({ ...current, [section]: current[section].map((row, i) => i === index ? { ...row, [key]: value } : row) }))
+  const draft = destinationBuilderRecord({
+    ...(editing ?? {}), title, slug: editSlug || dbSlugify(slug.trim() || title), image, copy,
+    nameAr: nameAr || undefined, copyAr: copyAr || undefined, translations,
+    isPublished: published, showInDestinations, showInOneDayTours,
+    displayOrder: order.trim() ? Number(order) : undefined,
+    detail: { ...detailDraft, tourSlugs: tourSlugs.split(',').map(value => value.trim()).filter(Boolean) },
+  })
+  const changeDraft = (next: Destination) => {
+    setTitle(next.title); setImage(next.image); setCopy(next.copy); setDetailDraft(next.detail)
+    setTranslations(next.translations ?? {})
   }
+  // Unsaved association deltas are projected without any request or write.
+  const draftTours = previewTours.map(tour => tour.category !== 'one-day-tours' ? tour : ({ ...tour,
+    destinationSlug: linkedSlugs.includes(tour.slug) ? draft.slug : tour.destinationSlug === editSlug && initialSlugs.includes(tour.slug) ? null : tour.destinationSlug,
+  }))
 
   const save = async () => {
     if (!canSave || saving || uploading || !ready || catalogueLoading || catalogueError || editSlug && !editing) return
@@ -168,16 +185,7 @@ export default function DestinationEditorPage() {
       showInDestinations,
       isPublished: published,
       displayOrder: order.trim() === '' ? null : parsedOrder,
-      detail: {
-        ...detailDraft,
-        heroImage: editing ? detailDraft.heroImage : detailDraft.heroImage || undefined,
-        heroAlt: editing ? detailDraft.heroAlt : detailDraft.heroAlt || undefined,
-        eyebrow: detailDraft.eyebrow,
-        intro: editing ? detailDraft.intro : detailDraft.intro || undefined,
-        facts: detailDraft.facts.length ? detailDraft.facts.map((fact, index) => index === 0 ? { ...fact, value: stay.trim() } : fact) : editing ? [] : [{ label: 'Suggested stay', value: stay.trim() }],
-        bestFor: lines(bestFor),
-        tourSlugs: tourSlugs.split(',').map((s) => s.trim()).filter(Boolean),
-      },
+      detail: draft.detail,
     }
     try { validateDestinationWrite(body, !editSlug) } catch (error) { setError(error instanceof Error ? error.message : 'Check destination fields.'); return }
     // Destination record is DB-authoritative (POST for new, PUT for edit).
@@ -215,59 +223,17 @@ export default function DestinationEditorPage() {
       <Card title={<AdminText en="Could not load destination" ar="تعذر تحميل الوجهة" />}><p style={{ color: 'var(--sp-muted)' }}>{catalogueError}</p><div style={{ display: 'flex', gap: 10, marginTop: 14 }}><button type="button" className="sp-btn primary" onClick={retryCatalogue}><AdminText en="Retry" ar="إعادة المحاولة" /></button></div></Card>
     ) : editSlug && !editing ? (
       <Card title={<AdminText en="Destination not found" ar="الوجهة غير موجودة" />}><p style={{ color: 'var(--sp-muted)' }}><AdminText en="The requested destination does not exist." ar="الوجهة المطلوبة غير موجودة." /></p></Card>
-    ) : <><fieldset disabled={saving || !canSave} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
-      <Card title={<AdminText en="Basic information" ar="البيانات الأساسية" />}>
-<ContentLanguageTabs translations={translations} setTranslations={setTranslations}>
-        <div className="sp-form">
-          <div className="sp-form">
-            <label><AdminText en="Name " ar="الاسم " /><TranslatedInput field="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Siwa Oasis" /></label>
-
-          </div>
-          <div className="sp-form-2">
-            <label><AdminText en="Slug" ar="الرابط" /><input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="siwa-oasis" dir="ltr" readOnly={Boolean(editSlug)} /></label>
-            <label><AdminText en="Suggested stay" ar="مدة الإقامة المقترحة" /><TranslatedInput field="stay" value={stay} onChange={(e) => setStay(e.target.value)} placeholder={ar ? 'مثال: 2-3 أيام' : 'e.g. 2-3 days'} /></label>
-          </div>
-        </div>
-      </ContentLanguageTabs>
-</Card>
-      <Card title={<AdminText en="Content" ar="المحتوى" />}>
-<ContentLanguageTabs translations={translations} setTranslations={setTranslations}>
-        <div className="sp-form">
-          <label><AdminText en="Description " ar="الوصف " /><TranslatedTextarea field="copy" rows={3} value={copy} onChange={(e) => setCopy(e.target.value)} /></label>
-
-          <label><AdminText en="Best for (one per line)" ar="مناسبة لـ (سطر لكل بند)" /><TranslatedTextarea field="bestFor" rows={3} value={bestFor} onChange={(e) => setBestFor(e.target.value)} /></label>
-          <label><AdminText en="Linked tour slugs (comma separated)" ar="الرحلات المرتبطة (slugs مفصولة بفاصلة)" /><input value={tourSlugs} onChange={(e) => setTourSlugs(e.target.value)} placeholder="cairo-and-giza-pyramids" dir="ltr" /></label>
-        </div>
-      </ContentLanguageTabs>
-</Card>
-      <Card title={<AdminText en="Media" ar="الوسائط" />} sub={<AdminText en="Cover image" ar="صورة الغلاف" />}>
-        <ImageField value={image} onChange={setImage} disabled={saving || uploading || !canSave} onUploadingChange={setUploading} />
-        <p className="sp-builder-note">The cover and detail hero can be managed independently.</p>
-        <ImageField value={detailDraft.heroImage} onChange={heroImage => setDetailDraft(current => ({ ...current, heroImage }))} disabled={saving || uploading || !canSave} onUploadingChange={setUploading} previewAlt="Destination hero" />
+    ) : <><fieldset disabled={saving || uploading || !canSave} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+      <Card title="Destination builder" sub="Edit the same content and item order shown on the public detail page.">
+        <label>Canonical slug<input value={slug} onChange={event => setSlug(event.target.value)} placeholder="siwa-oasis" dir="ltr" readOnly={Boolean(editSlug)}/></label>
+        <DestinationBuilderPreview item={draft} tours={draftTours}/>
+        <p className="sp-builder-note">This preview does not save or publish. Record content below follows the public page hierarchy. Template-wide visibility, section order and shared CTA labels belong to <Link href="/admin/website-cms/pages/destination-detail">Website CMS → Destination template</Link>.</p>
       </Card>
-      <Card title="Destination detail content">
-        <ContentLanguageTabs translations={translations} setTranslations={setTranslations}>
-          <div className="sp-form">
-            {(['heroAlt', 'eyebrow', 'intro'] as const).map(key => <label key={key}>{key === 'heroAlt' ? 'Hero image description' : key === 'eyebrow' ? 'Eyebrow' : 'Introduction'}<TranslatedTextarea field={`detail.${key}`} value={detailDraft[key]} onChange={event => setDetailDraft(current => ({ ...current, [key]: event.target.value }))} rows={key === 'intro' ? 3 : 1} /></label>)}
-            {(['facts', 'experiences', 'rhythm', 'practical'] as const).map(section => <div key={section} className="sp-repeat-list"><strong>{section}</strong>{detailDraft[section].map((row, index) => <article className="sp-repeat-card" key={`${section}-${index}`}>
-              {Object.entries(row).filter(([key]) => ({ facts: ['label', 'value'], experiences: ['title', 'copy', 'alt'], rhythm: ['label', 'title', 'copy'], practical: ['title', 'copy'] })[section].includes(key)).map(([key, value]) => <label key={key}>{key}<TranslatedTextarea field={`detail.${section}.${index}.${key}`} value={section === 'facts' && index === 0 && key === 'value' ? stay : String(value)} onChange={event => { if (section === 'facts' && index === 0 && key === 'value') setStay(event.target.value); else updateDetailRow(section, index, key, event.target.value) }} rows={key === 'copy' ? 3 : 1} /></label>)}
-            </article>)}</div>)}
-          </div>
-        </ContentLanguageTabs>
-      </Card>
-      <Card title={<AdminText en="Publishing" ar="النشر" />}>
-        <div className="sp-form">
-          <div className="sp-form-2">
-            <label className="sp-check-row"><input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} /><span><AdminText en="Published" ar="منشور" /><small><AdminText en="Hidden destinations disappear from the website" ar="الوجهات المخفية تختفي من الموقع" /></small></span></label>
-            <label><AdminText en="Display order" ar="ترتيب العرض" /><input type="number" value={order} onChange={(e) => setOrder(e.target.value)} dir="ltr" /></label>
-          </div>
-          <div className="sp-form-2">
-            <label className="sp-check-row"><input type="checkbox" checked={showInDestinations} onChange={(e) => setShowInDestinations(e.target.checked)} /><span><AdminText en="Show on destinations page" ar="الظهور في صفحة الوجهات" /><small><AdminText en="Editorial landing pages and homepage" ar="صفحات الهبوط التحريرية والرئيسية" /></small></span></label>
-            <label className="sp-check-row"><input type="checkbox" checked={showInOneDayTours} onChange={(e) => setShowInOneDayTours(e.target.checked)} /><span><AdminText en="Show in One Day Tours" ar="الظهور في رحلات اليوم الواحد" /><small><AdminText en="Discovery section on the One Day Tours page" ar="قسم الاستكشاف في صفحة رحلات اليوم الواحد" /></small></span></label>
-          </div>
-        </div>
-      </Card>
-      <Card title={<AdminText en="One Day Tours" ar="رحلات اليوم الواحد" />} sub={<AdminText en="This destination appears on One Day Tours with these tours" ar="تظهر هذه الوجهة في رحلات اليوم الواحد مع هذه الرحلات" />}>
+      <DestinationSectionsEditor item={draft} onChange={changeDraft} setTranslations={setTranslations} onUpload={onUpload} disabled={saving || uploading || !canSave}/>
+      <Card title={<AdminText en="7. Related trips / One Day Tours" ar="رحلات اليوم الواحد" />} sub={<AdminText en="This destination appears on One Day Tours with these tours" ar="تظهر هذه الوجهة في رحلات اليوم الواحد مع هذه الرحلات" />}>
+        <label>Editorial related trip slugs (canonical, comma separated)<input value={tourSlugs} onChange={event => setTourSlugs(event.target.value)} onBlur={() => setTourSlugs(tourSlugs.split(',').map(value => value.trim()).filter(Boolean).map(value => previewTours.find(tour => tour.slug === value)?.slug ?? previewTours.find(tour => tour.aliases?.includes(value))?.slug ?? value).filter((value, index, rows) => rows.indexOf(value) === index).join(', '))} dir="ltr"/></label>
+        <ul>{draft.detail.tourSlugs.map(value => { const tour = previewTours.find(row => row.slug === value || row.aliases?.includes(value)); return <li key={value}>{tour?.title ?? value}{tour ? tour.status !== 'published' ? ' — unpublished; excluded publicly' : '' : ' — unavailable or not loaded; existing reference preserved'}</li> })}</ul>
+        <p className="sp-builder-note">The public page combines editorial selections with published trips assigned to this destination. Missing or unpublished references never appear publicly.</p>
         <p className="sp-builder-note">Tour changes are saved atomically with this destination. Published tours must be reassigned before unlinking. Listing visibility does not change tour associations.</p>
         {!canEditTours && <p className="sp-builder-note">Tour view and edit permissions are required to manage associations. Existing links will be preserved.</p>}
         {tourError && <p role="alert">{tourError} Existing links will be preserved.</p>}
@@ -284,6 +250,22 @@ export default function DestinationEditorPage() {
             <small style={{ color: 'var(--sp-muted)' }} dir="ltr">{tour.slug} · {tour.duration}</small>
           </article>)}</div> : <p style={{ color: 'var(--sp-muted)' }}><AdminText en="No matching tours." ar="لا توجد رحلات مطابقة." /></p>)}
         </div></fieldset>
+      </Card>
+      <DestinationCoverEditor item={draft} onChange={changeDraft} onUpload={onUpload} disabled={saving || uploading || !canSave}/>
+      <Card title="SEO & shared presentation" sub="Existing SEO and shared CMS editors remain the source of truth.">
+        {editSlug ? <Link className="sp-btn" href={`/admin/website-cms/seo/dynamic/destination/${encodeURIComponent(editSlug)}`}>Edit destination SEO</Link> : <p className="sp-builder-note">Save the destination before managing its SEO override. Existing SEO metadata is preserved by the API.</p>}
+      </Card>
+      <Card title={<AdminText en="Publishing" ar="النشر" />}>
+        <div className="sp-form">
+          <div className="sp-form-2">
+            <label className="sp-check-row"><input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} /><span><AdminText en="Published" ar="منشور" /><small><AdminText en="Hidden destinations disappear from the website" ar="الوجهات المخفية تختفي من الموقع" /></small></span></label>
+            <label><AdminText en="Display order" ar="ترتيب العرض" /><input type="number" value={order} onChange={(e) => setOrder(e.target.value)} dir="ltr" /></label>
+          </div>
+          <div className="sp-form-2">
+            <label className="sp-check-row"><input type="checkbox" checked={showInDestinations} onChange={(e) => setShowInDestinations(e.target.checked)} /><span><AdminText en="Feature in curated destination sections" ar="الظهور في صفحة الوجهات" /><small><AdminText en="Homepage selections; the full destination directory shows all published records" ar="صفحات الهبوط التحريرية والرئيسية" /></small></span></label>
+            <label className="sp-check-row"><input type="checkbox" checked={showInOneDayTours} onChange={(e) => setShowInOneDayTours(e.target.checked)} /><span><AdminText en="Show in One Day Tours" ar="الظهور في رحلات اليوم الواحد" /><small><AdminText en="Discovery section on the One Day Tours page" ar="قسم الاستكشاف في صفحة رحلات اليوم الواحد" /></small></span></label>
+          </div>
+        </div>
       </Card>
       {error && <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>}
       <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
