@@ -239,7 +239,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     const c = window.localStorage.getItem('sp-admin-collapsed')
     if (c === '1') setCollapsed(true)
     const l = window.localStorage.getItem('star-locale')
-    if (l === 'ar' || l === 'en') setLocale(l)
+    setLocale('en')
     setSiteLocale(sanitizeLocale(l))
     const cur = window.localStorage.getItem('star-currency')
     if (isCurrency(cur)) setCurrency(cur)
@@ -620,7 +620,7 @@ export function PageHead({
 }) {
   const [locale, setLocale] = useState<'en' | 'ar'>('en')
   useEffect(() => {
-    const syncLocale = () => setLocale(window.localStorage.getItem('star-locale') === 'ar' ? 'ar' : 'en')
+    const syncLocale = () => setLocale('en')
     syncLocale()
     window.addEventListener('sp-admin-locale', syncLocale)
     return () => window.removeEventListener('sp-admin-locale', syncLocale)

@@ -208,6 +208,17 @@
         "Hide empty optional sections and keep the layout complete with only the required campaign fields",
         "Maintain readable LTR and dormant Arabic RTL layouts across desktop and mobile"
       ]
+    },
+    {
+      "area": "trip-builder-navigation",
+      "direction": "Compact horizontal step timeline",
+      "summary": "Eleven numbered connected steps with compact labels, distinct current/completed states and horizontal overflow only on narrower viewports.",
+      "constraints": [
+        "Preserve existing step order and navigation handlers",
+        "Preserve STAR PYRAMIDS blue/orange tokens and keyboard focus",
+        "Do not change pricing, draft save, publishing, or preview behavior",
+        "Keep Arabic disabled; retain enabled content language controls"
+      ]
     }
   ]
 }

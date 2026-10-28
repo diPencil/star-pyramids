@@ -610,7 +610,18 @@ export function TripBuilder({ initialSlug, previewAppearance }: { initialSlug?: 
     ) : (
       <button type="button" className="sp-btn dark" onClick={next} disabled={saving || visBusy || mediaUploads > 0}><ArrowRight size={16} /> <AdminText en="Continue" ar="متابعة" /></button>
     )} />
-    <div className="sp-steps" aria-label={ar ? 'خطوات بناء الرحلة' : 'Trip builder steps'}>{steps.map((item, index) => <button key={item.en} type="button" className={index === activeStep ? 'active' : done.includes(index) ? 'done' : ''} onClick={() => setActiveStep(index)}>{index + 1}. {ar ? item.ar : item.en}</button>)}</div>
+    <nav className="sp-builder-timeline" aria-label="Trip builder steps">
+      <ol className="sp-steps">{steps.map((item, index) => {
+        const current = index === activeStep
+        const completed = done.includes(index)
+        return <li key={item.en} className={current ? 'active' : completed ? 'done' : ''}>
+          <button type="button" aria-current={current ? 'step' : undefined} aria-label={`${index + 1}. ${item.en}${completed ? ' (completed)' : ''}`} onClick={() => setActiveStep(index)}>
+            <span className="sp-step-node" aria-hidden="true">{completed && !current ? <CheckCircle2 size={16} /> : index + 1}</span>
+            <span className="sp-step-label">{item.en}</span>
+          </button>
+        </li>
+      })}</ol>
+    </nav>
 
     <div className="sp-builder">
       <Card title={ar ? steps[activeStep].ar : steps[activeStep].en} sub={<AdminText en="Every field feeds the public tour detail experience" ar="كل حقل يغذي تجربة صفحة الرحلة العامة" />}>

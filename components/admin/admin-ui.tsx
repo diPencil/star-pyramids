@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Search, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { isLocaleEnabled } from '@/lib/locale-config'
 
 const palette = ['#163A96', '#F7951D', '#0E9F6E', '#7C3AED', '#DB2777', '#0EA5E9']
 
@@ -160,5 +161,5 @@ export function AdminEmpty({ title = 'No matching records', copy = 'Try changing
 }
 
 export function AdminText({ en, ar }: { en: React.ReactNode; ar: React.ReactNode }) {
-  return <><span className="sp-l10n-en">{en}</span><span className="sp-l10n-ar">{ar}</span></>
+  return <><span className="sp-l10n-en">{en}</span>{isLocaleEnabled('ar') && <span className="sp-l10n-ar">{ar}</span>}</>
 }

@@ -543,6 +543,13 @@ html[dir="rtl"] .tour-booking-card input[type=date]{direction:ltr;text-align:end
 .car-summary-card p svg{color:var(--primary);flex:none}
 .car-form-card{background:#fff;border:1px solid var(--border);border-radius:22px;padding:8px}
 .car-form-card .contact-form{border:0}
+.car-request-form .form-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 18px;align-items:start}
+.car-request-form .form-grid label,.car-request-form .req-trip-type>span{min-width:0;font-size:14px;font-weight:600;line-height:1.5;gap:8px;align-content:start}
+.car-request-form .car-location-field{min-width:0;display:grid;gap:12px}
+.car-request-form .car-field-label{display:block}
+.car-request-form .req{display:inline;color:var(--primary);font-style:normal}
+.car-request-form .form-grid input,.car-request-form .form-grid textarea,.car-request-form .cselect-trigger{min-height:56px;font-size:15px;font-weight:500}
+@media(max-width:760px){.car-request-form .form-grid{grid-template-columns:minmax(0,1fr);gap:18px}.car-request-form .form-grid input,.car-request-form .form-grid textarea,.car-request-form .cselect-trigger{font-size:16px}}
 .car-success-actions{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:10px}
 .car-success-actions a{text-decoration:none}
 @media(max-width:1024px){.fleet-grid{grid-template-columns:repeat(2,1fr)}.car-request-layout{grid-template-columns:1fr}.car-summary-card{position:static}}

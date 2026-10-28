@@ -6,7 +6,7 @@ import { SharedSelect } from '@/components/shared-select'
 import { useRouter } from 'next/navigation'
 import { AdminConfirmDialog } from './admin-confirm-dialog'
 import { useCurrentUser } from '@/lib/use-current-user'
-import { pickLocaleText, type Locale } from '@/lib/locale-config'
+import { pickLocaleText, sanitizeLocale, type Locale } from '@/lib/locale-config'
 import { AdminEmpty } from './admin-ui'
 import { protectEnquiryNavigation } from '@/lib/enquiry-navigation'
 
@@ -128,7 +128,7 @@ async function readResponse<T>(response: Response, fallback: string): Promise<T>
 export function useEnquiryLocale() {
   const [locale, setLocale] = useState<Locale>('en')
   useEffect(() => {
-    const sync = () => { const value = localStorage.getItem('star-locale'); setLocale(value === 'es' || value === 'it' || value === 'ar' ? value : 'en') }
+    const sync = () => { try { setLocale(sanitizeLocale(localStorage.getItem('star-locale'))) } catch { setLocale('en') } }
     sync(); window.addEventListener('sp-admin-locale', sync); window.addEventListener('storage', sync)
     return () => { window.removeEventListener('sp-admin-locale', sync); window.removeEventListener('storage', sync) }
   }, [])
