@@ -39,7 +39,7 @@ export function ProviderReviewsSection({ heading, description }: { heading?: str
   const all = text('All reviews', 'Todas las reseñas', 'Tutte le recensioni', 'كل التقييمات')
   const trips = text('Trip reviews', 'Reseñas de viajes', 'Recensioni dei viaggi', 'تقييمات الرحلات')
   const website = text('Website reviews', 'Reseñas del sitio', 'Recensioni del sito', 'تقييمات الموقع')
-  return <section className="home-section reviews-section"><div className="container">
+  return <section id="reviews" className="home-section reviews-section"><div className="container">
     <div className="home-heading"><h2>{heading ?? text('Loved by travelers', 'Amado por los viajeros', 'Amato dai viaggiatori', 'محبوب من المسافرين')}</h2><p>{description ?? text('Experiences shared by our travelers.', 'Experiencias de nuestros viajeros.', 'Esperienze dei nostri viaggiatori.', 'تجارب يشاركها مسافرونا.')}</p></div>
     <div className="rev-tabs provider-review-tabs" role="group" aria-label={text('Review platforms', 'Plataformas de reseñas', 'Piattaforme di recensioni', 'منصات التقييمات')}>
       {(['all', 'website', 'trips', ...enabled.map(f => f.provider)] as const).map(p => <button type="button" key={p} aria-label={p === 'all' ? all : p === 'website' ? website : p === 'trips' ? trips : REVIEW_LABELS[p]} aria-pressed={selected === p} className={selected === p ? 'active' : ''} onClick={() => setSelected(p)}>{p !== 'all' && <PlatformIcon id={p}/>}<span>{p === 'all' ? all : p === 'website' ? website : p === 'trips' ? trips : REVIEW_LABELS[p]}</span></button>)}

@@ -1,12 +1,13 @@
 'use client'
 import { BrandMark } from '@/components/brand-mark'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { PublicAppearancePortal } from './public-appearance'
 import { Star, CheckCircle2 } from 'lucide-react'
 import { useLocale, tx } from '@/components/locale'
 import { cn } from '@/lib/utils'
+import { WEBSITE_REVIEW_SCOPE } from '@/lib/review-scope'
 import './reviews-phase6.css'
 
 /** Customer review from the database (public API shape). */
@@ -67,16 +68,16 @@ async function fetchTourReviews(tourSlug: string, page = 1): Promise<{ reviews: 
 }
 
 /** Submit a new review via API. */
-async function submitReview(tourSlug: string, input: ReviewInput): Promise<{ success: boolean; error?: string }> {
+async function submitReview(tourSlug: string, input: ReviewInput): Promise<{ success: boolean; error?: string; status?: number }> {
   try {
     const res = await fetch('/api/reviews', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       credentials: 'same-origin',
-      body: JSON.stringify({ ...(tourSlug === '@website' ? { scope: 'website' } : { tourSlug }), ...input }),
+      body: JSON.stringify({ ...(tourSlug === WEBSITE_REVIEW_SCOPE ? { scope: 'website' } : { tourSlug }), ...input }),
     })
     const data = await res.json()
-    if (!res.ok) return { success: false, error: data.error || 'Could not submit review.' }
+    if (!res.ok) return { success: false, error: data.error || 'Could not submit review.', status: res.status }
     return { success: true }
   } catch {
     return { success: false, error: 'Network error. Please try again.' }
@@ -119,6 +120,10 @@ export function ReviewWriteModal({
   const [mounted, setMounted] = useState(false)
   const pending = useRef(false)
   const dialog = useRef<HTMLDivElement>(null)
+  const close = useRef(onClose)
+  close.current = onClose
+  const textHintId = useId()
+  const [needsSignIn, setNeedsSignIn] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -128,36 +133,39 @@ export function ReviewWriteModal({
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null
     const overflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    dialog.current?.querySelector<HTMLElement>('button, textarea, input')?.focus()
+    dialog.current?.querySelector<HTMLElement>('textarea')?.focus()
     const keydown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !pending.current) onClose()
+      if (event.key === 'Escape' && !pending.current) close.current()
       if (event.key !== 'Tab') return
-      const nodes = dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled), textarea, input, a[href]')
-      if (!nodes?.length) return
+      const nodes = Array.from(dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled), textarea:not(:disabled), input:not(:disabled), a[href]') ?? []).filter(node => node.tabIndex >= 0)
+      if (!nodes.length) { event.preventDefault(); dialog.current?.focus(); return }
       const first = nodes[0], last = nodes[nodes.length - 1]
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
     }
     document.addEventListener('keydown', keydown)
     return () => { document.body.style.overflow = overflow; document.removeEventListener('keydown', keydown); previous?.focus() }
-  }, [mounted, onClose])
+  }, [mounted])
 
   const handleSubmit = async () => {
-    if (pending.current || text.trim().length < 10 || stars < 1 || stars > 5) return
+    if (pending.current) return
+    if (text.trim().length < 10 || text.trim().length > 5000 || stars < 1 || stars > 5) {
+      setError(tx(locale, { en: 'Write between 10 and 5000 characters and choose a rating from 1 to 5.', es: 'Escribe entre 10 y 5000 caracteres y elige una valoración de 1 a 5.', it: 'Scrivi da 10 a 5000 caratteri e scegli una valutazione da 1 a 5.' }))
+      dialog.current?.querySelector<HTMLElement>('textarea')?.focus()
+      return
+    }
     pending.current = true
     setSubmitting(true)
     setError('')
-    // If tourSlug provided, submit to API; otherwise just call onSubmit locally
-    if (tourSlug) {
-      const result = await submitReview(tourSlug, { rating: stars, title: title.trim(), text: text.trim() })
-      if (result.success) {
-        onSubmit({ rating: stars, title: title.trim(), text: text.trim() })
-      } else {
-        setError(result.error || 'Could not submit review.')
-      }
+    // Every public submission uses the moderated API, including the homepage.
+    const result = await submitReview(tourSlug || WEBSITE_REVIEW_SCOPE, { rating: stars, title: title.trim(), text: text.trim() })
+    if (result.success) {
+      onSubmit({ rating: stars, title: title.trim(), text: text.trim() })
     } else {
-      // Legacy localStorage path for homepage
-      onSubmit({ rating: stars, title: title.trim(), text: text.trim(), platform: 'direct' })
+      setNeedsSignIn(result.status === 401)
+      setError(result.status === 401
+        ? tx(locale, { en: 'Sign in to submit your review. Your text is still here.', es: 'Inicia sesión para enviar tu reseña. Tu texto sigue aquí.', it: 'Accedi per inviare la recensione. Il tuo testo è ancora qui.' })
+        : result.error || 'Could not submit review.')
     }
     setSubmitting(false)
     pending.current = false
@@ -167,10 +175,10 @@ export function ReviewWriteModal({
 
   const modal = (
     <div className="rev-modal" onClick={() => { if (!pending.current) onClose() }}>
-      <div ref={dialog} className="rev-modal-card" role="dialog" aria-modal="true" aria-label={copy.heading} onClick={(e) => e.stopPropagation()}>
+      <div ref={dialog} className="rev-modal-card" tabIndex={-1} role="dialog" aria-modal="true" aria-label={copy.heading} onClick={(e) => e.stopPropagation()}>
         <h3>{copy.heading}</h3>
         {copy.context && <p className="rev-modal-context">{copy.context}</p>}
-        <div className="rev-form">
+        <form className="rev-form" onSubmit={event => { event.preventDefault(); void handleSubmit() }}>
           <label>
             {copy.rating}
             <span className="rev-star-pick" role="radiogroup" aria-label={copy.rating}>
@@ -178,6 +186,7 @@ export function ReviewWriteModal({
                 <button
                   key={n}
                   type="button"
+                  disabled={submitting}
                   onClick={() => setStars(n)}
                   role="radio"
                   tabIndex={stars === n ? 0 : -1}
@@ -207,28 +216,32 @@ export function ReviewWriteModal({
               minLength={10}
               rows={5}
               required
+              aria-describedby={textHintId}
+              disabled={submitting}
             />
+            <small id={textHintId} className="rev-text-hint">{tx(locale, { en: 'Minimum 10 characters. Reviews appear after approval.', es: 'Mínimo 10 caracteres. Las reseñas aparecen tras su aprobación.', it: 'Minimo 10 caratteri. Le recensioni appaiono dopo l’approvazione.' })} ({text.trim().length.toLocaleString(locale)} / 5000)</small>
           </label>
           <label>
             {copy.reviewTitle} ({tx(locale, { en: 'optional', es: 'opcional', it: 'facoltativo' })})
             <input
               value={title}
+              disabled={submitting}
               onChange={(e) => setTitle(e.target.value)}
               placeholder={copy.reviewTitlePh}
               maxLength={160}
             />
           </label>
           {error && <p className="rev-error" role="alert">{error}</p>}
-          {tourSlug === '@website' && error.includes('Authentication required') && <a href="/login">{tx(locale, { en: 'Sign in to your account', es: 'Inicia sesión en tu cuenta', it: 'Accedi al tuo account', ar: 'سجّل الدخول إلى حسابك' })}</a>}
+          {needsSignIn && <a href={`/login?next=${encodeURIComponent(tourSlug && tourSlug !== WEBSITE_REVIEW_SCOPE ? `/egypt-tours/${encodeURIComponent(tourSlug)}#reviews` : '/#reviews')}`}>{tx(locale, { en: 'Sign in to your account', es: 'Inicia sesión en tu cuenta', it: 'Accedi al tuo account', ar: 'سجّل الدخول إلى حسابك' })}</a>}
           <div className="rev-form-actions">
             <button type="button" className="outline-btn" onClick={onClose} disabled={submitting}>
               {copy.cancel}
             </button>
-            <button type="button" className="primary-btn" onClick={handleSubmit} disabled={submitting || text.trim().length < 10}>
+            <button type="submit" className="primary-btn" disabled={submitting}>
               {submitting ? tx(locale, { en: 'Submitting…', es: 'Enviando…', it: 'Invio…' }) : copy.submit}
             </button>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   )

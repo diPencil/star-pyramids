@@ -11,3 +11,8 @@
 .website-review-pagination button {
   min-height: 44px;
 }
+
+/* Do not fill a sparse feed by repeating a customer's review. */
+.rev-marquee-static { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 350px)); justify-content: center; gap: 18px; }
+.rev-marquee-static .rev-marquee-item { width: auto; min-width: 0; }
+.rev-text-hint { color: var(--muted); font-size: 12px; font-weight: 400; line-height: 1.5; }

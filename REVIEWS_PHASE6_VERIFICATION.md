@@ -93,3 +93,16 @@ All pre-existing unrelated dirty/untracked work was preserved.
 6. Inspect the same review on Homepage and its trip after publishing, then after rejection; verify preserved text/rating and matching publication status. Check keyboard rating selection, modal focus and long review/title wrapping.
 
 Stop at Phase 6. No release or later phase has been started.
+
+## Homepage review interaction follow-up — 2026-10-28
+
+- Confirmed deterministic defects in code: the modal focus lifecycle depended on an inline parent close callback, so a parent refresh could reset field focus; short reviews silently disabled the submit action; the marquee repeated sparse feeds to fill at least six positions (one review looked like many).
+- Modal initialization now focuses the textarea once per opening, retains the latest close callback via a ref, and traps Tab among actually tabbable controls, including the pending/no-tabbable-controls case.
+- A native form and visible localized minimum-length/moderation guidance replace silent submission disabling. Authentication errors retain the text in the open modal and expose sign-in with a return URL to the relevant homepage/tour review section. Authentication and existing moderation rules remain required.
+- All public submissions use the real reviews API; no missing-tour local-success fallback. New submissions do not change published counts before approval.
+- One to three unique reviews render once each in the existing cards. Populated rails keep their original animation and aria-hidden loop copy. Duplicate public IDs are removed from presentation without changing stored records.
+- Website/Trip/All scope semantics remain unchanged. The website empty state explains that trip-linked reviews appear under Trip reviews. The screenshot's All=1 and Website=0 is consistent with a trip-linked review; live production data was not queried or modified to assert its current exact values.
+- Changed owners: components/reviews.tsx, review-marquee.tsx, reviews-phase6.css, provider-reviews.tsx and website-reviews.tsx; new tests/review-write-modal.test.ts and tests/review-marquee.test.ts.
+- Final validation: TypeScript passed; full safe suite **156 files / 1980 tests passed**; Next.js webpack production build passed including **283/283 pages**; git diff --check passed. Independent review confirmed focus-trap corrections with no remaining material finding in that review scope.
+- No schema/environment changes, database writes, browser testing, production operations, commit or push were performed for this follow-up. 21st review was unavailable because its CLI is not installed; existing components and tokens were preserved.
+- Manual acceptance: type continuously while the parent updates; submit fewer than ten characters; submit a real signed-in review and verify PENDING acknowledgment; approve it via the normal admin workflow and verify website/trip scopes and counts; verify one published review appears once and inspect EN/ES/IT/mobile and keyboard behavior.
