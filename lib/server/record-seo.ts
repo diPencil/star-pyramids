@@ -75,7 +75,7 @@ export async function listRecordSeo() {
     return rows.filter(row => kind !== 'offer' || !row.tourSlug).map(row => {
       const record = descriptor(kind, row)
       const raw = kind === 'category' ? payloads.get(row.slug) ?? '{}' : row[field(kind)]
-      return { record, state: recordSeoStateFromPayload(raw, kind === 'tour') }
+      return { record, state: recordSeoStateFromPayload(raw, kind === 'tour'), ...(kind === 'tour' ? { cruiseType: (row as Row & { cruiseType?: string | null }).cruiseType } : {}) }
     })
   }))
   return groups.flat()
