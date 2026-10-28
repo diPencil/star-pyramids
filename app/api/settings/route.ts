@@ -8,12 +8,14 @@ import { getStorefrontSettings } from '@/lib/server/settings';
  * currency defaults, live rates, SEO/promo copy). Provider keys, tokens,
  * hosts, usernames and passwords are never selected or returned.
  */
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const settings = await getStorefrontSettings();
     return NextResponse.json(
       { settings },
-      { headers: { 'Cache-Control': 'public, max-age=60' } },
+      { headers: { 'Cache-Control': 'no-store, max-age=0' } },
     );
   } catch {
     return NextResponse.json(

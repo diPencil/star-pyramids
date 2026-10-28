@@ -8,13 +8,15 @@ import type { SocialLink } from './admin-store';
 /**
  * Single-flight public settings reader. The database is the source of
  * truth; values live only in memory (never in localStorage) and every
- * consumer falls back to its built-in defaults until they arrive.
+ * consumer keeps its server-rendered branding seed until fresh values arrive.
  * Domain hooks keep their existing event subscriptions (`sp-brand`,
  * `sp-social`, `sp-currency`, `sp-l10n`) — this module re-emits those
  * events when DB values land so every consumer refreshes.
  */
 
 let inflight: Promise<void> | null = null;
+let requestGeneration = 0;
+let brandSeedFingerprint: string | null = null;
 let brand: Record<string, string> | null = null;
 let social: SocialLink[] | null = null;
 let currency: { eur?: number; egp?: number; defaultCurrency?: Currency } | null = null;
@@ -90,10 +92,8 @@ function applySettings(data: { settings?: unknown }): void {
     const cleaned = cleanString(merged[key]);
     if (cleaned) nextBrand[key] = cleaned;
   }
-  if (Object.keys(nextBrand).length > 0) {
-    brand = nextBrand;
-    window.dispatchEvent(new Event('sp-brand'));
-  }
+  brand = nextBrand;
+  window.dispatchEvent(new Event('sp-brand'));
 
   const nextSocial = cleanSocial(raw.social);
   if (nextSocial) {
@@ -184,16 +184,17 @@ export function getDbAccessStrip(): AccessStripOverride | null {
 /** Fire-once fetch of the public settings snapshot. Safe to call on every mount. */
 export function ensureStorefrontSettings(): void {
   if (typeof window === 'undefined' || inflight) return;
+  const generation = ++requestGeneration;
   inflight = (async () => {
     try {
-      const res = await fetch('/api/settings', { credentials: 'same-origin' });
+      const res = await fetch('/api/settings', { credentials: 'same-origin', cache: 'no-store' });
       if (!res.ok) return;
       const data = (await res.json()) as { settings?: unknown };
-      if (data && typeof data === 'object') applySettings(data);
+      if (generation === requestGeneration && data && typeof data === 'object') applySettings(data);
     } catch {
-      // Offline or unreachable: hooks keep rendering built-in defaults.
+      // Offline or unreachable: retain server-seeded/last confirmed branding.
     } finally {
-      inflight = null;
+      if (generation === requestGeneration) inflight = null;
     }
   })();
 }
@@ -205,6 +206,16 @@ export function ensureStorefrontSettings(): void {
  */
 export function refreshStorefrontSettings(): void {
   if (typeof window === 'undefined') return;
+  requestGeneration++;
   inflight = null;
   ensureStorefrontSettings();
+}
+
+/** A new server seed invalidates older in-flight browser reads once, not per logo. */
+export function ensureStorefrontBrandSeed(seed: Record<string, string>): void {
+  const fingerprint = JSON.stringify(Object.keys(seed).sort().map(key => [key, seed[key]]));
+  if (fingerprint !== brandSeedFingerprint) {
+    brandSeedFingerprint = fingerprint;
+    refreshStorefrontSettings();
+  } else ensureStorefrontSettings();
 }

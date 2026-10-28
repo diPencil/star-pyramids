@@ -424,6 +424,7 @@ export const reviewPlatforms = [] as const
 export const platformSummary: Record<string, { avg: string; count: string }> = {}
 
 export function PlatformIcon({ id }: { id: string }) {
+  if (id === 'trips') return <span className="platform-ic" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" fill="none" stroke="#F7951D" strokeWidth="2"/><rect x="3" y="6" width="18" height="15" rx="3" fill="#163A96"/><path d="M7 21v1m10-1v1" stroke="#163A96" strokeWidth="2" strokeLinecap="round"/><circle cx="12" cy="13.5" r="4.5" fill="#F7951D"/><ellipse cx="12" cy="13.5" rx="2" ry="4.5" fill="none" stroke="#fff" strokeWidth="1"/><path d="M7.5 13.5h9" stroke="#fff" strokeWidth="1"/><path d="m17 7 5 2-2 4-4-2z" fill="#00AA6C"/><circle cx="18.3" cy="9.3" r=".7" fill="#fff"/></svg></span>
   if (id === 'website') return <span className="platform-ic" aria-hidden="true"><BrandMark width={24} height={24} style={{ width: 24, height: 24, objectFit: 'contain' }} /></span>
   const icons: Record<string, string> = { tripadvisor: '/review-platforms/tripadvisor.ico', trustindex: '/review-platforms/trustindex.png', getyourguide: '/review-platforms/getyourguide.ico' }
   if (icons[id]) return <span className="platform-ic" aria-hidden="true"><img src={icons[id]} alt="" width={24} height={24} style={{ width: 24, height: 24, objectFit: 'contain' }}/></span>

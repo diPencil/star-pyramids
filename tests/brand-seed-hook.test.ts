@@ -1,0 +1,12 @@
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+const h=vi.hoisted(()=>({seed:null as Record<string,string>|null,db:null as Record<string,string>|null,slots:[] as any[],cursor:0,effects:[] as {deps:unknown[];cleanup?:()=>void}[],effect:0,ensure:vi.fn()}))
+vi.mock('react',async()=>{const actual=await vi.importActual<typeof import('react')>('react');return{...actual,useState:(initial:any)=>{const slot=h.cursor++;if(!(slot in h.slots))h.slots[slot]=typeof initial==='function'?initial():initial;return[h.slots[slot],(next:any)=>{h.slots[slot]=typeof next==='function'?next(h.slots[slot]):next}]},useEffect:(effect:()=>void|(()=>void),deps:unknown[])=>{const index=h.effect++,old=h.effects[index];if(!old||deps.some((value,i)=>value!==old.deps[i])){old?.cleanup?.();h.effects[index]={deps,cleanup:effect()||undefined}}}}})
+vi.mock('@/components/brand-context',()=>({useBrandSeed:()=>h.seed}))
+vi.mock('@/lib/storefront-settings',()=>({getDbBrand:()=>h.db,ensureStorefrontSettings:h.ensure,ensureStorefrontBrandSeed:h.ensure,getDbAccessStrip:()=>null,getDbPromoText:()=>null,getDbSeoTitle:()=>null,getDbSocial:()=>null}))
+import { useBrandSettings } from '@/lib/admin-store'
+const render=()=>{h.cursor=0;h.effect=0;return useBrandSettings()}
+beforeEach(()=>{h.slots=[];h.effects=[];h.cursor=0;h.effect=0;h.seed={logo:'/media/server-logo.webp',favicon:'/media/server-icon.png'};h.db={logo:'/logo.png',favicon:'/favicon.png'};vi.stubGlobal('window',new EventTarget());vi.clearAllMocks()})
+afterEach(()=>{h.effects.forEach(effect=>effect.cleanup?.());vi.unstubAllGlobals()})
+it('does not replace initial saved branding with defaults from a warm module cache',()=>{expect(render().logo).toBe('/media/server-logo.webp');expect(render().favicon).toBe('/media/server-icon.png');expect(h.ensure).toHaveBeenCalledTimes(1)})
+it('applies the next successful settings event and explicit clears',()=>{render();h.db={logo:'/media/next-logo.jpg',favicon:'/media/next-icon.webp'};window.dispatchEvent(new Event('sp-brand'));expect(render().logo).toBe('/media/next-logo.jpg');h.db={};window.dispatchEvent(new Event('sp-brand'));expect(render().logo).toBe('/logo.png')})
+it('uses a changed server seed immediately and ignores unrelated storage notifications',()=>{render();h.seed={logo:'/media/new-server.jpg',favicon:'/media/new-server-icon.jpg'};expect(render().logo).toBe('/media/new-server.jpg');window.dispatchEvent(new Event('storage'));expect(render().logo).toBe('/media/new-server.jpg')})

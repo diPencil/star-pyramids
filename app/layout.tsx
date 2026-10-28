@@ -1,3 +1,5 @@
+import { BrandProvider } from '@/components/brand-context'
+import { readServerBrandSettings } from '@/lib/server/brand-settings'
 import { NavigationProvider } from '@/components/navigation-context'
 import { publishedNavigation } from '@/lib/server/navigation'
 import { Analytics } from '@vercel/analytics/next'
@@ -52,7 +54,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const locale = await getServerLocale()
   const ogLocale = getOgLocale(locale)
   const siteUrl = await getSiteUrl()
-  const favicon = await getSetting('site.favicon').catch(() => null)
+  const { favicon } = await readServerBrandSettings()
   const defaultSeoTitle = await getSetting('site.seoTitle').catch(() => null)
   const globalSeo = await getGlobalSeo(locale).catch(() => ({} as Metadata))
 
@@ -162,9 +164,9 @@ export default async function RootLayout({
             />
           </noscript>
         )}
-        <BrandFavicon />
+        <BrandProvider initial={await readServerBrandSettings()}><BrandFavicon />
         <EnquiryHistoryTracking />
-        <NavigationProvider initial={await publishedNavigation().catch(() => ({ revision: -1, primaryLocale: 'en' as const, items: [] }))}><InitialLocaleProvider locale={locale}><PresentationProvider states={{ ...await readPresentationStates(), faq: await readPublishedPage('faq') }}><PublicAppearance tokens={await readPublishedAppearance()}>{children}</PublicAppearance></PresentationProvider></InitialLocaleProvider></NavigationProvider>
+        <NavigationProvider initial={await publishedNavigation().catch(() => ({ revision: -1, primaryLocale: 'en' as const, items: [] }))}><InitialLocaleProvider locale={locale}><PresentationProvider states={{ ...await readPresentationStates(), faq: await readPublishedPage('faq') }}><PublicAppearance tokens={await readPublishedAppearance()}>{children}</PublicAppearance></PresentationProvider></InitialLocaleProvider></NavigationProvider></BrandProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

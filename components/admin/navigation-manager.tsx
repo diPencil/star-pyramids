@@ -111,7 +111,7 @@ export function NavigationManager() {
           {tree(content.items)}<div className="nav-builder-root-drop" onDragOver={event => { if (dragging) event.preventDefault() }} onDrop={event => { event.preventDefault(); if (dragging) move(dragging, null, content.items.length) }}>Drop here to move to the end of the top level</div>
           {!content.items.length && <p>No items. An empty published menu intentionally hides all editable navigation links.</p>}
         </Card>
-        <Card title="Item settings" sub="Hidden or disabled groups also hide their children.">
+        <Card className="nav-builder-settings" title="Item settings" sub="Hidden or disabled groups also hide their children.">
           <label className="nav-builder-field">Primary fallback language<select disabled={!editable} value={content.primaryLocale} onChange={event => setContent({ ...content, primaryLocale: event.target.value as NavigationContent['primaryLocale'] })}>{navigationLocales.map(value => <option key={value} value={value}>{value.toUpperCase()}</option>)}</select></label>
           {!item ? <p>Select a menu item to edit it.</p> : <fieldset className="nav-builder-fields" disabled={!editable}>
             {navigationLocales.map(value => <label className="nav-builder-field" key={value}>Label ({value.toUpperCase()})<input value={item.labels[value]} maxLength={100} onChange={event => update({ labels: { ...item.labels, [value]: event.target.value } })}/></label>)}
