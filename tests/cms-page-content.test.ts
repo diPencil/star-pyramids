@@ -73,3 +73,36 @@ describe('registered page content and lifecycle', () => {
     expect(validateCmsLink('https://example.com/travel')).toBe('https://example.com/travel')
   })
 })
+
+
+describe('optional sustainability media persistence', () => {
+  it.each([undefined, null, {}])('accepts legacy media %s without losing section content', (media) => {
+    const content = originalPageContent()
+    const section = content.sections.find(s => s.id === 'sustainability')!
+    Object.assign(section, { media })
+    const saved = validatePageContent(content).sections.find(s => s.id === 'sustainability')!
+    expect(saved.text).toEqual(section.text)
+    expect(saved.items).toEqual(section.items)
+    expect(saved.href).toBe(section.href)
+  })
+  it('saves, publishes, reopens, replaces and explicitly removes the image', () => {
+    const content = originalPageContent()
+    const section = content.sections.find(s => s.id === 'sustainability')!
+    let state = initialPageState()
+    for (const url of ['https://images.example.com/first.jpg', 'https://images.example.com/second.jpg', '']) {
+      section.media = { badgeImage: url }
+      state = transitionPageContent(state, 'save-draft', content)
+      expect(state.draft!.sections.find(s => s.id === section.id)!.media?.badgeImage).toBe(url)
+      state = transitionPageContent(state, 'publish')
+      expect(publicPageContent(state).content!.sections.find(s => s.id === section.id)!.media?.badgeImage).toBe(url)
+    }
+  })
+  it('rejects unsafe URLs and unknown media keys', () => {
+    const content = originalPageContent()
+    const section = content.sections.find(s => s.id === 'sustainability')!
+    for (const media of [{ badgeImage: 'javascript:alert(1)' }, { badgeImage: 'http://example.com/a.jpg' }, { unexpected: '' }]) {
+      section.media = media
+      expect(() => validatePageContent(content)).toThrow()
+    }
+  })
+})

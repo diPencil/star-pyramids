@@ -36,3 +36,25 @@ describe('actual homepage components consume CMS publication', () => {
     }
   })
 })
+
+
+describe('sustainability CMS media', () => {
+  it.each(['en', 'es', 'it'] as const)('renders published badge image and preserved content in %s', (locale) => {
+    const content = originalPageContent()
+    const section = content.sections.find(s => s.id === 'sustainability')!
+    section.media = { badgeImage: 'https://images.example.com/purpose.jpg' }
+    const html = render({ content }, locale)
+    expect(html).toContain('src="https://images.example.com/purpose.jpg"')
+    expect(html).toContain('object-fit:cover')
+    expect(html).toContain(section.text[locale].susCta)
+    expect(html).toContain(section.items![0].text[locale].line1)
+    section.visible = false
+    expect(render({ content }, locale)).not.toContain('purpose.jpg')
+  })
+  it.each([undefined, '', 'javascript:alert(1)', 'http://images.example.com/a.jpg'])('uses decorative fallback for %s', (url) => {
+    const content = originalPageContent()
+    content.sections.find(s => s.id === 'sustainability')!.media = { badgeImage: url as string }
+    expect(render({ content })).toContain('class="sus-ring"')
+    expect(render({ content })).not.toContain('object-fit:cover')
+  })
+})

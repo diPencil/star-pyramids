@@ -1,3 +1,4 @@
+import { parseVehicleCapacity } from '@/lib/car-request';
 import { catalogueTranslationResponse, saveWithCatalogueTranslations, deleteWithCatalogueTranslations } from '@/lib/server/catalogue-translations';
 import { validateCatalogueTranslations } from '@/lib/catalogue-translations';
 import { NextResponse } from 'next/server';
@@ -5,6 +6,8 @@ import { readJsonText, writeJsonText } from '@/lib/json-text';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
 import { getCurrentUser, hasPermission } from '@/lib/server/auth';
+import { validateCarCapacityChange } from '@/lib/server/car-pricing';
+import { rentCarFailure } from '@/lib/server/rent-car-errors';
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -16,7 +19,8 @@ export async function GET(
   const { slug } = await params;
   const car = await db.car.findUnique({ where: { slug } });
 
-  if (!car) {
+  const user = await getCurrentUser();
+  if (!car || (!car.isPublished && (!user || (!hasPermission(user, 'cars.edit') && !hasPermission(user, 'cars.view'))))) {
     return NextResponse.json({ notFound: true }, { status: 404 });
   }
 
@@ -41,7 +45,10 @@ export async function PUT(
     return NextResponse.json({ error: 'Invalid request origin.' }, { status: 403 });
   }
 
-  const data = await request.json();
+  const data = await request.json().catch(() => null);
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
+  if (data.seats !== undefined && (typeof data.seats !== 'string' || parseVehicleCapacity(data.seats) === null)) return NextResponse.json({ error: 'Enter an unambiguous seat capacity from 1 to 100.' }, { status: 400 });
+  if (data.isPublished !== undefined && typeof data.isPublished !== 'boolean') return NextResponse.json({ error: 'Publication status must be boolean.' }, { status: 400 });
   if (data?.translations !== undefined) {
     try { validateCatalogueTranslations('car', data.translations); }
     catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'Invalid translations.' }, { status: 400 }); }
@@ -64,7 +71,15 @@ export async function PUT(
     }
   }
 
-  const car = await saveWithCatalogueTranslations('car', data.translations, existing.slug, (tx) => tx.car.update({
+  try {
+  const car = await saveWithCatalogueTranslations('car', data.translations, existing.slug, async (tx) => {
+    await tx.$queryRaw`SELECT slug FROM cars WHERE slug = ${paramSlug} FOR UPDATE`;
+    const current = await tx.car.findUnique({ where: { slug: paramSlug } });
+    if (!current) throw new Error('Vehicle not found.');
+    // Merge omitted fields from the locked row, rather than reverting a concurrent edit.
+    const existing = current;
+    await validateCarCapacityChange(tx, existing.slug, typeof data.seats === 'string' ? data.seats.trim().slice(0, 60) : existing.seats);
+    return tx.car.update({
     where: { slug: paramSlug },
     data: {
       slug: data.slug ? String(data.slug).trim().toLowerCase() || existing.slug : existing.slug,
@@ -78,9 +93,14 @@ export async function PUT(
         : null),
       isPublished: data.isPublished === undefined ? existing.isPublished : data.isPublished !== false,
     },
-  }));
+  });
+  });
 
   return NextResponse.json(await catalogueTranslationResponse('car', { car: { ...car, credit: readJsonText(car.credit) } }));
+  } catch (error) {
+    const failure = rentCarFailure(error);
+    return NextResponse.json({ error: failure.error }, { status: failure.status });
+  }
 }
 
 export async function DELETE(

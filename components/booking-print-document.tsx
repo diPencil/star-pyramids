@@ -1,6 +1,7 @@
 'use client'
 
-import { formatPrice, tx, useLocale } from './locale'
+import { formatCurrency } from '@/lib/currency'
+import { tx, useLocale } from './locale'
 import { bookingMoney, bookingPaymentLabel } from './booking-payment'
 import type { Booking } from '@/lib/booking'
 
@@ -47,7 +48,7 @@ export function BookingPrintDocument({ booking }: { booking: Booking }) {
   // refunded). Proof submissions never influence this label.
   const paymentLabel = bookingPaymentLabel(booking, locale)
 
-  const money = (usd: number) => `USD ${formatPrice(usd, 'USD', locale)}`
+  const money = (amount: number) => formatCurrency(amount, booking.currency, locale)
   const dateLocale = locale === 'ar' ? 'ar-EG' : locale === 'es' ? 'es-ES' : locale === 'it' ? 'it-IT' : 'en-GB'
 
   return (

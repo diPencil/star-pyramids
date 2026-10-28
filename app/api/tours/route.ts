@@ -1,3 +1,4 @@
+import { validateTourPublication, validateTourWrite } from '@/lib/tour-write';
 import { decodeTourJson, encodeTourJson } from '@/lib/tour-json';
 import { preserveRecordSeo } from '@/lib/record-seo';
 import { applyLinkedOfferDeals } from '@/lib/server/special-offers';
@@ -103,7 +104,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid request origin.' }, { status: 403 });
   }
 
-  const data = await request.json();
+  let data: Record<string, any>;
+  try {
+    data = await request.json();
+    validateTourWrite(data, true);
+    if ((data.status ?? 'published') === 'published') validateTourPublication(data);
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof SyntaxError ? 'Invalid tour JSON.' : error instanceof Error ? error.message : 'Invalid tour data.' }, { status: 400 });
+  }
 
   // Validate required fields
   if (!data.title || !data.slug || !data.category || typeof data.price !== 'number') {
@@ -127,7 +135,9 @@ export async function POST(request: Request) {
     );
   }
 
-  const tour = await db.tour.create({
+  let tour;
+  try {
+    tour = await db.tour.create({
     data: encodeTourJson({
       slug: data.slug,
       aliases: data.aliases || [],
@@ -155,6 +165,12 @@ export async function POST(request: Request) {
       status: data.status || 'published',
     }),
   });
+
+  } catch (error) {
+    const code = (error as { code?: string }).code;
+    if (code === 'P2002' || code === 'P2025') return NextResponse.json({ error: 'Tour changed or its slug is already in use. Reload before saving.' }, { status: 409 });
+    throw error;
+  }
 
   return NextResponse.json({ tour: decodeTourJson((await applyLinkedOfferDeals([tour]))[0]) }, { status: 201 });
 }

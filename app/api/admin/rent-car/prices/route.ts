@@ -1,3 +1,4 @@
+import { rentCarFailure } from '@/lib/server/rent-car-errors';
 // Staff-only vehicle/route price management (Phase 2). These mutations are
 // never publicly exposed: read requires cars.edit and writes split across
 // cars.create/cars.edit/cars.delete, with same-origin CSRF on every mutation.
@@ -28,11 +29,12 @@ export async function POST(request: Request) {
   const originOk = isSameOriginRequest(request);
   if (!originOk) return NextResponse.json({ error: 'Invalid request origin.' }, { status: 403 });
 
-  const data = await request.json();
   try {
+    const data = await request.json();
     const created = await createCarRoutePrice(data);
     return NextResponse.json({ price: created }, { status: 201 });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Invalid request.' }, { status: 400 });
+    const failure = rentCarFailure(error);
+    return NextResponse.json({ error: failure.error }, { status: failure.status });
   }
 }

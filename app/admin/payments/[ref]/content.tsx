@@ -6,7 +6,7 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { AdminText, Card, StatusPill } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
-import { useAdminCurrency } from '@/components/admin/admin-currency'
+import { formatCurrency, TOUR_BOOKING_CURRENCY } from '@/lib/currency'
 import { toast } from '@/components/admin/admin-toaster'
 import { useCurrentUser } from '@/lib/use-current-user'
 import { SharedSelect } from '@/components/shared-select'
@@ -22,7 +22,8 @@ async function apiStaffPaymentDetail(reference: string): Promise<StaffPayment> {
 export function PaymentDetailContent({ reference }: { reference: string }) {
   const ar = useAdminLocale() === 'ar'
   // Display-only conversion of server USD amounts, like the storefront.
-  const { formatUsd } = useAdminCurrency()
+  const formatNative = (amount: number) => formatCurrency(amount, item?.currency, ar ? 'ar' : 'en')
+  const formatAccountingUsd = (amount: number) => formatCurrency(amount, TOUR_BOOKING_CURRENCY, ar ? 'ar' : 'en')
   const { user } = useCurrentUser()
   const canRecordRefund = user?.permissions?.includes('payments.edit') ?? false
   const [item, setItem] = useState<StaffPayment | null>(null)
@@ -119,8 +120,8 @@ export function PaymentDetailContent({ reference }: { reference: string }) {
         eyebrow="Orders"
         title={item.reference}
         titleAr={item.reference}
-        sub={`${paymentStatusLabel(item.status, ar)} · ${formatUsd(item.amount)}`}
-        subAr={`${paymentStatusLabel(item.status, ar)} · ${formatUsd(item.amount)}`}
+        sub={`${paymentStatusLabel(item.status, ar)} · ${formatNative(item.amount)}`}
+        subAr={`${paymentStatusLabel(item.status, ar)} · ${formatNative(item.amount)}`}
         backHref="/admin/payments"
       />
       <div className="evr-detail-grid">
@@ -130,9 +131,9 @@ export function PaymentDetailContent({ reference }: { reference: string }) {
               <div><dt><AdminText en="Reference" ar="المرجع" /></dt><dd><code dir="ltr">{item.reference}</code></dd></div>
               <div><dt><AdminText en="Status" ar="الحالة" /></dt><dd><StatusPill status={item.status} /> <span>{paymentStatusLabel(item.status, ar)}</span></dd></div>
               <div><dt><AdminText en="Booking" ar="الحجز" /></dt><dd><Link href={`/admin/bookings/${encodeURIComponent(item.bookingReference)}`}><code dir="ltr">{item.bookingReference}</code></Link></dd></div>
-              <div><dt><AdminText en="Amount due" ar="المبلغ المستحق" /></dt><dd><strong>{formatUsd(item.amount)}</strong></dd></div>
-              <div><dt><AdminText en="Amount paid" ar="المدفوع" /></dt><dd>{formatUsd(item.amountPaid)}</dd></div>
-              <div><dt><AdminText en="Amount refunded" ar="المسترد" /></dt><dd>{formatUsd(item.amountRefunded)}</dd></div>
+              <div><dt><AdminText en="Amount due" ar="المبلغ المستحق" /></dt><dd><strong>{formatNative(item.amount)}</strong></dd></div>
+              <div><dt><AdminText en="Amount paid" ar="المدفوع" /></dt><dd>{formatNative(item.amountPaid)}</dd></div>
+              <div><dt><AdminText en="Amount refunded" ar="المسترد" /></dt><dd>{formatNative(item.amountRefunded)}</dd></div>
               <div><dt><AdminText en="Provider" ar="المزود" /></dt><dd><span>{item.provider === 'pending' ? (ar ? 'بانتظار الربط (بدون بوابة بعد)' : 'Awaiting handoff (no gateway yet)') : item.provider}</span></dd></div>
               {item.providerPaymentId && <div><dt><AdminText en="Provider reference" ar="مرجع المزود" /></dt><dd><code dir="ltr">{item.providerPaymentId}</code></dd></div>}
               {item.failureCode && <div><dt><AdminText en="Failure" ar="سبب الفشل" /></dt><dd>{item.failureCode}{item.failureMessage ? ` - ${item.failureMessage}` : ''}</dd></div>}
@@ -150,7 +151,7 @@ export function PaymentDetailContent({ reference }: { reference: string }) {
               <p className="evr-manage-hint"><AdminText en="Booking and payment lifecycles are independent: a confirmed booking is not automatically paid." ar="دورتا الحجز والدفع مستقلتان: الحجز المؤكد ليس مدفوعًا تلقائيًا." /></p>
               <div className="evr-actions">
                 <Link className="sp-btn" href={`/admin/bookings/${encodeURIComponent(item.bookingReference)}`}><AdminText en="Open booking" ar="فتح الحجز" /></Link>
-                {canRecordRefund && (item.status === 'paid' || item.status === 'partially_refunded') && (
+                {canRecordRefund && item.currency === TOUR_BOOKING_CURRENCY && (item.status === 'paid' || item.status === 'partially_refunded') && (
                   <button type="button" className="sp-btn" onClick={openRefund}>
                     <AdminText en="Record refund" ar="تسجيل استرداد" />
                   </button>
@@ -166,8 +167,8 @@ export function PaymentDetailContent({ reference }: { reference: string }) {
         onConfirm={submitRefund}
         title={<AdminText en="Record offline refund" ar="تسجيل استرداد نقدي" />}
         description={<AdminText
-          en={`Paid ${formatUsd(item.amountPaid)} · refunded ${formatUsd(item.amountRefunded)} · refundable ${formatUsd(Math.max(0, item.amountPaid - item.amountRefunded))}. Record only money already returned.`}
-          ar={`المدفوع ${formatUsd(item.amountPaid)} · المسترد ${formatUsd(item.amountRefunded)} · القابل للاسترداد ${formatUsd(Math.max(0, item.amountPaid - item.amountRefunded))}. سجّل فقط المبالغ المعادة فعلًا.`}
+          en={`Paid ${formatAccountingUsd(item.amountPaid)} · refunded ${formatAccountingUsd(item.amountRefunded)} · refundable ${formatAccountingUsd(Math.max(0, item.amountPaid - item.amountRefunded))}. Record only money already returned.`}
+          ar={`المدفوع ${formatAccountingUsd(item.amountPaid)} · المسترد ${formatAccountingUsd(item.amountRefunded)} · القابل للاسترداد ${formatAccountingUsd(Math.max(0, item.amountPaid - item.amountRefunded))}. سجّل فقط المبالغ المعادة فعلًا.`}
         />}
         confirmLabel={<AdminText en={refSaving ? 'Recording…' : 'Record refund'} ar={refSaving ? 'جارٍ التسجيل…' : 'تسجيل الاسترداد'} />}
         cancelLabel={<AdminText en="Cancel" ar="إلغاء" />}

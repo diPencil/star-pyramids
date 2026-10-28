@@ -1,12 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Film, Plus } from 'lucide-react'
-import { PageHead } from '@/components/admin/admin-shell'
-import { AdminTableTools, AdminText, Card } from '@/components/admin/admin-ui'
-import { useAdminLocale } from '@/components/admin/admin-locale'
+import { GalleryPageHead as PageHead, GalleryText as AdminText, galleryText, useGalleryLocale } from '@/components/admin/gallery-text'
+import { AdminTableTools, Card } from '@/components/admin/admin-ui'
 import { toast } from '@/components/admin/admin-toaster'
 import { ImageField } from '@/components/admin/image-field'
 import { SharedSelect } from '@/components/shared-select'
@@ -110,8 +109,9 @@ function isCompatibleMediaUrl(mediaType: GalleryMediaType, url: string): boolean
   )
 }
 
-function VideoUploadField({ value, onChange, disabled }: { value: string; onChange: (url: string) => void; disabled?: boolean }) {
-  const ar = useAdminLocale() === 'ar'
+function VideoUploadField({ value, onChange, disabled, onUploadingChange }: { value: string; onChange: (url: string) => void; disabled?: boolean; onUploadingChange?: (value: boolean) => void }) {
+  const locale = useGalleryLocale(), ar = false
+  const t = (value: string) => galleryText(value, locale)
   const [error, setError] = useState('')
   const [uploading, setUploading] = useState(false)
   const onFile = async (files: FileList | null) => {
@@ -119,10 +119,11 @@ function VideoUploadField({ value, onChange, disabled }: { value: string; onChan
     if (!file || uploading || disabled) return
     const isVideo = file.type === 'video/mp4' || file.type === 'video/webm' || /\.mp4$/i.test(file.name) || /\.webm$/i.test(file.name)
     if (!isVideo || file.size > MAX_GALLERY_VIDEO_BYTES) {
-      setError(ar ? 'MP4 أو WebM فقط وبحد أقصى 5MB.' : 'MP4 or WebM only, max 5 MB.')
+      setError(t("MP4 or WebM only, max 5 MB."))
       return
     }
     setUploading(true)
+    onUploadingChange?.(true)
     setError('')
     try {
       const body = new FormData()
@@ -136,9 +137,10 @@ function VideoUploadField({ value, onChange, disabled }: { value: string; onChan
       }
       onChange(url)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : (ar ? 'تعذر رفع الفيديو.' : 'Could not upload that video.'), { dedupeKey: 'gallery-video-upload' })
+      toast.error(err instanceof Error ? err.message : (t("Could not upload that video.")), { dedupeKey: 'gallery-video-upload' })
     } finally {
       setUploading(false)
+      onUploadingChange?.(false)
     }
   }
   const source = value ? resolveGalleryVideoSource(value, 'direct') : null
@@ -146,7 +148,7 @@ function VideoUploadField({ value, onChange, disabled }: { value: string; onChan
     <div className="sp-image-source-grid">
       <label className="sp-image-url-field">
         <span><Film size={14} aria-hidden="true" /><AdminText en="Uploaded video" ar="الفيديو المرفوع" /></span>
-        <input value={value} readOnly dir="ltr" placeholder="/gallery-videos/…" disabled={disabled} aria-label={ar ? 'رابط الفيديو المرفوع' : 'Uploaded video URL'} />
+        <input value={value} readOnly dir="ltr" placeholder="/gallery-videos/…" disabled={disabled} aria-label={t("Uploaded video URL")} />
       </label>
       <div className="sp-image-upload-field">
         <span><Film size={14} aria-hidden="true" /><AdminText en="Upload MP4/WebM (max 5 MB)" ar="رفع MP4/WebM (بحد أقصى 5MB)" /></span>
@@ -168,7 +170,8 @@ function VideoUploadField({ value, onChange, disabled }: { value: string; onChan
 }
 
 export function GalleryForm({ initial, editId }: { initial: GalleryItem | null; editId: string }) {
-  const ar = useAdminLocale() === 'ar'
+  const locale = useGalleryLocale(), ar = false
+  const t = (value: string) => galleryText(value, locale)
   const router = useRouter()
   const editing = Boolean(editId)
   const [fields, setFields] = useState<GalleryEditorFields>(() => (initial ? galleryEditorFromItem(initial) : blankGalleryEditor('IMAGE')))
@@ -176,12 +179,16 @@ export function GalleryForm({ initial, editId }: { initial: GalleryItem | null; 
   const [tourQuery, setTourQuery] = useState('')
   const [saveError, setSaveError] = useState('')
   const [saving, setSaving] = useState(false)
+  const pending = useRef(false)
+  const uploadingRef = useRef(false)
+  const [mediaUploading, setMediaUploading] = useState(false)
+  const uploadState = (value: boolean) => { uploadingRef.current = value; setMediaUploading(value) }
 
   useEffect(() => {
     let cancelled = false
     ;(async () => {
       try {
-        const res = await fetch('/api/tours?all=1', { credentials: 'same-origin' })
+        const res = await fetch('/api/journey-gallery?tourChoices=1', { credentials: 'same-origin' })
         const data = (await res.json()) as { tours?: Array<{ slug?: unknown; title?: unknown }> }
         if (!cancelled && res.ok && Array.isArray(data.tours)) {
           setTours(data.tours.filter((t) => typeof t.slug === 'string' && typeof t.title === 'string').map((t) => ({ slug: t.slug as string, title: t.title as string })).sort((a, b) => a.title.localeCompare(b.title)))
@@ -210,12 +217,13 @@ export function GalleryForm({ initial, editId }: { initial: GalleryItem | null; 
   }
 
   const save = async () => {
-    if (saving) return
+    if (pending.current || uploadingRef.current) return
     setSaveError('')
     const payload = editorToPayload(fields)
     const known = tours.map((t) => t.slug)
     const check = validateGalleryPayload(payload, known.length ? { knownTourSlugs: known } : undefined)
     if (!check.ok) { setSaveError(check.error); return }
+    pending.current = true
     setSaving(true)
     try {
       const url = editing ? `/api/journey-gallery/${encodeURIComponent(editId)}` : '/api/journey-gallery'
@@ -228,11 +236,12 @@ export function GalleryForm({ initial, editId }: { initial: GalleryItem | null; 
       const data = (await res.json().catch(() => null)) as { error?: unknown } | null
       if (!res.ok) throw new Error(typeof data?.error === 'string' ? data.error : 'Could not save that item.')
       invalidateJourneyGalleryCache()
-      toast.success(editing ? (ar ? 'تم حفظ عنصر المعرض.' : 'Gallery item saved.') : (ar ? 'تمت إضافة عنصر المعرض.' : 'Gallery item added.'), { dedupeKey: 'gallery-form-save' })
+      toast.success(editing ? (t("Gallery item saved.")) : (t("Gallery item added.")), { dedupeKey: 'gallery-form-save' })
       router.push('/admin/gallery')
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : (ar ? 'تعذر حفظ العنصر.' : 'Could not save that item.'), { dedupeKey: 'gallery-form-save' })
+      toast.error(err instanceof Error ? err.message : (t("Could not save that item.")), { dedupeKey: 'gallery-form-save' })
     } finally {
+      pending.current = false
       setSaving(false)
     }
   }
@@ -252,7 +261,7 @@ export function GalleryForm({ initial, editId }: { initial: GalleryItem | null; 
       sub={editing ? `Editing ${fields.title || editId}` : 'Photos join the homepage row; videos join the homepage and tour pages'}
       subAr={editing ? `تعديل ${fields.title || editId}` : 'الصور لصف الرئيسية؛ الفيديوهات للرئيسية وصفحات الرحلات'}
       backHref="/admin/gallery"
-      actions={<button type="button" className="sp-btn primary" disabled={saving} onClick={() => void save()}>{saving ? <AdminText en="Saving…" ar="جارٍ الحفظ…" /> : <AdminText en={editing ? 'Save changes' : 'Create item'} ar={editing ? 'حفظ التعديلات' : 'إنشاء العنصر'} />}</button>}
+      actions={<button type="button" className="sp-btn primary" disabled={saving || mediaUploading} onClick={() => void save()}>{saving ? <AdminText en="Saving…" ar="جارٍ الحفظ…" /> : <AdminText en={editing ? 'Save changes' : 'Create item'} ar={editing ? 'حفظ التعديلات' : 'إنشاء العنصر'} />}</button>}
     />
     <Card title={<AdminText en={editing ? 'Edit gallery item' : 'New gallery item'} ar={editing ? 'تعديل عنصر' : 'عنصر جديد'} />} sub={<AdminText en="Changes appear on the website immediately after saving." ar="تظهر التغييرات على الموقع فور الحفظ." />}>
       <form
@@ -260,17 +269,18 @@ export function GalleryForm({ initial, editId }: { initial: GalleryItem | null; 
         noValidate
         onSubmit={(event) => { event.preventDefault(); void save() }}
       >
+        <fieldset disabled={saving || mediaUploading} style={{ border: 0, padding: 0, margin: 0, minWidth: 0, display: 'grid', gap: 20 }}>
         <div className="sp-form-2">
-          <label><AdminText en="Type" ar="النوع" /><SharedSelect value={fields.mediaType} onChange={(next) => switchMediaType(next as GalleryMediaType)} locale={ar ? 'ar' : 'en'} label={ar ? 'النوع' : 'Type'} options={[{ value: 'IMAGE', label: ar ? 'صورة (صف الرئيسية)' : 'Photo (homepage row)' }, { value: 'VIDEO', label: ar ? 'فيديو' : 'Video' }]} /></label>
+          <label><AdminText en="Type" ar="النوع" /><SharedSelect value={fields.mediaType} onChange={(next) => switchMediaType(next as GalleryMediaType)} locale={locale} label={t("Type")} options={[{ value: 'IMAGE', label: t("Photo (homepage row)") }, { value: 'VIDEO', label: t("Video") }]} /></label>
           <label><AdminText en="Order" ar="الترتيب" /><input type="number" min={0} max={999999} value={fields.sortOrder} onChange={(e) => setFields({ ...fields, sortOrder: e.target.value })} dir="ltr" /></label>
         </div>
-        {fields.mediaType === 'IMAGE' ? <ImageField value={fields.mediaUrl} onChange={(mediaUrl) => setFields({ ...fields, mediaUrl })} previewAlt={fields.title} linkLabel={{ en: 'Image URL or upload', ar: 'رابط الصورة أو رفعها' }} uploadLabel={{ en: 'Upload photo', ar: 'رفع صورة' }} /> : <>
+        {fields.mediaType === 'IMAGE' ? <ImageField locale={locale} onUploadingChange={uploadState} value={fields.mediaUrl} onChange={(mediaUrl) => setFields({ ...fields, mediaUrl })} previewAlt={fields.title} linkLabel={{ en: t('Image URL or upload'), ar: 'رابط الصورة أو رفعها' }} uploadLabel={{ en: t('Upload photo'), ar: 'رفع صورة' }} /> : <>
           <div className="sp-form-2">
-            <label><AdminText en="Video source" ar="مصدر الفيديو" /><SharedSelect value={fields.videoMode} onChange={(next) => setFields({ ...fields, videoMode: next as 'upload' | 'link' })} locale={ar ? 'ar' : 'en'} label={ar ? 'مصدر الفيديو' : 'Video source'} options={[{ value: 'upload', label: ar ? 'رفع ملف (MP4/WebM حتى 5MB)' : 'Upload file (MP4/WebM up to 5 MB)' }, { value: 'link', label: ar ? 'رابط سوشيال' : 'Social link' }]} /></label>
-            <div><span style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}><AdminText en="Detected platform" ar="المنصة المكتشفة" /></span><strong>{fields.mediaUrl.trim() && fields.videoMode === 'link' ? (linkHint ? galleryPlatformLabel(linkHint.platform) : (ar ? 'رابط غير مدعوم' : 'Unsupported link')) : fields.mediaUrl.trim() ? (ar ? 'ملف مرفوع' : 'Uploaded file') : '-'}</strong></div>
+            <label><AdminText en="Video source" ar="مصدر الفيديو" /><SharedSelect value={fields.videoMode} onChange={(next) => setFields({ ...fields, videoMode: next as 'upload' | 'link' })} locale={locale} label={t("Video source")} options={[{ value: 'upload', label: t("Upload file (MP4/WebM up to 5 MB)") }, { value: 'link', label: t("Social link") }]} /></label>
+            <div><span style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}><AdminText en="Detected platform" ar="المنصة المكتشفة" /></span><strong>{fields.mediaUrl.trim() && fields.videoMode === 'link' ? (linkHint ? galleryPlatformLabel(linkHint.platform) : (t("Unsupported link"))) : fields.mediaUrl.trim() ? (t("Uploaded file")) : '-'}</strong></div>
           </div>
           {fields.videoMode === 'upload'
-            ? <VideoUploadField value={fields.mediaUrl} onChange={(mediaUrl) => setFields({ ...fields, mediaUrl })} />
+            ? <VideoUploadField onUploadingChange={uploadState} value={fields.mediaUrl} onChange={(mediaUrl) => setFields({ ...fields, mediaUrl })} />
             : <label><AdminText en="Social video URL (YouTube, Instagram, Facebook, TikTok)" ar="رابط فيديو سوشيال (يوتيوب، انستجرام، فيسبوك، تيك توك)" /><input value={fields.mediaUrl} onChange={(e) => setFields({ ...fields, mediaUrl: e.target.value })} dir="ltr" inputMode="url" placeholder="https://…" /></label>}
           {linkInvalid ? <p className="sp-image-error" role="alert"><AdminText en="Enter a supported public video link, or switch to file upload." ar="أدخل رابط فيديو عام مدعوم، أو استخدم رفع الملفات." /></p> : null}
         </>}
@@ -279,16 +289,16 @@ export function GalleryForm({ initial, editId }: { initial: GalleryItem | null; 
           <label><AdminText en="Arabic title (optional)" ar="العنوان بالعربية (اختياري)" /><input value={fields.titleAr} onChange={(e) => setFields({ ...fields, titleAr: e.target.value })} maxLength={200} /></label>
         </div>
         <label><AdminText en="Caption (optional)" ar="وصف مختصر (اختياري)" /><input value={fields.caption} onChange={(e) => setFields({ ...fields, caption: e.target.value })} maxLength={500} /></label>
-        {(fields.mediaType === 'VIDEO') ? <ImageField value={fields.thumbnail} onChange={(thumbnail) => setFields({ ...fields, thumbnail })} previewAlt={fields.title} preview="compact" linkLabel={{ en: 'Poster / thumbnail URL (optional)', ar: 'رابط الصورة المصغرة (اختياري)' }} uploadLabel={{ en: 'Upload poster', ar: 'رفع صورة مصغرة' }} /> : null}
+        {(fields.mediaType === 'VIDEO') ? <ImageField value={fields.thumbnail} onChange={(thumbnail) => setFields({ ...fields, thumbnail })} previewAlt={fields.title} preview="compact" linkLabel={{ en: t('Poster / thumbnail URL (optional)'), ar: 'رابط الصورة المصغرة (اختياري)' }} uploadLabel={{ en: t('Upload poster'), ar: 'رفع صورة مصغرة' }} /> : null}
         <div className="sp-form-2">
-          <label className="sp-check-row"><input type="checkbox" checked={fields.showOnHomepage} onChange={(e) => setFields({ ...fields, showOnHomepage: e.target.checked })} /><span><AdminText en="Show on homepage" ar="عرض في الرئيسية" /><small>{fields.mediaType === 'IMAGE' ? (ar ? 'صف الصور' : 'Photo row') : (ar ? 'صف الفيديوهات' : 'Video row')}</small></span></label>
+          <label className="sp-check-row"><input type="checkbox" checked={fields.showOnHomepage} onChange={(e) => setFields({ ...fields, showOnHomepage: e.target.checked })} /><span><AdminText en="Show on homepage" ar="عرض في الرئيسية" /><small>{fields.mediaType === 'IMAGE' ? (t("Photo row")) : (t("Video row"))}</small></span></label>
           {fields.mediaType === 'VIDEO' ? <label className="sp-check-row"><input type="checkbox" checked={fields.showOnTours} onChange={(e) => setFields({ ...fields, showOnTours: e.target.checked })} /><span><AdminText en="Show on tour pages" ar="عرض في صفحات الرحلات" /></span></label> : null}
         </div>
         {fields.mediaType === 'VIDEO' && fields.showOnTours ? <>
-          <label><AdminText en="Tour visibility" ar="ظهور الرحلات" /><SharedSelect value={fields.tourScope} onChange={(next) => setFields({ ...fields, tourScope: next as 'ALL_TOURS' | 'SELECTED_TOURS', tourSlugs: next === 'ALL_TOURS' ? [] : fields.tourSlugs })} locale={ar ? 'ar' : 'en'} label={ar ? 'ظهور الرحلات' : 'Tour visibility'} options={[{ value: 'ALL_TOURS', label: ar ? 'كل الرحلات' : 'All tours' }, { value: 'SELECTED_TOURS', label: ar ? 'رحلات محددة' : 'Selected tours' }]} /></label>
+          <label><AdminText en="Tour visibility" ar="ظهور الرحلات" /><SharedSelect value={fields.tourScope} onChange={(next) => setFields({ ...fields, tourScope: next as 'ALL_TOURS' | 'SELECTED_TOURS', tourSlugs: next === 'ALL_TOURS' ? [] : fields.tourSlugs })} locale={locale} label={t("Tour visibility")} options={[{ value: 'ALL_TOURS', label: t("All tours") }, { value: 'SELECTED_TOURS', label: t("Selected tours") }]} /></label>
           {fields.tourScope === 'SELECTED_TOURS' ? <div>
             <strong style={{ display: 'block', marginBottom: 8 }}><AdminText en="Assign to tours (one video, many tours, never duplicated)" ar="إسناد لرحلات (فيديو واحد لعدة رحلات، بدون تكرار)" /></strong>
-            <AdminTableTools query={tourQuery} onQueryChange={setTourQuery} placeholder={ar ? 'ابحث في الرحلات...' : 'Search tours...'}>
+            <AdminTableTools query={tourQuery} onQueryChange={setTourQuery} placeholder={t("Search tours...")}>
               <button type="button" className="sp-btn" onClick={() => setFields({ ...fields, tourSlugs: visibleTours.map((t) => t.slug) })}><AdminText en="Select shown" ar="تحديد الظاهرة" /></button>
               <button type="button" className="sp-btn" onClick={() => setFields({ ...fields, tourSlugs: [] })}><AdminText en="Clear" ar="مسح" /></button>
             </AdminTableTools>
@@ -301,9 +311,10 @@ export function GalleryForm({ initial, editId }: { initial: GalleryItem | null; 
         <label className="sp-check-row"><input type="checkbox" checked={fields.isPublished} onChange={(e) => setFields({ ...fields, isPublished: e.target.checked })} /><span><AdminText en="Published (visible on the website)" ar="منشور (ظاهر على الموقع)" /></span></label>
         {saveError ? <p className="sp-image-error" role="alert">{saveError}</p> : null}
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button type="submit" className="sp-btn primary" disabled={saving}>{saving ? <AdminText en="Saving…" ar="جارٍ الحفظ…" /> : <AdminText en={editing ? 'Save changes' : 'Create item'} ar={editing ? 'حفظ التعديلات' : 'إنشاء العنصر'} />}</button>
+          <button type="submit" className="sp-btn primary" disabled={saving || mediaUploading}>{saving ? <AdminText en="Saving…" ar="جارٍ الحفظ…" /> : <AdminText en={editing ? 'Save changes' : 'Create item'} ar={editing ? 'حفظ التعديلات' : 'إنشاء العنصر'} />}</button>
           <Link className="sp-btn" href="/admin/gallery"><AdminText en="Cancel" ar="إلغاء" /></Link>
         </div>
+        </fieldset>
       </form>
     </Card>
   </>

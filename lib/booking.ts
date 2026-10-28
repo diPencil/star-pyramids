@@ -68,8 +68,8 @@ export type BookingContact = {
 /**
  * Server-issued booking view (MySQL-backed). `reference` is the official
  * public reference (`SP-BK-…`); database IDs are never exposed.
- * Amounts are USD base dollars; the UI formats them into the active
- * display currency. The contact block is the historical snapshot taken
+ * Amounts retain their stored currency, including historical records.
+ * The contact block is the historical snapshot taken
  * at checkout.
  */
 export type Booking = {
@@ -89,7 +89,7 @@ export type Booking = {
   subtotal: number
   discount: number
   total: number
-  currency: 'USD'
+  currency: string
   contact: BookingContact
   notes: string
   lines: BookingLine[]

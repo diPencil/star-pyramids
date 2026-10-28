@@ -362,6 +362,7 @@ model CarRequest {
   quoteBasis          String?              @db.VarChar(16) // legs | multiplier | manual
   quoteRoundTripCents Int?                 // full round-trip figure when tripType = ROUND_TRIP
   quotedAt            DateTime?
+  quotePricingMetadata String?            @db.LongText
 
   // Phantom relation referenced by CarRoute for integrity-free history.
   route CarRoute? @relation(fields: [routeId], references: [id], onDelete: SetNull, onUpdate: Cascade)
@@ -1046,6 +1047,7 @@ model Car {
   updatedAt    DateTime @updatedAt
 
   routePrices  CarRoutePrice[]
+  pricingConfigurations CarRoutePricing[]
 
   @@map("cars")
 }
@@ -1089,6 +1091,7 @@ model CarRoute {
   origin          CarLocation @relation("carRouteOrigin", fields: [originSlug], references: [slug], onDelete: Restrict, onUpdate: Cascade)
   destination     CarLocation @relation("carRouteDestination", fields: [destinationSlug], references: [slug], onDelete: Restrict, onUpdate: Cascade)
   prices          CarRoutePrice[]
+  pricingConfigurations CarRoutePricing[]
 
   @@unique([originSlug, destinationSlug])
   @@index([destinationSlug])
@@ -1111,12 +1114,36 @@ model CarRoute {
 ///               A reverse route is never assumed to cost the same.
 /// `carSlug` is an FK to cars.slug (deleting a vehicle removes its derived
 /// price rows); `routeId` is Restrict so pricing never silently loses its
-/// route. One price row per (route, vehicle).
+/// route. Pricing mode and currency belong to the unique vehicle-route parent;
+/// its tier rows cover non-overlapping passenger ranges.
+enum CarPricingMode {
+  FIXED_TOTAL
+  PER_PERSON
+}
+
+model CarRoutePricing {
+  id          String @id @default(cuid())
+  routeId     String
+  carSlug     String @db.VarChar(80)
+  currency    String @default("USD") @db.Char(3)
+  pricingMode CarPricingMode @default(FIXED_TOTAL)
+  car         Car @relation(fields: [carSlug], references: [slug], onDelete: Cascade, onUpdate: Cascade)
+  route       CarRoute @relation(fields: [routeId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  tiers       CarRoutePrice[]
+
+  @@unique([routeId, carSlug])
+  @@unique([routeId, carSlug, currency])
+  @@index([carSlug])
+  @@map("car_route_pricing")
+}
+
 model CarRoutePrice {
   id                    String           @id @default(cuid())
   routeId               String
   carSlug               String           @db.VarChar(80)
   currency              String           @default("USD") @db.Char(3)
+  minPassengers         Int              @default(1)
+  maxPassengers         Int
   oneWayCents           Int
   roundTripMode         CarRoundTripMode @default(AUTOMATIC)
   roundTripCents        Int?
@@ -1126,8 +1153,9 @@ model CarRoutePrice {
   updatedAt             DateTime         @updatedAt
   car                   Car              @relation(fields: [carSlug], references: [slug], onDelete: Cascade, onUpdate: Cascade)
   route                 CarRoute         @relation(fields: [routeId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  configuration         CarRoutePricing @relation(fields: [routeId, carSlug, currency], references: [routeId, carSlug, currency], onDelete: Cascade, onUpdate: Cascade, map: "car_route_prices_configuration_fkey")
 
-  @@unique([routeId, carSlug])
+  @@unique([routeId, carSlug, minPassengers, maxPassengers])
   @@index([carSlug])
   @@index([isActive])
   @@map("car_route_prices")

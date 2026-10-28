@@ -110,7 +110,7 @@ const shared = vi.hoisted(() => {
           }
           if (sql.includes('FROM bookings')) {
             const booking = [...shared.store.bookings.values()].find((row) => row.reference === values[0])
-            return booking ? [{ id: booking.id, status: shared.store.bookingStatusForRaw, total: booking.total }] : []
+            return booking ? [{ id: booking.id, status: shared.store.bookingStatusForRaw, total: booking.total, currency: booking.currency }] : []
           }
           return []
         },

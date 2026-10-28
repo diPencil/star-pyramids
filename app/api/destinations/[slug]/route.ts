@@ -14,13 +14,21 @@ export async function GET(
 ) {
   // Public: view a single destination by slug
   const { slug } = await params;
+  const admin = new URL(request.url).searchParams.get('admin') === '1';
+  if (admin) {
+    const user = await getCurrentUser();
+    if (!user) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+    if (!hasPermission(user, 'destinations.view') && !hasPermission(user, 'destinations.edit')) {
+      return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
+    }
+  }
   const destination = await db.destination.findUnique({ where: { slug } });
 
-  if (!destination) {
+  if (!destination || (!admin && !destination.isPublished)) {
     return NextResponse.json({ notFound: true }, { status: 404 });
   }
 
-  return NextResponse.json(await catalogueTranslationResponse('destination', { destination }));
+  return NextResponse.json(await catalogueTranslationResponse('destination', { destination }), { headers: { 'Cache-Control': 'private, no-store' } });
 }
 
 export async function PUT(

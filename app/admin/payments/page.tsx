@@ -7,7 +7,7 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableTools, AdminTableWrap, AdminText, Avatar, Card, StatusPill } from '@/components/admin/admin-ui'
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 import { useAdminLocale } from '@/components/admin/admin-locale'
-import { useAdminCurrency } from '@/components/admin/admin-currency'
+import { formatCurrency } from '@/lib/currency'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
 import { PAYMENT_STATUSES, paymentStatusLabel, type PaymentStatus, type StaffPayment } from '@/lib/payment'
 
@@ -18,6 +18,7 @@ const statusTabs = [
 
 type Row = {
   reference: string
+  currency: string
   booking: string
   customer: string
   amount: number
@@ -30,6 +31,7 @@ type Row = {
 function toRow(payment: StaffPayment): Row {
   return {
     reference: payment.reference,
+    currency: payment.currency,
     booking: payment.bookingReference,
     customer: payment.account?.name || payment.account?.email || '-',
     amount: payment.amount,
@@ -49,7 +51,6 @@ function toRow(payment: StaffPayment): Row {
 export default function PaymentsPage() {
   const ar = useAdminLocale() === 'ar'
   // Display-only conversion of server USD amounts, like the storefront.
-  const { formatUsd } = useAdminCurrency()
   const [payments, setPayments] = useState<StaffPayment[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -82,9 +83,11 @@ export default function PaymentsPage() {
     .filter((row) => `${row.reference} ${row.booking} ${row.customer}`.toLowerCase().includes(query.trim().toLowerCase())), [rows, filter, query])
   // "Collected" should only count net paid money (paid - refunded).
   // REFUNDED and PARTIALLY_REFUNDED payments are settled money that was returned.
-  const collected = rows
-    .filter((row) => row.status === 'paid' || row.status === 'partially_refunded' || row.status === 'refunded')
-    .reduce((sum, row) => sum + row.paid - row.amountRefunded, 0)
+  const collected = new Map<string, number>()
+  for (const row of rows.filter((row) => row.status === 'paid' || row.status === 'partially_refunded' || row.status === 'refunded')) {
+    collected.set(row.currency, (collected.get(row.currency) ?? 0) + row.paid - row.amountRefunded)
+  }
+  const collectedLabel = [...collected].map(([code, amount]) => formatCurrency(amount, code, ar ? 'ar' : 'en')).join(' · ') || formatCurrency(0, 'USD')
   const paymentSort = useAdminTableSort(visible, {
     reference: (row) => row.reference, booking: (row) => row.booking, customer: (row) => row.customer,
     amount: (row) => row.amount, paid: (row) => row.paid, status: (row) => row.status, createdAt: (row) => row.createdAt,
@@ -97,7 +100,7 @@ export default function PaymentsPage() {
       <AdminStats items={[
         { label: <AdminText en="All payments" ar="كل المدفوعات" />, value: loading ? '…' : rows.length, note: <AdminText en="Stored payment records" ar="سجلات الدفع المحفوظة" />, icon: CreditCard },
         { label: <AdminText en="Awaiting provider" ar="بانتظار المزود" />, value: loading ? '…' : rows.filter((row) => row.status === 'pending' || row.status === 'processing').length, note: <AdminText en="Pending handoff" ar="بانتظار التحويل" />, icon: Clock3, tone: 'orange' },
-        { label: <AdminText en="Collected" ar="المحصّل" />, value: loading ? '…' : formatUsd(collected), note: <AdminText en="Converted from server USD" ar="محولة من الدولار المسجل في الخادم" />, icon: CircleDollarSign, tone: 'green' },
+        { label: <AdminText en="Collected" ar="المحصّل" />, value: loading ? '…' : collectedLabel, note: <AdminText en="Totals by stored currency" ar="الإجماليات حسب العملة المحفوظة" />, icon: CircleDollarSign, tone: 'green' },
         { label: <AdminText en="Records" ar="السجلات" />, value: loading ? '…' : rows.length, note: <AdminText en="Immutable history" ar="سجل غير قابل للتعديل" />, icon: ReceiptText, tone: 'violet' },
       ]} />
       <Card title={<AdminText en="All payments" ar="كل المدفوعات" />} sub={<AdminText en={`${visible.length} of ${rows.length} payments shown`} ar={`عرض ${visible.length} من ${rows.length} مدفوعات`} />}>
@@ -117,7 +120,7 @@ export default function PaymentsPage() {
                   <td><span className="sp-cust"><Avatar name={b.customer} src="" size={32} /><span><strong dir="ltr">{b.reference}</strong><small>{paymentStatusLabel(b.status, ar)}</small></span></span></td>
                   <td><Link href={`/admin/bookings/${encodeURIComponent(b.booking)}`}>{b.booking}</Link></td>
                   <td>{b.customer}</td>
-                  <td>{formatUsd(b.amount)}</td>
+                  <td>{formatCurrency(b.amount, b.currency, ar ? 'ar' : 'en')}</td>
                   <td><StatusPill status={b.status} /></td>
                   <td>{b.createdAt}</td>
                   <td><AdminTableActions>

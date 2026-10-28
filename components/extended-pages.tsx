@@ -1,4 +1,5 @@
 'use client'
+import { carTripTypeForKey } from '@/lib/car-request'
 import { CmsPublicLink } from '@/components/cms-public-link'
 
 import { usePresentation, PresentationSection, PresentationOrder, useSharedFaqs } from '@/components/presentation-content-context'
@@ -18,17 +19,21 @@ import { isOfferActive, offerHref } from '@/lib/special-offers'
 import { getActiveDealPercent } from '@/data/tours'
 import { useBrandSettings } from '@/lib/admin-store'
 import { vehicleTransmissionLabel } from '@/lib/catalogue-translations'
-import { useDbCars, useDbEvents } from '@/lib/events-cars-client'
+import { useDbCars, useDbCarsStatus, useDbEvents } from '@/lib/events-cars-client'
+import { useCarQuote } from '@/lib/car-quote-client'
+import { CarQuoteSummary } from './car-quote-summary'
+import { parseVehicleCapacity } from '@/lib/car-request'
 import { useDbBlogs, useDbOffers, useDbOffersStatus } from '@/lib/offers-blogs-client'
 import { useDbDestinations } from '@/lib/catalogue-client'
 import { useDbTours } from '@/lib/tours-client'
 import { eventCity, eventMapQuery, eventPriceLabel, eventStatusLabel, getEventStatus, getPublishedEvents, getRelatedEvents, isEventPublished, parseLegacyEventRange, resolveEventRange } from '@/lib/events'
+import { formatCurrency } from '@/lib/currency'
 import { EventRequestForm } from './event-request-form'
 import { phoneHref, whatsappHref } from '@/data/company'
 import { catalogTours, getDealPrice, getToursBySlugs } from '@/data/tours'
 import type { Blog, Car, Event, Offer, Tour } from '@/data/types'
 import { parseCarRequestQuery, parseSearchQuery } from '@/lib/query'
-import { CAR_LOCATION_MAX, CAR_NOTE_MAX, formatQuoteAmount, hasCarErrors, isCarReference, sanitizeCarDraft, validateCarRequest, type CarFieldErrors, type CarRequest, type CarRequestDraft } from '@/lib/car-request'
+import { CAR_LOCATION_MAX, CAR_NOTE_MAX, hasCarErrors, isCarReference, sanitizeCarDraft, validateCarRequest, type CarFieldErrors, type CarRequest, type CarRequestDraft } from '@/lib/car-request'
 import { ImpersonationBanner } from './impersonation-banner'
 import { useLocale, formatPrice, tx, type Locale } from './locale'
 import { Breadcrumb, Heading, HelpCTA, Logo, PageShowcaseHero, SiteShell, TourCard, extra, images } from '@/components/site'
@@ -384,37 +389,27 @@ function carLocationDisplayName(slug: string, customText: string, list: CarLocat
 }
 
 /** Joined chauffeur locations — public API; on failure use the legacy free-text flow. */
-function useCarLocations(): CarLocationOption[] {
+function useCarLocations() {
   const [locations, setLocations] = useState<CarLocationOption[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+  const [version, setVersion] = useState(0)
   useEffect(() => {
     let cancelled = false
+    setLoading(true); setError(false)
     fetch('/api/rent-car/locations', { credentials: 'same-origin' })
       .then(async (res) => {
-        if (!res.ok) return
+        if (!res.ok) throw new Error('Locations unavailable')
         const data = (await res.json()) as { locations?: CarLocationOption[] }
         if (!cancelled) setLocations(Array.isArray(data.locations) ? data.locations : [])
       })
-      .catch(() => { /* empty list falls back to the legacy free-text locations */ })
+      .catch(() => { if (!cancelled) setError(true) })
+      .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [])
-  return locations
+  }, [version])
+  return { locations, loading, error, retry: () => setVersion(value => value + 1) }
 }
 
-type CarQuoteView =
-  | { kind: 'quote'; currency: string; cents: number; basis: string }
-  | { kind: 'por' }
-  | { kind: 'unavailable' }
-  | null
-
-function carQuoteBasisLabel(basis: string, locale: Locale): string {
-  const map: Record<string, { en: string; es: string; it: string; ar: string }> = {
-    legs: { en: 'outbound + real return leg', es: 'ida + tramo real de regreso', it: 'andata + tratta reale di ritorno', ar: 'ذهاب + مسار العودة الحقيقي' },
-    multiplier: { en: 'outbound × fixed multiplier', es: 'ida × multiplicador fijo', it: 'andata × moltiplicatore fisso', ar: 'ذهاب × معامل ثابت' },
-    manual: { en: 'fixed round-trip rate', es: 'tarifa fija de ida y vuelta', it: 'tariffa fissa andata e ritorno', ar: 'سعر ثابت ذهاب وعودة' },
-  }
-  const entry = map[basis]
-  return entry ? tx(locale, entry) : ''
-}
 
 function carTodayLocal(): string {
   const now = new Date()
@@ -430,10 +425,11 @@ function focusCarField(id: string) {
   }
 }
 
-function CarRequestForm({ values, errors, summary, submitting, editing, locations, onChange, onSubmit }: { values: CarRequestValues; errors: CarFieldErrors; summary: string; submitting: boolean; editing: boolean; locations: CarLocationOption[]; onChange: (patch: Partial<CarRequestValues>) => void; onSubmit: (e: React.FormEvent) => void }) {
+export function CarRequestForm({ values, errors, summary, submitting, editing, locations, onChange, onSubmit }: { values: CarRequestValues; errors: CarFieldErrors; summary: string; submitting: boolean; editing: boolean; locations: CarLocationOption[]; onChange: (patch: Partial<CarRequestValues>) => void; onSubmit: (e: React.FormEvent) => void }) {
   const { locale } = useLocale()
   const ar = locale === 'ar'
-  const liveCars = useDbCars(cars)
+  const fleet = useDbCarsStatus()
+  const liveCars = fleet.data ?? []
   const today = carTodayLocal()
   const errText = (field: keyof CarFieldErrors): string => {
     const code = errors[field]
@@ -502,10 +498,11 @@ function CarRequestForm({ values, errors, summary, submitting, editing, location
     return tx(locale, { en: en[field], es: esText[field], it: itText[field], ar: arText[field] })
   }
   return <form className="contact-form" onSubmit={onSubmit} noValidate>
+    <fieldset aria-label={tx(locale, { en: 'Transfer request details', es: 'Datos de la solicitud de traslado', it: 'Dettagli della richiesta di trasferimento' })} disabled={submitting} style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
     {summary !== '' && <p className="co-error" role="alert" style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 6px' }}><CircleAlert size={15} />{summary}</p>}
     <div className="form-grid">
       <label className="full" htmlFor="car-vehicle">{tx(locale, { en: 'Vehicle', es: 'Vehículo', it: 'Veicolo', ar: 'السيارة' })} <em className="req" aria-hidden="true">*</em><SharedSelect id="car-vehicle" value={values.vehicleSlug} onChange={(next) => onChange({ vehicleSlug: next })} locale={locale} invalid={Boolean(errors.vehicle)} describedBy={errors.vehicle ? 'car-vehicle-error' : undefined} options={[{ value: '', label: tx(locale, { en: 'Select a vehicle', es: 'Selecciona un vehículo', it: 'Seleziona un veicolo', ar: 'اختر السيارة' }) }, ...liveCars.filter((c) => c.isPublished !== false).map((c) => ({ value: c.slug, label: `${c.title} · ${c.seats}` }))]} />{errors.vehicle && <span className="field-error" id="car-vehicle-error" role="alert">{errText('vehicle')}</span>}</label>
-      <div className="full req-trip-type"><span id="req-trip-label">{tx(locale, { en: 'Trip type', es: 'Tipo de viaje', it: 'Tipo di viaggio', ar: 'نوع الرحلة' })} <em className="req" aria-hidden="true">*</em></span><div role="radiogroup" aria-labelledby="req-trip-label" aria-describedby={errors.tripType ? 'car-triptype-error' : undefined}>{(['One Way', 'Round Trip'] as const).map((opt) => <button key={opt} type="button" role="radio" aria-checked={values.tripType === opt} className={values.tripType === opt ? 'active' : ''} onClick={() => onChange({ tripType: values.tripType === opt ? '' : opt })}>{opt === 'One Way' ? (tx(locale, { en: 'One Way', es: 'Solo ida', it: 'Solo andata', ar: 'ذهاب فقط' })) : (tx(locale, { en: 'Round Trip', es: 'Ida y vuelta', it: 'Andata e ritorno', ar: 'ذهاب وعودة' }))}</button>)}</div>{errors.tripType && <span className="field-error" id="car-triptype-error" role="alert">{errText('tripType')}</span>}</div>
+      <div className="full req-trip-type"><span id="req-trip-label">{tx(locale, { en: 'Trip type', es: 'Tipo de viaje', it: 'Tipo di viaggio', ar: 'نوع الرحلة' })} <em className="req" aria-hidden="true">*</em></span><div role="radiogroup" aria-labelledby="req-trip-label" aria-describedby={errors.tripType ? 'car-triptype-error' : undefined}>{(['One Way', 'Round Trip'] as const).map((opt) => <button key={opt} type="button" role="radio" aria-checked={values.tripType === opt} tabIndex={values.tripType === opt || (!values.tripType && opt === 'One Way') ? 0 : -1} onKeyDown={event => { const next = carTripTypeForKey(values.tripType, event.key); if (next) { event.preventDefault(); onChange({ tripType: next }); event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('button')[next === 'One Way' ? 0 : 1]?.focus() } }} className={values.tripType === opt ? 'active' : ''} onClick={() => onChange({ tripType: opt })}>{opt === 'One Way' ? (tx(locale, { en: 'One Way', es: 'Solo ida', it: 'Solo andata', ar: 'ذهاب فقط' })) : (tx(locale, { en: 'Round Trip', es: 'Ida y vuelta', it: 'Andata e ritorno', ar: 'ذهاب وعودة' }))}</button>)}</div>{errors.tripType && <span className="field-error" id="car-triptype-error" role="alert">{errText('tripType')}</span>}</div>
       {locations.length > 0 ? <>
         <label className="full" htmlFor="car-pickup">{tx(locale, { en: 'Pick-up location', es: 'Lugar de recogida', it: 'Luogo di ritiro', ar: 'مكان الاستلام' })} <em className="req" aria-hidden="true">*</em><SharedSelect id="car-pickup" value={values.pickupLocationSlug} onChange={(next) => onChange({ pickupLocationSlug: next })} locale={locale} invalid={Boolean(errors.pickup)} describedBy={errors.pickup ? 'car-pickup-error' : undefined} options={[{ value: '', label: tx(locale, { en: 'Select a pick-up location', es: 'Selecciona un lugar de recogida', it: 'Seleziona il luogo di ritiro', ar: 'اختر مكان الاستلام' }) }, ...locations.map((item) => ({ value: item.slug, label: `${carLocationName(item, locale)}${item.kind !== 'CUSTOM' ? ` · ${carLocationKindLabel(item.kind, locale)}` : ''}` })), { value: CAR_OTHER_LOCATION, label: tx(locale, { en: 'Other — enter address manually', es: 'Otro — introducir dirección manualmente', it: 'Altro — inserisci l\'indirizzo manualmente', ar: 'أخرى — أدخل العنوان يدويًا' }) }]} />{errors.pickup && <span className="field-error" id="car-pickup-error" role="alert">{errText('pickup')}</span>}</label>
         {values.pickupLocationSlug === '' ? <label className="full" htmlFor="car-pickup-custom">{tx(locale, { en: 'Pick-up address (custom)', es: 'Dirección de recogida (personalizada)', it: 'Indirizzo di ritiro (personalizzato)', ar: 'عنوان الاستلام (مخصص)' })}<input id="car-pickup-custom" placeholder={tx(locale, { en: 'Airport, hotel, or city', es: 'Aeropuerto, hotel o ciudad', it: 'Aeroporto, hotel o città', ar: 'المطار أو الفندق أو المدينة' })} maxLength={CAR_LOCATION_MAX} value={values.pickup} onChange={(e) => onChange({ pickup: e.target.value })} /></label> : null}
@@ -528,7 +525,8 @@ function CarRequestForm({ values, errors, summary, submitting, editing, location
       <label htmlFor="car-phone">{tx(locale, { en: 'Phone', es: 'Teléfono', it: 'Telefono', ar: 'رقم الهاتف' })} <em className="req" aria-hidden="true">*</em><InternationalPhoneInput id="car-phone" required value={values.phone} onChange={(phone) => onChange({ phone })} locale={locale} invalid={Boolean(errors.phone)} describedBy={errors.phone ? 'car-phone-error' : undefined} />{errors.phone && <span className="field-error" id="car-phone-error" role="alert">{errText('phone')}</span>}</label>
       <label className="full" htmlFor="car-notes">{tx(locale, { en: 'Notes (optional)', es: 'Notas (opcional)', it: 'Note (facoltativo)', ar: 'ملاحظات (اختياري)' })}<textarea id="car-notes" placeholder={tx(locale, { en: 'Tell us about your route', es: 'Cuéntanos tu ruta', it: 'Raccontaci il tuo itinerario', ar: 'حدثنا عن خط سيرك' })} maxLength={CAR_NOTE_MAX + 1} value={values.notes} onChange={(e) => onChange({ notes: e.target.value })} aria-invalid={Boolean(errors.notes)} aria-describedby={errors.notes ? 'car-notes-error' : 'car-notes-hint'} />{errors.notes && <span className="field-error" id="car-notes-error" role="alert">{errText('notes')}</span>}<small id="car-notes-hint" style={{ color: 'var(--muted)', fontWeight: 500 }}>{values.notes.length}/{CAR_NOTE_MAX}</small></label>
     </div>
-    <button className="primary-btn" type="submit" disabled={submitting}>{submitting ? (tx(locale, { en: 'Submitting…', es: 'Enviando…', it: 'Invio…', ar: 'جارٍ الإرسال…' })) : editing ? (tx(locale, { en: 'Save changes', es: 'Guardar cambios', it: 'Salva modifiche', ar: 'حفظ التعديلات' })) : (tx(locale, { en: 'Submit request', es: 'Enviar solicitud', it: 'Invia richiesta', ar: 'إرسال الطلب' }))} <ArrowRight size={17} /></button>
+    <button className="primary-btn" type="submit" disabled={submitting || fleet.loading || !!fleet.error || !liveCars.some(car => car.isPublished !== false)}>{submitting ? (tx(locale, { en: 'Submitting…', es: 'Enviando…', it: 'Invio…', ar: 'جارٍ الإرسال…' })) : editing ? (tx(locale, { en: 'Save changes', es: 'Guardar cambios', it: 'Salva modifiche', ar: 'حفظ التعديلات' })) : (tx(locale, { en: 'Submit request', es: 'Enviar solicitud', it: 'Invia richiesta', ar: 'إرسال الطلب' }))} <ArrowRight size={17} /></button>
+    </fieldset>
   </form>
 }
 
@@ -547,64 +545,23 @@ function CarRequestContent() {
   const { currency, locale } = useLocale()
   const ar = locale === 'ar'
   const { user: sessionUser } = useCurrentUser()
-  const liveCars = useDbCars(cars)
+  const fleet = useDbCarsStatus()
+  const liveCars = fleet.data ?? []
   const [values, setValues] = useState<CarRequestValues>({ vehicleSlug: initial.vehicleSlug || rawVehicleSlug, tripType: initial.tripType ?? '', pickup: initial.pickup, dropoff: initial.dropoff, pickupLocationSlug: '', dropoffLocationSlug: '', pickupTime: '', returnTime: '', pickupDate: initial.date, returnDate: '', passengers: '', fullName: '', email: '', phone: '', notes: '' })
   const [placed, setPlaced] = useState<CarRequest | null>(null)
   const [editingRef, setEditingRef] = useState<string | null>(null)
   const [errors, setErrors] = useState<CarFieldErrors>({})
   const [summary, setSummary] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const locations = useCarLocations()
-  const [quote, setQuote] = useState<CarQuoteView>(null)
-  const [quoteLoading, setQuoteLoading] = useState(false)
+  const locationState = useCarLocations()
+  const locations = locationState.locations
+  const submittingRef = useRef(false)
   const patch = (p: Partial<CarRequestValues>) => setValues((v) => ({ ...v, ...p }))
-  const vehicle = liveCars.find((car) => car.slug === values.vehicleSlug)
-  const quoteReady = Boolean(
-    vehicle &&
-    values.pickupLocationSlug !== '' && values.pickupLocationSlug !== CAR_OTHER_LOCATION &&
-    values.dropoffLocationSlug !== '' && values.dropoffLocationSlug !== CAR_OTHER_LOCATION &&
-    values.tripType !== '' &&
-    /^\d+$/.test(values.passengers.trim()) &&
-    Number(values.passengers) >= 1 && Number(values.passengers) <= 50,
-  )
-  // Live server quote for the picked route/vehicle/trip/passengers. The
-  // endpoint is the single pricing authority; the browser here only renders
-  // what the server returns and never sends a price on submit.
-  useEffect(() => {
-    let cancelled = false
-    let timer = 0
-    if (!quoteReady) {
-      setQuote(null)
-      setQuoteLoading(false)
-      return
-    }
-    timer = window.setTimeout(() => {
-      const q = new URLSearchParams({
-        vehicle: values.vehicleSlug,
-        from: values.pickupLocationSlug,
-        to: values.dropoffLocationSlug,
-        trip: values.tripType === 'Round Trip' ? 'round-trip' : 'one-way',
-        passengers: values.passengers.trim(),
-      })
-      setQuoteLoading(true)
-      fetch(`/api/rent-car/quote?${q.toString()}`, { credentials: 'same-origin' })
-        .then(async (res) => {
-          const data = (await res.json()) as { quote?: { currency: string; oneWayCents: number; roundTripCents: number; roundTripBasis: string }; priceOnRequest?: boolean; error?: string }
-          if (cancelled) return
-          if (res.ok && data.quote) {
-            setQuote({ kind: 'quote', currency: data.quote.currency, cents: values.tripType === 'Round Trip' ? data.quote.roundTripCents : data.quote.oneWayCents, basis: data.quote.roundTripBasis })
-          } else if (res.ok && data.priceOnRequest) {
-            setQuote({ kind: 'por' })
-          } else {
-            setQuote({ kind: 'unavailable' })
-          }
-        })
-        .catch(() => { if (!cancelled) setQuote({ kind: 'unavailable' }) })
-        .finally(() => { if (!cancelled) setQuoteLoading(false) })
-    }, 400)
-    return () => { cancelled = true; window.clearTimeout(timer) }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [quoteReady, values.vehicleSlug, values.pickupLocationSlug, values.dropoffLocationSlug, values.tripType, values.passengers])
+  const vehicle = liveCars.find((car) => car.slug === values.vehicleSlug && car.isPublished !== false)
+  const capacity = vehicle ? parseVehicleCapacity(vehicle.seats) : null
+  const capacityInvalid = !!vehicle && (capacity === null || Number(values.passengers) > capacity)
+  const quoteReady = Boolean(vehicle && values.pickupLocationSlug && values.pickupLocationSlug !== CAR_OTHER_LOCATION && values.dropoffLocationSlug && values.dropoffLocationSlug !== CAR_OTHER_LOCATION && values.tripType && /^\d+$/.test(values.passengers.trim()) && Number(values.passengers) >= 1 && Number(values.passengers) <= 50)
+  const { state: quoteState, retry: retryQuote } = useCarQuote(quoteReady ? { vehicle: values.vehicleSlug, from: values.pickupLocationSlug, to: values.dropoffLocationSlug, trip: values.tripType === 'Round Trip' ? 'round-trip' : 'one-way', passengers: Number(values.passengers) } : null)
   const step = placed ? 3 : vehicle ? 2 : 1
   const notSet = tx(locale, { en: 'Not set', es: 'Sin definir', it: 'Non definito', ar: 'لم يحدد' })
   const tripLabel = values.tripType === '' ? notSet : values.tripType === 'One Way' ? (tx(locale, { en: 'One Way', es: 'Solo ida', it: 'Solo andata', ar: 'ذهاب فقط' })) : (tx(locale, { en: 'Round Trip', es: 'Ida y vuelta', it: 'Andata e ritorno', ar: 'ذهاب وعودة' }))
@@ -684,10 +641,11 @@ function CarRequestContent() {
 
   const buildDraft = (): CarRequestDraft => {
     const pax = values.passengers.trim()
-    const pickupSlug = values.pickupLocationSlug === CAR_OTHER_LOCATION ? '' : values.pickupLocationSlug
-    const dropSlug = values.dropoffLocationSlug === CAR_OTHER_LOCATION ? '' : values.dropoffLocationSlug
-    const pickupName = pickupSlug === '' ? values.pickup.trim() : (locations.find((item) => item.slug === pickupSlug) ? carLocationName(locations.find((item) => item.slug === pickupSlug) as CarLocationOption, locale) : values.pickup.trim())
-    const dropName = dropSlug === '' ? values.dropoff.trim() : (locations.find((item) => item.slug === dropSlug) ? carLocationName(locations.find((item) => item.slug === dropSlug) as CarLocationOption, locale) : values.dropoff.trim())
+    const structured = values.pickupLocationSlug !== CAR_OTHER_LOCATION && values.dropoffLocationSlug !== CAR_OTHER_LOCATION && values.pickupLocationSlug !== '' && values.dropoffLocationSlug !== ''
+    const pickupSlug = structured ? values.pickupLocationSlug : ''
+    const dropSlug = structured ? values.dropoffLocationSlug : ''
+    const pickupName = carLocationDisplayName(values.pickupLocationSlug, values.pickup, locations, locale, '')
+    const dropName = carLocationDisplayName(values.dropoffLocationSlug, values.dropoff, locations, locale, '')
     return {
       vehicleSlug: values.vehicleSlug,
       tripType: values.tripType,
@@ -708,7 +666,7 @@ function CarRequestContent() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (submitting) return
+    if (submittingRef.current) return
     const raw = buildDraft()
     const errs = validateCarRequest(raw)
     if (!vehicle) errs.vehicle = 'invalid'
@@ -726,6 +684,7 @@ function CarRequestContent() {
       return
     }
     const preview = { ...raw, notes: raw.notes.slice(0, CAR_NOTE_MAX) }
+    submittingRef.current = true
     setSubmitting(true)
     const url = editingRef
       ? `/api/account/car-requests/${encodeURIComponent(editingRef)}`
@@ -748,7 +707,7 @@ function CarRequestContent() {
       .catch((error: unknown) => {
         setSummary(error instanceof Error ? error.message : (tx(locale, { en: 'Could not submit the request. Please try again.', es: 'No se pudo enviar la solicitud. Inténtalo de nuevo.', it: 'Impossibile inviare la richiesta. Riprova.', ar: 'تعذر إرسال الطلب. حاول مجددًا.' })))
       })
-      .finally(() => setSubmitting(false))
+      .finally(() => { submittingRef.current = false; setSubmitting(false) })
   }
 
   const handleEdit = () => {
@@ -788,7 +747,7 @@ function CarRequestContent() {
         <div><span>{tx(locale, { en: 'Preferred pick-up date', es: 'Fecha de recogida preferida', it: 'Data di ritiro preferita', ar: 'تاريخ الاستلام المفضل' })}</span><strong dir="ltr">{d.preferredPickupDate}</strong></div>
         {dateRows.map((row) => <div key={row.label}><span>{row.label}</span><strong dir="ltr">{row.value}</strong></div>)}
         {timeRows.map((row) => <div key={row.label}><span>{row.label}</span><strong dir="ltr">{row.value}</strong></div>)}
-        {(record.quote || record.pickupLocationSlug) && <div><span>{tx(locale, { en: 'Estimated transfer price', es: 'Precio estimado del traslado', it: 'Prezzo stimato del trasferimento', ar: 'السعر التقديري للرحلة' })}</span><strong>{record.quote ? `${formatQuoteAmount(record.quote.cents, record.quote.currency, locale)} · ${carQuoteBasisLabel(record.quote.basis, locale)}` : (tx(locale, { en: 'Price on request', es: 'Precio a consultar', it: 'Prezzo su richiesta', ar: 'السعر عند الطلب' }))}</strong></div>}
+        {(record.quote || record.pickupLocationSlug) && <CarQuoteSummary quote={record.quote} locale={locale} tripType={record.tripType} saved/>}
         <div><span>{tx(locale, { en: 'Passengers', es: 'Pasajeros', it: 'Passeggeri', ar: 'الركاب' })}</span><strong>{d.passengers}</strong></div>
         <div><span>{tx(locale, { en: 'Full name', es: 'Nombre completo', it: 'Nome completo', ar: 'الاسم الكامل' })}</span><strong>{d.contact.fullName}</strong></div>
         <div><span>{tx(locale, { en: 'Email', es: 'Correo electrónico', it: 'Email', ar: 'البريد الإلكتروني' })}</span><strong dir="ltr">{d.contact.email}</strong></div>
@@ -845,15 +804,26 @@ function CarRequestContent() {
                 <div><span>{tx(locale, { en: 'Preferred pick-up date', es: 'Fecha de recogida preferida', it: 'Data di ritiro preferita', ar: 'تاريخ الاستلام المفضل' })}</span><strong dir="ltr">{values.pickupDate || notSet}</strong></div>
                 {values.tripType === 'Round Trip' && <div><span>{tx(locale, { en: 'Preferred return date', es: 'Fecha de regreso preferida', it: 'Data di ritorno preferita', ar: 'تاريخ العودة المفضل' })}</span><strong dir="ltr">{values.returnDate || notSet}</strong></div>}
                 <div><span>{tx(locale, { en: 'Passengers', es: 'Pasajeros', it: 'Passeggeri', ar: 'الركاب' })}</span><strong>{values.passengers || notSet}</strong></div>
-                {quoteReady && (quoteLoading
-                  ? <div><span>{tx(locale, { en: 'Estimated transfer price', es: 'Precio estimado del traslado', it: 'Prezzo stimato del trasferimento', ar: 'السعر التقديري للرحلة' })}</span><strong>{tx(locale, { en: 'Updating…', es: 'Actualizando…', it: 'Aggiornamento…', ar: 'جارٍ التحديث…' })}</strong></div>
-                  : <div><span>{tx(locale, { en: 'Estimated transfer price', es: 'Precio estimado del traslado', it: 'Prezzo stimato del trasferimento', ar: 'السعر التقديري للرحلة' })}</span><strong>{quote?.kind === 'quote' ? `${formatQuoteAmount(quote.cents, quote.currency, locale)} · ${carQuoteBasisLabel(quote.basis, locale)}` : quote?.kind === 'unavailable' ? (tx(locale, { en: 'Not bookable for this vehicle', es: 'No disponible para este vehículo', it: 'Non disponibile per questo veicolo', ar: 'غير متاح لهذه السيارة' })) : (tx(locale, { en: 'Price on request', es: 'Precio a consultar', it: 'Prezzo su richiesta', ar: 'السعر عند الطلب' }))}</strong></div>)}
+                <section aria-live="polite" aria-busy={quoteState.kind === 'loading'} className="car-quote-message">
+                  {quoteState.kind === 'loading' ? tx(locale, { en: 'Updating transfer price…', es: 'Actualizando el precio del traslado…', it: 'Aggiornamento del prezzo del trasferimento…' })
+                    : quoteState.kind === 'error' ? <>{tx(locale, { en: 'We could not retrieve a price. You can retry or send an inquiry without a quote.', es: 'No pudimos obtener el precio. Puedes reintentar o enviar una consulta sin presupuesto.', it: 'Impossibile recuperare il prezzo. Puoi riprovare o inviare una richiesta senza preventivo.' })}<button type="button" className="text-link" onClick={retryQuote}>{tx(locale, { en: 'Retry price', es: 'Reintentar precio', it: 'Riprova prezzo' })}</button></>
+                    : quoteState.kind === 'unavailable' || capacityInvalid ? tx(locale, { en: 'This vehicle cannot be priced for these passengers. Send an inquiry and our team will arrange a suitable vehicle.', es: 'No hay tarifa para este vehículo y pasajeros. Envía una consulta para que busquemos un vehículo adecuado.', it: 'Nessuna tariffa per questo veicolo e passeggeri. Invia una richiesta per trovare un veicolo adatto.' })
+                    : <CarQuoteSummary quote={quoteState.kind === 'quote' ? quoteState.quote : null} tripType={values.tripType} locale={locale}/>}
+                </section>
               </div>
               <p><ShieldCheck size={15} />{tx(locale, { en: 'Private driver and A/C included', es: 'Conductor privado y aire acondicionado incluidos', it: 'Autista privato e aria condizionata inclusi', ar: 'شامل سائق خاص وتكييف' })}</p>
               <a className="req-wa" href={whatsappHref(brand.whatsapp)} target="_blank" rel="noreferrer">{tx(locale, { en: 'Chat on WhatsApp', es: 'Hablar por WhatsApp', it: 'Chat su WhatsApp', ar: 'تواصل عبر واتساب' })}</a>
             </div>
           </aside>
-          <div className="car-form-card"><CarRequestForm values={values} errors={errors} summary={summary} submitting={submitting} editing={editingRef !== null} locations={locations} onChange={patch} onSubmit={handleSubmit} /></div>
+          <div className="car-form-card">
+            {fleet.loading && <p role="status">{tx(locale, { en: 'Loading available vehicles…', es: 'Cargando vehículos disponibles…', it: 'Caricamento dei veicoli disponibili…' })}</p>}
+            {fleet.error && <p role="alert">{tx(locale, { en: 'Vehicles could not be loaded.', es: 'No se pudieron cargar los vehículos.', it: 'Impossibile caricare i veicoli.' })}<button type="button" onClick={fleet.retry}>{tx(locale, { en: 'Retry', es: 'Reintentar', it: 'Riprova' })}</button></p>}
+            {!fleet.loading && !fleet.error && !liveCars.length && <p role="status">{tx(locale, { en: 'No vehicles are currently available. Please contact our team.', es: 'No hay vehículos disponibles. Contacta con nuestro equipo.', it: 'Nessun veicolo disponibile. Contatta il nostro team.' })}</p>}
+            {locationState.loading && <p role="status" className="car-location-notice">{tx(locale, { en: 'Loading pickup and drop-off locations…', es: 'Cargando lugares de recogida y entrega…', it: 'Caricamento dei luoghi di ritiro e riconsegna…' })}</p>}
+            {locationState.error && <p role="alert" className="car-location-notice">{tx(locale, { en: 'Locations could not be loaded. Enter your addresses to request a manual quote.', es: 'No se pudieron cargar los lugares. Introduce tus direcciones para solicitar un presupuesto.', it: 'Impossibile caricare i luoghi. Inserisci gli indirizzi per richiedere un preventivo.' })}<button type="button" onClick={locationState.retry}>{tx(locale, { en: 'Retry locations', es: 'Reintentar lugares', it: 'Riprova luoghi' })}</button></p>}
+            {editingRef && <p className="car-location-notice">{tx(locale, { en: 'Saving changes recalculates your quote using current prices. Your earlier quote may change.', es: 'Guardar cambios recalcula el presupuesto con los precios actuales. El precio anterior puede cambiar.', it: 'Il salvataggio ricalcola il preventivo con i prezzi attuali. Il prezzo precedente può cambiare.' })}</p>}
+            <CarRequestForm values={values} errors={errors} summary={summary} submitting={submitting} editing={editingRef !== null} locations={locations} onChange={patch} onSubmit={handleSubmit} />
+          </div>
         </div>}
     </main>
   </>
@@ -1228,7 +1198,7 @@ export function EventCard({ item }: { item: Event }) {
       <h3><Link href={`/events/${item.slug}`}>{title}</Link></h3>
       <p className="event-card-venue"><MapPin size={14} />{venue}</p>
       <p>{copy}</p>
-      <p className="event-card-price">{eventPriceLabel(item, ar)}</p>
+      <p className="event-card-price">{eventPriceLabel(item, locale)}</p>
       <Link href={`/events/${item.slug}`} className="event-card-cta">{tx(locale, { en: 'Details & request', es: 'Detalles y solicitud', it: 'Dettagli e richiesta', ar: 'التفاصيل وطلب الحضور' })} <ArrowRight size={15} /></Link>
     </div>
   </article>
@@ -1406,7 +1376,7 @@ export function EventDetailPage({ slug }: { slug: string }) {
           <span className="event-detail-kicker"><Ticket size={15}/>{category ?? (tx(locale, { en: 'Seasonal event', es: 'Evento de temporada', it: 'Evento stagionale', ar: 'فعالية موسمية' }))}</span>
           <h1>{title}</h1>
           <p>{intro}</p>
-          <div className="event-detail-pills"><span><CalendarDays size={15} />{item.date}</span><span><MapPin size={15} />{venue}</span>{timeLine && <span><Clock3 size={15} />{timeLine}</span>}<span className="event-price-pill">{eventPriceLabel(item, ar)}</span>{statusLabel && <span className="event-status">{statusLabel}</span>}</div>
+          <div className="event-detail-pills"><span><CalendarDays size={15} />{item.date}</span><span><MapPin size={15} />{venue}</span>{timeLine && <span><Clock3 size={15} />{timeLine}</span>}<span className="event-price-pill">{eventPriceLabel(item, locale)}</span>{statusLabel && <span className="event-status">{statusLabel}</span>}</div>
           <div className="event-detail-actions"><a href="#event-book" className="primary-btn">{tx(locale, { en: 'Request your place', es: 'Reserva tu plaza', it: 'Richiedi il tuo posto', ar: 'اطلب مكانك' })} <ArrowRight size={17} /></a>{hasProgram && <a href="#event-program" className="event-detail-text-link">{tx(locale, { en: 'Explore the program', es: 'Descubre el programa', it: 'Scopri il programma', ar: 'شاهد البرنامج' })} <ArrowRight size={16}/></a>}<button type="button" className="event-detail-text-link event-share-btn" onClick={share} aria-live="polite"><Share2 size={16} />{shared ? (tx(locale, { en: 'Link copied', es: 'Enlace copiado', it: 'Link copiato', ar: 'تم نسخ الرابط' })) : (tx(locale, { en: 'Share', es: 'Compartir', it: 'Condividi', ar: 'مشاركة' }))}</button></div>
         </div>
         <aside className="event-hero-summary" aria-label={tx(locale, { en: 'Event at a glance', es: 'El evento en resumen', it: 'L\'evento in breve', ar: 'ملخص الفعالية' })}>
@@ -1452,7 +1422,7 @@ export function EventDetailPage({ slug }: { slug: string }) {
         {item.addOns && item.addOns.length > 0 && <PresentationSection pageId="event-detail" id="event-addons-wrap"><section className="event-addons-wrap">
           <span className="eyebrow">{cms.text("event-addons-wrap","description0",tx(locale, { en: 'Optional add-ons', es: 'Extras opcionales', it: 'Extra facoltativi', ar: 'إضافات اختيارية' }))}</span>
           <h2>{cms.text("event-addons-wrap","description1",tx(locale, { en: 'Enhance your experience', es: 'Mejora tu experiencia', it: 'Arricchisci la tua esperienza', ar: 'زوّد تجربتك' }))}</h2>
-          <ul className="event-addons">{item.addOns.map((a) => <li key={a.title}><Plus size={15} />{a.title}{typeof a.price === 'number' ? ` · ${a.price}` : ''}</li>)}</ul>
+          <ul className="event-addons">{item.addOns.map((a) => <li key={a.title}><Plus size={15} />{a.title}{typeof a.price === 'number' ? ` · ${formatCurrency(a.price, item.currency, locale)}` : ''}</li>)}</ul>
         </section></PresentationSection>}
         <section className="event-venue">
           <span className="eyebrow">{tx(locale, { en: 'Venue & area', es: 'Lugar y zona', it: 'Sede e zona', ar: 'مكان الانعقاد' })}</span>

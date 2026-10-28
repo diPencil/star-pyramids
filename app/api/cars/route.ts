@@ -1,3 +1,4 @@
+import { parseVehicleCapacity } from '@/lib/car-request';
 import { catalogueTranslationResponse, saveWithCatalogueTranslations } from '@/lib/server/catalogue-translations';
 import { validateCatalogueTranslations } from '@/lib/catalogue-translations';
 import { NextResponse } from 'next/server';
@@ -10,7 +11,9 @@ const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export async function GET() {
   // Public: list the full fleet (read-only, no auth required)
-  const cars = await db.car.findMany({ orderBy: [{ title: 'asc' }] });
+  const user = await getCurrentUser();
+  const staff = user && (hasPermission(user, 'cars.edit') || hasPermission(user, 'cars.view'));
+  const cars = await db.car.findMany({ where: staff ? {} : { isPublished: true }, orderBy: [{ title: 'asc' }] });
   return NextResponse.json(await catalogueTranslationResponse('car', { cars: cars.map((car) => ({ ...car, credit: readJsonText(car.credit) })) }));
 }
 
@@ -29,7 +32,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid request origin.' }, { status: 403 });
   }
 
-  const data = await request.json();
+  const data = await request.json().catch(() => null);
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
+  if (data.seats !== undefined && (typeof data.seats !== 'string' || parseVehicleCapacity(data.seats) === null)) return NextResponse.json({ error: 'Enter an unambiguous seat capacity from 1 to 100.' }, { status: 400 });
+  if (data.isPublished !== undefined && typeof data.isPublished !== 'boolean') return NextResponse.json({ error: 'Publication status must be boolean.' }, { status: 400 });
   if (data?.translations !== undefined) {
     try { validateCatalogueTranslations('car', data.translations); }
     catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'Invalid translations.' }, { status: 400 }); }

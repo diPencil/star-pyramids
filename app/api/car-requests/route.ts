@@ -1,3 +1,4 @@
+import { rentCarFailure } from '@/lib/server/rent-car-errors';
 import { NextResponse } from 'next/server';
 
 import { getCurrentUser } from '@/lib/server/auth';
@@ -13,7 +14,7 @@ import {
 
 function clientIp(request: Request): string {
   const forwarded = request.headers.get('x-forwarded-for');
-  return forwarded?.split(',')[0]?.trim() || 'unknown';
+  return forwarded?.split(',')[0]?.trim().slice(0, 64) || 'unknown';
 }
 
 function bodyEmail(body: unknown): string {
@@ -21,7 +22,7 @@ function bodyEmail(body: unknown): string {
   const contact = (body as { contact?: unknown }).contact;
   if (typeof contact !== 'object' || contact === null) return 'unknown';
   const email = (contact as { email?: unknown }).email;
-  return typeof email === 'string' && email ? email : 'unknown';
+  return typeof email === 'string' && email ? email.trim().slice(0, 190) : 'unknown';
 }
 
 /**
@@ -57,7 +58,8 @@ export async function POST(request: Request) {
   } catch (error) {
     await recordCarRequestAttempt(bodyEmail(body), ip);
     if (error instanceof Error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      const failure = rentCarFailure(error);
+      return NextResponse.json({ error: failure.error }, { status: failure.status });
     }
     throw error;
   }
@@ -73,7 +75,8 @@ export async function POST(request: Request) {
   } catch (error) {
     await recordCarRequestAttempt(draft.contactEmail, ip);
     if (error instanceof Error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      const failure = rentCarFailure(error);
+      return NextResponse.json({ error: failure.error }, { status: failure.status });
     }
     throw error;
   }

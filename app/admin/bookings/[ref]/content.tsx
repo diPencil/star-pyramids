@@ -7,6 +7,7 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Card } from '@/components/admin/admin-ui'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { useAdminLocale } from '@/components/admin/admin-locale'
+import { formatCurrency, TOUR_BOOKING_CURRENCY } from '@/lib/currency'
 import { useAdminCurrency } from '@/components/admin/admin-currency'
 import { toast } from '@/components/admin/admin-toaster'
 import { useCurrentUser } from '@/lib/use-current-user'
@@ -136,6 +137,8 @@ export function BookingDetailContent({ reference }: { reference: string }) {
   const ar = useAdminLocale() === 'ar'
   // Display-only conversion of server USD amounts, like the storefront.
   const { formatUsd } = useAdminCurrency()
+  const formatNative = (amount: number) => formatCurrency(amount, item?.currency, ar ? 'ar' : 'en')
+  const formatAccountingUsd = (amount: number) => formatCurrency(amount, TOUR_BOOKING_CURRENCY, ar ? 'ar' : 'en')
   const { user } = useCurrentUser()
   const canRecordPayment = user?.permissions?.includes('payments.edit') ?? false
   const canIssueDocs = user?.permissions?.includes('bookings.edit') ?? false
@@ -401,15 +404,15 @@ export function BookingDetailContent({ reference }: { reference: string }) {
                 <div><dt><AdminText en="Proof review" ar="مراجعة الإثبات" /></dt><dd><strong role="status">{pendingProofs.length} {ar ? 'بانتظار المراجعة' : 'awaiting review'}</strong></dd></div>
               )}
               {item.paymentSummary && item.paymentSummary.latestReference && (
-                <div><dt><AdminText en="Payment record" ar="سجل الدفع" /></dt><dd><Link href={`/admin/payments/${encodeURIComponent(item.paymentSummary.latestReference)}`}><code dir="ltr">{item.paymentSummary.latestReference}</code></Link><small style={{ color: 'var(--sp-muted)' }}>{formatUsd(item.paymentSummary.paidTotal)} paid · {item.paymentSummary.payments} attempt{item.paymentSummary.payments === 1 ? '' : 's'}</small></dd></div>
+                <div><dt><AdminText en="Payment record" ar="سجل الدفع" /></dt><dd><Link href={`/admin/payments/${encodeURIComponent(item.paymentSummary.latestReference)}`}><code dir="ltr">{item.paymentSummary.latestReference}</code></Link><small style={{ color: 'var(--sp-muted)' }}>{formatNative(item.paymentSummary.paidTotal)} paid · {item.paymentSummary.payments} attempt{item.paymentSummary.payments === 1 ? '' : 's'}</small></dd></div>
               )}
               {item.paymentSummary && !item.paymentSummary.latestReference && (
                 <div><dt><AdminText en="Payment record" ar="سجل الدفع" /></dt><dd><small style={{ color: 'var(--sp-muted)' }}>{ar ? 'لا يوجد سجل دفع - غير مدفوع' : 'No payment record - unpaid'}</small></dd></div>
               )}
               <div><dt><AdminText en="Guests" ar="الضيوف" /></dt><dd><Users size={14} />{guests}</dd></div>
-              <div><dt><AdminText en="Subtotal" ar="المجموع الفرعي" /></dt><dd>{formatUsd(item.subtotal)}</dd></div>
-              {item.discount > 0 && <div><dt><AdminText en="Deal savings" ar="توفير العروض" /></dt><dd>−{formatUsd(item.discount)}</dd></div>}
-              <div><dt><AdminText en="Total" ar="الإجمالي" /></dt><dd><strong>{formatUsd(item.total)}</strong></dd></div>
+              <div><dt><AdminText en="Subtotal" ar="المجموع الفرعي" /></dt><dd>{formatNative(item.subtotal)}</dd></div>
+              {item.discount > 0 && <div><dt><AdminText en="Deal savings" ar="توفير العروض" /></dt><dd>−{formatNative(item.discount)}</dd></div>}
+              <div><dt><AdminText en="Total" ar="الإجمالي" /></dt><dd><strong>{formatNative(item.total)}</strong></dd></div>
               <div><dt><AdminText en="Submitted" ar="أُرسل" /></dt><dd>{fmtDateTime(item.createdAt)}</dd></div>
               <div><dt><AdminText en="Last updated" ar="آخر تحديث" /></dt><dd>{fmtDateTime(item.updatedAt)}</dd></div>
               {item.account && <div><dt><AdminText en="Account" ar="الحساب" /></dt><dd>{item.account.name} <small style={{ color: 'var(--sp-muted)' }} dir="ltr">{item.account.email}</small></dd></div>}
@@ -422,8 +425,8 @@ export function BookingDetailContent({ reference }: { reference: string }) {
                 <Link href={`/egypt-tours/${line.tourSlug}`} className="evr-event-title">{line.title}</Link>
                 <p><CalendarDays size={14} />{line.date || (ar ? 'التاريخ مفتوح' : 'Open date')}</p>
                 <p><MapPin size={14} />{line.adults} {ar ? 'بالغين' : 'adults'}{line.children > 0 && ` · ${line.children} ${ar ? 'أطفال' : 'children'}`}{line.infants > 0 && ` · ${line.infants} ${ar ? 'رضع' : 'infants'}`}</p>
-                <p><small dir="ltr">{formatUsd(line.adultUnit)} per adult{line.children > 0 && ` · ${formatUsd(line.childUnit)} per child`}{line.addons.length > 0 && ` · ${line.addons.join(', ')} (+${formatUsd(line.addonTotal)})`}</small></p>
-                <p><strong>{formatUsd(line.total)}</strong></p>
+                <p><small dir="ltr">{formatNative(line.adultUnit)} per adult{line.children > 0 && ` · ${formatNative(line.childUnit)} per child`}{line.addons.length > 0 && ` · ${line.addons.join(', ')} (+${formatNative(line.addonTotal)})`}</small></p>
+                <p><strong>{formatNative(line.total)}</strong></p>
               </div>
             ))}
           </Card>
@@ -480,7 +483,7 @@ export function BookingDetailContent({ reference }: { reference: string }) {
                       <AdminText en={actionCopy[a.to].en} ar={actionCopy[a.to].ar} />
                     </button>
                   ))}
-                  {canRecordPayment && (item.status === 'pending' || item.status === 'confirmed') && (
+                  {canRecordPayment && item.currency === TOUR_BOOKING_CURRENCY && (item.status === 'pending' || item.status === 'confirmed') && (
                     <button type="button" className="sp-btn" onClick={openRecord}>
                       <AdminText en="Record payment" ar="تسجيل دفعة" />
                     </button>
@@ -571,8 +574,8 @@ export function BookingDetailContent({ reference }: { reference: string }) {
         onConfirm={submitRecord}
         title={<AdminText en="Record offline payment" ar="تسجيل دفعة نقدية" />}
         description={<AdminText
-          en={`Remaining balance ${formatUsd(remainingBookingBalance(item.total, item.paymentSummary?.paidTotal ?? 0, item.paymentSummary?.refundedTotal ?? 0))} · stored in USD, no conversion applied.`}
-          ar={`الرصيد المتبقي ${formatUsd(remainingBookingBalance(item.total, item.paymentSummary?.paidTotal ?? 0, item.paymentSummary?.refundedTotal ?? 0))} · يُحفظ بالدولار دون تحويل.`}
+          en={`Remaining balance ${formatAccountingUsd(remainingBookingBalance(item.total, item.paymentSummary?.paidTotal ?? 0, item.paymentSummary?.refundedTotal ?? 0))} · stored in USD, no conversion applied.`}
+          ar={`الرصيد المتبقي ${formatAccountingUsd(remainingBookingBalance(item.total, item.paymentSummary?.paidTotal ?? 0, item.paymentSummary?.refundedTotal ?? 0))} · يُحفظ بالدولار دون تحويل.`}
         />}
         confirmLabel={<AdminText en={recSaving ? 'Recording…' : 'Record as paid'} ar={recSaving ? 'جارٍ التسجيل…' : 'تسجيل كمدفوع'} />}
         cancelLabel={<AdminText en="Cancel" ar="إلغاء" />}

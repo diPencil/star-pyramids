@@ -21,6 +21,7 @@ import {
   normalizeGalleryMediaUrl,
   sortGalleryItems,
   validateGalleryPayload,
+  validateGalleryOrder,
   type GalleryItem,
   type GalleryPayload,
 } from '../journey-gallery';
@@ -114,11 +115,16 @@ export async function listGalleryItems(): Promise<GalleryItem[]> {
   return withAssignments(rows);
 }
 
+/** Minimal staff-only choices; gallery managers need not have tours.view. */
+export async function listGalleryTourChoices() {
+  return db.tour.findMany({ orderBy: { title: 'asc' }, select: { slug: true, title: true } });
+}
+
 /** Public homepage feed: published items only (never drafts). */
 export async function listPublishedGallery(): Promise<GalleryItem[]> {
   const rows = (await db.$queryRaw<GalleryRow[]>`
-    SELECT ${GALLERY_COLUMNS} FROM journey_gallery_items i WHERE i.isPublished = 1`) as GalleryRow[];
-  return sortGalleryItems(await withAssignments(rows));
+    SELECT ${GALLERY_COLUMNS} FROM journey_gallery_items i WHERE i.isPublished = 1 AND i.showOnHomepage = 1`) as GalleryRow[];
+  return sortGalleryItems(rows.map(row => toPublicItem(row, [])));
 }
 
 /**
@@ -129,13 +135,15 @@ export async function listPublishedGallery(): Promise<GalleryItem[]> {
 export async function listTourGalleryItems(tourSlug: string): Promise<GalleryItem[]> {
   const slug = tourSlug.trim();
   if (!slug) return [];
+  const tour = await db.tour.findUnique({ where: { slug }, select: { status: true } });
+  if (!tour || tour.status !== 'published') return [];
   const rows = (await db.$queryRaw<GalleryRow[]>`
     SELECT ${GALLERY_COLUMNS} FROM journey_gallery_items i
     WHERE i.mediaType = 'VIDEO' AND i.isPublished = 1 AND i.showOnTours = 1
       AND (i.tourScope = 'ALL_TOURS' OR EXISTS (
         SELECT 1 FROM journey_gallery_tours t WHERE t.itemId = i.id AND t.tourSlug = ${slug}
       ))`) as GalleryRow[];
-  return sortGalleryItems(await withAssignments(rows));
+  return sortGalleryItems(rows.map(row => toPublicItem(row, row.tourScope === 'SELECTED_TOURS' ? [slug] : [])));
 }
 
 export async function getGalleryItem(id: string): Promise<GalleryItem | null> {
@@ -221,22 +229,24 @@ export async function deleteGalleryItem(id: string): Promise<void> {
   await db.$executeRaw`DELETE FROM journey_gallery_items WHERE id = ${id}`;
 }
 
+/** Visibility is a narrow mutation; never replace content from a stale list row. */
+export async function publishGalleryItem(id: string, isPublished: boolean): Promise<GalleryItem> {
+  await db.$executeRaw`UPDATE journey_gallery_items SET isPublished = ${isPublished ? 1 : 0}, updatedAt = NOW(3) WHERE id = ${id}`;
+  const item = await getGalleryItem(id);
+  if (!item) throw new GalleryNotFoundError();
+  return item;
+}
+
 /** Atomic multi-row reorder from the admin dashboard. */
 export async function reorderGalleryItems(
   order: Array<{ id: string; sortOrder: number }>,
 ): Promise<void> {
-  const clean = (Array.isArray(order) ? order : [])
-    .filter(
-      (entry) =>
-        entry && typeof entry.id === 'string' && entry.id && Number.isFinite(Number(entry.sortOrder)),
-    )
-    .map((entry) => ({
-      id: entry.id,
-      sortOrder: Math.max(0, Math.min(999999, Math.floor(Number(entry.sortOrder)))),
-    }));
-  if (!clean.length) throw new GalleryValidationError('Nothing to reorder.');
-  if (clean.length > 500) throw new GalleryValidationError('Too many items in one reorder.');
+  if (!validateGalleryOrder(order)) throw new GalleryValidationError('Enter a non-empty order with unique IDs and integer positions from 0 to 999999 (max 500 items).');
+  const clean = order;
   await db.$transaction(async (tx) => {
+    const ids = [...clean.map(entry => entry.id)].sort();
+    const existing = await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM journey_gallery_items WHERE id IN (${Prisma.join(ids)}) ORDER BY id FOR UPDATE`;
+    if (existing.length !== ids.length) throw new GalleryValidationError('Gallery changed. Refresh before reordering.');
     for (const entry of clean) {
       await tx.$executeRaw`UPDATE journey_gallery_items SET sortOrder = ${entry.sortOrder}, updatedAt = NOW(3) WHERE id = ${entry.id}`;
     }

@@ -1,11 +1,12 @@
 'use client'
+import { formatCurrency, CURRENCY_OPTIONS, type Currency } from '@/lib/currency'
 
 // 'use client' is required here: the access token is read from the router
 // rather than passed as a prop, so the credential never enters the
 // server-rendered payload that ships in the HTML.
-'use client'
 
 import Link from 'next/link'
+import { CarQuoteSummary } from './car-quote-summary'
 import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import {
@@ -28,7 +29,7 @@ import { useInquiries, useBrandSettings, readImpersonation, stopImpersonation, t
 import { useDbCars } from '@/lib/events-cars-client'
 import { useDbTours } from '@/lib/tours-client'
 import { cars } from '@/data/content'
-import { carActivityLabel, carRequestStatusLabel, fleetVehicleTitle, formatQuoteAmount, type CarRequest, type CarRequestStatus } from '@/lib/car-request'
+import { carActivityLabel, carRequestStatusLabel, fleetVehicleTitle, type CarRequest, type CarRequestStatus } from '@/lib/car-request'
 import { usePagination } from '@/components/admin/admin-pagination'
 import {
   saveCustomerProfile, useCustomerFavorites,
@@ -330,7 +331,7 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
         <div className="customer-dashboard-actions">
           <button type="button" className="customer-top-language" onClick={() => { setLanguageOpen(true); setNotificationsOpen(false); setUserOpen(false) }} aria-label={tx(locale, { en: 'Choose language and currency', es: 'Elige idioma y moneda', it: 'Scegli lingua e valuta', ar: 'اختيار اللغة والعملة' })}><Globe2 size={18} /><span>{LOCALE_SHORT_LABELS[locale]}</span></button>
           {languageOpen && <LanguageModal locale={locale} currency={currency} onClose={() => setLanguageOpen(false)} onSelect={setLocale} onCurrency={setCurrency} />}
-          <SharedSelect value={currency} onChange={(next) => setCurrency(next as 'USD' | 'EUR' | 'EGP')} locale={locale} label={tx(locale, { en: 'Currency', es: 'Moneda', it: 'Valuta', ar: 'العملة' })} options={[{ value: 'USD', label: 'USD' }, { value: 'EUR', label: 'EUR' }, { value: 'EGP', label: 'EGP' }]} />
+          <SharedSelect value={currency} onChange={(next) => setCurrency(next as Currency)} locale={locale} label={tx(locale, { en: 'Currency', es: 'Moneda', it: 'Valuta', ar: 'العملة' })} options={CURRENCY_OPTIONS} />
           <Link href="/" className="customer-top-icon" aria-label={tx(locale, { en: 'Back to website', es: 'Volver al sitio web', it: 'Torna al sito', ar: 'العودة للموقع' })} title={tx(locale, { en: 'Back to website', es: 'Volver al sitio web', it: 'Torna al sito', ar: 'العودة للموقع' })}><ExternalLink size={18} /></Link>
           <Link href="/cart" className="customer-top-icon customer-cart-icon" aria-label={tx(locale, { en: 'Trip cart', es: 'Cesta de viajes', it: 'Carrello viaggi', ar: 'سلة الرحلات' })}><ShoppingCart size={18} />{cart.lines > 0 && <b>{cart.lines}</b>}</Link>
           <div className="customer-top-popover">
@@ -462,7 +463,7 @@ function BookingCard({ booking }: { booking: Booking }) {
       <h3><Link href={`/account/bookings/detail?ref=${encodeURIComponent(booking.reference)}`}>{first?.title || (tx(locale, { en: 'Custom journey', es: 'Viaje personalizado', it: 'Viaggio personalizzato', ar: 'رحلة مخصصة' }))}</Link></h3>
       <div className="customer-booking-meta"><span><CalendarDays size={14} />{displayBookingDate(booking, locale)}</span><span><Users size={14} />{travelers} {tx(locale, { en: 'travelers', es: 'viajeros', it: 'viaggiatori', ar: 'مسافرين' })}</span><span><PackageCheck size={14} />{booking.lines.length} {tx(locale, { en: 'trip items', es: 'elementos del viaje', it: 'voci di viaggio', ar: 'رحلات' })}</span></div>
     </div>
-    <div className="customer-booking-total"><small>{tx(locale, { en: 'Total', es: 'Total', it: 'Totale', ar: 'الإجمالي' })}</small><strong>{formatPrice(booking.total, currency, locale)}</strong><span className="customer-booking-links"><Link href={`/account/bookings/detail?ref=${encodeURIComponent(booking.reference)}`}>{tx(locale, { en: 'View details', es: 'Ver detalles', it: 'Vedi dettagli', ar: 'عرض التفاصيل' })} <ArrowRight size={14} /></Link><Link href="/account/messages" onClick={() => saveMessageDraft({ reference: booking.reference, title: first?.title ?? '' })}>{tx(locale, { en: 'Ask about booking', es: 'Preguntar por la reserva', it: 'Chiedi info sulla prenotazione', ar: 'اسأل عن الحجز' })} <ArrowRight size={14} /></Link></span></div>
+    <div className="customer-booking-total"><small>{tx(locale, { en: 'Total', es: 'Total', it: 'Totale', ar: 'الإجمالي' })}</small><strong>{formatCurrency(booking.total, booking.currency, locale)}</strong><span className="customer-booking-links"><Link href={`/account/bookings/detail?ref=${encodeURIComponent(booking.reference)}`}>{tx(locale, { en: 'View details', es: 'Ver detalles', it: 'Vedi dettagli', ar: 'عرض التفاصيل' })} <ArrowRight size={14} /></Link><Link href="/account/messages" onClick={() => saveMessageDraft({ reference: booking.reference, title: first?.title ?? '' })}>{tx(locale, { en: 'Ask about booking', es: 'Preguntar por la reserva', it: 'Chiedi info sulla prenotazione', ar: 'اسأل عن الحجز' })} <ArrowRight size={14} /></Link></span></div>
   </article>
 }
 
@@ -743,15 +744,15 @@ function BookingDetailSection({ reference, autoPrint = false }: { reference: str
               {line.children > 0 && <span>{line.children} {tx(locale, { en: 'children', es: 'niños', it: 'bambini', ar: 'أطفال' })}</span>}
               {line.infants > 0 && <span>{line.infants} {tx(locale, { en: 'infants', es: 'bebés', it: 'neonati', ar: 'رضع' })}</span>}
             </div>
-            <div className="customer-booking-meta"><span>{tx(locale, { en: 'Adult', es: 'Adulto', it: 'Adulto', ar: 'البالغ' })}: {formatPrice(line.adultUnit, currency, locale)}</span>{line.children > 0 && <span>{tx(locale, { en: 'Child', es: 'Niño', it: 'Bambino', ar: 'الطفل' })}: {formatPrice(line.childUnit, currency, locale)}</span>}</div>
+            <div className="customer-booking-meta"><span>{tx(locale, { en: 'Adult', es: 'Adulto', it: 'Adulto', ar: 'البالغ' })}: {formatCurrency(line.adultUnit, booking.currency, locale)}</span>{line.children > 0 && <span>{tx(locale, { en: 'Child', es: 'Niño', it: 'Bambino', ar: 'الطفل' })}: {formatCurrency(line.childUnit, booking.currency, locale)}</span>}</div>
             {line.addons.length > 0 && <div className="customer-booking-meta"><span><Plus size={14} />{line.addons.join(' · ')}</span></div>}
           </div>
-          <div className="customer-booking-total"><small>{tx(locale, { en: 'Line total', es: 'Total de la línea', it: 'Totale voce', ar: 'إجمالي البند' })}</small><strong>{formatPrice(line.total, currency, locale)}</strong></div>
+          <div className="customer-booking-total"><small>{tx(locale, { en: 'Line total', es: 'Total de la línea', it: 'Totale voce', ar: 'إجمالي البند' })}</small><strong>{formatCurrency(line.total, booking.currency, locale)}</strong></div>
         </article>
       ))}
-      <div className="customer-payment-total-row"><span>{tx(locale, { en: 'Lines total', es: 'Total de líneas', it: 'Totale voci', ar: 'إجمالي البنود' })}</span><strong>{formatPrice(linesTotal, currency, locale)}</strong></div>
-      {booking.discount > 0 && <div className="customer-payment-total-row discount"><span>{tx(locale, { en: 'Deal savings', es: 'Ahorro por oferta', it: 'Risparmio offerta', ar: 'توفير العروض' })}</span><strong>−{formatPrice(booking.discount, currency, locale)}</strong></div>}
-      <div className="customer-payment-total-row grand"><span>{tx(locale, { en: 'Grand total', es: 'Total general', it: 'Totale generale', ar: 'الإجمالي' })}</span><strong>{formatPrice(booking.total, currency, locale)}</strong></div>
+      <div className="customer-payment-total-row"><span>{tx(locale, { en: 'Lines total', es: 'Total de líneas', it: 'Totale voci', ar: 'إجمالي البنود' })}</span><strong>{formatCurrency(linesTotal, booking.currency, locale)}</strong></div>
+      {booking.discount > 0 && <div className="customer-payment-total-row discount"><span>{tx(locale, { en: 'Deal savings', es: 'Ahorro por oferta', it: 'Risparmio offerta', ar: 'توفير العروض' })}</span><strong>−{formatCurrency(booking.discount, booking.currency, locale)}</strong></div>}
+      <div className="customer-payment-total-row grand"><span>{tx(locale, { en: 'Grand total', es: 'Total general', it: 'Totale generale', ar: 'الإجمالي' })}</span><strong>{formatCurrency(booking.total, booking.currency, locale)}</strong></div>
     </section>
 
     <section className="customer-account-block">
@@ -930,15 +931,15 @@ function GuestBookingSection({ token, autoPrint = false }: { token: string; auto
               {line.children > 0 && <span>{line.children} {tx(locale, { en: 'children', es: 'niños', it: 'bambini', ar: 'أطفال' })}</span>}
               {line.infants > 0 && <span>{line.infants} {tx(locale, { en: 'infants', es: 'bebés', it: 'neonati', ar: 'رضع' })}</span>}
             </div>
-            <div className="customer-booking-meta"><span>{tx(locale, { en: 'Adult', es: 'Adulto', it: 'Adulto', ar: 'البالغ' })}: {formatPrice(line.adultUnit, currency, locale)}</span>{line.children > 0 && <span>{tx(locale, { en: 'Child', es: 'Niño', it: 'Bambino', ar: 'الطفل' })}: {formatPrice(line.childUnit, currency, locale)}</span>}</div>
+            <div className="customer-booking-meta"><span>{tx(locale, { en: 'Adult', es: 'Adulto', it: 'Adulto', ar: 'البالغ' })}: {formatCurrency(line.adultUnit, booking.currency, locale)}</span>{line.children > 0 && <span>{tx(locale, { en: 'Child', es: 'Niño', it: 'Bambino', ar: 'الطفل' })}: {formatCurrency(line.childUnit, booking.currency, locale)}</span>}</div>
             {line.addons.length > 0 && <div className="customer-booking-meta"><span><Plus size={14} />{line.addons.join(' · ')}</span></div>}
           </div>
-          <div className="customer-booking-total"><small>{tx(locale, { en: 'Line total', es: 'Total de la línea', it: 'Totale voce', ar: 'إجمالي البند' })}</small><strong>{formatPrice(line.total, currency, locale)}</strong></div>
+          <div className="customer-booking-total"><small>{tx(locale, { en: 'Line total', es: 'Total de la línea', it: 'Totale voce', ar: 'إجمالي البند' })}</small><strong>{formatCurrency(line.total, booking.currency, locale)}</strong></div>
         </article>
       ))}
-      <div className="customer-payment-total-row"><span>{tx(locale, { en: 'Lines total', es: 'Total de líneas', it: 'Totale voci', ar: 'إجمالي البنود' })}</span><strong>{formatPrice(linesTotal, currency, locale)}</strong></div>
-      {booking.discount > 0 && <div className="customer-payment-total-row discount"><span>{tx(locale, { en: 'Deal savings', es: 'Ahorro por oferta', it: 'Risparmio offerta', ar: 'توفير العروض' })}</span><strong>−{formatPrice(booking.discount, currency, locale)}</strong></div>}
-      <div className="customer-payment-total-row grand"><span>{tx(locale, { en: 'Grand total', es: 'Total general', it: 'Totale generale', ar: 'الإجمالي' })}</span><strong>{formatPrice(booking.total, currency, locale)}</strong></div>
+      <div className="customer-payment-total-row"><span>{tx(locale, { en: 'Lines total', es: 'Total de líneas', it: 'Totale voci', ar: 'إجمالي البنود' })}</span><strong>{formatCurrency(linesTotal, booking.currency, locale)}</strong></div>
+      {booking.discount > 0 && <div className="customer-payment-total-row discount"><span>{tx(locale, { en: 'Deal savings', es: 'Ahorro por oferta', it: 'Risparmio offerta', ar: 'توفير العروض' })}</span><strong>−{formatCurrency(booking.discount, booking.currency, locale)}</strong></div>}
+      <div className="customer-payment-total-row grand"><span>{tx(locale, { en: 'Grand total', es: 'Total general', it: 'Totale generale', ar: 'الإجمالي' })}</span><strong>{formatCurrency(booking.total, booking.currency, locale)}</strong></div>
     </section>
 
     <section className="customer-account-block">
@@ -982,7 +983,7 @@ function BookingTableRow({ booking, index }: { booking: Booking; index: number }
     <td><span className="customer-trip-cell"><Link href={detailHref}><img src={first?.image || '/egypt-hero.png'} alt="" /></Link><span><strong><Link href={detailHref}>{first?.title || (tx(locale, { en: 'Custom journey', es: 'Viaje personalizado', it: 'Viaggio personalizzato', ar: 'رحلة مخصصة' }))}</Link></strong><small>{booking.reference} · {booking.lines.length} {tx(locale, { en: 'items', es: 'elementos', it: 'voci', ar: 'بنود' })}</small></span></span></td>
     <td>{displayBookingDate(booking, locale)}</td>
     <td>{travelers}</td>
-    <td><strong>{formatPrice(booking.total, currency, locale)}</strong></td>
+    <td><strong>{formatCurrency(booking.total, booking.currency, locale)}</strong></td>
     <td><BookingStatus booking={booking} locale={locale} /></td>
     <td><span className="customer-table-actions"><Link href={detailHref} aria-label={tx(locale, { en: 'View details', es: 'Ver detalles', it: 'Vedi dettagli', ar: 'عرض التفاصيل' })} title={tx(locale, { en: 'View details', es: 'Ver detalles', it: 'Vedi dettagli', ar: 'عرض التفاصيل' })}><Eye size={16} /></Link><Link href="/account/messages" onClick={() => saveMessageDraft({ reference: booking.reference, title: first?.title ?? '' })} aria-label={tx(locale, { en: 'Ask about booking', es: 'Preguntar por la reserva', it: 'Chiedi info sulla prenotazione', ar: 'اسأل عن الحجز' })} title={tx(locale, { en: 'Ask about booking', es: 'Preguntar por la reserva', it: 'Chiedi info sulla prenotazione', ar: 'اسأل عن الحجز' })}><MessageCircle size={16} /></Link></span></td>
   </tr>
@@ -1349,18 +1350,7 @@ function CarRequestDetailSection({ reference }: { reference: string }) {
         {item.pickupTime ? <div><small>{tx(locale, { en: 'Pick-up time', es: 'Hora de recogida', it: 'Ora di prelievo', ar: 'وقت الانطلاق' })}</small><strong dir="ltr">{item.pickupTime}</strong></div> : null}
         <div><small>{tx(locale, { en: 'Return date', es: 'Fecha de regreso', it: 'Data di ritorno', ar: 'تاريخ العودة' })}</small><strong dir="ltr">{item.tripType === 'Round Trip' && item.preferredReturnDate ? formatCarDate(item.preferredReturnDate, locale) : '-'}</strong></div>
         {item.tripType === 'Round Trip' && item.returnTime ? <div><small>{tx(locale, { en: 'Return time', es: 'Hora de regreso', it: 'Ora di ritorno', ar: 'وقت العودة' })}</small><strong dir="ltr">{item.returnTime}</strong></div> : null}
-        {item.quote ? (
-          <div><small>{tx(locale, { en: 'Estimated transfer price (when requested)', es: 'Precio estimado del traslado (al solicitar)', it: 'Prezzo stimato del trasferimento (alla richiesta)', ar: 'سعر النقل التقديري (عند الطلب)' })}</small>
-            <strong dir="ltr">{item.quote.cents > 0
-              ? `${formatQuoteAmount(item.quote.roundTripCents ?? item.quote.cents, item.quote.currency, locale)}`
-              : tx(locale, { en: 'Price on request', es: 'Precio a su pedido', it: 'Prezzo alla richiesta', ar: 'السعر عند الطلب' })}</strong>
-            <small>{item.quote.basis === 'manual'
-              ? tx(locale, { en: 'Fixed round-trip rate', es: 'Tarifa fija de ida y vuelta', it: 'Tariffa fissa andata e ritorno', ar: 'سعر ثابت ذهاب وعودة' })
-              : item.quote.basis === 'multiplier'
-                ? tx(locale, { en: 'Outbound leg plus return-multiplier estimate', es: 'Tramo de ida más estimación de retorno', it: 'Tratta di andata più stima di ritorno', ar: 'ذهاب + تقدير مضاعفة العودة' })
-                : tx(locale, { en: 'Priced per travel legs', es: 'Precios por tramos', it: 'Prezzi per tratte', ar: 'سعر لكل اتجاه منفصل' })}</small>
-          </div>
-        ) : <div><small>{tx(locale, { en: 'Estimated transfer price (when requested)', es: 'Precio estimado del traslado (al solicitar)', it: 'Prezzo stimato del trasferimento (alla richiesta)', ar: 'سعر النقل التقديري (عند الطلب)' })}</small><strong>{tx(locale, { en: 'Price on request', es: 'Precio a su pedido', it: 'Prezzo alla richiesta', ar: 'السعر عند الطلب' })}</strong></div>}
+        <CarQuoteSummary quote={item.quote} locale={locale} tripType={item.tripType} saved/>
       </div>
     </section>
 
@@ -1480,14 +1470,15 @@ function PaymentsSection() {
   const visible = filter === 'all' ? payments : payments.filter((payment) => payment.status === filter)
   // "Collected" should only count net paid money (paid - refunded).
   // REFUNDED and PARTIALLY_REFUNDED payments are settled money that was returned.
-  const collected = payments
-    .filter((payment) => payment.status === 'paid' || payment.status === 'partially_refunded' || payment.status === 'refunded')
-    .reduce((sum, payment) => sum + payment.amountPaid - payment.amountRefunded, 0)
-  // "Awaiting provider" should show total amount of active attempts (pending/processing).
-  // These are NOT collected — they are pending provider handoff.
-  const awaiting = payments.filter((payment) => payment.status === 'pending' || payment.status === 'processing').reduce((sum, payment) => sum + payment.amount, 0)
+  const paymentTotals = (rows: Payment[], amountOf: (payment: Payment) => number) => {
+    const totals = new Map<string, number>()
+    for (const payment of rows) totals.set(payment.currency, (totals.get(payment.currency) ?? 0) + amountOf(payment))
+    return [...totals].map(([code, amount]) => formatCurrency(amount, code, locale)).join(' · ') || formatCurrency(0, 'USD', locale)
+  }
+  const collected = paymentTotals(payments.filter((payment) => payment.status === 'paid' || payment.status === 'partially_refunded' || payment.status === 'refunded'), (payment) => payment.amountPaid - payment.amountRefunded)
+  const awaiting = paymentTotals(payments.filter((payment) => payment.status === 'pending' || payment.status === 'processing'), (payment) => payment.amount)
   const paging = usePagination(visible)
-  return <><div className="customer-payment-summary"><Metric Icon={CheckCircle2} value={formatPrice(collected, currency, locale)} label={tx(locale, { en: 'Paid', es: 'Pagado', it: 'Pagato', ar: 'تم دفعه' })} note={tx(locale, { en: 'Confirmed payments', es: 'Pagos confirmados', it: 'Pagamenti confermati', ar: 'مدفوعات مؤكدة' })} tone="green" /><Metric Icon={Clock3} value={formatPrice(awaiting, currency, locale)} label={tx(locale, { en: 'Unpaid', es: 'Sin pagar', it: 'Non pagato', ar: 'غير مدفوع' })} note={tx(locale, { en: 'No charge is made online', es: 'No se realiza ningún cargo en línea', it: 'Nessun addebito online', ar: 'لا يتم الخصم عبر الإنترنت' })} tone="orange" /><Metric Icon={ReceiptText} value={payments.length} label={tx(locale, { en: 'Records', es: 'Registros', it: 'Registrazioni', ar: 'السجلات' })} note={tx(locale, { en: 'Real payment attempts', es: 'Intentos de pago reales', it: 'Tentativi di pagamento reali', ar: 'محاولات دفع حقيقية' })} tone="blue" /></div><section className="customer-account-block customer-full-block"><header><div><span>{tx(locale, { en: 'Payment history', es: 'Historial de pagos', it: 'Cronologia pagamenti', ar: 'السجل المالي' })}</span><h2>{tx(locale, { en: 'Payments and payment status', es: 'Pagos y estado de pagos', it: 'Pagamenti e stato pagamenti', ar: 'المدفوعات وحالتها' })}</h2></div><ShieldCheck size={20} /></header><div className="customer-filterbar"><div role="tablist" aria-label={tx(locale, { en: 'Filter payments', es: 'Filtrar pagos', it: 'Filtra pagamenti', ar: 'فلترة المدفوعات' })}>{(['all', 'pending', 'processing', 'paid', 'failed', 'cancelled', 'refunded', 'partially_refunded'] as const).map((status) => <button type="button" key={status} className={filter === status ? 'active' : ''} onClick={() => setFilter(status)}>{status === 'all' ? (tx(locale, { en: 'All', es: 'Todos', it: 'Tutti', ar: 'الكل' })) : paymentStatusLabel(status, locale)}</button>)}</div><Link href="/trips"><Plus size={16} />{tx(locale, { en: 'Book a trip', es: 'Reservar un viaje', it: 'Prenota un viaggio', ar: 'احجز رحلة' })}</Link></div>{loading ? <div className="customer-inline-empty" role="status"><Clock3 size={20} /><span><strong>{tx(locale, { en: 'Loading payments…', es: 'Cargando los pagos…', it: 'Caricamento pagamenti…', ar: 'جارٍ تحميل المدفوعات…' })}</strong></span></div>
+  return <><div className="customer-payment-summary"><Metric Icon={CheckCircle2} value={collected} label={tx(locale, { en: 'Paid', es: 'Pagado', it: 'Pagato', ar: 'تم دفعه' })} note={tx(locale, { en: 'Confirmed payments', es: 'Pagos confirmados', it: 'Pagamenti confermati', ar: 'مدفوعات مؤكدة' })} tone="green" /><Metric Icon={Clock3} value={awaiting} label={tx(locale, { en: 'Unpaid', es: 'Sin pagar', it: 'Non pagato', ar: 'غير مدفوع' })} note={tx(locale, { en: 'No charge is made online', es: 'No se realiza ningún cargo en línea', it: 'Nessun addebito online', ar: 'لا يتم الخصم عبر الإنترنت' })} tone="orange" /><Metric Icon={ReceiptText} value={payments.length} label={tx(locale, { en: 'Records', es: 'Registros', it: 'Registrazioni', ar: 'السجلات' })} note={tx(locale, { en: 'Real payment attempts', es: 'Intentos de pago reales', it: 'Tentativi di pagamento reali', ar: 'محاولات دفع حقيقية' })} tone="blue" /></div><section className="customer-account-block customer-full-block"><header><div><span>{tx(locale, { en: 'Payment history', es: 'Historial de pagos', it: 'Cronologia pagamenti', ar: 'السجل المالي' })}</span><h2>{tx(locale, { en: 'Payments and payment status', es: 'Pagos y estado de pagos', it: 'Pagamenti e stato pagamenti', ar: 'المدفوعات وحالتها' })}</h2></div><ShieldCheck size={20} /></header><div className="customer-filterbar"><div role="tablist" aria-label={tx(locale, { en: 'Filter payments', es: 'Filtrar pagos', it: 'Filtra pagamenti', ar: 'فلترة المدفوعات' })}>{(['all', 'pending', 'processing', 'paid', 'failed', 'cancelled', 'refunded', 'partially_refunded'] as const).map((status) => <button type="button" key={status} className={filter === status ? 'active' : ''} onClick={() => setFilter(status)}>{status === 'all' ? (tx(locale, { en: 'All', es: 'Todos', it: 'Tutti', ar: 'الكل' })) : paymentStatusLabel(status, locale)}</button>)}</div><Link href="/trips"><Plus size={16} />{tx(locale, { en: 'Book a trip', es: 'Reservar un viaje', it: 'Prenota un viaggio', ar: 'احجز رحلة' })}</Link></div>{loading ? <div className="customer-inline-empty" role="status"><Clock3 size={20} /><span><strong>{tx(locale, { en: 'Loading payments…', es: 'Cargando los pagos…', it: 'Caricamento pagamenti…', ar: 'جارٍ تحميل المدفوعات…' })}</strong></span></div>
       : loadError && !payments.length ? <EmptyState Icon={ReceiptText} title={tx(locale, { en: 'Could not load payments', es: 'No se pudieron cargar los pagos', it: 'Impossibile caricare i pagamenti', ar: 'تعذر تحميل المدفوعات' })} copy={customerErrorText(locale, loadError)} href="/account/bookings" action={tx(locale, { en: 'Back to bookings', es: 'Volver a las reservas', it: 'Torna alle prenotazioni', ar: 'عودة للحجوزات' })} />
       : visible.length ? <><div className="customer-table-wrap"><table className="customer-table">
         <thead><tr><th>#</th><th>{tx(locale, { en: 'Reference', es: 'Referencia', it: 'Riferimento', ar: 'المرجع' })}</th><th>{tx(locale, { en: 'Booking', es: 'Reserva', it: 'Prenotazione', ar: 'الحجز' })}</th><th>{tx(locale, { en: 'Initiated', es: 'Iniciado', it: 'Avviato', ar: 'تاريخ الإنشاء' })}</th><th>{tx(locale, { en: 'Status', es: 'Estado', it: 'Stato', ar: 'الحالة' })}</th><th>{tx(locale, { en: 'Amount', es: 'Importe', it: 'Importo', ar: 'المبلغ' })}</th><th></th></tr></thead>
@@ -1498,7 +1489,7 @@ function PaymentsSection() {
             <td><Link href={'/account/bookings/detail?ref=' + encodeURIComponent(payment.bookingReference)}>{payment.bookingReference}</Link></td>
             <td>{new Date(payment.initiatedAt).toLocaleDateString(locale === 'ar' ? 'ar-EG' : locale === 'es' ? 'es-ES' : locale === 'it' ? 'it-IT' : 'en-GB')}</td>
             <td><span className={`customer-payment-state ${payment.status}`}>{paymentStatusLabel(payment.status, locale)}</span></td>
-            <td><strong>{formatPrice(payment.amount, currency, locale)}</strong></td>
+            <td><strong>{formatCurrency(payment.amount, payment.currency, locale)}</strong></td>
             <td><span className="customer-table-actions">
               <Link href={'/account/payments/detail?ref=' + encodeURIComponent(payment.reference)} aria-label={tx(locale, { en: 'View payment', es: 'Ver el pago', it: 'Vedi pagamento', ar: 'عرض الدفع' })} title={tx(locale, { en: 'View payment', es: 'Ver el pago', it: 'Vedi pagamento', ar: 'عرض الدفع' })}><Eye size={16} /></Link>
             </span></td>
@@ -1559,19 +1550,19 @@ function PaymentDetailSection({ reference }: { reference: string }) {
     <section className="customer-account-block">
       <header><div><span>{payment.reference}</span><h2>{tx(locale, { en: 'Payment details', es: 'Detalles del pago', it: 'Dettagli pagamento', ar: 'تفاصيل الدفع' })}</h2></div><span className={`customer-payment-state ${payment.status}`}>{paymentStatusLabel(payment.status, locale)}</span></header>
       <div className="customer-detail-grid">
-        <div><small>{tx(locale, { en: 'Amount due', es: 'Importe adeudado', it: 'Importo dovuto', ar: 'المبلغ المستحق' })}</small><strong>{formatPrice(payment.amount, currency, locale)}</strong></div>
-        <div><small>{tx(locale, { en: 'Amount paid', es: 'Importe pagado', it: 'Importo pagato', ar: 'المدفوع' })}</small><strong>{formatPrice(payment.amountPaid, currency, locale)}</strong></div>
+        <div><small>{tx(locale, { en: 'Amount due', es: 'Importe adeudado', it: 'Importo dovuto', ar: 'المبلغ المستحق' })}</small><strong>{formatCurrency(payment.amount, payment.currency, locale)}</strong></div>
+        <div><small>{tx(locale, { en: 'Amount paid', es: 'Importe pagado', it: 'Importo pagato', ar: 'المدفوع' })}</small><strong>{formatCurrency(payment.amountPaid, payment.currency, locale)}</strong></div>
         <div><small>{tx(locale, { en: 'Payment status', es: 'Estado del pago', it: 'Stato del pagamento', ar: 'حالة الدفع' })}</small><strong>{paymentStatusLabel(payment.status, locale)}</strong></div>
         <div><small>{tx(locale, { en: 'Related booking', es: 'Reserva relacionada', it: 'Prenotazione collegata', ar: 'الحجز المرتبط' })}</small><strong><Link href={'/account/bookings/detail?ref=' + encodeURIComponent(payment.bookingReference)}>{payment.bookingReference}</Link></strong></div>
         <div><small>{tx(locale, { en: 'Initiated', es: 'Iniciado', it: 'Avviato', ar: 'تاريخ الإنشاء' })}</small><strong>{fmtDateTime(payment.initiatedAt)}</strong></div>
-        {payment.amountRefunded > 0 && <div><small>{tx(locale, { en: 'Amount refunded', es: 'Importe reembolsado', it: 'Importo rimborsato', ar: 'المسترد' })}</small><strong>{formatPrice(payment.amountRefunded, currency, locale)}</strong></div>}
+        {payment.amountRefunded > 0 && <div><small>{tx(locale, { en: 'Amount refunded', es: 'Importe reembolsado', it: 'Importo rimborsato', ar: 'المسترد' })}</small><strong>{formatCurrency(payment.amountRefunded, payment.currency, locale)}</strong></div>}
         {payment.paidAt && <div><small>{tx(locale, { en: 'Paid on', es: 'Pagado el', it: 'Pagato il', ar: 'تاريخ الدفع' })}</small><strong>{fmtDateTime(payment.paidAt)}</strong></div>}
         {payment.failedAt && <div><small>{tx(locale, { en: 'Failed on', es: 'Fallido el', it: 'Fallito il', ar: 'تاريخ الفشل' })}</small><strong>{fmtDateTime(payment.failedAt)}</strong></div>}
         {payment.cancelledAt && <div><small>{tx(locale, { en: 'Cancelled on', es: 'Cancelado el', it: 'Annullato il', ar: 'تاريخ الإلغاء' })}</small><strong>{fmtDateTime(payment.cancelledAt)}</strong></div>}
         {payment.refundedAt && <div><small>{tx(locale, { en: 'Refunded on', es: 'Reembolsado el', it: 'Rimborsato il', ar: 'تاريخ الاسترداد' })}</small><strong>{fmtDateTime(payment.refundedAt)}</strong></div>}
         <div><small>{tx(locale, { en: 'Payment provider', es: 'Proveedor de pago', it: 'Fornitore di pagamento', ar: 'مزود الدفع' })}</small><strong>{payment.provider === 'offline' ? (tx(locale, { en: 'Offline (bank transfer or cash)', es: 'Offline (transferencia o efectivo)', it: 'Offline (bonifico o contanti)', ar: 'مباشر (تحويل بنكي أو نقدي)' })) : payment.provider === 'pending' ? (tx(locale, { en: 'No payment made yet', es: 'Aún no se ha realizado ningún pago', it: 'Nessun pagamento ancora effettuato', ar: 'لم يتم أي دفع بعد' })) : payment.provider}{payment.providerPaymentId ? ` · ${payment.providerPaymentId}` : ''}</strong></div>
       </div>
-      {isPending && <p role="status" className="form-note">{tx(locale, { en: `This record is pending: ${formatPrice(payment.amount, currency, locale)} is awaiting offline payment. Nothing has been charged online — pay by bank transfer or cash following your booking's payment instructions.`, es: `Este registro está pendiente: ${formatPrice(payment.amount, currency, locale)} aguarda el pago offline. No se ha cobrado nada en línea: paga por transferencia o en efectivo siguiendo las instrucciones de pago de tu reserva.`, it: `Questa registrazione è in sospeso: ${formatPrice(payment.amount, currency, locale)} è in attesa del pagamento offline. Nessun addebito online: paga con bonifico o contanti seguendo le istruzioni di pagamento della prenotazione.`, ar: `هذا السجل معلق: مبلغ ${formatPrice(payment.amount, currency, locale)} بانتظار الدفع المباشر. لم يتم خصم أي مبلغ عبر الإنترنت — ادفع بتحويل بنكي أو نقدًا وفق تعليمات الدفع في حجزك.` })}</p>}
+      {isPending && <p role="status" className="form-note">{tx(locale, { en: `This record is pending: ${formatCurrency(payment.amount, payment.currency, locale)} is awaiting offline payment. Nothing has been charged online — pay by bank transfer or cash following your booking's payment instructions.`, es: `Este registro está pendiente: ${formatCurrency(payment.amount, payment.currency, locale)} aguarda el pago offline. No se ha cobrado nada en línea: paga por transferencia o en efectivo siguiendo las instrucciones de pago de tu reserva.`, it: `Questa registrazione è in sospeso: ${formatCurrency(payment.amount, payment.currency, locale)} è in attesa del pagamento offline. Nessun addebito online: paga con bonifico o contanti seguendo le istruzioni di pagamento della prenotazione.`, ar: `هذا السجل معلق: مبلغ ${formatCurrency(payment.amount, payment.currency, locale)} بانتظار الدفع المباشر. لم يتم خصم أي مبلغ عبر الإنترنت — ادفع بتحويل بنكي أو نقدًا وفق تعليمات الدفع في حجزك.` })}</p>}
       <div className="customer-detail-actions">
         <Link href={'/account/bookings/detail?ref=' + encodeURIComponent(payment.bookingReference)} className="account-icon-action"><Eye size={16} />{tx(locale, { en: 'View related booking', es: 'Ver la reserva relacionada', it: 'Vedi la prenotazione collegata', ar: 'عرض الحجز المرتبط' })}</Link>
         <Link href="/account/payments" className="account-icon-action"><ArrowLeft size={16} />{tx(locale, { en: 'Back to payments', es: 'Volver a los pagos', it: 'Torna ai pagamenti', ar: 'عودة للمدفوعات' })}</Link>
@@ -1852,7 +1843,7 @@ function SettingsSection() {
         <header><div><span>{tx(locale, { en: 'Preferences', es: 'Preferencias', it: 'Preferenze', ar: 'التفضيلات' })}</span><h2>{tx(locale, { en: 'Language & currency', es: 'Idioma y moneda', it: 'Lingua e valuta', ar: 'اللغة والعملة' })}</h2></div><Globe2 size={19} /></header>
         <div className="customer-settings-selects">
           <label>{tx(locale, { en: 'Preferred language', es: 'Idioma preferido', it: 'Lingua preferita', ar: 'اللغة المفضلة' })}<SharedSelect value={form.preferredLanguage} onChange={(next) => update('preferredLanguage', next as EnabledLocale)} locale={locale} options={ENABLED_LOCALES.map((value) => ({ value, label: LOCALE_LABELS[value] }))} /></label>
-          <label>{tx(locale, { en: 'Display currency', es: 'Moneda de visualización', it: 'Valuta di visualizzazione', ar: 'عملة العرض' })}<SharedSelect value={selectedCurrency} onChange={(next) => { setSelectedCurrency(next as typeof currency); setSaved(false) }} locale={locale} options={[{ value: 'USD', label: 'USD' }, { value: 'EUR', label: 'EUR' }, { value: 'EGP', label: 'EGP' }]} /></label>
+          <label>{tx(locale, { en: 'Display currency', es: 'Moneda de visualización', it: 'Valuta di visualizzazione', ar: 'عملة العرض' })}<SharedSelect value={selectedCurrency} onChange={(next) => { setSelectedCurrency(next as typeof currency); setSaved(false) }} locale={locale} options={CURRENCY_OPTIONS} /></label>
         </div>
       </section>
       <section className="customer-account-block">

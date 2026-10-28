@@ -1,17 +1,21 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, ExternalLink, Eye, EyeOff, ImagePlus, MapPin, Plus, Save, Trash2, Upload } from 'lucide-react'
 import { PageHead } from './admin-shell'
 import { AdminText, Card, StatusPill } from './admin-ui'
 import { useAdminLocale } from './admin-locale'
 import { toast } from './admin-toaster'
 import { invalidateToursCache } from '@/lib/tours-client'
-import { getTravelerUnitPrices, multiDayCategories, normalizeTourPricePeriods, tours } from '@/data/tours'
+import { multiDayCategories, normalizeTourPricePeriods, tours } from '@/data/tours'
 import { destinations } from '@/data/content'
 import { useDbCategories, useDbDestinations } from '@/lib/catalogue-client'
 import type { CruiseTypeSlug, Tour, TourCategory, TourLocation, TourVideoPlatform } from '@/data/types'
 import { uploadImageFile } from '@/lib/admin-store'
+import { TripBuilderPreview } from './trip-builder-preview'
+import type { AppearanceTokens } from '@/lib/website-appearance'
+import { cleanTravelerPriceRows, previewTextKey, type BasicForm, type AddOnRow, type HighlightRow, type ItineraryRow, type PassengerRateRow, type TravelerPriceRows, type PriceTierRow, type PriceMatrixRow, type LocationRow, type GalleryRow, type VideoRow } from '@/lib/trip-builder-preview'
+import { isTourImage, tourWritePayload } from '@/lib/tour-write'
 import { ImageField } from './image-field'
 import { SharedSelect } from '@/components/shared-select'
 import { DateInput } from '@/components/date-input'
@@ -33,41 +37,10 @@ const steps = [
   { en: 'Review & Publish', ar: 'المراجعة والنشر' },
 ] as const
 
-type BasicForm = Translatable & {
-  title: string
-  titleAr: string
-  category: TourCategory
-  destinationSlug: string
-  cruiseType: CruiseTypeSlug | ''
-  departurePort: string
-  location: string
-  duration: string
-  price: string
-  deal: string
-  dealEndsAt: string
-  groupSize: string
-  travelStyle: string
-  summary: string
-  overview: string
-  itineraryNote: string
-  included: string
-  excluded: string
-}
-
-type AddOnRow = Translatable & { id: string; title: string; price: string }
-type HighlightRow = Translatable & { id: string; title: string; items: string }
-type ItineraryRow = Translatable & { id: string; day: string; title: string; description: string; meals: string; image: string }
-type PassengerRateRow = { id: string; travelers: string; price: string }
-type TravelerPriceRows = { adult: PassengerRateRow[]; child: PassengerRateRow[]; infant: PassengerRateRow[] }
-type PriceTierRow = Translatable & { id: string; label: string; price: string; suffix: string }
-type PriceMatrixRow = Translatable & { id: string; category: string; startDate: string; endDate: string; price: string; note: string; prefix: string; tiers: PriceTierRow[] }
-type LocationRow = Translatable & { id: string; name: string; nameAr: string; latitude: string; longitude: string }
-type GalleryRow = Translatable & { id: string; src: string; altAr?: string; alt: string; creditLabel: string; creditUrl: string; source: 'link' | 'upload' }
-type VideoRow = Translatable & { id: string; url: string; platform: TourVideoPlatform; title: string; titleAr: string; publishedAt: string; thumbnail: string }
 
 const id = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 const splitLines = (value: string) => value.split('\n').map((line) => line.trim()).filter(Boolean)
-const isValidPassengerRate = (row: PassengerRateRow) => Number.isInteger(Number(row.travelers)) && Number(row.travelers) > 0 && Number.isFinite(Number(row.price)) && Number(row.price) >= 0
+const isValidPassengerRate = (row: PassengerRateRow) => Number.isInteger(Number(row.travelers)) && Number(row.travelers) > 0 && row.price.trim() !== '' && Number.isFinite(Number(row.price)) && Number(row.price) >= 0
 const isSafeExternalUrl = (value: string) => {
   try { return new URL(value).protocol === 'https:' } catch { return false }
 }
@@ -79,17 +52,17 @@ function locationRows(locations: readonly TourLocation[] | undefined, fallback: 
     : { id: id('location'), translations: translations?.[index] ?? undefined, name: location.name, nameAr: location.nameAr ?? '', latitude: String(location.latitude ?? ''), longitude: String(location.longitude ?? '') })
 }
 
-function editorData(tour: Tour) {
-  const detail = tour.detail
-  const dayDetail = tour.dayDetail
+export function editorData(tour: Tour) {
+  const detail = tour.category === 'one-day-tours' ? undefined : tour.detail
+  const dayDetail = tour.category === 'one-day-tours' ? tour.dayDetail : undefined
   // A tour that has no price yet (a brand-new record) must not render "0" in
   // price inputs; fall back to an empty string so those fields stay empty.
-  const fallbackPrice = tour.price || ''
+  const fallbackPrice = tour.slug ? tour.price : ''
   const itinerarySource = detail?.itinerary ?? dayDetail?.stops?.map((stop, index) => ({ ...stop, day: stop.day ?? `Stop ${index + 1}` })) ?? []
   const travelerSource = detail?.travelerPrices ?? dayDetail?.travelerPrices ?? [
-    { travelers: 1, adultPrice: tour.price, childPrice: tour.price, infantPrice: 0 },
-    { travelers: 2, adultPrice: tour.price, childPrice: tour.price, infantPrice: 0 },
-    { travelers: 3, adultPrice: tour.price, childPrice: tour.price, infantPrice: 0 },
+    { travelers: 1, adultPrice: tour.slug ? tour.price : undefined, childPrice: tour.slug ? tour.price : undefined, infantPrice: 0 },
+    { travelers: 2, adultPrice: tour.slug ? tour.price : undefined, childPrice: tour.slug ? tour.price : undefined, infantPrice: 0 },
+    { travelers: 3, adultPrice: tour.slug ? tour.price : undefined, childPrice: tour.slug ? tour.price : undefined, infantPrice: 0 },
   ]
   const addonsSource = detail?.addOns ?? dayDetail?.addOns ?? []
   const highlightsSource = detail?.highlights ?? dayDetail?.highlightGroups ?? (dayDetail?.highlights?.length ? [{ title: 'Highlights', items: dayDetail.highlights }] : [])
@@ -107,7 +80,7 @@ function editorData(tour: Tour) {
       departurePort: tour.departurePort ?? '',
       location: tour.location,
       duration: tour.duration,
-      price: String(tour.price),
+      price: tour.slug ? String(tour.price) : '',
       deal: String(('manualDeal' in tour ? tour.manualDeal : tour.deal)?.percent ?? ''),
       dealEndsAt: ('manualDeal' in tour ? tour.manualDeal : tour.deal)?.endsAt?.slice(0, 10) ?? '',
       groupSize: tour.groupSize ?? '',
@@ -130,7 +103,7 @@ function editorData(tour: Tour) {
     } satisfies TravelerPriceRows,
     priceRows: priceSource.map((row) => ({ id: id('price-row'), translations: row.translations, category: row.category, startDate: row.startDate ?? '', endDate: row.endDate ?? '', price: String(row.price), note: row.note, prefix: row.prefix ?? '', tiers: (row.tiers ?? []).map((tier) => ({ id: id('price-tier'), translations: tier.translations, label: tier.label, price: String(tier.price), suffix: tier.suffix ?? '' })) })),
     locations: locationRows(detail?.locations ?? dayDetail?.locations, tour.location, detail?.locationTranslations ?? dayDetail?.locationTranslations),
-    gallery: gallerySource.map((src, index) => ({ id: id('gallery'), src, translations: tour.galleryCaptions?.[index]?.translations, altAr: tour.galleryCaptions?.[index]?.ar, alt: tour.galleryCaptions?.[index]?.en ?? `${tour.title} ${index + 1}`, creditLabel: tour.photoCredits?.[index]?.label ?? '', creditUrl: tour.photoCredits?.[index]?.url ?? '', source: 'link' as const })),
+    gallery: gallerySource.map((src, index) => ({ id: id('gallery'), src, translations: tour.galleryCaptions?.[index]?.translations, altAr: tour.galleryCaptions?.[index]?.ar, alt: tour.galleryCaptions?.[index]?.en ?? `${tour.title} ${index + 1}`, creditLabel: tour.photoCredits?.[index]?.label ?? '', creditUrl: tour.photoCredits?.[index]?.url ?? '', source: 'link' as const })).filter(row => row.src.trim()),
     videos: (tour.journeyVideos ?? []).map((video) => ({ id: video.id || id('video'), translations: video.translations, url: video.url, platform: video.platform ?? 'youtube', title: video.title, titleAr: video.titleAr ?? '', publishedAt: video.publishedAt.slice(0, 10), thumbnail: video.thumbnail ?? '' })),
   }
 }
@@ -142,7 +115,7 @@ function editorData(tour: Tour) {
  * prefilled into a new record. Editing an existing tour still loads the real
  * saved record through load() (driven by ?slug=).
  */
-function blankTour(): Tour {
+export function blankTour(): Tour {
   return {
     slug: '',
     title: '',
@@ -159,15 +132,24 @@ function blankTour(): Tour {
   }
 }
 
-export function TripBuilder() {
+export function TripBuilder({ initialSlug, previewAppearance }: { initialSlug?: string | null; previewAppearance?: AppearanceTokens } = {}) {
   const ar = useAdminLocale() === 'ar'
+  const clearedPreviewTranslations = useRef(new Set<string>())
   const initialTour = blankTour()
   const initial = editorData(initialTour)
   const [sourceTour, setSourceTour] = useState(initialTour)
+  const [loadingTour, setLoadingTour] = useState(Boolean(initialSlug))
+  const [loadAttempt, setLoadAttempt] = useState(0)
   // Canonical slug being edited (null = creating a new tour). Set from
   // ?slug= on load and after a successful POST so later saves update it.
   const [editingSlug, setEditingSlug] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const mediaUploadCount = useRef(0)
+  const [mediaUploads, setMediaUploads] = useState(0)
+  const uploadActivity = (active: boolean) => {
+    mediaUploadCount.current = Math.max(0, mediaUploadCount.current + (active ? 1 : -1))
+    setMediaUploads(mediaUploadCount.current)
+  }
   const [visBusy, setVisBusy] = useState(false)
   // Publish state of the loaded record (new tours publish on first save).
   const tourVisible = (sourceTour?.status ?? 'published') === 'published'
@@ -181,14 +163,15 @@ export function TripBuilder() {
       const res = await fetch(`/api/tours/${encodeURIComponent(editingSlug)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: published ? 'published' : 'draft' }),
+        body: JSON.stringify({ status: published ? 'published' : 'draft', expectedUpdatedAt: (sourceTour as Tour & { updatedAt?: string }).updatedAt }),
         credentials: 'same-origin',
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({} as { error?: string }))
         throw new Error(data.error || 'Failed to update visibility.')
       }
-      setSourceTour((prev) => (prev ? { ...prev, status: published ? 'published' : 'draft' } : prev))
+      const response = await res.json()
+      setSourceTour(response.tour)
       invalidateToursCache()
       toast.success(
         published
@@ -210,7 +193,12 @@ export function TripBuilder() {
   const [stepLanguages, setStepLanguages] = useState<Partial<Record<number, EnabledLocale>>>({})
   const contentLocale = stepLanguages[activeStep] ?? 'en'
   const localText = <T extends Translatable,>(row: T, key: keyof T & string) => readTourText(row, key, contentLocale)
-  const editText = <T extends Translatable,>(row: T, key: keyof T & string, value: string) => writeTourText(row, key, value, contentLocale)
+  const editText = <T extends Translatable,>(row: T, key: keyof T & string, value: string) => {
+    const marker = previewTextKey(row, key, contentLocale)
+    if (contentLocale !== 'en' && value === '') clearedPreviewTranslations.current.add(marker)
+    else clearedPreviewTranslations.current.delete(marker)
+    return writeTourText(row, key, value, contentLocale)
+  }
   const [done, setDone] = useState<number[]>([])
   const [form, setForm] = useState<BasicForm>(initial.form)
   const [catSlugs, setCatSlugs] = useState<string[]>(initial.categorySlugs)
@@ -247,6 +235,7 @@ export function TripBuilder() {
   )
 
   const load = (tour: Tour) => {
+    clearedPreviewTranslations.current.clear()
     const data = editorData(tour)
     setSourceTour(tour)
     setForm(data.form)
@@ -275,14 +264,17 @@ export function TripBuilder() {
   const dbCategories = useDbCategories(multiDayCategories)
 
   useEffect(() => {
-    const slug = new URLSearchParams(window.location.search).get('slug')
+    const slug = initialSlug === undefined ? new URLSearchParams(window.location.search).get('slug') : initialSlug
     if (!slug) return
+    setLoadingTour(true)
+    setError('')
     // DB-authoritative load (no static/localStorage fallback).
     let cancelled = false
     const loadFromDb = async () => {
       try {
         const res = await fetch(`/api/tours/${encodeURIComponent(slug)}`, { credentials: 'same-origin' })
         const data = await res.json()
+        if (cancelled) return
         if (!res.ok || !data.tour) {
           setError(data.error || 'Tour not found in the database.')
           return
@@ -294,11 +286,13 @@ export function TripBuilder() {
         }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load tour.')
+      } finally {
+        if (!cancelled) setLoadingTour(false)
       }
     }
     void loadFromDb()
     return () => { cancelled = true }
-  }, [])
+  }, [initialSlug, loadAttempt])
 
   const set = (key: keyof BasicForm) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm((current) => ['title', 'location', 'duration', 'groupSize', 'travelStyle', 'summary', 'overview', 'itineraryNote', 'included', 'excluded', 'departurePort'].includes(key)
@@ -319,8 +313,8 @@ export function TripBuilder() {
 
   const addMediaLink = () => {
     const src = mediaLink.trim()
-    if (!/^https?:\/\//i.test(src) && !src.startsWith('/') && !src.startsWith('data:image/')) {
-      setError(ar ? 'أدخل رابط صورة صحيحا.' : 'Enter a valid image URL.')
+    if (!isTourImage(src)) {
+      setError(ar ? 'أدخل رابط صورة صحيحا.' : 'Upload an image or use a local, Unsplash or Wikimedia image URL.')
       return
     }
     setGallery((current) => [...current, { id: id('gallery'), src, alt: mediaAlt.trim() || form.title, creditLabel: mediaCreditLabel.trim(), creditUrl: mediaCreditUrl.trim(), source: 'link' as const }].slice(0, 12))
@@ -332,39 +326,18 @@ export function TripBuilder() {
   }
 
   const uploadGallery = async (files: FileList | null) => {
-    if (!files) return
-    const batch = Array.from(files).slice(0, 12)
-    const loaded = await Promise.all(batch.map(async (file) => ({ file, url: await uploadImageFile(file) })))
-    const valid = loaded.filter((item): item is { file: File; url: string } => Boolean(item.url)).map(({ file, url }) => ({ id: id('gallery'), src: url, alt: file.name, creditLabel: '', creditUrl: '', source: 'upload' as const }))
-    setGallery((current) => [...current, ...valid].slice(0, 12))
-    if (valid.length !== loaded.length) setError(ar ? 'بعض الصور لم تُقبل. الحد 1.5MB للصورة.' : 'Some images were rejected. The limit is 1.5MB per image.')
+    if (!files || saving) return
+    uploadActivity(true)
+    try {
+      const batch = Array.from(files).slice(0, 12)
+      const loaded = await Promise.all(batch.map(async (file) => ({ file, url: await uploadImageFile(file) })))
+      const valid = loaded.filter((item): item is { file: File; url: string } => Boolean(item.url)).map(({ file, url }) => ({ id: id('gallery'), src: url, alt: file.name, creditLabel: '', creditUrl: '', source: 'upload' as const }))
+      setGallery((current) => [...current, ...valid].slice(0, 12))
+      if (valid.length !== loaded.length) setError(ar ? 'بعض الصور لم تُقبل. الحد 1.5MB للصورة.' : 'Some images were rejected. The limit is 1.5MB per image.')
+    } finally { uploadActivity(false) }
   }
 
-  const cleanTravelerPrices = useMemo(() => {
-    const clean = (rows: PassengerRateRow[]) => rows
-      .map((row) => ({ travelers: Number(row.travelers), price: Number(row.price) }))
-      .filter((row) => Number.isInteger(row.travelers) && row.travelers > 0 && Number.isFinite(row.price) && row.price >= 0)
-    const adult = clean(travelerPrices.adult)
-    const child = clean(travelerPrices.child)
-    const infant = clean(travelerPrices.infant)
-    const counts = Array.from(new Set([...adult, ...child, ...infant].map((row) => row.travelers))).sort((a, b) => a - b)
-    return counts.map((travelers) => ({
-      travelers,
-      adultPrice: adult.find((row) => row.travelers === travelers)?.price,
-      childPrice: child.find((row) => row.travelers === travelers)?.price,
-      infantPrice: infant.find((row) => row.travelers === travelers)?.price,
-    }))
-  }, [travelerPrices])
-  const previewTour = useMemo<Tour>(() => ({
-    ...sourceTour,
-    price: Number(form.price) || sourceTour.price,
-    detail: sourceTour.detail ? { ...sourceTour.detail, travelerPrices: cleanTravelerPrices } : sourceTour.detail,
-    dayDetail: sourceTour.dayDetail ? { ...sourceTour.dayDetail, travelerPrices: cleanTravelerPrices } : sourceTour.dayDetail,
-  }), [cleanTravelerPrices, form.price, sourceTour])
-  const previewHeadcount = Math.max(1, previewAdults + previewChildren + previewInfants)
-  const previewPrices = getTravelerUnitPrices(previewTour, previewHeadcount)
-  const previewTotal = previewAdults * previewPrices.adult + previewChildren * previewPrices.child + previewInfants * previewPrices.infant
-  const cover = gallery[0]?.src || sourceTour.image
+  const cleanTravelerPrices = useMemo(() => cleanTravelerPriceRows(travelerPrices), [travelerPrices])
 
   // Unsaved-changes detection: every persisted editor field serialized.
   // New (never-saved) tours always show Save & Publish until the first
@@ -379,8 +352,10 @@ export function TripBuilder() {
   )
   const showSave = editingSlug === null || baseline === null || baseline !== currentSnapshot
 
-  const publish = async () => {
+  const publish = async (targetStatus: 'draft' | 'published' = 'published') => {
     setError('')
+    if (mediaUploadCount.current > 0) { setError('Wait for image uploads to finish before saving.'); return }
+    if (saving || visBusy) return
     const missingEnglish = addOns.some((row) => row.translations && !row.title.trim())
       || itinerary.some((row) => row.translations && !row.title.trim() && !row.description.trim())
       || highlights.some((row) => row.translations && !row.title.trim() && !row.items.trim())
@@ -392,7 +367,11 @@ export function TripBuilder() {
       return
     }
     const basePrice = Number(form.price)
-    if (!form.title.trim() || !form.duration.trim() || !Number.isFinite(basePrice) || basePrice < 0) {
+    if (targetStatus === 'published' && !gallery[0]?.src.trim()) {
+      setError(ar ? 'أضف صورة غلاف قبل النشر.' : 'Add a cover image before publishing. The preview can remain image-free while editing.')
+      return
+    }
+    if (!form.title.trim() || !form.duration.trim() || form.price.trim() === '' || !Number.isFinite(basePrice) || basePrice < 0) {
       setError(ar ? 'راجع العنوان والمدة والسعر الأساسي قبل النشر.' : 'Check the title, duration, and base price before publishing.')
       return
     }
@@ -484,6 +463,7 @@ export function TripBuilder() {
     const galleryImages = gallery.map((item) => item.src)
     const common: Tour = {
       ...sourceTour,
+      status: targetStatus,
       title: form.title.trim(),
       titleAr: form.titleAr.trim() || undefined,
       category: form.category,
@@ -494,9 +474,9 @@ export function TripBuilder() {
       location: form.location.trim(),
       duration: form.duration.trim(),
       price: basePrice,
-      image: galleryImages[0] ?? sourceTour.image,
-      gallery: galleryImages.length ? galleryImages : sourceTour.gallery,
-      galleryCaptions: gallery.length ? gallery.map((item) => ({ en: item.alt, ar: item.altAr ?? item.alt, translations: item.translations })) : sourceTour.galleryCaptions,
+      image: galleryImages[0] ?? '',
+      gallery: galleryImages,
+      galleryCaptions: gallery.map((item) => ({ en: item.alt, ar: item.altAr ?? item.alt, translations: item.translations })),
       photoCredits: gallery.filter((item) => item.creditLabel.trim() && item.creditUrl.trim()).map((item) => ({ label: item.creditLabel.trim(), url: item.creditUrl.trim() })),
       journeyVideos: savedVideos,
       summary: form.summary.trim(),
@@ -520,7 +500,7 @@ export function TripBuilder() {
         excluded: splitLines(form.excluded),
         addOns: savedAddOns,
         locationTranslations: locations.filter((row) => row.name.trim()).map((row) => row.translations ?? null),
-        locations: savedLocations.length ? savedLocations : [form.location.trim()],
+        locations: savedLocations,
         priceRows: savedPriceRows,
         travelerPrices: cleanTravelerPrices,
       },
@@ -534,11 +514,12 @@ export function TripBuilder() {
         itineraryNote: form.itineraryNote.trim() || undefined,
         highlights: savedHighlights,
         itinerary: savedItinerary,
+        itineraryImages: [],
         included: splitLines(form.included),
         excluded: splitLines(form.excluded),
         addOns: savedAddOns,
         locationTranslations: locations.filter((row) => row.name.trim()).map((row) => row.translations ?? null),
-        locations: savedLocations.length ? savedLocations : [form.location.trim()],
+        locations: savedLocations,
         priceRows: savedPriceRows,
         travelerPrices: cleanTravelerPrices,
       },
@@ -571,15 +552,16 @@ export function TripBuilder() {
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(method === 'POST' ? { ...saved, slug: finalSlug } : saved),
+        body: JSON.stringify(tourWritePayload({ ...saved, slug: finalSlug }, targetStatus)),
         credentials: 'same-origin',
       })
       const data = await res.json().catch(() => ({} as { error?: string; tour?: Tour }))
-      if (res.status === 409) throw new Error(ar ? 'توجد رحلة بهذا الرابط مسبقا. افتحها للتعديل عليها بدلا من إنشاء نسخة مكررة.' : 'A tour with this slug already exists. Open it to edit instead of creating a duplicate.')
+      if (res.status === 409) throw new Error(data.error || 'This tour changed or its slug is already in use. Reload before saving again.')
       if (!res.ok) throw new Error(data.error || 'Failed to save tour')
       const persisted = (data.tour as Tour | undefined) ?? saved
       setSourceTour(persisted)
       setEditingSlug(persisted.slug)
+      invalidateToursCache()
       try {
         const nextUrl = new URL(window.location.href)
         nextUrl.searchParams.set('slug', persisted.slug)
@@ -618,12 +600,15 @@ export function TripBuilder() {
     [type]: current[type].filter((row) => row.id !== rowId),
   }))
 
+  if (loadingTour) return <Card title="Trip Builder"><p role="status">Loading trip…</p></Card>
+  if (initialSlug && !sourceTour.slug) return <Card title="Trip Builder"><p role="alert">{error || 'Could not load trip.'}</p><button type="button" className="sp-btn" onClick={() => setLoadAttempt(value => value + 1)}>Retry</button></Card>
+
   return <>
     <PageHead eyebrow="Trip Builder" title="Trip Builder" titleAr="منشئ الرحلات" sub="Edit the complete tour experience from one structured workflow" subAr="عدّل تجربة الرحلة كاملة من مسار عمل منظم" backHref="/admin/trips" actions={isLastStep ? (
       // Final step: navigation only — never advances the builder, never saves.
       editingSlug ? <a className="sp-btn dark" href={`/egypt-tours/${encodeURIComponent(editingSlug)}`} target="_blank" rel="noopener noreferrer"><ExternalLink size={16} /> <AdminText en="View Tour" ar="عرض الرحلة" /></a> : null
     ) : (
-      <button type="button" className="sp-btn dark" onClick={next} disabled={saving}><ArrowRight size={16} /> <AdminText en="Continue" ar="متابعة" /></button>
+      <button type="button" className="sp-btn dark" onClick={next} disabled={saving || visBusy || mediaUploads > 0}><ArrowRight size={16} /> <AdminText en="Continue" ar="متابعة" /></button>
     )} />
     <div className="sp-steps" aria-label={ar ? 'خطوات بناء الرحلة' : 'Trip builder steps'}>{steps.map((item, index) => <button key={item.en} type="button" className={index === activeStep ? 'active' : done.includes(index) ? 'done' : ''} onClick={() => setActiveStep(index)}>{index + 1}. {ar ? item.ar : item.en}</button>)}</div>
 
@@ -648,7 +633,7 @@ export function TripBuilder() {
               <div className="sp-form-2"><label><AdminText en="Video URL" ar="رابط الفيديو" /><input value={row.url} dir="ltr" placeholder="https://..." onChange={(event) => setVideos((current) => current.map((item) => item.id === row.id ? { ...item, url: event.target.value } : item))} /></label><label><AdminText en="Platform" ar="المنصة" /><SharedSelect value={row.platform} onChange={(next) => setVideos((current) => current.map((item) => item.id === row.id ? { ...item, platform: next as TourVideoPlatform } : item))} locale={ar ? 'ar' : 'en'} options={[{ value: 'youtube', label: 'YouTube' }, { value: 'instagram', label: 'Instagram' }, { value: 'tiktok', label: 'TikTok' }, { value: 'facebook', label: 'Facebook' }, { value: 'vimeo', label: 'Vimeo' }, { value: 'direct', label: 'Direct video' }]} /></label></div>
               <label><AdminText en="Title" ar="العنوان" /><input value={localText(row, 'title')} onChange={(event) => setVideos((current) => current.map((item) => item.id === row.id ? editText(item, 'title', event.target.value) : item))} /></label>
               <label><AdminText en="Published date" ar="تاريخ النشر" /><DateInput value={row.publishedAt} onChange={(event) => setVideos((current) => current.map((item) => item.id === row.id ? { ...item, publishedAt: event.target.value } : item))} /></label>
-              <ImageField value={row.thumbnail} onChange={(thumbnail) => setVideos((current) => current.map((item) => item.id === row.id ? { ...item, thumbnail } : item))} preview="compact" linkLabel={{ en: 'Thumbnail URL (optional)', ar: 'رابط صورة الفيديو (اختياري)' }} uploadLabel={{ en: 'Upload thumbnail', ar: 'رفع صورة الفيديو' }} previewAlt={row.title || 'Video thumbnail'} />
+              <ImageField disabled={saving || visBusy} onUploadingChange={uploadActivity} value={row.thumbnail} onChange={(thumbnail) => setVideos((current) => current.map((item) => item.id === row.id ? { ...item, thumbnail } : item))} preview="compact" linkLabel={{ en: 'Thumbnail URL (optional)', ar: 'رابط صورة الفيديو (اختياري)' }} uploadLabel={{ en: 'Upload thumbnail', ar: 'رفع صورة الفيديو' }} previewAlt={row.title || 'Video thumbnail'} />
             </article>)}</div>
             <div className="sp-builder-divider" />
             <div className="sp-builder-subhead"><div><strong><AdminText en="Tour gallery" ar="معرض صور الرحلة" /></strong><small><AdminText en="The first image is the cover. Credits are optional." ar="الصورة الأولى هي الغلاف. بيانات المصدر اختيارية." /></small></div></div>
@@ -663,16 +648,16 @@ export function TripBuilder() {
 
           {step === 3 && <label><AdminText en="Overview paragraphs" ar="فقرات النظرة العامة" /><textarea value={localText(form, 'overview')} onChange={set('overview')} placeholder={ar ? 'فقرة في كل سطر' : 'One paragraph per line'} rows={8} /></label>}
 
-          {activeStep === 4 && <><p className="sp-builder-note"><AdminText en="Choose the main Highlights image, then create one or more groups with one highlight per line." ar="اختر الصورة الرئيسية لقسم أبرز المعالم، ثم أنشئ مجموعة أو أكثر واكتب بندا واحدا في كل سطر." /></p><article className="sp-repeat-card sp-highlight-image-editor"><header><span><ImagePlus size={16}/></span><strong><AdminText en="Highlights image" ar="صورة أبرز المعالم" /></strong></header><ImageField value={highlightImage} onChange={setHighlightImage} preview="wide" linkLabel={{ en: 'Highlights image URL', ar: 'رابط صورة أبرز المعالم' }} uploadLabel={{ en: 'Upload Highlights image', ar: 'رفع صورة أبرز المعالم' }} previewAlt={ar ? 'معاينة صورة أبرز المعالم' : 'Highlights image preview'} /></article><div className="sp-repeat-list">{highlights.map((row, index) => <article className="sp-repeat-card" key={row.id}>{repeatHeader(<AdminText en="Highlight group" ar="مجموعة أبرز المعالم" />, index, () => setHighlights((current) => current.filter((item) => item.id !== row.id)))}<label><AdminText en="Group title" ar="عنوان المجموعة" /><input value={localText(row, 'title')} placeholder={ar ? 'أبرز معالم القاهرة' : 'Cairo highlights'} onChange={(event) => setHighlights((current) => current.map((item) => item.id === row.id ? editText(item, 'title', event.target.value) : item))} /></label><label><AdminText en="Highlights (one per line)" ar="المعالم البارزة (بند في كل سطر)" /><textarea value={localText(row, 'items')} rows={5} placeholder={ar ? 'أهرامات الجيزة\nأبو الهول' : 'Giza Pyramids\nGreat Sphinx'} onChange={(event) => setHighlights((current) => current.map((item) => item.id === row.id ? editText(item, 'items', event.target.value) : item))} /></label></article>)}</div><button type="button" className="sp-btn" onClick={() => setHighlights((current) => [...current, { id: id('highlight'), title: '', items: '' }])}><Plus size={16}/><AdminText en="Add highlight group" ar="إضافة مجموعة" /></button></>}
+          {activeStep === 4 && <><p className="sp-builder-note"><AdminText en="Choose the main Highlights image, then create one or more groups with one highlight per line." ar="اختر الصورة الرئيسية لقسم أبرز المعالم، ثم أنشئ مجموعة أو أكثر واكتب بندا واحدا في كل سطر." /></p><article className="sp-repeat-card sp-highlight-image-editor"><header><span><ImagePlus size={16}/></span><strong><AdminText en="Highlights image" ar="صورة أبرز المعالم" /></strong></header><ImageField disabled={saving || visBusy} onUploadingChange={uploadActivity} value={highlightImage} onChange={setHighlightImage} preview="wide" linkLabel={{ en: 'Highlights image URL', ar: 'رابط صورة أبرز المعالم' }} uploadLabel={{ en: 'Upload Highlights image', ar: 'رفع صورة أبرز المعالم' }} previewAlt={ar ? 'معاينة صورة أبرز المعالم' : 'Highlights image preview'} /></article><div className="sp-repeat-list">{highlights.map((row, index) => <article className="sp-repeat-card" key={row.id}>{repeatHeader(<AdminText en="Highlight group" ar="مجموعة أبرز المعالم" />, index, () => setHighlights((current) => current.filter((item) => item.id !== row.id)))}<label><AdminText en="Group title" ar="عنوان المجموعة" /><input value={localText(row, 'title')} placeholder={ar ? 'أبرز معالم القاهرة' : 'Cairo highlights'} onChange={(event) => setHighlights((current) => current.map((item) => item.id === row.id ? editText(item, 'title', event.target.value) : item))} /></label><label><AdminText en="Highlights (one per line)" ar="المعالم البارزة (بند في كل سطر)" /><textarea value={localText(row, 'items')} rows={5} placeholder={ar ? 'أهرامات الجيزة\nأبو الهول' : 'Giza Pyramids\nGreat Sphinx'} onChange={(event) => setHighlights((current) => current.map((item) => item.id === row.id ? editText(item, 'items', event.target.value) : item))} /></label></article>)}</div><button type="button" className="sp-btn" onClick={() => setHighlights((current) => [...current, { id: id('highlight'), title: '', items: '' }])}><Plus size={16}/><AdminText en="Add highlight group" ar="إضافة مجموعة" /></button></>}
 
-          {step === 4 && <><div className="sp-repeat-list">{itinerary.map((row, index) => <article className="sp-repeat-card" key={row.id}>{repeatHeader(<AdminText en={form.category === 'one-day-tours' ? 'Itinerary stop' : 'Itinerary day'} ar={form.category === 'one-day-tours' ? 'محطة البرنامج' : 'يوم البرنامج'} />, index, () => setItinerary((current) => current.filter((item) => item.id !== row.id)))}<div className="sp-form-2"><label><AdminText en="Day label" ar="العنوان التعريفي لليوم" /><input value={localText(row, 'day')} placeholder={form.category === 'one-day-tours' ? 'Stop 1' : 'Day 1'} onChange={(event) => setItinerary((current) => current.map((item) => item.id === row.id ? editText(item, 'day', event.target.value) : item))} /></label><label><AdminText en="Day title" ar="عنوان اليوم" /><input value={localText(row, 'title')} onChange={(event) => setItinerary((current) => current.map((item) => item.id === row.id ? editText(item, 'title', event.target.value) : item))} /></label></div><label><AdminText en="Description" ar="الوصف" /><textarea value={localText(row, 'description')} rows={4} onChange={(event) => setItinerary((current) => current.map((item) => item.id === row.id ? editText(item, 'description', event.target.value) : item))} /></label><label><AdminText en="Meals" ar="وجبات اليوم" /><input value={localText(row, 'meals')} placeholder={ar ? 'إفطار، غداء، عشاء' : 'Breakfast, lunch, dinner'} onChange={(event) => setItinerary((current) => current.map((item) => item.id === row.id ? editText(item, 'meals', event.target.value) : item))} /></label><ImageField value={row.image} onChange={(image) => setItinerary((current) => current.map((item) => item.id === row.id ? { ...item, image } : item))} preview="compact" linkLabel={{ en: 'Itinerary image URL', ar: 'رابط صورة البرنامج' }} uploadLabel={{ en: 'Upload itinerary image', ar: 'رفع صورة البرنامج' }} previewAlt={row.title || row.day} /></article>)}</div><button type="button" className="sp-btn" onClick={() => setItinerary((current) => [...current, { id: id('day'), day: form.category === 'one-day-tours' ? `Stop ${current.length + 1}` : `Day ${current.length + 1}`, title: '', description: '', meals: '', image: '' }])}><Plus size={16}/><AdminText en="Add itinerary item" ar="إضافة عنصر للبرنامج" /></button></>}
+          {step === 4 && <><div className="sp-repeat-list">{itinerary.map((row, index) => <article className="sp-repeat-card" key={row.id}>{repeatHeader(<AdminText en={form.category === 'one-day-tours' ? 'Itinerary stop' : 'Itinerary day'} ar={form.category === 'one-day-tours' ? 'محطة البرنامج' : 'يوم البرنامج'} />, index, () => setItinerary((current) => current.filter((item) => item.id !== row.id)))}<div className="sp-form-2"><label><AdminText en="Day label" ar="العنوان التعريفي لليوم" /><input value={localText(row, 'day')} placeholder={form.category === 'one-day-tours' ? 'Stop 1' : 'Day 1'} onChange={(event) => setItinerary((current) => current.map((item) => item.id === row.id ? editText(item, 'day', event.target.value) : item))} /></label><label><AdminText en="Day title" ar="عنوان اليوم" /><input value={localText(row, 'title')} onChange={(event) => setItinerary((current) => current.map((item) => item.id === row.id ? editText(item, 'title', event.target.value) : item))} /></label></div><label><AdminText en="Description" ar="الوصف" /><textarea value={localText(row, 'description')} rows={4} onChange={(event) => setItinerary((current) => current.map((item) => item.id === row.id ? editText(item, 'description', event.target.value) : item))} /></label><label><AdminText en="Meals" ar="وجبات اليوم" /><input value={localText(row, 'meals')} placeholder={ar ? 'إفطار، غداء، عشاء' : 'Breakfast, lunch, dinner'} onChange={(event) => setItinerary((current) => current.map((item) => item.id === row.id ? editText(item, 'meals', event.target.value) : item))} /></label><ImageField disabled={saving || visBusy} onUploadingChange={uploadActivity} value={row.image} onChange={(image) => setItinerary((current) => current.map((item) => item.id === row.id ? { ...item, image } : item))} preview="compact" linkLabel={{ en: 'Itinerary image URL', ar: 'رابط صورة البرنامج' }} uploadLabel={{ en: 'Upload itinerary image', ar: 'رفع صورة البرنامج' }} previewAlt={row.title || row.day} /></article>)}</div><button type="button" className="sp-btn" onClick={() => setItinerary((current) => [...current, { id: id('day'), day: form.category === 'one-day-tours' ? `Stop ${current.length + 1}` : `Day ${current.length + 1}`, title: '', description: '', meals: '', image: '' }])}><Plus size={16}/><AdminText en="Add itinerary item" ar="إضافة عنصر للبرنامج" /></button></>}
 
           {step === 5 && <><label><AdminText en="What's included? (one per line)" ar="ما المشمول؟ (بند في كل سطر)" /><textarea value={localText(form, 'included')} onChange={set('included')} rows={6} /></label><label><AdminText en="What's excluded? (one per line)" ar="ما غير المشمول؟ (بند في كل سطر)" /><textarea value={localText(form, 'excluded')} onChange={set('excluded')} rows={6} /></label></>}
 
           {step === 1 && <><div className="sp-builder-divider" /><div className="sp-builder-subhead"><div><strong><AdminText en="Booking rates by passenger type" ar="أسعار الحجز حسب نوع المسافر" /></strong><small><AdminText en="These rates drive the live booking total. They do not appear in the public date-price calendar." ar="هذه الأسعار تحسب إجمالي الحجز مباشرة، ولا تظهر داخل تقويم أسعار المواعيد العام." /></small></div></div><div className="sp-passenger-pricing-grid">{pricingGroups.map((group) => <section className={`sp-passenger-pricing ${group.type}`} key={group.type}><header><div><strong>{ar ? group.ar : group.en}</strong><small><AdminText en="Per-person rate by total group size" ar="سعر الفرد حسب إجمالي حجم المجموعة" /></small></div><button type="button" className="sp-btn" onClick={() => addPassengerRate(group.type, group.defaultPrice)}><Plus size={15}/><AdminText en="Add rate" ar="إضافة سعر" /></button></header><div className="sp-passenger-rate-head"><span><AdminText en="Total travelers" ar="إجمالي المسافرين" /></span><span><AdminText en="Price (USD)" ar="السعر (USD)" /></span><span /></div>{travelerPrices[group.type].map((row) => <div className="sp-passenger-rate-row" key={row.id}><input type="number" min="1" step="1" aria-label={ar ? `عدد المسافرين لفئة ${group.ar}` : `${group.en} traveler count`} value={row.travelers} onChange={(event) => updatePassengerRate(group.type, row.id, 'travelers', event.target.value)} /><input type="number" min="0" step="0.01" aria-label={ar ? `سعر فئة ${group.ar}` : `${group.en} price`} value={row.price} onChange={(event) => updatePassengerRate(group.type, row.id, 'price', event.target.value)} /><button type="button" className="sp-icon-btn danger" onClick={() => removePassengerRate(group.type, row.id)} aria-label={ar ? 'حذف السعر' : 'Remove rate'} title={ar ? 'حذف السعر' : 'Remove rate'}><Trash2 size={18}/></button></div>)}</section>)}</div></>}
 
           {step === 7 && <>
-            <ImageField value={mediaLink} onChange={setMediaLink} preview="compact" linkLabel={{ en: 'Gallery image URL', ar: 'رابط صورة المعرض' }} uploadLabel={{ en: 'Upload one image', ar: 'رفع صورة واحدة' }} previewAlt={mediaAlt || form.title} />
+            <ImageField disabled={saving || visBusy} onUploadingChange={uploadActivity} value={mediaLink} onChange={setMediaLink} preview="compact" linkLabel={{ en: 'Gallery image URL', ar: 'رابط صورة المعرض' }} uploadLabel={{ en: 'Upload one image', ar: 'رفع صورة واحدة' }} previewAlt={mediaAlt || form.title} />
             <label><AdminText en="Image description" ar="وصف الصورة" /><input value={mediaAlt} onChange={(event) => setMediaAlt(event.target.value)} /></label>
             <button type="button" className="sp-btn" onClick={addMediaLink}><ImagePlus size={16}/><AdminText en="Add image to gallery" ar="إضافة الصورة إلى المعرض" /></button>
             <label className="sp-file-label"><AdminText en="Or upload several gallery images" ar="أو ارفع عدة صور للمعرض" /><span className="sp-file-trigger"><Upload size={16}/><AdminText en="Choose images" ar="اختيار الصور" /></span><input type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple onChange={(event) => uploadGallery(event.target.files)} /></label>
@@ -684,12 +669,12 @@ export function TripBuilder() {
           {step === 9 && <div className="sp-review-grid"><div><small><AdminText en="Tour" ar="الرحلة" /></small><strong>{form.title}</strong><span>{form.category} · {form.duration}</span></div><div><small><AdminText en="Content" ar="المحتوى" /></small><strong>{itinerary.length} <AdminText en="itinerary items" ar="عناصر برنامج" /></strong><span>{highlights.length} <AdminText en="highlight groups" ar="مجموعات أبرز المعالم" /> · {addOns.length} <AdminText en="add-ons" ar="إضافات" /> · {locations.length} <AdminText en="locations" ar="مواقع" /></span></div><div><small><AdminText en="Pricing" ar="التسعير" /></small><strong>{cleanTravelerPrices.length} <AdminText en="combined traveler tiers" ar="شرائح مسافرين مجمعة" /></strong><span><AdminText en={`${travelerPrices.adult.length} adult · ${travelerPrices.child.length} child · ${travelerPrices.infant.length} infant rates`} ar={`${travelerPrices.adult.length} بالغ · ${travelerPrices.child.length} طفل · ${travelerPrices.infant.length} رضيع`} /></span></div><div><small><AdminText en="Media" ar="الوسائط" /></small><strong>{gallery.length} <AdminText en="images" ar="صور" /></strong><span><AdminText en="First image is the cover" ar="الصورة الأولى هي الغلاف" /></span></div>{editingSlug && <div><small><AdminText en="Visibility" ar="الظهور" /></small><strong><StatusPill status={tourVisible ? 'published' : 'hidden'} /></strong><span><button type="button" className="sp-btn" onClick={() => void setVisibility(!tourVisible)} disabled={visBusy || saving}>{tourVisible ? <EyeOff size={16} /> : <Eye size={16} />}<AdminText en={tourVisible ? 'Unpublish' : 'Publish'} ar={tourVisible ? 'إخفاء' : 'نشر'} /></button><AdminText en={tourVisible ? 'Visible on the public website.' : 'Hidden from the public website.'} ar={tourVisible ? 'ظاهرة في الموقع العام.' : 'مخفية عن الموقع العام.'} /></span></div>}<p className="sp-builder-note full"><AdminText en="Save & Publish writes this tour to the database. The public tour page reads the same saved record." ar="الحفظ والنشر يكتبان هذه الرحلة في قاعدة البيانات. صفحة الرحلة العامة تقرأ نفس السجل المحفوظ." /></p></div>}
 
           {error&&<p className="sp-builder-feedback error" role="alert">{error}</p>}
-          <div className="sp-builder-actions">{activeStep>0&&<button type="button" className="sp-btn" onClick={() => setActiveStep((current) => current-1)} disabled={saving}><AdminText en="Back" ar="رجوع" /></button>}{!isLastStep?<button type="button" className="sp-btn primary" onClick={next} disabled={saving}><AdminText en="Continue" ar="متابعة" /></button>:showSave?<button type="button" className="sp-btn primary" onClick={publish} disabled={saving}><Save size={16}/><AdminText en="Save & Publish" ar="حفظ ونشر" /></button>:null}</div>
+          <div className="sp-builder-actions">{activeStep>0&&<button type="button" className="sp-btn" onClick={() => setActiveStep((current) => current-1)} disabled={saving || visBusy || mediaUploads > 0}><AdminText en="Back" ar="رجوع" /></button>}{!isLastStep?<button type="button" className="sp-btn primary" onClick={next} disabled={saving || visBusy || mediaUploads > 0}><AdminText en="Continue" ar="متابعة" /></button>:showSave?<>{(!editingSlug || !tourVisible) && <button type="button" className="sp-btn" onClick={() => void publish('draft')} disabled={saving || visBusy || mediaUploads > 0}><Save size={16}/><AdminText en="Save Draft" ar="حفظ المسودة" /></button>}<button type="button" className="sp-btn primary" onClick={() => void publish('published')} disabled={saving || visBusy || mediaUploads > 0}><Save size={16}/><AdminText en="Save & Publish" ar="حفظ ونشر" /></button></>:null}</div>
           </Tabs.Panel>
         </Tabs.Root>
       </Card>
 
-      <aside className="sp-preview"><Card title={activeStep === 7 ? <AdminText en="Date calendar preview" ar="معاينة تقويم المواعيد" /> : <AdminText en="Live booking preview" ar="معاينة الحجز الحية" />} sub={activeStep === 7 ? <AdminText en="Matches the public Tour Prices section" ar="تطابق سيكشن أسعار الرحلة العام" /> : <AdminText en="Uses passenger-type booking rates" ar="تستخدم أسعار الحجز حسب نوع المسافر" />}>{activeStep === 7 ? <div className="sp-date-price-preview">{priceRows.length ? priceRows.map((row) => <article key={row.id}><header><CalendarDays size={15}/><div><b>{row.category || (ar ? 'فترة سفر جديدة' : 'New travel period')}</b>{(row.startDate || row.endDate) && <small>{[row.startDate, row.endDate].filter(Boolean).join(' - ')}</small>}</div></header>{row.tiers.length ? row.tiers.map((tier) => <p key={tier.id}><span>{tier.label || (ar ? 'شريحة سعر' : 'Price tier')}</span><strong>${(Number(tier.price) || 0).toLocaleString('en-US')}</strong></p>) : <em><AdminText en="Add at least one period price" ar="أضف سعرا واحدا على الأقل للفترة" /></em>}</article>) : <div className="sp-empty-preview"><CalendarDays size={22}/><AdminText en="Add a travel period to preview Tour Prices." ar="أضف فترة سفر لمعاينة أسعار الرحلة." /></div>}</div> : <div className="sp-preview-box">{cover ? <><img src={cover} alt=""/><div><small>{form.location} · {form.duration}</small><h4>{form.title}</h4><div className="sp-preview-guests"><label><AdminText en="Adults" ar="البالغون" /><input type="number" min="1" max="50" value={previewAdults} onChange={(event) => setPreviewAdults(Math.max(1, Number(event.target.value) || 1))} /></label><label><AdminText en="Children" ar="الأطفال" /><input type="number" min="0" max="50" value={previewChildren} onChange={(event) => setPreviewChildren(Math.max(0, Number(event.target.value) || 0))} /></label><label><AdminText en="Infants" ar="الرضع" /><input type="number" min="0" max="50" value={previewInfants} onChange={(event) => setPreviewInfants(Math.max(0, Number(event.target.value) || 0))} /></label></div><div className="sp-preview-rates"><span><AdminText en="Adult" ar="بالغ" /><b>${previewPrices.adult.toLocaleString('en-US')}</b></span><span><AdminText en="Child" ar="طفل" /><b>${previewPrices.child.toLocaleString('en-US')}</b></span><span><AdminText en="Infant" ar="رضيع" /><b>${previewPrices.infant.toLocaleString('en-US')}</b></span></div><p><AdminText en={`Tier for ${previewHeadcount} traveler${previewHeadcount === 1 ? '' : 's'}`} ar={`شريحة ${previewHeadcount} مسافر`} /><b>${previewTotal.toLocaleString('en-US')}</b></p></div></> : <div className="sp-empty-preview"><ImagePlus size={22} /><AdminText en="Add a cover image and a title to preview the booking card." ar="أضف صورة غلاف وعنواناً لمعاينة بطاقة الحجز." /></div>}</div>}</Card></aside>
+      <TripBuilderPreview appearance={previewAppearance} showDatePricing={activeStep === 7} source={sourceTour} draft={{ routeSlug: editingSlug ?? newSlug, form, catSlugs, addOns, highlightImage, highlights, itinerary, travelerPrices, priceRows, locations, gallery, videos }} clearedTranslations={clearedPreviewTranslations.current} counts={{ adult: previewAdults, child: previewChildren, infant: previewInfants }} onCount={(type, count) => { if (type === 'adult') setPreviewAdults(count); else if (type === 'child') setPreviewChildren(count); else setPreviewInfants(count) }}/>
     </div>
   </>
 }

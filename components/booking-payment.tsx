@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { useState, type FormEvent } from 'react'
 import { MessageCircle, ReceiptText, ShieldCheck } from 'lucide-react'
-import { formatPrice, tx, useLocale, type Locale } from '@/components/locale'
+import { formatCurrency } from '@/lib/currency'
+import { tx, useLocale, type Locale } from '@/components/locale'
 import { SharedSelect } from '@/components/shared-select'
 import { bookingOfflinePaymentLabel, remainingBookingBalance } from '@/lib/payment'
 import type { Booking } from '@/lib/booking'
@@ -50,7 +51,7 @@ export function PaymentInstructions({ layout }: { layout: 'section' | 'note' }) 
   </section>
 }
 
-/** Server-calculated financial truth (USD stored, display-converted). */
+/** Server-calculated financial truth, denominated in the booking currency. */
 export function bookingMoney(booking: Booking): { paid: number; refunded: number; remaining: number } {
   const paid = booking.paymentSummary?.paidTotal ?? 0
   const refunded = booking.paymentSummary?.refundedTotal ?? 0
@@ -163,7 +164,7 @@ export function PaymentProofForm({ bookingReference, guestToken, onSubmitted }: 
 /**
  * Booking financial summary + submitted proofs (customer-safe only).
  * Amounts come from the server-calculated payment summary; the display
- * currency conversion reuses the existing `formatPrice` architecture.
+ * amounts use native formatting in the stored booking currency.
  */
 export function BookingPaymentPanel({ booking }: { booking: Booking }) {
   const { locale, currency } = useLocale()
@@ -178,10 +179,10 @@ export function BookingPaymentPanel({ booking }: { booking: Booking }) {
   return <section className="customer-account-block" aria-label={tx(locale, { en: 'Payment summary', es: 'Resumen del pago', it: 'Riepilogo pagamento', ar: 'ملخص الدفع' })}>
     <header><div><span>{booking.reference}</span><h2>{tx(locale, { en: 'Payment summary', es: 'Resumen del pago', it: 'Riepilogo pagamento', ar: 'ملخص الدفع' })}</h2></div><span className="customer-booking-flags"><span className="customer-status local"><ShieldCheck size={13} />{bookingPaymentLabel(booking, locale)}</span></span></header>
     <div className="customer-detail-grid">
-      <div><small>{tx(locale, { en: 'Booking total', es: 'Total de la reserva', it: 'Totale prenotazione', ar: 'إجمالي الحجز' })}</small><strong>{formatPrice(booking.total, currency, locale)}</strong></div>
-      <div><small>{tx(locale, { en: 'Verified paid', es: 'Pagado verificado', it: 'Pagato verificato', ar: 'المدفوع المؤكد' })}</small><strong>{formatPrice(paid, currency, locale)}</strong></div>
-      <div><small>{tx(locale, { en: 'Refunded', es: 'Reembolsado', it: 'Rimborsato', ar: 'المسترد' })}</small><strong>{formatPrice(refunded, currency, locale)}</strong></div>
-      <div><small>{tx(locale, { en: 'Remaining balance', es: 'Saldo pendiente', it: 'Saldo residuo', ar: 'الرصيد المتبقي' })}</small><strong>{formatPrice(remaining, currency, locale)}</strong></div>
+      <div><small>{tx(locale, { en: 'Booking total', es: 'Total de la reserva', it: 'Totale prenotazione', ar: 'إجمالي الحجز' })}</small><strong>{formatCurrency(booking.total, booking.currency, locale)}</strong></div>
+      <div><small>{tx(locale, { en: 'Verified paid', es: 'Pagado verificado', it: 'Pagato verificato', ar: 'المدفوع المؤكد' })}</small><strong>{formatCurrency(paid, booking.currency, locale)}</strong></div>
+      <div><small>{tx(locale, { en: 'Refunded', es: 'Reembolsado', it: 'Rimborsato', ar: 'المسترد' })}</small><strong>{formatCurrency(refunded, booking.currency, locale)}</strong></div>
+      <div><small>{tx(locale, { en: 'Remaining balance', es: 'Saldo pendiente', it: 'Saldo residuo', ar: 'الرصيد المتبقي' })}</small><strong>{formatCurrency(remaining, booking.currency, locale)}</strong></div>
     </div>
     {proofs.length > 0 && <div>
       <p className="customer-block-note"><strong>{tx(locale, { en: 'Submitted references', es: 'Referencias enviadas', it: 'Riferimenti inviati', ar: 'المراجع المرسلة' })}</strong></p>

@@ -1,3 +1,4 @@
+import { isCurrency, type Currency } from '../currency';
 // Trip-request domain service (Phase 2B). Server owns validation,
 // reference issuance, ownership, status lifecycle, and response shaping.
 // The browser never supplies userId, status, references, or internal notes.
@@ -110,7 +111,7 @@ export interface ValidatedTripDraft {  destinationSlug: string;
   infants: number;
   budgetMin: number;
   budgetMax: number;
-  currency: 'USD' | 'EUR' | 'EGP';
+  currency: Currency;
   flightOffer: boolean;
   nationality: string;
   dialCode: string;
@@ -253,7 +254,7 @@ export async function validateTripDraft(input: unknown, opts?: { isShore?: boole
   }
 
   const currency = text(body.currency);
-  if (currency !== 'USD' && currency !== 'EUR' && currency !== 'EGP') fail('Invalid request.');
+  if (!isCurrency(currency)) fail('Invalid request.');
   if (typeof body.flightOffer !== 'boolean') fail('Invalid request.');
 
   const nationality = (text(body.nationality)?.trim() ?? '').toUpperCase();
@@ -320,7 +321,7 @@ export async function validateTripDraft(input: unknown, opts?: { isShore?: boole
     infants: infants as number,
     budgetMin: budgetMin as number,
     budgetMax: budgetMax as number,
-    currency: currency as 'USD' | 'EUR' | 'EGP',
+    currency: currency as Currency,
     flightOffer: body.flightOffer as boolean,
     nationality,
     dialCode,
@@ -372,7 +373,7 @@ export function toCustomerView(row: RequestRow): TripRequest {
     infants: row.infants,
     budgetMin: row.budgetMin,
     budgetMax: row.budgetMax,
-    currency: row.budgetCurrency as 'USD' | 'EUR' | 'EGP',
+    currency: row.budgetCurrency as Currency,
     flightOffer: row.flightOffer,
     contact: {
       name: row.contactName,

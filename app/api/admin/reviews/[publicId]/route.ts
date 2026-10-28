@@ -1,3 +1,4 @@
+import { reviewTrips } from '@/lib/server/review-trips';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/server/db';
 import { getCurrentUser, hasPermission } from '@/lib/server/auth';
@@ -24,6 +25,7 @@ export async function GET(
     return NextResponse.json({ error: 'Invalid review ID.' }, { status: 400 });
   }
 
+  try {
   const review = await db.review.findUnique({
     where: { publicId },
     select: {
@@ -51,7 +53,9 @@ export async function GET(
     return NextResponse.json({ error: 'Review not found.' }, { status: 404 });
   }
 
-  return NextResponse.json({ review });
+  const trips = await reviewTrips([review.tourSlug]);
+  return NextResponse.json({ review: { ...review, trip: trips.get(review.tourSlug) ?? null } });
+  } catch { return NextResponse.json({ error: 'Unable to load review.' }, { status: 503 }); }
 }
 
 /**
@@ -87,11 +91,13 @@ export async function PATCH(
     return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 });
   }
 
+  if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some(key => key !== 'action')) return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 });
   const { action } = body;
   if (!['publish', 'reject', 'pend'].includes(action)) {
     return NextResponse.json({ error: 'Invalid action. Must be publish, reject, or pend.' }, { status: 400 });
   }
 
+  try {
   const review = await db.review.findUnique({
     where: { publicId },
     select: { id: true, status: true, tourSlug: true },
@@ -114,31 +120,13 @@ export async function PATCH(
   const newStatus = action === 'publish' ? 'PUBLISHED' : action === 'reject' ? 'REJECTED' : 'PENDING';
   const publishedAt = action === 'publish' ? new Date() : null;
 
-  const updated = await db.review.update({
-    where: { publicId },
-    data: {
-      status: newStatus,
-      publishedAt,
-    },
-    select: {
-      publicId: true,
-      tourSlug: true,
-      title: true,
-      rating: true,
-      text: true,
-      status: true,
-      createdAt: true,
-      publishedAt: true,
-      user: {
-        select: {
-          publicId: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-        },
-      },
-    },
-  });
-
-  return NextResponse.json({ review: updated });
+    const changed = await db.review.updateMany({ where: { publicId, status: review.status }, data: { status: newStatus, publishedAt } });
+    if (changed.count !== 1) return NextResponse.json({ error: 'Review changed. Refresh and try again.' }, { status: 409 });
+    const updated = await db.review.findUnique({ where: { publicId }, select: {
+      publicId: true, tourSlug: true, title: true, rating: true, text: true, status: true, createdAt: true, updatedAt: true, publishedAt: true,
+      user: { select: { publicId: true, email: true, firstName: true, lastName: true } },
+    } });
+    const trips = await reviewTrips(updated ? [updated.tourSlug] : []);
+    return NextResponse.json({ review: updated ? { ...updated, trip: trips.get(updated.tourSlug) ?? null } : null });
+  } catch { return NextResponse.json({ error: 'Unable to moderate review.' }, { status: 503 }); }
 }

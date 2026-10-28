@@ -1,6 +1,8 @@
 'use client'
 
 import Link from 'next/link'
+import { CarQuoteSummary } from '@/components/car-quote-summary'
+import { useCarLocale } from '@/lib/use-car-locale'
 import { useEffect, useState } from 'react'
 import { CalendarDays, CarFront, FlaskConical, Mail, MapPin, MessageCircle, Phone, Users } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
@@ -16,7 +18,6 @@ import {
   carActivityLabel,
   carRequestStatusLabel,
   fleetVehicleTitle,
-  formatQuoteAmount,
   type CarRequestStatus,
   type StaffCarRequest,
 } from '@/lib/car-request'
@@ -95,6 +96,7 @@ const manageHint: Record<CarRequestStatus, { en: string; ar: string }> = {
 
 export function CarRequestDetailContent({ requestId }: { requestId: string }) {
   const ar = useAdminLocale() === 'ar'
+  const pricingLocale = useCarLocale()
   const reference = decodeURIComponent(requestId).toUpperCase()
   const liveCars = useDbCars(cars)
   const [item, setItem] = useState<StaffCarRequest | null>(null)
@@ -252,9 +254,7 @@ export function CarRequestDetailContent({ requestId }: { requestId: string }) {
               <div><dt><AdminText en="Preferred return date" ar="تاريخ العودة المفضل" /></dt><dd><span dir="ltr">{item.tripType === 'Round Trip' && item.preferredReturnDate ? item.preferredReturnDate : '-'}</span></dd></div>
               <div><dt><AdminText en="Passengers" ar="الركاب" /></dt><dd><Users size={14} />{item.passengers}</dd></div>
               <div><dt><AdminText en="Quoted amount (submit-time snapshot)" ar="المبلغ المُسعّر (لقطة وقت الإرسال)" /></dt><dd dir="ltr">
-                {item.quote
-                  ? `${formatQuoteAmount(item.quote.cents, item.quote.currency, ar ? 'ar' : 'en')} · ${item.quote.basis}${item.quote.roundTripCents !== undefined && item.quote.roundTripCents !== item.quote.cents ? ` (1-way ${formatQuoteAmount(item.quote.cents, item.quote.currency, ar ? 'ar' : 'en')})` : ''}`
-                  : item.pickupLocationSlug ? (ar ? 'السعر عند الطلب' : 'Price on request') : (ar ? '-' : '-')}
+                <CarQuoteSummary quote={item.quote} locale={pricingLocale} tripType={item.tripType} saved/>
               </dd></div>
             </dl>
           </Card>

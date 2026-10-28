@@ -1,4 +1,5 @@
 'use client'
+import { currencyChoices } from '@/lib/currency'
 
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -16,11 +17,7 @@ const copy = {
 
 export function LanguageModal({ locale, currency, onClose, onSelect, onCurrency }: { locale: Locale; currency: Currency; onClose: () => void; onSelect: (locale: EnabledLocale) => void; onCurrency: (currency: Currency) => void }) {
   const text = copy[locale]
-  const currencies = [
-    [tx(locale, { en: 'US Dollar', es: 'Dólar estadounidense', it: 'Dollaro statunitense', ar: 'الدولار الأمريكي' }), '$ USD', 'USD'],
-    [tx(locale, { en: 'Euro', es: 'Euro', it: 'Euro', ar: 'اليورو' }), '€ EUR', 'EUR'],
-    [tx(locale, { en: 'Egyptian Pound', es: 'Libra egipcia', it: 'Sterlina egiziana', ar: 'الجنيه المصري' }), '£ EGP', 'EGP'],
-  ] as const
+  const currencies = currencyChoices(locale)
   const regionNames = {
     en: tx(locale, { en: 'United States', es: 'Estados Unidos', it: 'Stati Uniti', ar: 'الولايات المتحدة' }),
     es: tx(locale, { en: 'Spain', es: 'España', it: 'Spagna', ar: 'إسبانيا' }),

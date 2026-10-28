@@ -438,7 +438,7 @@ function parseItemAddons(raw: string): string[] {
  */
 export class DuplicateDocumentError extends Error {
   constructor(
-    readonly failure: 'duplicate-invoice' | 'duplicate-voucher' | 'duplicate-refund-note',
+    readonly failure: 'duplicate-invoice' | 'duplicate-voucher' | 'duplicate-refund-note' | 'invalid-input',
   ) {
     super(failure);
     this.name = 'DuplicateDocumentError';
@@ -450,6 +450,7 @@ interface RefundEventDetail {
   paymentId: string;
   paymentReference: string;
   paymentBookingId: string;
+  paymentCurrency: string;
   action: string;
   amountCents: number | null;
   method: string | null;
@@ -461,7 +462,7 @@ interface RefundEventDetail {
 async function loadRefundEvent(eventId: string): Promise<RefundEventDetail | null> {
   const rows = await db.$queryRaw<RefundEventDetail[]>`
     SELECT e.id, e.paymentId, p.reference AS paymentReference,
-           p.bookingId AS paymentBookingId, e.action, e.amountCents,
+           p.bookingId AS paymentBookingId, p.currency AS paymentCurrency, e.action, e.amountCents,
            e.method, e.externalReference, e.createdAt
     FROM payment_events AS e
     JOIN payments AS p ON p.id = e.paymentId
@@ -523,19 +524,33 @@ export async function issueBookingDocument(
   const refundEventId =
     typeof input.refundEventId === 'string' ? input.refundEventId.trim() : '';
 
+  const replayMatches = async (client: Prisma.TransactionClient | typeof db, row: DocumentRow): Promise<boolean> => {
+    if (row.booking.reference !== bookingReference || row.type !== type ||
+      (row.payment?.reference ?? '') !== paymentReference || row.currency !== DOCUMENT_CURRENCY) return false;
+    if (type === 'REFUND_NOTE') {
+      const extensions = await readDocumentExtensions(client, [row.id]);
+      return extensions.get(row.id)?.refundEventId === refundEventId;
+    }
+    return refundEventId === '';
+  };
+
   // Idempotent fast path: an existing document for this key is returned
   // as-is, with its original number — never renumbered or recreated.
   const existing = await db.bookingDocument.findUnique({
     where: { idempotencyKey },
     select: DOCUMENT_VIEW_SELECT,
   });
-  if (existing) return { ok: true, created: false, document: await toFullDocumentView(db, existing) };
+  if (existing) {
+    if (!(await replayMatches(db, existing))) return { ok: false, error: 'invalid-input' };
+    return { ok: true, created: false, document: await toFullDocumentView(db, existing) };
+  }
 
   const booking = await db.booking.findUnique({
     where: { reference: bookingReference },
     select: { id: true, reference: true, status: true, currency: true, total: true, subtotal: true, discount: true },
   });
   if (!booking) return { ok: false, error: 'unknown-booking' };
+  if (booking.currency !== DOCUMENT_CURRENCY) return { ok: false, error: 'non-usd-payment' };
 
   let paymentId: string | null = null;
   let amountCents: number;
@@ -580,6 +595,7 @@ export async function issueBookingDocument(
     if (event.paymentBookingId !== booking.id || event.paymentReference !== paymentReference) {
       return { ok: false, error: 'refund-not-on-booking' };
     }
+    if (event.paymentCurrency !== DOCUMENT_CURRENCY) return { ok: false, error: 'non-usd-payment' };
     const scope = refundEventScope(event.action);
     if (
       scope === null ||
@@ -701,9 +717,12 @@ export async function issueBookingDocument(
         async (tx) => {
           const dup = await tx.bookingDocument.findUnique({
             where: { idempotencyKey },
-            select: { id: true },
+            select: DOCUMENT_VIEW_SELECT,
           });
-          if (dup) return { id: dup.id, created: false };
+          if (dup) {
+            if (!(await replayMatches(tx, dup))) throw new DuplicateDocumentError('invalid-input');
+            return { id: dup.id, created: false };
+          }
           if (type === 'INVOICE' || type === 'BOOKING_VOUCHER' || type === 'REFUND_NOTE') {
             // Guarded types allow only one document per booking (invoice,
             // voucher) or per refund event (note). The pre-transaction
@@ -785,7 +804,10 @@ export async function issueBookingDocument(
           where: { idempotencyKey },
           select: DOCUMENT_VIEW_SELECT,
         });
-        if (winner) return { ok: true, created: false, document: await toFullDocumentView(db, winner) };
+        if (winner) {
+          if (!(await replayMatches(db, winner))) return { ok: false, error: 'invalid-input' };
+          return { ok: true, created: false, document: await toFullDocumentView(db, winner) };
+        }
         return { ok: false, error: 'invalid-input' };
       }
       // Verification-token collision (theoretical at 256 bits):

@@ -1,4 +1,5 @@
 'use client'
+import { currencyChoices, isCurrency, type Currency } from '@/lib/currency'
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -217,7 +218,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   // Storefront locale shared with the website (EN/ES/IT). The admin UI
   // itself renders English (Arabic only for legacy stored sessions).
   const [siteLocale, setSiteLocale] = useState<EnabledLocale>('en')
-  const [currency, setCurrency] = useState<'USD' | 'EUR' | 'EGP'>('USD')
+  const [currency, setCurrency] = useState<Currency>('USD')
   const [languageOpen, setLanguageOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [notificationsOpen, setNotificationsOpen] = useState(false)
@@ -240,7 +241,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     if (l === 'ar' || l === 'en') setLocale(l)
     setSiteLocale(sanitizeLocale(l))
     const cur = window.localStorage.getItem('star-currency')
-    if (cur === 'USD' || cur === 'EUR' || cur === 'EGP') setCurrency(cur)
+    if (isCurrency(cur)) setCurrency(cur)
     return () => {
       document.documentElement.classList.remove('sp-admin-root')
     }
@@ -256,9 +257,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     window.localStorage.setItem('star-locale', next)
     setSiteLocale(next)
     setLocale('en')
+    window.dispatchEvent(new Event('sp-admin-locale'))
   }, [])
 
-  const changeCurrency = useCallback((next: 'USD' | 'EUR' | 'EGP') => {
+  const changeCurrency = useCallback((next: Currency) => {
     window.localStorage.setItem('star-currency', next)
     setCurrency(next)
     // Same-tab pages (dashboard, payments, bookings…) listen for this and
@@ -507,13 +509,13 @@ function AdminLanguageModal({
 }: {
   activeLocale: EnabledLocale
   ar: boolean
-  currency: 'USD' | 'EUR' | 'EGP'
+  currency: Currency
   onClose: () => void
   onSelect: (locale: EnabledLocale) => void
-  onCurrency: (currency: 'USD' | 'EUR' | 'EGP') => void
+  onCurrency: (currency: Currency) => void
 }) {
   const copy = adminCopy[ar ? 'ar' : 'en']
-  const currencies = [['US Dollar', '$ USD', 'USD'], ['Euro', '€ EUR', 'EUR'], ['Egyptian Pound', '£ EGP', 'EGP']] as const
+  const currencies = currencyChoices(activeLocale)
   // Same region list as the storefront modal: driven by the shared locale
   // config, so both modals stay identical by construction.
   const regions = ENABLED_LOCALES.map((value) => [LOCALE_REGIONS[value], LOCALE_LABELS[value], value] as const)

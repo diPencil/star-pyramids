@@ -8,6 +8,11 @@ import { POST } from '@/app/api/admin/website-cms/hero-media/route'
 import { MAX_HERO_VIDEO_BYTES } from '@/lib/website-heroes'
 beforeEach(() => { mock.user = { id: 'staff' }; mock.allowed = true; mock.origin = true; mock.video.mockReset().mockResolvedValue({ url: '/gallery-videos/example.mp4' }); mock.image.mockReset().mockResolvedValue({ url: '/media/example.jpg' }) })
 describe('CMS media boundary with no filesystem writes', () => {
+  it('rejects an oversized request before multipart parsing or storage', async () => {
+    const response = await POST(new Request('https://example.com', { method: 'POST', headers: { 'content-length': String(MAX_HERO_VIDEO_BYTES + 65537) }, body: 'not multipart' }))
+    expect(response.status).toBe(413)
+    expect(mock.video).not.toHaveBeenCalled(); expect(mock.image).not.toHaveBeenCalled()
+  })
   it('requires edit permission before parsing an upload', async () => {
     mock.allowed = false
     expect((await POST(new Request('https://example.com', { method: 'POST' }))).status).toBe(403)

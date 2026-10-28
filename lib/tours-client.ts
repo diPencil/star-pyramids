@@ -52,8 +52,7 @@ function toTour(row: Record<string, unknown>): Tour {
  *
  * Fetches the authoritative catalogue (`GET /api/tours?full=1`) once and
  * shares it across mounts. The returned list preserves the `base`
- * selection: every base slug resolves to its current DB record (falling
- * back to the bootstrap entry while loading, offline, or when a slug no
+ * selection: every base slug resolves to its current DB record (omitting records while loading, offline, or when a slug no
  * longer exists). Curated subsets (seasonal, popular, category lists)
  * therefore keep their shape while always showing saved DB data.
  * No browser storage is consulted.
@@ -61,6 +60,7 @@ function toTour(row: Record<string, unknown>): Tour {
 let cachedBySlug: Map<string, Tour> | null = null;
 let inflight: Promise<Map<string, Tour> | null> | null = null;
 let toursError: string | null = null;
+let generation = 0;
 const listeners = new Set<() => void>();
 
 export type DbToursStatus = {
@@ -71,20 +71,21 @@ export type DbToursStatus = {
   retry(): void;
 };
 
-async function fetchDbTours(): Promise<Map<string, Tour> | null> {
+export async function fetchDbTours(): Promise<Map<string, Tour> | null> {
   if (cachedBySlug) return cachedBySlug;
+  const current = generation;
   if (!inflight) {
     toursError = null;
     inflight = (async () => {
       try {
         const res = await fetch('/api/tours?full=1', { credentials: 'same-origin' });
         if (!res.ok) {
-          toursError = `Request failed (${res.status}).`;
+          if (current === generation) toursError = `Request failed (${res.status}).`;
           return null;
         }
         const data = (await res.json()) as { tours?: unknown };
         if (!Array.isArray(data.tours)) {
-          toursError = 'Unexpected response (tours).';
+          if (current === generation) toursError = 'Unexpected response (tours).';
           return null;
         }
         const map = new Map<string, Tour>();
@@ -93,21 +94,22 @@ async function fetchDbTours(): Promise<Map<string, Tour> | null> {
             const tour = toTour(row);
             if (tour.slug) map.set(tour.slug, tour);
           } catch {
-            // Skip malformed rows; keep rendering the bootstrap entry.
+            // Skip malformed rows; never substitute unsaved bootstrap data.
           }
         }
         // An empty table is a truthful empty result, not a failure.
         return map;
       } catch {
-        // Offline/unreachable API: keep rendering the bootstrap catalogue.
-        toursError = 'Could not reach the database (tours).';
+        // Offline/unreachable API: leave the catalogue unavailable.
+        if (current === generation) toursError = 'Could not reach the database (tours).';
         return null;
       } finally {
-        inflight = null;
+        if (current === generation) inflight = null;
       }
     })();
   }
   const map = await inflight;
+  if (current !== generation) return null;
   if (map) {
     cachedBySlug = map;
   }
@@ -116,9 +118,12 @@ async function fetchDbTours(): Promise<Map<string, Tour> | null> {
 }
 
 export function invalidateToursCache() {
+  generation++;
   cachedBySlug = null;
   inflight = null;
   toursError = null;
+  listeners.forEach((notify) => notify());
+  if (listeners.size) void fetchDbTours();
 }
 
 export type DbToursOptions = {
@@ -134,8 +139,7 @@ export type DbToursOptions = {
 };
 
 /**
- * Pure merge: every base slug resolves to its DB record (or the bootstrap
- * entry while loading/offline), DB rows with an explicit non-published
+ * Pure merge: every base slug resolves only to its published DB record, DB rows with an explicit non-published
  * status are dropped, and — with `includeNew` — published DB tours absent
  * from `base` are appended. Unit-tested without a database.
  */
@@ -144,12 +148,14 @@ export function resolveTours(
   dbMap: Map<string, Tour> | null,
   options?: DbToursOptions,
 ): Tour[] {
-  if (!dbMap) return [...base];
+  if (!dbMap) return [];
   const seen = new Set<string>();
   const out: Tour[] = [];
   for (const entry of base) {
     const live = dbMap.get(entry.slug);
-    const resolved = live ?? entry;
+    // A published-only response omits unpublished/deleted records. Never resurrect bootstrap copies.
+    if (!live) continue;
+    const resolved = live;
     if (!isTourPublished(resolved)) continue;
     if (seen.has(resolved.slug)) continue;
     seen.add(resolved.slug);
@@ -171,10 +177,9 @@ export function useDbTours(base: readonly Tour[], options?: DbToursOptions): Tou
   // Bumped when the shared DB cache resolves so the memo below recomputes.
   const [version, setVersion] = useState(0);
   useEffect(() => {
-    if (cachedBySlug) return;
     const notify = () => setVersion((n) => n + 1);
     listeners.add(notify);
-    void fetchDbTours();
+    if (!cachedBySlug) void fetchDbTours();
     return () => {
       listeners.delete(notify);
     };
@@ -193,10 +198,9 @@ export function useDbToursStatus(base: readonly Tour[], options?: DbToursOptions
   // Bumped when the shared DB cache resolves or fails.
   const [version, setVersion] = useState(0);
   useEffect(() => {
-    if (cachedBySlug) return;
     const notify = () => setVersion((n) => n + 1);
     listeners.add(notify);
-    void fetchDbTours();
+    if (!cachedBySlug) void fetchDbTours();
     return () => {
       listeners.delete(notify);
     };
@@ -207,6 +211,7 @@ export function useDbToursStatus(base: readonly Tour[], options?: DbToursOptions
       loading: cachedBySlug === null && toursError === null,
       error: cachedBySlug === null ? toursError : null,
       retry: () => {
+        generation++;
         toursError = null;
         inflight = null;
         setVersion((n) => n + 1);

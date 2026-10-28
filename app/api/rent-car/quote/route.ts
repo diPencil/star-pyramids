@@ -1,3 +1,4 @@
+import { rentCarFailure } from '@/lib/server/rent-car-errors';
 // Public: resolve a price quote for a published vehicle on an active route
 // (Phase 2, read-only, no auth required; nothing here is mutable).
 // Outcomes:
@@ -23,10 +24,11 @@ export async function GET(request: Request) {
   try {
     const outcome = await resolveCarRouteQuote({ vehicle, route, from, to, trip, passengers });
     if (outcome.kind === 'price_on_request') {
-      return NextResponse.json({ priceOnRequest: true, reason: outcome.reason });
+      return NextResponse.json({ priceOnRequest: true, reason: outcome.reason }, { headers: { 'Cache-Control': 'private, no-store, max-age=0' } });
     }
-    return NextResponse.json({ quote: outcome.detail });
+    return NextResponse.json({ quote: outcome.detail }, { headers: { 'Cache-Control': 'private, no-store, max-age=0' } });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Invalid request.' }, { status: 400 });
+    const failure = rentCarFailure(error);
+    return NextResponse.json({ error: failure.error }, { status: failure.status });
   }
 }

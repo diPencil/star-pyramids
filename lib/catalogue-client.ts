@@ -68,20 +68,22 @@ export type DbListStatus<T> = {
 
 function createCache<T>(url: string, map: (row: Record<string, unknown>) => T | null, label: string): CacheEntry<T> & { load(): void; invalidate(): void; use(base: readonly T[]): T[]; useStatus(): DbListStatus<T> } {
   const entry: CacheEntry<T> = { list: null, inflight: null, listeners: new Set(), error: null };
+  let generation = 0;
   const load = () => {
     if (entry.list || entry.inflight) return;
+    const current = generation;
     entry.error = null;
     entry.inflight = (async () => {
       try {
-        const res = await fetch(url, { credentials: 'same-origin' });
+        const res = await fetch(url, { credentials: 'same-origin', cache: 'no-store' });
         if (!res.ok) {
-          entry.error = `Request failed (${res.status}).`;
+          if (current === generation) entry.error = `Request failed (${res.status}).`;
           return null;
         }
         const data = (await res.json()) as Record<string, unknown>;
         const rows = data.destinations ?? data.categories;
         if (!Array.isArray(rows)) {
-          entry.error = `Unexpected response (${label}).`;
+          if (current === generation) entry.error = `Unexpected response (${label}).`;
           return null;
         }
         const mapped = (rows as Record<string, unknown>[])
@@ -96,13 +98,14 @@ function createCache<T>(url: string, map: (row: Record<string, unknown>) => T | 
         // An empty table is a truthful empty list, not a failure.
         return mapped;
       } catch {
-        entry.error = `Could not reach the database (${label}).`;
+        if (current === generation) entry.error = `Could not reach the database (${label}).`;
         return null;
       } finally {
-        entry.inflight = null;
+        if (current === generation) entry.inflight = null;
       }
     })();
     void entry.inflight.then((list) => {
+      if (current !== generation) return;
       if (list) {
         entry.list = list;
       }
@@ -113,6 +116,7 @@ function createCache<T>(url: string, map: (row: Record<string, unknown>) => T | 
     ...entry,
     load,
     invalidate() {
+      generation++;
       entry.list = null;
       entry.inflight = null;
       entry.error = null;
@@ -154,12 +158,14 @@ function createCache<T>(url: string, map: (row: Record<string, unknown>) => T | 
           loading: entry.list === null && entry.error === null,
           error: entry.list === null ? entry.error : null,
           retry: () => {
+            generation++;
             entry.error = null;
             entry.inflight = null;
             setVersion((n) => n + 1);
             load();
           },
           refresh: () => {
+            generation++;
             entry.list = null;
             entry.error = null;
             entry.inflight = null;
@@ -178,6 +184,12 @@ const destinationsCache = createCache<Destination>('/api/destinations', (row) =>
   return item.slug ? item : null;
 }, 'destinations');
 
+// Keep private editor rows out of the public catalogue cache across navigation.
+const adminDestinationsCache = createCache<Destination>('/api/destinations?admin=1', (row) => {
+  const item = toDestination(row);
+  return item.slug ? item : null;
+}, 'destinations');
+
 const categoriesCache = createCache<MultiDayCategory>('/api/multi-day-categories', (row) => {
   const item = toCategory(row);
   return item.slug ? item : null;
@@ -189,6 +201,7 @@ const categoriesCache = createCache<MultiDayCategory>('/api/multi-day-categories
  */
 export function invalidateCatalogueCache() {
   destinationsCache.invalidate();
+  adminDestinationsCache.invalidate();
   categoriesCache.invalidate();
 }
 
@@ -226,7 +239,7 @@ export function useDbCategories(base: readonly MultiDayCategory[]): MultiDayCate
  * substituted, so a broken DB runtime cannot look healthy.
  */
 export function useDbDestinationsStatus(): DbListStatus<Destination> {
-  return destinationsCache.useStatus();
+  return adminDestinationsCache.useStatus();
 }
 
 /**

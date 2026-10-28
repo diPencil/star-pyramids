@@ -32,6 +32,7 @@ type DbTourRow = {
   travelStyle: string | null;
   deal: unknown;
   manualDeal?: unknown;
+  pricingDealSource?: 'linked-offer' | 'manual';
   detail: unknown;
   dayDetail: unknown;
   categorySlugs: unknown;
@@ -167,6 +168,7 @@ export function toTour(row: DbTourRow): Tour {
     travelStyle: row.travelStyle ?? undefined,
     status: row.status,
     manualDeal: (row.manualDeal as Tour['deal']) ?? undefined,
+    pricingDealSource: row.pricingDealSource,
     deal: (row.deal as Tour["deal"]) ?? undefined,
     detail: (row.detail as Tour["detail"]) ?? undefined,
     dayDetail: (row.dayDetail as Tour["dayDetail"]) ?? undefined,

@@ -8,7 +8,18 @@ import {
   deleteGalleryItem,
   getGalleryItem,
   updateGalleryItem,
+  publishGalleryItem,
 } from '@/lib/server/journey-gallery';
+
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+  if (!hasPermission(user, 'gallery.edit') || !isSameOriginRequest(request)) return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
+  const data = await request.json().catch(() => null);
+  if (!data || typeof data !== 'object' || Array.isArray(data) || typeof data.isPublished !== 'boolean' || Object.keys(data).some(key => key !== 'isPublished')) return NextResponse.json({ error: 'Invalid visibility update.' }, { status: 400 });
+  try { return NextResponse.json({ item: await publishGalleryItem((await params).id, data.isPublished) }); }
+  catch (error) { return NextResponse.json({ error: error instanceof GalleryNotFoundError ? error.message : 'Could not update gallery visibility.' }, { status: error instanceof GalleryNotFoundError ? 404 : 503 }); }
+}
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   // Staff-only single-item read for the admin editor (drafts included).

@@ -1,3 +1,4 @@
+import { isCurrency } from '../currency';
 // Authoritative site-settings service. Server owns company identity,
 // locale/currency/timezone defaults and brand/social/configuration values.
 // Browser-local prototype settings MUST NOT override these after
@@ -329,7 +330,7 @@ export function validateSettingsPatch(input: {
         clean[key] = trimmed;
         break;
       case 'app.defaultCurrency':
-        if (trimmed !== 'USD' && trimmed !== 'EUR' && trimmed !== 'EGP') {
+        if (!isCurrency(trimmed)) {
           fail('Select a supported default currency (USD, EUR, or EGP).');
           break;
         }
@@ -592,7 +593,7 @@ export interface AdminSettingsSnapshot {
   rates: { eur: string; egp: string };
 }
 
-const FALLBACK_RATES = { eur: '0.92', egp: '48' } as const;
+// Missing rates stay unconfigured; display code retains explicitly labeled USD.
 
 async function readRates(): Promise<{ eur: string; egp: string }> {
   const [eur, egp] = await Promise.all([
@@ -600,8 +601,8 @@ async function readRates(): Promise<{ eur: string; egp: string }> {
     getActiveRate('USD', 'EGP'),
   ]);
   return {
-    eur: eur?.rate ?? FALLBACK_RATES.eur,
-    egp: egp?.rate ?? FALLBACK_RATES.egp,
+    eur: eur?.rate ?? '',
+    egp: egp?.rate ?? '',
   };
 }
 

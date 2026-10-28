@@ -1,3 +1,4 @@
+import { rentCarFailure } from '@/lib/server/rent-car-errors';
 import { NextResponse } from 'next/server';
 
 import { getCurrentUser, hasPermission } from '@/lib/server/auth';
@@ -9,7 +10,7 @@ import {
   getStaffCarRequest,
   transitionStaffCarRequest,
 } from '@/lib/server/car-requests';
-import { CAR_REQUEST_STATUSES, type CarRequestStatus } from '@/lib/car-request';
+import { CAR_REQUEST_STATUSES, isCarReference, type CarRequestStatus } from '@/lib/car-request';
 
 type StaffPatchBody = {
   status?: unknown;
@@ -26,7 +27,8 @@ export async function GET(
   const current = await getCurrentUser();
   if (!current) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
   if (!hasPermission(current, 'requests.view')) return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
-  const reference = decodeURIComponent((await ctx.params).ref);
+  const reference = (await ctx.params).ref;
+  if (!isCarReference(reference)) return NextResponse.json({ error: 'Car request not found.' }, { status: 404 });
   const item = await getStaffCarRequest(reference);
   if (!item) return NextResponse.json({ error: 'Car request not found.' }, { status: 404 });
   return NextResponse.json(item);
@@ -48,16 +50,20 @@ export async function PATCH(
   const current = await getCurrentUser();
   if (!current) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
   if (!hasPermission(current, 'requests.edit')) return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
-  const reference = decodeURIComponent((await ctx.params).ref);
+  const reference = (await ctx.params).ref;
+  if (!isCarReference(reference)) return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
 
   let body: StaffPatchBody;
   try {
     body = (await request.json()) as StaffPatchBody;
+    if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some(key => !['status', 'note', 'internal', 'assignedVehicle'].includes(key))) return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
+    if (body.internal !== undefined && typeof body.internal !== 'boolean') return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
+    if (body.assignedVehicle !== undefined && (body.status !== undefined || body.note !== undefined)) return NextResponse.json({ error: 'Send assignment and status/note changes separately.' }, { status: 400 });
   } catch {
     return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
   }
 
-  const note = typeof body.note === 'string' ? body.note.trim().slice(0, 1000) : '';
+  const note = typeof body.note === 'string' ? body.note.trim() : '';
   const internal = body.internal !== false;
 
   const audit = (action: string, metadata?: Record<string, unknown>) =>
@@ -99,7 +105,8 @@ export async function PATCH(
     return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
   } catch (error) {
     if (error instanceof Error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      const failure = rentCarFailure(error);
+      return NextResponse.json({ error: failure.error }, { status: failure.status });
     }
     throw error;
   }

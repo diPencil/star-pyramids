@@ -59,12 +59,12 @@ const shared = vi.hoisted(() => {
           if (sql.includes('FROM payments')) {
             const row = [...store.payments.values()].find((p) => p.reference === values[0])
             return row
-              ? [{ id: row.id, status: row.status, bookingId: row.bookingId, amountPaid: row.amountPaid, amountRefunded: row.amountRefunded }]
+              ? [{ id: row.id, status: row.status, bookingId: row.bookingId, currency: row.currency, amountPaid: row.amountPaid, amountRefunded: row.amountRefunded }]
               : []
           }
           if (sql.includes('FROM bookings')) {
             const booking = store.bookings.get(values[0])
-            return booking ? [{ status: booking.status }] : []
+            return booking ? [{ id: booking.id, status: booking.status, currency: booking.currency }] : []
           }
           return []
         },
@@ -153,7 +153,7 @@ function seedPayment(overrides: Record<string, any> = {}) {
 }
 
 function seedBooking(overrides: Record<string, any> = {}) {
-  const row: Record<string, any> = { id: 'bk-1', status: 'CONFIRMED', ...overrides }
+  const row: Record<string, any> = { id: 'bk-1', status: 'CONFIRMED', currency: 'USD', ...overrides }
   shared.store.bookings.set(row.id, row)
   return row
 }

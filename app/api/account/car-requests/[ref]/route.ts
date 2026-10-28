@@ -1,4 +1,6 @@
+import { rentCarFailure } from '@/lib/server/rent-car-errors';
 import { NextResponse } from 'next/server';
+import { isCarReference } from '@/lib/car-request';
 
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { getAccountReadUser, getAccountWriteUser } from '@/lib/server/staff-preview';
@@ -20,7 +22,8 @@ export async function GET(
 ) {
   const current = await getAccountReadUser();
   if (!current) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
-  const reference = decodeURIComponent(await refOf(ctx));
+  const reference = await refOf(ctx);
+  if (!isCarReference(reference)) return NextResponse.json({ error: 'Car request not found.' }, { status: 404 });
   const item = await getCustomerCarRequest(current.id, reference);
   if (!item) return NextResponse.json({ error: 'Car request not found.' }, { status: 404 });
   return NextResponse.json(item);
@@ -45,11 +48,13 @@ export async function PATCH(
   }
   const current = await getAccountWriteUser();
   if (!current) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
-  const reference = decodeURIComponent(await refOf(ctx));
+  const reference = await refOf(ctx);
+  if (!isCarReference(reference)) return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
 
   let body: CustomerPatchBody;
   try {
     body = (await request.json()) as CustomerPatchBody;
+    if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some(key => !['action', 'draft'].includes(key))) return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
   } catch {
     return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
   }
@@ -69,7 +74,8 @@ export async function PATCH(
     return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
   } catch (error) {
     if (error instanceof Error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      const failure = rentCarFailure(error);
+      return NextResponse.json({ error: failure.error }, { status: failure.status });
     }
     throw error;
   }

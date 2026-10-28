@@ -7,7 +7,7 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableTools, AdminTableWrap, AdminText, Avatar, Card, StatusPill } from '@/components/admin/admin-ui'
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 import { useAdminLocale } from '@/components/admin/admin-locale'
-import { useAdminCurrency } from '@/components/admin/admin-currency'
+import { formatCurrency } from '@/lib/currency'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
 import { SharedSelect } from '@/components/shared-select'
 import { type BookingStatus, type StaffBooking } from '@/lib/booking'
@@ -22,6 +22,7 @@ const statusTabs = [
 
 type Row = {
   reference: string
+  currency: string
   customer: string
   tour: string
   date: string
@@ -37,6 +38,7 @@ function toRow(booking: StaffBooking): Row {
   const date = booking.lines.map((line) => line.date).find((d) => d !== '') ?? booking.createdAt.slice(0, 10)
   return {
     reference: booking.reference,
+    currency: booking.currency,
     customer: booking.account?.name || booking.contact.name,
     tour: first?.title ?? '-',
     date,
@@ -56,7 +58,6 @@ function toRow(booking: StaffBooking): Row {
 export default function BookingsPage() {
   const ar = useAdminLocale() === 'ar'
   // Display-only conversion of server USD amounts, like the storefront.
-  const { formatUsd } = useAdminCurrency()
   const [bookings, setBookings] = useState<StaffBooking[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -90,9 +91,11 @@ export default function BookingsPage() {
   // "Confirmed value" should reflect actually paid money, not just booking status.
   // A confirmed booking can still be unpaid (paymentStatus: 'pending').
   // We derive paid amount from the booking's paymentSummary (real Payment rows).
-  const confirmedRevenue = rows
-    .filter((row) => row.status === 'confirmed')
-    .reduce((sum, row) => sum + (row.paymentSummary?.paidTotal ?? 0), 0)
+  const confirmedRevenue = new Map<string, number>()
+  for (const row of rows.filter((row) => row.status === 'confirmed')) {
+    confirmedRevenue.set(row.currency, (confirmedRevenue.get(row.currency) ?? 0) + (row.paymentSummary?.paidTotal ?? 0))
+  }
+  const confirmedRevenueLabel = [...confirmedRevenue].map(([code, amount]) => formatCurrency(amount, code, ar ? 'ar' : 'en')).join(' · ') || formatCurrency(0, 'USD')
   const bookingSort = useAdminTableSort(visible, {
     customer: (row) => row.customer, tour: (row) => row.tour, date: (row) => row.date,
     guests: (row) => row.guests, total: (row) => row.total, status: (row) => row.status,
@@ -124,7 +127,7 @@ export default function BookingsPage() {
         { label: <AdminText en="All bookings" ar="كل الحجوزات" />, value: loading ? '…' : rows.length, note: <AdminText en="Stored bookings" ar="الحجوزات المحفوظة" />, icon: ShoppingCart },
         { label: <AdminText en="Needs follow-up" ar="تحتاج متابعة" />, value: loading ? '…' : rows.filter((row) => row.status === 'pending').length, note: <AdminText en="Pending confirmation" ar="بانتظار التأكيد" />, icon: CalendarClock, tone: 'orange' },
         { label: <AdminText en="Confirmed" ar="المؤكدة" />, value: loading ? '…' : rows.filter((row) => row.status === 'confirmed').length, note: <AdminText en="Ready for operations" ar="جاهزة للتشغيل" />, icon: CheckCircle2, tone: 'green' },
-        { label: <AdminText en="Collected from confirmed bookings" ar="المحصل من الحجوزات المؤكدة" />, value: loading ? '…' : formatUsd(confirmedRevenue), note: <AdminText en="Converted from server USD" ar="محولة من الدولار المحسوب في الخادم" />, icon: CircleDollarSign, tone: 'violet' },
+        { label: <AdminText en="Collected from confirmed bookings" ar="المحصل من الحجوزات المؤكدة" />, value: loading ? '…' : confirmedRevenueLabel, note: <AdminText en="Totals by stored currency" ar="الإجماليات حسب العملة المحفوظة" />, icon: CircleDollarSign, tone: 'violet' },
       ]} />
       <Card title={<AdminText en="All bookings" ar="كل الحجوزات" />} sub={<AdminText en={`${visible.length} of ${rows.length} bookings shown`} ar={`عرض ${visible.length} من ${rows.length} حجوزات`} />}>
         <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث بحجز أو عميل أو رحلة...' : 'Search booking, customer or tour...'}>
@@ -144,7 +147,7 @@ export default function BookingsPage() {
                   <td><Link href={`/admin/bookings/${encodeURIComponent(b.reference)}`}>{b.tour}</Link></td>
                   <td>{b.date}</td>
                   <td>{b.guests}</td>
-                  <td>{formatUsd(b.total)}</td>
+                  <td>{formatCurrency(b.total, b.currency, ar ? 'ar' : 'en')}</td>
                   <td><StatusPill status={b.status} /></td>
                   <td><AdminTableActions>
                     <AdminIconAction icon={Eye} label={ar ? `عرض الحجز ${b.reference}` : `View booking ${b.reference}`} href={`/admin/bookings/${encodeURIComponent(b.reference)}`} />

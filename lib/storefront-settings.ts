@@ -1,4 +1,5 @@
 'use client';
+import { isCurrency, type Currency } from './currency';
 
 import { ENABLED_LOCALES, sanitizeLocale } from './locale-config';
 import { readAccessStrip, type AccessStripOverride } from './access-strip';
@@ -16,7 +17,7 @@ import type { SocialLink } from './admin-store';
 let inflight: Promise<void> | null = null;
 let brand: Record<string, string> | null = null;
 let social: SocialLink[] | null = null;
-let currency: { eur?: number; egp?: number; defaultCurrency?: 'USD' | 'EUR' | 'EGP' } | null = null;
+let currency: { eur?: number; egp?: number; defaultCurrency?: Currency } | null = null;
 let localization: { defaultLanguage?: string; timezone?: string } | null = null;
 let seoTitle: string | null = null;
 let promoText: string | null = null;
@@ -106,13 +107,12 @@ function applySettings(data: { settings?: unknown }): void {
   if (eur > 0) nextCurrency.eur = eur;
   if (egp > 0) nextCurrency.egp = egp;
   const currencyRaw = cleanString(raw.currency?.defaultCurrency);
-  if (currencyRaw === 'USD' || currencyRaw === 'EUR' || currencyRaw === 'EGP') {
+  if (isCurrency(currencyRaw)) {
     nextCurrency.defaultCurrency = currencyRaw;
   }
-  if (Object.keys(nextCurrency).length > 0) {
-    currency = { ...currency, ...nextCurrency };
-    window.dispatchEvent(new Event('sp-currency'));
-  }
+  // Each response is authoritative: unavailable rates must invalidate stale ones.
+  currency = nextCurrency;
+  window.dispatchEvent(new Event('sp-currency'));
 
   const nextLocalization: NonNullable<typeof localization> = {};
   const localeRaw = cleanString(raw.localization?.defaultLanguage);

@@ -1,3 +1,4 @@
+import { rentCarFailure } from '@/lib/server/rent-car-errors';
 // Staff-only location edit/delete (Phase 2). Slugs are immutable
 // (FK targets for routes); DELETE is blocked by the service when routes
 // still reference the location.
@@ -33,7 +34,8 @@ export async function PATCH(
     if (!patched) return NextResponse.json({ error: 'Location not found.' }, { status: 404 });
     return NextResponse.json({ location: patched });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Invalid request.' }, { status: 400 });
+    const failure = rentCarFailure(error);
+    return NextResponse.json({ error: failure.error }, { status: failure.status });
   }
 }
 
@@ -49,6 +51,7 @@ export async function DELETE(
     if (!deleted) return NextResponse.json({ error: 'Location not found.' }, { status: 404 });
     return NextResponse.json({ deleted: true });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Invalid request.' }, { status: 409 });
+    const failure = rentCarFailure(error);
+    return NextResponse.json({ error: failure.error }, { status: failure.status });
   }
 }

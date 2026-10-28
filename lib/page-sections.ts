@@ -23,7 +23,7 @@ export const HOME_SECTIONS: readonly SectionDefinition[] = [
   { id: 'how', name: 'How it works', fields: ['howT', 'howS'], itemFields: ['step', 'heading', 'description'], minItems: 3, maxItems: 3, icons: true, href: '' },
   { id: 'highlights', name: 'Destination highlights', fields: ['hlT', 'hlS'], source: 'destinations', limit: 12 },
   { id: 'blogs', name: 'Travel blogs', fields: ['blogT', 'blogS', 'readMore', 'viewAll'], href: '/blogs', source: 'blogs', limit: 12 },
-  { id: 'sustainability', name: 'Sustainability', fields: ['susE', 'susT1', 'susT2', 'susP', 'susCta', 'susB1', 'susB2', 'susB3'], href: '/about', itemFields: ['line1', 'line2'], minItems: 1, maxItems: 3, icons: true },
+  { id: 'sustainability', name: 'Sustainability', fields: ['susE', 'susT1', 'susT2', 'susP', 'susCta', 'susB1', 'susB2', 'susB3'], href: '/about', itemFields: ['line1', 'line2'], minItems: 1, maxItems: 3, icons: true, mediaFields: ['badgeImage'] },
   { id: 'gallery', name: 'Journey Gallery', fields: ['galT', 'galS'], editor: '/admin/gallery' },
   { id: 'reviews', name: 'Traveller reviews', fields: ['heading', 'description'], editor: '/admin/reviews' },
   { id: 'faq', name: 'Frequently asked questions', fields: ['faqT', 'faqS', 'faqAll'], href: '/faq', itemFields: ['question', 'answer'], minItems: 0, maxItems: 12 },
@@ -70,8 +70,11 @@ export function validatePageContent(input: unknown, pageId: PageDocumentId = 'ho
     const result: PageSection = { id: definition.id, visible: section.visible, text: text(section.text, definition.fields, pageId === 'shared' && definition.id !== 'help') }
     if (pageId === 'shared' && definition.id === 'help') for (const locale of ENABLED_LOCALES) for (const key of ['helpName', 'helpNat', 'helpPhone', 'helpBtn']) if (!result.text[locale][key].trim()) throw new HeroValidationError('Keep required enquiry controls labelled.')
     if (definition.mediaFields?.length) {
-      const media = object(section.media); keys(media, definition.mediaFields)
-      result.media = Object.fromEntries(definition.mediaFields.map((key) => [key, validateHeroMedia(media[key], 'image')]))
+      const optionalBadge = pageId === 'homepage' && definition.id === 'sustainability'
+      if (!optionalBadge || section.media != null) {
+        const media = object(section.media); keys(media, definition.mediaFields)
+        result.media = Object.fromEntries(definition.mediaFields.map((key) => [key, validateHeroMedia(optionalBadge ? media[key] ?? '' : media[key], 'image', optionalBadge)]))
+      }
     }
     if (definition.linkFields?.length) {
       const links = object(section.links); keys(links, definition.linkFields)

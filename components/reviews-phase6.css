@@ -1,0 +1,13 @@
+.tour-reviews-grid .rev-card,
+.provider-review-group .rev-card {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.website-review-pagination {
+  flex-wrap: wrap;
+}
+
+.website-review-pagination button {
+  min-height: 44px;
+}

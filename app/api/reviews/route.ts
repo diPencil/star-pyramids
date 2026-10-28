@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/server/db';
 import { getCurrentUser } from '@/lib/server/auth';
 import { Prisma } from '@prisma/client';
-import { WEBSITE_REVIEW_SCOPE } from '@/lib/review-scope';
+import { WEBSITE_REVIEW_SCOPE, parseReviewScope, reviewScopeFilter, reviewPage } from '@/lib/review-scope';
+import { reviewTrips } from '@/lib/server/review-trips';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 
 const REVIEW_ATTEMPT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
@@ -28,8 +29,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
   }
 
+  try {
   // Rate limiting: per user OR ip inside time window
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim().slice(0, 64) ?? 'unknown';
   const recentAttempts = await db.reviewAttempt.count({
     where: {
       OR: [
@@ -53,6 +55,7 @@ export async function POST(request: Request) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 });
   const values = body as Record<string, unknown>;
   const { rating, text, title } = values;
+  if (values.scope !== undefined && !['website', 'trips'].includes(String(values.scope))) return NextResponse.json({ error: 'Invalid review scope.' }, { status: 400 });
   const website = values.scope === 'website';
   const tourSlug = website ? WEBSITE_REVIEW_SCOPE : values.tourSlug;
 
@@ -62,8 +65,8 @@ export async function POST(request: Request) {
   }
 
   // Verify tour exists
-  const tour = website ? true : tourSlug === WEBSITE_REVIEW_SCOPE ? null : await db.tour.findUnique({ where: { slug: tourSlug }, select: { slug: true } });
-  if (!tour) {
+  const tour = website ? true : tourSlug === WEBSITE_REVIEW_SCOPE ? null : await db.tour.findUnique({ where: { slug: tourSlug }, select: { slug: true, status: true } });
+  if (!tour || (tour !== true && tour.status !== 'published')) {
     return NextResponse.json({ error: 'Tour not found.' }, { status: 404 });
   }
 
@@ -125,6 +128,7 @@ export async function POST(request: Request) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') return NextResponse.json({ error: 'You have already submitted this review.' }, { status: 409 });
     return NextResponse.json({ error: 'Unable to save review. Please try again.' }, { status: 500 });
   }
+  } catch { return NextResponse.json({ error: 'Unable to submit review. Please try again.' }, { status: 503 }); }
 }
 
 /**
@@ -134,66 +138,37 @@ export async function POST(request: Request) {
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const website = searchParams.get('scope') === 'website';
-  const tourSlug = website ? WEBSITE_REVIEW_SCOPE : searchParams.get('tourSlug');
-  const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
-  const limit = Math.min(20, Math.max(1, parseInt(searchParams.get('limit') || '10', 10) || 10));
-  const skip = (page - 1) * limit;
-
-  if (!tourSlug || tourSlug.length > 80) {
-    return NextResponse.json({ error: 'Valid tourSlug is required.' }, { status: 400 });
+  const scope = parseReviewScope(searchParams.get('scope'));
+  if (!scope) return NextResponse.json({ error: 'Invalid review scope.' }, { status: 400 });
+  const requestedSlug = searchParams.get('tourSlug');
+  if (requestedSlug === WEBSITE_REVIEW_SCOPE) return NextResponse.json({ error: 'Tour not found.' }, { status: 404 });
+  if (requestedSlug && (requestedSlug.length > 80 || scope === 'website')) return NextResponse.json({ error: 'Invalid tour filter.' }, { status: 400 });
+  const page = reviewPage(searchParams.get('page'), 1, 1000000);
+  const limit = reviewPage(searchParams.get('limit'), 10, 20);
+  try {
+    if (requestedSlug) {
+      const tour = await db.tour.findUnique({ where: { slug: requestedSlug }, select: { slug: true, status: true } });
+      if (!tour || tour.status !== 'published') return NextResponse.json({ error: 'Tour not found.' }, { status: 404 });
+    }
+    const where = { status: 'PUBLISHED' as const, ...reviewScopeFilter(scope), ...(requestedSlug ? { tourSlug: requestedSlug } : {}) };
+    const [reviews, total, stats] = await Promise.all([
+      db.review.findMany({ where, orderBy: [{ publishedAt: 'desc' }, { publicId: 'desc' }], skip: (page - 1) * limit, take: limit,
+        select: { publicId: true, tourSlug: true, rating: true, title: true, text: true, publishedAt: true, user: { select: { firstName: true, lastName: true } } } }),
+      db.review.count({ where }),
+      db.review.aggregate({ where, _avg: { rating: true }, _count: { rating: true } }),
+    ]);
+    const trips = await reviewTrips(reviews.map(row => row.tourSlug));
+    return NextResponse.json({
+      reviews: reviews.map(row => ({
+        publicId: row.publicId, rating: row.rating, title: row.title, text: row.text, publishedAt: row.publishedAt,
+        reviewerName: [row.user?.firstName?.trim(), row.user?.lastName?.trim()].filter(Boolean).join(' ') || 'Traveler',
+        scope: row.tourSlug === WEBSITE_REVIEW_SCOPE ? 'website' : 'trips',
+        trip: trips.get(row.tourSlug) ?? null,
+      })),
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      summary: { average: stats._avg.rating === null ? null : Math.round(stats._avg.rating * 10) / 10, count: stats._count.rating },
+    }, { headers: { 'Cache-Control': 'private, no-store' } });
+  } catch {
+    return NextResponse.json({ error: 'Unable to load reviews. Please try again.' }, { status: 503 });
   }
-
-  // Verify tour exists
-  const tour = website ? true : tourSlug === WEBSITE_REVIEW_SCOPE ? null : await db.tour.findUnique({ where: { slug: tourSlug }, select: { slug: true } });
-  if (!tour) {
-    return NextResponse.json({ error: 'Tour not found.' }, { status: 404 });
-  }
-
-  const [reviews, total, stats] = await Promise.all([
-    db.review.findMany({
-      where: { tourSlug, status: 'PUBLISHED' },
-      orderBy: { publishedAt: 'desc' },
-      skip,
-      take: limit,
-      select: {
-        publicId: true,
-        rating: true,
-        title: true,
-        text: true,
-        publishedAt: true,
-        user: { select: { firstName: true, lastName: true } },
-      },
-    }),
-    db.review.count({ where: { tourSlug, status: 'PUBLISHED' } }),
-    db.review.aggregate({
-      where: { tourSlug, status: 'PUBLISHED' },
-      _avg: { rating: true },
-      _count: { rating: true },
-    }),
-  ]);
-
-  const avg = stats._avg.rating ? Math.round(stats._avg.rating * 10) / 10 : null;
-  const count = stats._count.rating;
-
-  // Transform to canonical public review shape with safe reviewer display name
-  const safeReviews = reviews.map((r) => {
-    const first = r.user?.firstName?.trim() ?? '';
-    const last = r.user?.lastName?.trim() ?? '';
-    const reviewerName = (first && last) ? `${first} ${last}` : (first || last || 'Traveler');
-    return {
-      publicId: r.publicId,
-      rating: r.rating,
-      title: r.title,
-      text: r.text,
-      publishedAt: r.publishedAt,
-      reviewerName,
-    };
-  });
-
-  return NextResponse.json({
-    reviews: safeReviews,
-    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-    summary: { average: avg, count },
-  });
 }

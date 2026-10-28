@@ -2,8 +2,8 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { PageHead } from '@/components/admin/admin-shell'
-import { AdminText, Card } from '@/components/admin/admin-ui'
+import { GalleryPageHead as PageHead, GalleryText as AdminText, galleryText, useGalleryLocale } from '@/components/admin/gallery-text'
+import { Card } from '@/components/admin/admin-ui'
 import { GalleryForm } from '@/components/admin/gallery-form'
 import type { GalleryItem } from '@/lib/journey-gallery'
 

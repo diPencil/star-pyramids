@@ -33,6 +33,8 @@ import {
 import { notifyUser, notifyStaff } from './notifications';
 import { sendCustomerEmailSafe, sendStaffEmailSafe } from './email';
 
+export class EventRequestInputError extends Error {}
+
 const REF_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const REF_ATTEMPTS = 5;
 
@@ -103,13 +105,13 @@ function text(value: unknown): string | null {
  * read from the body — the signature takes no such input.
  */
 export function validateEventDraft(input: unknown): ValidatedEventDraft {
-  if (typeof input !== 'object' || input === null) throw new Error('Invalid request.');
+  if (typeof input !== 'object' || input === null) throw new EventRequestInputError('Invalid request.');
   const body = input as Record<string, unknown>;
   for (const key of Object.keys(body)) {
-    if (!DRAFT_KEYS.has(key)) throw new Error('Invalid request.');
+    if (!DRAFT_KEYS.has(key)) throw new EventRequestInputError('Invalid request.');
   }
   const fail = (message: string): never => {
-    throw new Error(message);
+    throw new EventRequestInputError(message);
   };
 
   const eventSlug = text(body.eventSlug)?.trim() ?? '';
@@ -246,14 +248,18 @@ export async function createEventRequestRecord(
   for (let attempt = 0; attempt < REF_ATTEMPTS; attempt += 1) {
     const reference = mintReferenceCandidate();
     try {
-      const row = await db.eventRequest.create({
+      const row = await db.$transaction(async tx => {
+        await tx.$queryRaw`SELECT slug FROM events WHERE slug = ${draft.eventSlug} FOR UPDATE`;
+        const event = await tx.event.findUnique({ where: { slug: draft.eventSlug } });
+        if (!event || !event.isPublished) throw new EventRequestInputError('Select an available event.');
+        return tx.eventRequest.create({
         data: {
           reference,
           userId,
           eventSlug: draft.eventSlug,
-          eventTitle: draft.eventTitle,
-          eventDate: draft.eventDate,
-          eventLocation: draft.eventLocation,
+          eventTitle: event.title.slice(0, EVENT_TITLE_MAX),
+          eventDate: event.date,
+          eventLocation: event.location,
           attendees: draft.attendees,
           contactName: draft.contactName,
           contactEmail: draft.contactEmail,
@@ -267,6 +273,7 @@ export async function createEventRequestRecord(
           },
         },
         include: rowInclude,
+        });
       });
       const created = toCustomerView(row);
       // Submission receipt for signed-in customers. Guests (userId
@@ -290,7 +297,7 @@ export async function createEventRequestRecord(
       await sendCustomerEmailSafe('event_request_submitted', draft.contactEmail, {
         name: draft.contactName,
         reference,
-        eventTitle: draft.eventTitle,
+        eventTitle: row.eventTitle,
         detailUrl: `/account/event-requests/detail?ref=${encodeURIComponent(reference)}`,
       }, { relatedReference: reference, idempotencyKey: `event_request_submitted:${reference}` });
       await sendStaffEmailSafe('admin_event_request_submitted', {
@@ -307,7 +314,7 @@ export async function createEventRequestRecord(
       throw error;
     }
   }
-  throw lastError instanceof Error ? lastError : new Error('Could not create the request. Please try again.');
+  throw lastError instanceof Error ? lastError : new EventRequestInputError('Could not create the request. Please try again.');
 }
 
 export async function listCustomerEventRequests(userId: string): Promise<EventRequest[]> {
@@ -344,9 +351,12 @@ export async function cancelCustomerEventRequest(
   if (!existing || existing.userId !== userId) return null;
   const current = FROM_DB_STATUS[existing.status];
   if (!canTransitionEventRequest(current, 'cancelled')) {
-    throw new Error('This request can no longer be cancelled.');
+    throw new EventRequestInputError('This request can no longer be cancelled.');
   }
   const row = await db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM event_requests WHERE id = ${existing.id} FOR UPDATE`;
+    const fresh = await tx.eventRequest.findUnique({ where: { id: existing.id } });
+    if (!fresh || fresh.userId !== userId || fresh.status !== existing.status) throw new EventRequestInputError('This request changed. Reload before updating.');
     await tx.eventRequest.update({
       where: { id: existing.id },
       data: {
@@ -394,12 +404,15 @@ export async function transitionStaffEventRequest(
   if (!existing) return null;
   const current = FROM_DB_STATUS[existing.status];
   if (!canTransitionEventRequest(current, to)) {
-    throw new Error('This status change is not allowed.');
+    throw new EventRequestInputError('This status change is not allowed.');
   }
   if (note.length > EVENT_NOTE_MAX || hasControlChars(note)) {
-    throw new Error('Notes must be 1,000 characters or fewer.');
+    throw new EventRequestInputError('Notes must be 1,000 characters or fewer.');
   }
   const row = await db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM event_requests WHERE id = ${existing.id} FOR UPDATE`;
+    const fresh = await tx.eventRequest.findUnique({ where: { id: existing.id } });
+    if (!fresh || fresh.status !== existing.status) throw new EventRequestInputError('This request changed. Reload before updating.');
     await tx.eventRequest.update({
       where: { id: existing.id },
       data: {
@@ -448,7 +461,7 @@ export async function transitionStaffEventRequest(
 export async function addStaffEventNote(reference: string, note: string): Promise<StaffEventRequest | null> {
   const trimmed = note.trim();
   if (trimmed === '' || trimmed.length > EVENT_NOTE_MAX || hasControlChars(trimmed)) {
-    throw new Error('Enter an internal note (1,000 characters or fewer).');
+    throw new EventRequestInputError('Enter an internal note (1,000 characters or fewer).');
   }
   const existing = await db.eventRequest.findUnique({
     where: { reference },

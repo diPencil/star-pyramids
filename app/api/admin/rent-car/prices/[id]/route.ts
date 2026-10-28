@@ -1,3 +1,4 @@
+import { rentCarFailure } from '@/lib/server/rent-car-errors';
 // Staff-only price edit/delete (Phase 2). Mode switches re-enforce the
 // MANUAL/AUTOMATIC invariants; nothing here is publicly reachable.
 import { NextResponse } from 'next/server';
@@ -32,7 +33,8 @@ export async function PATCH(
     if (!patched) return NextResponse.json({ error: 'Price not found.' }, { status: 404 });
     return NextResponse.json({ price: patched });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Invalid request.' }, { status: 400 });
+    const failure = rentCarFailure(error);
+    return NextResponse.json({ error: failure.error }, { status: failure.status });
   }
 }
 
@@ -48,6 +50,7 @@ export async function DELETE(
     if (!deleted) return NextResponse.json({ error: 'Price not found.' }, { status: 404 });
     return NextResponse.json({ deleted: true });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Invalid request.' }, { status: 400 });
+    const failure = rentCarFailure(error);
+    return NextResponse.json({ error: failure.error }, { status: failure.status });
   }
 }

@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useLocale, tx } from './locale'
 import { PlatformIcon, StarsRow, ReviewWriteModal, type ReviewSummary } from './reviews'
 import { WebsiteReviews } from './website-reviews'
@@ -12,9 +12,11 @@ function TrustindexWidget({ id }: { id: string }) {
   return <iframe title="Trustindex reviews" srcDoc={doc} sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" referrerPolicy="no-referrer" className="provider-review-widget"/>
 }
 export function ProviderReviewsSection({ heading, description }: { heading?: string; description?: string } = {}) {
-  const { locale } = useLocale(), [selected, setSelected] = useState<ReviewProvider | 'all' | 'website'>('all'), [feeds, setFeeds] = useState<ReviewFeed[]>([]), [loading, setLoading] = useState(true), [error, setError] = useState(false), [retry, setRetry] = useState(0), [writing, setWriting] = useState(false), [submitted, setSubmitted] = useState(false)
+  const { locale } = useLocale(), [selected, setSelected] = useState<ReviewProvider | 'all' | 'website' | 'trips'>('all'), [feeds, setFeeds] = useState<ReviewFeed[]>([]), [loading, setLoading] = useState(true), [error, setError] = useState(false), [retry, setRetry] = useState(0), [writing, setWriting] = useState(false), [submitted, setSubmitted] = useState(false)
   const text = (en: string, es: string, it: string, ar: string) => tx(locale, { en, es, it, ar })
-  const [websiteSummary, setWebsiteSummary] = useState<ReviewSummary | null>(null)
+  const [localSummary, setLocalSummary] = useState<{ scope: string; summary: ReviewSummary | null } | null>(null)
+  const websiteSummary = localSummary?.scope === selected ? localSummary.summary : null
+  const handleSummary = useCallback((summary: ReviewSummary | null) => setLocalSummary({ scope: selected, summary }), [selected])
   useEffect(() => {
     const controller = new AbortController(); setLoading(true); setError(false); setFeeds([])
     const providers = REVIEW_PROVIDERS
@@ -33,18 +35,19 @@ export function ProviderReviewsSection({ heading, description }: { heading?: str
   const reviewLinks = enabled.filter(f => f.profileUrl)
   const selectedFeed = visible.find(f => f.provider === selected)
   const writeLabel = text('Write a review', 'Escribir una reseña', 'Scrivi una recensione', 'اكتب تقييمًا')
-  useEffect(() => { if (!loading && selected !== 'all' && selected !== 'website' && !feeds.some(f => f.provider === selected && f.enabled)) setSelected('all') }, [feeds, loading, selected])
+  useEffect(() => { if (!loading && selected !== 'all' && selected !== 'website' && selected !== 'trips' && !feeds.some(f => f.provider === selected && f.enabled)) setSelected('all') }, [feeds, loading, selected])
   const all = text('All reviews', 'Todas las reseñas', 'Tutte le recensioni', 'كل التقييمات')
+  const trips = text('Trip reviews', 'Reseñas de viajes', 'Recensioni dei viaggi', 'تقييمات الرحلات')
   const website = text('Website reviews', 'Reseñas del sitio', 'Recensioni del sito', 'تقييمات الموقع')
   return <section className="home-section reviews-section"><div className="container">
     <div className="home-heading"><h2>{heading ?? text('Loved by travelers', 'Amado por los viajeros', 'Amato dai viaggiatori', 'محبوب من المسافرين')}</h2><p>{description ?? text('Experiences shared by our travelers.', 'Experiencias de nuestros viajeros.', 'Esperienze dei nostri viaggiatori.', 'تجارب يشاركها مسافرونا.')}</p></div>
     <div className="rev-tabs provider-review-tabs" role="group" aria-label={text('Review platforms', 'Plataformas de reseñas', 'Piattaforme di recensioni', 'منصات التقييمات')}>
-      {(['all', 'website', ...enabled.map(f => f.provider)] as const).map(p => <button type="button" key={p} aria-label={p === 'all' ? all : p === 'website' ? website : REVIEW_LABELS[p]} aria-pressed={selected === p} className={selected === p ? 'active' : ''} onClick={() => setSelected(p)}>{p !== 'all' && <PlatformIcon id={p}/>}<span>{p === 'all' ? all : p === 'website' ? website : REVIEW_LABELS[p]}</span></button>)}
+      {(['all', 'website', 'trips', ...enabled.map(f => f.provider)] as const).map(p => <button type="button" key={p} aria-label={p === 'all' ? all : p === 'website' ? website : p === 'trips' ? trips : REVIEW_LABELS[p]} aria-pressed={selected === p} className={selected === p ? 'active' : ''} onClick={() => setSelected(p)}>{p !== 'all' && <PlatformIcon id={p}/>}<span>{p === 'all' ? all : p === 'website' ? website : p === 'trips' ? trips : REVIEW_LABELS[p]}</span></button>)}
     </div>
     <div className="rev-summary">
       {selected !== 'all' && <PlatformIcon id={selected}/>}
-      <strong>{selected === 'all' ? all : selected === 'website' ? website : REVIEW_LABELS[selected]}</strong>
-      {selected === 'website' && websiteSummary && <>{websiteSummary.average !== null && <b>{websiteSummary.average.toFixed(1)} / 5</b>}<span className="rev-count">{websiteSummary.count.toLocaleString(locale)} {text('reviews', 'reseñas', 'recensioni', 'تقييم')}</span></>}
+      <strong>{selected === 'all' ? all : selected === 'website' ? website : selected === 'trips' ? trips : REVIEW_LABELS[selected]}</strong>
+      {(selected === 'website' || selected === 'trips' || selected === 'all') && websiteSummary && <>{websiteSummary.average !== null && <b>{websiteSummary.average.toFixed(1)} / 5</b>}<span className="rev-count">{websiteSummary.count.toLocaleString(locale)} {selected === 'all' ? text('website and trip reviews', 'reseñas del sitio y de viajes', 'recensioni del sito e dei viaggi', 'تقييمات الموقع والرحلات') : text('reviews', 'reseñas', 'recensioni', 'تقييم')}</span></>}
       {selectedFeed?.average != null && <b>{selectedFeed.average.toFixed(1)} / 5</b>}
       {selectedFeed?.count != null && <span className="rev-count">{selectedFeed.count.toLocaleString(locale)} {text('reviews', 'reseñas', 'recensioni', 'تقييم')}</span>}
       <div className="website-review-actions">
@@ -53,11 +56,11 @@ export function ProviderReviewsSection({ heading, description }: { heading?: str
       </div>
     </div>
     {submitted && <p role="status" className="provider-review-empty">{text('Thank you! Your review is awaiting approval.', '¡Gracias! Tu reseña está pendiente de aprobación.', 'Grazie! La tua recensione è in attesa di approvazione.', 'شكرًا! تقييمك في انتظار موافقة الإدارة.')}</p>}
-    {(selected === 'all' || selected === 'website') && <WebsiteReviews showEmpty={selected === 'website'} onSummary={setWebsiteSummary}/>}
+    {(selected === 'all' || selected === 'website' || selected === 'trips') && <WebsiteReviews key={selected} scope={selected} showEmpty={selected !== 'all'} onSummary={handleSummary}/>}
     {writing && <ReviewWriteModal tourSlug={WEBSITE_REVIEW_SCOPE} copy={{ heading: text('Write a review', 'Escribir una reseña', 'Scrivi una recensione', 'اكتب تقييمًا'), context: text('Review STAR PYRAMIDS. Sign in to submit; reviews are published after approval.', 'Valora STAR PYRAMIDS. Inicia sesión; las reseñas requieren aprobación.', 'Recensisci STAR PYRAMIDS. Accedi; le recensioni richiedono approvazione.', 'قيّم STAR PYRAMIDS. يلزم تسجيل الدخول، ويُنشر التقييم بعد موافقة الإدارة.'), rating: text('Rating', 'Valoración', 'Valutazione', 'التقييم'), review: text('Your review', 'Tu reseña', 'La tua recensione', 'تقييمك'), reviewPh: text('Tell us about your experience…', 'Cuéntanos tu experiencia…', 'Raccontaci la tua esperienza…', 'احكِ لنا عن تجربتك…'), reviewTitle: text('Review title', 'Título', 'Titolo', 'عنوان التقييم'), reviewTitlePh: text('A title for your review', 'Título de tu reseña', 'Titolo della recensione', 'عنوان تقييمك'), cancel: text('Cancel', 'Cancelar', 'Annulla', 'إلغاء'), submit: text('Submit review', 'Enviar reseña', 'Invia recensione', 'إرسال التقييم') }} onClose={() => setWriting(false)} onSubmit={() => { setWriting(false); setSubmitted(true) }}/ >}
-    {loading && <p role="status">{text('Loading reviews…', 'Cargando reseñas…', 'Caricamento recensioni…', 'جارٍ تحميل التقييمات…')}</p>}
-    {!loading && error && <div className="provider-review-empty"><p role="alert">{text('Some reviews are temporarily unavailable.', 'Algunas reseñas no están disponibles temporalmente.', 'Alcune recensioni sono temporaneamente non disponibili.', 'بعض التقييمات غير متاحة مؤقتًا.')}</p><button type="button" className="outline-btn" onClick={() => setRetry(v => v + 1)}>{text('Retry', 'Reintentar', 'Riprova', 'إعادة المحاولة')}</button></div>}
-    {!loading && !error && selected !== 'website' && !connected.some(f => f.widgetId || f.reviews.length > 0) && (selected !== 'all' || websiteSummary?.count === 0) && <p className="provider-review-empty">{text('Reviews will appear here when available.', 'Las reseñas aparecerán aquí cuando estén disponibles.', 'Le recensioni appariranno qui quando disponibili.', 'ستظهر التقييمات هنا عند توفرها.')}</p>}
+    {loading && selected !== 'website' && selected !== 'trips' && <p role="status">{text('Loading reviews…', 'Cargando reseñas…', 'Caricamento recensioni…', 'جارٍ تحميل التقييمات…')}</p>}
+    {!loading && error && selected !== 'website' && selected !== 'trips' && <div className="provider-review-empty"><p role="alert">{text('Some reviews are temporarily unavailable.', 'Algunas reseñas no están disponibles temporalmente.', 'Alcune recensioni sono temporaneamente non disponibili.', 'بعض التقييمات غير متاحة مؤقتًا.')}</p><button type="button" className="outline-btn" onClick={() => setRetry(v => v + 1)}>{text('Retry', 'Reintentar', 'Riprova', 'إعادة المحاولة')}</button></div>}
+    {!loading && !error && selected !== 'website' && selected !== 'trips' && !connected.some(f => f.widgetId || f.reviews.length > 0) && (selected !== 'all' || websiteSummary?.count === 0) && <p className="provider-review-empty">{text('Reviews will appear here when available.', 'Las reseñas aparecerán aquí cuando estén disponibles.', 'Le recensioni appariranno qui quando disponibili.', 'ستظهر التقييمات هنا عند توفرها.')}</p>}
     {!loading && connected.map(feed => <div key={feed.provider} className="provider-review-group">
       {feed.provider === 'google' && <p className="provider-review-attribution">Google Maps · {text('A selection of reviews provided by Google.', 'Una selección de reseñas proporcionada por Google.', 'Una selezione di recensioni fornita da Google.', 'عينة من التقييمات المقدمة من جوجل.')} <a href="https://support.google.com/contributionpolicy/answer/7400114" target="_blank" rel="noopener noreferrer">{text('Review policy', 'Política de reseñas', 'Norme sulle recensioni', 'سياسة التقييمات')}</a></p>}
       {feed.widgetId ? <TrustindexWidget id={feed.widgetId}/> : <ReviewMarquee ariaLabel={`${REVIEW_LABELS[feed.provider]} ${text('reviews carousel', 'carrusel de reseñas', 'carosello delle recensioni', 'عارض التقييمات')}`} items={feed.reviews} getKey={r => r.id} renderItem={(r, isClone) => <article className="rev-card" dir={locale === 'ar' ? 'rtl' : 'ltr'}><div className="rev-head"><div>{r.authorUrl ? <a href={r.authorUrl} target="_blank" rel="noopener noreferrer" tabIndex={isClone ? -1 : undefined}>{r.author}</a> : <b>{r.author}</b>}<small>{Number.isFinite(Date.parse(r.date)) ? new Date(r.date).toLocaleDateString(locale) : ''}</small></div><PlatformIcon id={feed.provider}/></div><div className="rev-card-stars">{r.ratingImageUrl ? <img src={r.ratingImageUrl} alt={`${r.rating} / 5`} width={100} height={20}/> : <StarsRow stars={r.rating}/>}</div><p>{r.text}</p>{r.url && <a href={r.url} target="_blank" rel="noopener noreferrer" tabIndex={isClone ? -1 : undefined}>{text('Read original review', 'Leer reseña original', 'Leggi recensione originale', 'قراءة التقييم الأصلي')}</a>}</article>}/>

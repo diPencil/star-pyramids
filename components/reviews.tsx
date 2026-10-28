@@ -6,6 +6,7 @@ import { PublicAppearancePortal } from './public-appearance'
 import { Star, CheckCircle2 } from 'lucide-react'
 import { useLocale, tx } from '@/components/locale'
 import { cn } from '@/lib/utils'
+import './reviews-phase6.css'
 
 /** Customer review from the database (public API shape). */
 export type CustomerReview = {
@@ -15,6 +16,8 @@ export type CustomerReview = {
   text: string
   publishedAt: string
   reviewerName: string
+  scope?: 'website' | 'trips'
+  trip?: { slug: string; title: string; href: string } | null
 }
 
 /** Summary stats for a tour. */
@@ -43,8 +46,9 @@ export const avatarColor = (name: string) => {
 }
 
 export function StarsRow({ stars, size = 16 }: { stars: number; size?: number }) {
+  const { locale } = useLocale()
   return (
-    <span className="rev-stars" aria-label={`${stars} out of 5 stars`}>
+    <span className="rev-stars" role="img" aria-label={tx(locale, { en: `${stars} out of 5 stars`, es: `${stars} de 5 estrellas`, it: `${stars} su 5 stelle` })}>
       {[0, 1, 2, 3, 4].map((s) => (
         <Star key={s} size={size} fill={s < stars ? '#ffc531' : 'none'} color="#ffc531" />
       ))}
@@ -53,15 +57,12 @@ export function StarsRow({ stars, size = 16 }: { stars: number; size?: number })
 }
 
 /** Fetch published reviews + summary for a tour from the API. */
-async function fetchTourReviews(tourSlug: string): Promise<{ reviews: CustomerReview[]; summary: ReviewSummary }> {
-  try {
-    const res = await fetch(`/api/reviews?tourSlug=${encodeURIComponent(tourSlug)}`, { credentials: 'same-origin' })
+async function fetchTourReviews(tourSlug: string, page = 1): Promise<{ reviews: CustomerReview[]; summary: ReviewSummary; totalPages: number }> {
+    const res = await fetch(`/api/reviews?tourSlug=${encodeURIComponent(tourSlug)}&page=${page}`, { credentials: 'same-origin' })
     if (!res.ok) throw new Error('Failed to fetch reviews')
     const data = await res.json()
-    return { reviews: data.reviews || [], summary: data.summary || { average: null, count: 0 } }
-  } catch {
-    return { reviews: [], summary: { average: null, count: 0 } }
-  }
+    return { reviews: data.reviews || [], summary: data.summary || { average: null, count: 0 }, totalPages: data.pagination?.totalPages ?? 0 }
+
 }
 
 /** Submit a new review via API. */
@@ -171,14 +172,23 @@ export function ReviewWriteModal({
         <div className="rev-form">
           <label>
             {copy.rating}
-            <span className="rev-star-pick" role="radiogroup" aria-label="Select rating">
+            <span className="rev-star-pick" role="radiogroup" aria-label={copy.rating}>
               {[1, 2, 3, 4, 5].map((n) => (
                 <button
                   key={n}
                   type="button"
                   onClick={() => setStars(n)}
-                  aria-label={`${n} stars`}
-                  aria-pressed={stars === n}
+                  role="radio"
+                  tabIndex={stars === n ? 0 : -1}
+                  aria-label={tx(locale, { en: `${n} stars`, es: `${n} estrellas`, it: `${n} stelle` })}
+                  aria-checked={stars === n}
+                  onKeyDown={event => {
+                    if (!['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return
+                    event.preventDefault()
+                    const next = event.key === 'Home' ? 1 : event.key === 'End' ? 5 : (stars + (event.key === 'ArrowRight' || event.key === 'ArrowUp' ? 1 : -1) + 4) % 5 + 1
+                    setStars(next)
+                    event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('button')[next - 1]?.focus()
+                  }}
                   className={stars === n ? 'active' : ''}
                 >
                   <Star size={24} fill={n <= stars ? '#ffc531' : 'none'} color="#ffc531" />
@@ -199,7 +209,7 @@ export function ReviewWriteModal({
             />
           </label>
           <label>
-            {copy.reviewTitle} (optional)
+            {copy.reviewTitle} ({tx(locale, { en: 'optional', es: 'opcional', it: 'facoltativo' })})
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -214,7 +224,7 @@ export function ReviewWriteModal({
               {copy.cancel}
             </button>
             <button type="button" className="primary-btn" onClick={handleSubmit} disabled={submitting || text.trim().length < 10}>
-              {submitting ? 'Submitting...' : copy.submit}
+              {submitting ? tx(locale, { en: 'Submitting…', es: 'Enviando…', it: 'Invio…' }) : copy.submit}
             </button>
           </div>
         </div>
@@ -241,6 +251,9 @@ export function TourReviewsSection({
   const [reviews, setReviews] = useState<CustomerReview[]>([])
   const [summary, setSummary] = useState<ReviewSummary>({ average: null, count: 0 })
   const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1), [totalPages, setTotalPages] = useState(0)
+  const [loadError, setLoadError] = useState(false)
+  const [retry, setRetry] = useState(0)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -248,41 +261,24 @@ export function TourReviewsSection({
   // Load reviews on mount
   useEffect(() => {
     let cancelled = false
-    fetchTourReviews(tourSlug).then((data) => {
+    setLoading(true); setLoadError(false); setReviews([]); setSummary({ average: null, count: 0 }); setSubmitted(false)
+    fetchTourReviews(tourSlug, page).then((data) => {
       if (!cancelled) {
+        setTotalPages(data.totalPages)
         setReviews(data.reviews)
         setSummary(data.summary)
         setLoading(false)
       }
-    })
+    }).catch(() => { if (!cancelled) { setLoadError(true); setLoading(false) } })
     return () => { cancelled = true }
-  }, [tourSlug])
+  }, [tourSlug, page, retry])
 
-  const handleReviewSubmit = (input: ReviewInput) => {
-    // Optimistic update
-    const newReview: CustomerReview = {
-      publicId: `temp-${Date.now()}`,
-      rating: input.rating,
-      title: input.title || null,
-      text: input.text,
-      publishedAt: new Date().toISOString(),
-      reviewerName: 'You', // Will be replaced by real name after refresh
-    }
-    setReviews((prev) => [newReview, ...prev])
-    setSummary((prev) => {
-      const newCount = prev.count + 1
-      const newAvg = prev.average === null ? input.rating : (prev.average * prev.count + input.rating) / newCount
-      return { average: Math.round(newAvg * 10) / 10, count: newCount }
-    })
+  const handleReviewSubmit = () => {
+    // New reviews are PENDING: never alter published counts or ratings.
+    setShowForm(false)
     setSubmitted(true)
-    // Refresh from server after a moment to get real data
-    setTimeout(() => {
-      fetchTourReviews(tourSlug).then((data) => {
-        setReviews(data.reviews)
-        setSummary(data.summary)
-      })
-    }, 1500)
   }
+  if (loadError) return <div role="alert"><p>{tx(locale, { en: 'Unable to load reviews.', es: 'No se pudieron cargar las reseñas.', it: 'Impossibile caricare le recensioni.' })}</p><button type="button" className="outline-btn" onClick={() => setRetry(value => value + 1)}>{tx(locale, { en: 'Retry', es: 'Reintentar', it: 'Riprova' })}</button></div>
 
   if (loading) {
     return <p className="rev-loading">{tx(locale, { en: 'Loading reviews…', es: 'Cargando reseñas…', it: 'Caricamento recensioni…', ar: 'جارٍ تحميل التقييمات…' })}</p>
@@ -325,7 +321,7 @@ export function TourReviewsSection({
                   <div>
                     <b>{displayName}</b>
                     <small>
-                      {new Date(r.publishedAt).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-US', {
+                      {new Date(r.publishedAt).toLocaleDateString(locale, {
                         year: 'numeric',
                         month: 'long',
                         day: 'numeric',
@@ -349,6 +345,7 @@ export function TourReviewsSection({
         )}
       </div>
 
+      {totalPages > 1 && <nav className="website-review-pagination" aria-label={copy.title}><button className="outline-btn" disabled={page <= 1} onClick={() => setPage(value => value - 1)}>{tx(locale, { en: 'Previous', es: 'Anterior', it: 'Precedente' })}</button><span>{page} / {totalPages}</span><button className="outline-btn" disabled={page >= totalPages} onClick={() => setPage(value => value + 1)}>{tx(locale, { en: 'Next', es: 'Siguiente', it: 'Successivo' })}</button></nav>}
       {showForm && (
         <ReviewWriteModal
           copy={{ ...copy, context: copy.forTour ? `${copy.forTour}: ${tourTitle}` : tourTitle }}

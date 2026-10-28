@@ -1,3 +1,4 @@
+import { validateTourPublication, validateTourWrite } from '@/lib/tour-write';
 import { decodeTourJson, encodeTourJson } from '@/lib/tour-json';
 import { preserveRecordSeo } from '@/lib/record-seo';
 import { applyLinkedOfferDeals } from '@/lib/server/special-offers';
@@ -130,13 +131,28 @@ export async function PUT(
     return NextResponse.json({ error: 'Invalid request origin.' }, { status: 403 });
   }
 
-  const data = await request.json();
+  let data: Record<string, any>;
+  try {
+    data = await request.json();
+    validateTourWrite(data, false);
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof SyntaxError ? 'Invalid tour JSON.' : error instanceof Error ? error.message : 'Invalid tour data.' }, { status: 400 });
+  }
   const { slug: paramSlug } = await params;
 
   // Verify tour exists
   const existing = await db.tour.findUnique({ where: { slug: paramSlug } });
   if (!existing) {
     return NextResponse.json({ error: 'Tour not found.' }, { status: 404 });
+  }
+
+  if (data.expectedUpdatedAt !== undefined && data.expectedUpdatedAt !== existing.updatedAt.toISOString()) {
+    return NextResponse.json({ error: 'This tour changed in another editor. Reload before saving.' }, { status: 409 });
+  }
+
+  if ((data.status ?? existing.status) === 'published') {
+    try { validateTourPublication({ ...decodeTourJson(existing), price: Number(existing.price), ...data }); }
+    catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'Incomplete trip.' }, { status: 400 }); }
   }
 
   // Unique slug check if slug is being changed (canonical slugs and
@@ -158,7 +174,9 @@ export async function PUT(
     }
   }
 
-  const tour = await db.tour.update({
+  let tour;
+  try {
+    tour = await db.tour.update({
     where: { slug: paramSlug, detail: existing.detail, updatedAt: existing.updatedAt },
     data: encodeTourJson({
       slug: data.slug || existing.slug,
@@ -187,6 +205,12 @@ export async function PUT(
       status: data.status ?? existing.status,
     }),
   });
+
+  } catch (error) {
+    const code = (error as { code?: string }).code;
+    if (code === 'P2002' || code === 'P2025') return NextResponse.json({ error: 'Tour changed or its slug is already in use. Reload before saving.' }, { status: 409 });
+    throw error;
+  }
 
   return NextResponse.json({ tour: decodeTourJson((await applyLinkedOfferDeals([tour]))[0]) });
 }

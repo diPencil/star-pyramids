@@ -4,6 +4,7 @@ import { validateCatalogueTranslations } from '@/lib/catalogue-translations';
 import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
+import { normalizeCurrency } from '@/lib/currency';
 import { getCurrentUser, hasPermission } from '@/lib/server/auth';
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -14,8 +15,10 @@ const cleanText = (v: unknown, max: number): string | null => {
 };
 
 export async function GET() {
-  // Public: list all events (read-only, no auth required)
+  const user = await getCurrentUser();
+  const staff = user && (hasPermission(user, 'events.edit') || hasPermission(user, 'events.view'));
   const events = await db.event.findMany({
+    where: staff ? {} : { isPublished: true },
     orderBy: [{ displayOrder: 'asc' }, { title: 'asc' }],
   });
   return NextResponse.json(await catalogueTranslationResponse('event', { events }));
@@ -37,6 +40,10 @@ export async function POST(request: Request) {
   }
 
   const data = await request.json();
+  const currency = normalizeCurrency(data.currency);
+  if (data.currency != null && data.currency !== '' && currency === null) {
+    return NextResponse.json({ error: 'Choose a supported currency: USD, EUR, or EGP.' }, { status: 400 });
+  }
   if (data?.translations !== undefined) {
     try { validateCatalogueTranslations('event', data.translations); }
     catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'Invalid translations.' }, { status: 400 }); }
@@ -94,7 +101,7 @@ export async function POST(request: Request) {
       introAr: cleanText(data.introAr, 2000),
       pricingType: data.pricingType === 'free' || data.pricingType === 'paid' || data.pricingType === 'request' ? data.pricingType : null,
       price: Number.isFinite(price) && (price as number) >= 0 ? (price as number) : null,
-      currency: cleanText(data.currency, 8)?.toUpperCase() ?? null,
+      currency,
       capacity: Number.isInteger(capacity) && (capacity as number) > 0 ? (capacity as number) : null,
       bookingDeadline: cleanText(data.bookingDeadline, 10),
       organizerName: cleanText(data.organizerName, 200),

@@ -8,6 +8,7 @@ import {
 } from '@/lib/server/rate-limit';
 import {
   createEventRequestRecord,
+  EventRequestInputError,
   validateEventDraft,
 } from '@/lib/server/event-requests';
 
@@ -70,9 +71,9 @@ export async function POST(request: Request) {
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
     await recordEventRequestAttempt(draft.contactEmail, ip);
-    if (error instanceof Error) {
+    if (error instanceof EventRequestInputError) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
-    throw error;
+    return NextResponse.json({ error: 'This request could not be completed. Please try again.' }, { status: 503 });
   }
 }

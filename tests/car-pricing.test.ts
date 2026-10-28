@@ -17,6 +17,7 @@ const helpers = vi.hoisted(() => {
     locations: new Map<string, any>(),
     routes: new Map<string, any>(),
     prices: new Map<string, any>(),
+    configurations: new Map<string, any>(),
   };
   const csrf = { ok: true };
   const auth = { user: null as any, permissions: new Set<string>() };
@@ -44,6 +45,7 @@ function sortRows<T extends Record<string, any>>(rows: T[], orderBy: readonly Re
 
 vi.mock('@/lib/server/db', () => {
   const { store } = helpers;
+  let transactionTail = Promise.resolve();
 
   const withRouteInclude = (row: any) => ({
     ...row,
@@ -53,8 +55,46 @@ vi.mock('@/lib/server/db', () => {
 
   return {
     db: {
+      $queryRaw: vi.fn(async () => []),
+      $transaction: async (fn: any) => {
+        const previous = transactionTail;
+        let release!: () => void;
+        transactionTail = new Promise<void>(resolve => { release = resolve });
+        await previous;
+        const { db } = await import('@/lib/server/db');
+        const snapshot = structuredClone(store);
+        try { return await fn(db); }
+        catch (error) {
+          for (const key of Object.keys(store) as Array<keyof typeof store>) {
+            store[key].clear();
+            for (const [id, row] of snapshot[key]) store[key].set(id, row);
+          }
+          throw error;
+        } finally { release(); }
+      },
+      carRoutePricing: {
+        findUnique: async ({ where }: any) => [...store.configurations.values()].find(row => row.id === where.id) ?? null,
+        findMany: async () => [...store.configurations.values()],
+        upsert: async ({ where, create }: any) => {
+          const key = JSON.stringify(where.routeId_carSlug);
+          if (!store.configurations.has(key)) store.configurations.set(key, { id: helpers.nextId('cfg'), ...create });
+          return store.configurations.get(key);
+        },
+        findUniqueOrThrow: async ({ where }: any) => {
+          const row = where.id ? [...store.configurations.values()].find(row => row.id === where.id) : store.configurations.get(JSON.stringify(where.routeId_carSlug));
+          if (!row) throw new Error('Missing configuration');
+          return row;
+        },
+        update: async ({ where, data }: any) => {
+          const row = [...store.configurations.values()].find(c => c.id === where.id);
+          Object.assign(row, data);
+          for (const p of store.prices.values()) if (p.routeId === row.routeId && p.carSlug === row.carSlug) p.currency = row.currency;
+          return row;
+        },
+      },
       car: {
         findUnique: async ({ where }: any) => store.cars.get(where.slug as string) ?? null,
+        findUniqueOrThrow: async ({ where }: any) => store.cars.get(where.slug as string),
       },
       carLocation: {
         findUnique: async ({ where }: any) => store.locations.get(where.slug as string) ?? null,
@@ -154,17 +194,18 @@ vi.mock('@/lib/server/db', () => {
           }
           throw new Error('unsupported carRoutePrice.findUnique where');
         },
-        findMany: async ({ where, orderBy }: any) => {
+        findMany: async ({ where, orderBy, include }: any) => {
           let rows = [...store.prices.values()];
           if (where) {
             if (where.routeId) rows = rows.filter((row: any) => row.routeId === where.routeId);
             if (where.carSlug) rows = rows.filter((row: any) => row.carSlug === where.carSlug);
+            if (where.isActive !== undefined) rows = rows.filter((row: any) => row.isActive === where.isActive);
           }
-          return sortRows(rows, orderBy ?? [{ routeId: 'asc' }, { carSlug: 'asc' }]);
+          return sortRows(rows, orderBy ?? [{ routeId: 'asc' }, { carSlug: 'asc' }]).map(row => include?.configuration ? { ...row, configuration: store.configurations.get(JSON.stringify({ routeId: row.routeId, carSlug: row.carSlug })) } : row);
         },
         create: async ({ data }: any) => {
           const exists = [...store.prices.values()].some(
-            (row: any) => row.routeId === data.routeId && row.carSlug === data.carSlug,
+            (row: any) => row.routeId === data.routeId && row.carSlug === data.carSlug && row.minPassengers === data.minPassengers && row.maxPassengers === data.maxPassengers,
           );
           if (exists) throw helpers.p2002();
           const row = {
@@ -218,17 +259,20 @@ import {
   createCarLocation,
   createCarRoute,
   createCarRoutePrice,
+  deleteCarRoutePrice,
   deleteCarLocation,
   deleteCarRoute,
   listActiveCarRoutes,
   resolveCarRouteQuote,
   updateCarLocation,
   updateCarRoutePrice,
+  updateCarPricingConfiguration,
   type CarRouteQuoteResult,
 } from '@/lib/server/car-pricing';
 import { GET as getQuote } from '@/app/api/rent-car/quote/route';
 import { GET as getAdminPrices, POST as postAdminPrices } from '@/app/api/admin/rent-car/prices/route';
 import { PATCH as patchAdminLocation } from '@/app/api/admin/rent-car/locations/[slug]/route';
+import { GET as getConfigurations, PATCH as patchConfiguration } from '@/app/api/admin/rent-car/configurations/route';
 
 function seedCar(slug = 'giza-van', seats = '6 seats', isPublished = true) {
   const row = {
@@ -289,6 +333,7 @@ beforeEach(() => {
   helpers.store.locations.clear();
   helpers.store.routes.clear();
   helpers.store.prices.clear();
+  helpers.store.configurations.clear();
   helpers.csrf.ok = true;
   helpers.auth.user = null;
   helpers.auth.permissions.clear();
@@ -392,6 +437,13 @@ describe('quote passenger capacity', () => {
 });
 
 describe('location validation and integrity', () => {
+  it.each(['false', 0, null])('rejects non-boolean activation %j instead of reactivating a location', async isActive => {
+    await expect(createCarLocation({ slug: 'cairo', nameEn: 'Cairo', isActive })).rejects.toThrow('boolean');
+    seedLocation('cairo', 'Cairo');
+    helpers.store.locations.get('cairo').isActive = false;
+    await expect(updateCarLocation('cairo', { isActive })).rejects.toThrow('boolean');
+    expect(helpers.store.locations.get('cairo').isActive).toBe(false);
+  });
   it('enforces slug, required English name, and kind', async () => {
     await expect(createCarLocation({ slug: 'Bad Slug', nameEn: 'X' })).rejects.toThrow('valid slug');
     await expect(createCarLocation({ slug: 'cairo-airport', nameEn: '' })).rejects.toThrow('English location name');
@@ -553,6 +605,110 @@ describe('route price validation', () => {
 });
 
 describe('quote resolution with directional pricing', () => {
+  it('updates all tier modes and currencies atomically with explicit acknowledgement and stale-change protection', async () => {
+    const route = await tierSetup();
+    const base = { routeId: route.id, carSlug: 'giza-van', oneWay: '10' };
+    await createCarRoutePrice({ ...base, minPassengers: 1, maxPassengers: 2 });
+    await createCarRoutePrice({ ...base, minPassengers: 3, maxPassengers: 6 });
+    const config = [...helpers.store.configurations.values()][0];
+    const input = { id: config.id, pricingMode: 'PER_PERSON', currency: 'EUR', previousMode: 'FIXED_TOTAL', previousCurrency: 'USD', acknowledge: true };
+    await expect(updateCarPricingConfiguration({ ...input, acknowledge: false })).rejects.toThrow('Confirm');
+    await updateCarPricingConfiguration(input);
+    expect([...helpers.store.prices.values()].every(p => p.currency === 'EUR')).toBe(true);
+    const quote = await resolveCarRouteQuote({ vehicle: 'giza-van', route: route.id, trip: 'one-way', passengers: 4 });
+    expect(quote.kind === 'quote' && quote.detail).toMatchObject({ currency: 'EUR', amount: '40.00' });
+    await expect(updateCarPricingConfiguration(input)).rejects.toThrow('changed');
+    const tierId = [...helpers.store.prices.values()][0].id;
+    await expect(updateCarRoutePrice(tierId, { oneWay: '99', expectedPricingMode: 'FIXED_TOTAL', expectedCurrency: 'USD' })).rejects.toThrow('changed');
+    expect((await getConfigurations()).status).toBe(401);
+    helpers.auth.user = { id: 'staff' };
+    expect((await patchConfiguration(handlerRequest({ method: 'PATCH', body: input }))).status).toBe(403);
+    helpers.auth.permissions.add('cars.edit');
+    helpers.csrf.ok = false;
+    expect((await patchConfiguration(handlerRequest({ method: 'PATCH', body: input }))).status).toBe(403);
+    helpers.csrf.ok = true;
+    const response = await getConfigurations();
+    expect(response.status).toBe(200);
+    expect((await response.json()).configurations[0]).toMatchObject({ id: config.id, currency: 'EUR', pricingMode: 'PER_PERSON' });
+    const saved = await patchConfiguration(handlerRequest({ method: 'PATCH', body: { ...input, previousMode: 'PER_PERSON', previousCurrency: 'EUR', currency: 'USD' } }));
+    expect(saved.status).toBe(200);
+    const missing = await patchConfiguration(handlerRequest({ method: 'PATCH', body: { ...input, id: 'missing-config' } }));
+    expect(missing.status).toBe(404);
+    for (const tier of [...helpers.store.prices.values()]) await deleteCarRoutePrice(tier.id);
+    expect(helpers.store.prices.size).toBe(0);
+    expect((await (await getConfigurations()).json()).configurations).toHaveLength(1);
+  });
+
+  it('rolls back configuration changes when one tier would overflow in per-person mode', async () => {
+    const route = await tierSetup();
+    await createCarRoutePrice({ routeId: route.id, carSlug: 'giza-van', oneWay: '9999999', roundTripMode: 'MANUAL', roundTrip: '9999999' });
+    const config = [...helpers.store.configurations.values()][0];
+    await expect(updateCarPricingConfiguration({ id: config.id, pricingMode: 'PER_PERSON', currency: 'EUR', previousMode: 'FIXED_TOTAL', previousCurrency: 'USD', acknowledge: true })).rejects.toThrow('limit');
+    expect([...helpers.store.configurations.values()][0]).toMatchObject({ currency: 'USD', pricingMode: 'FIXED_TOTAL' });
+  });
+  async function tierSetup() {
+    seedCar('giza-van', '6 seats');
+    seedLocation('cairo', 'Cairo');
+    seedLocation('giza', 'Giza');
+    return seedRoute('cairo', 'giza');
+  }
+
+  it('selects exact inclusive boundaries and leaves tier gaps unpriced', async () => {
+    const route = await tierSetup();
+    await createCarRoutePrice({ routeId: route.id, carSlug: 'giza-van', oneWay: '10', minPassengers: 1, maxPassengers: 2 });
+    await createCarRoutePrice({ routeId: route.id, carSlug: 'giza-van', oneWay: '20', minPassengers: 4, maxPassengers: 6 });
+    for (const [passengers, amount] of [[1, '10.00'], [2, '10.00'], [4, '20.00'], [6, '20.00']] as const) {
+      const result = await resolveCarRouteQuote({ vehicle: 'giza-van', route: route.id, trip: 'one-way', passengers });
+      expect(result.kind === 'quote' && result.detail.amount).toBe(amount);
+    }
+    expect((await resolveCarRouteQuote({ vehicle: 'giza-van', route: route.id, trip: 'one-way', passengers: 3 })).kind).toBe('price_on_request');
+  });
+
+  it('calculates per-person manual and multiplier totals without changing compatibility fields', async () => {
+    const route = await tierSetup();
+    const tier = await createCarRoutePrice({ routeId: route.id, carSlug: 'giza-van', oneWay: '10.25', pricingMode: 'PER_PERSON', roundTripMode: 'MANUAL', roundTrip: '18.25' });
+    const manual = await resolveCarRouteQuote({ vehicle: 'giza-van', route: route.id, trip: 'round-trip', passengers: 3 });
+    expect(manual.kind === 'quote' && manual.detail).toMatchObject({ amount: '54.75', oneWayCents: 3075, roundTripCents: 5475, pricingMetadata: { passengers: 3, outbound: { tierId: tier.id, unitCents: 1025, pricingMode: 'PER_PERSON' } } });
+    await updateCarRoutePrice(tier.id, { roundTripMode: 'AUTOMATIC', roundTripMultiplier: '1.5' });
+    const automatic = await resolveCarRouteQuote({ vehicle: 'giza-van', route: route.id, trip: 'round-trip', passengers: 3 });
+    expect(automatic.kind === 'quote' && automatic.detail.amount).toBe('46.13');
+  });
+
+  it('resolves reverse-leg mode independently and refuses mixed currencies', async () => {
+    const route = await tierSetup();
+    const reverse = await seedRoute('giza', 'cairo');
+    await createCarRoutePrice({ routeId: route.id, carSlug: 'giza-van', oneWay: '10', pricingMode: 'PER_PERSON' });
+    const tier = await createCarRoutePrice({ routeId: reverse.id, carSlug: 'giza-van', oneWay: '25', pricingMode: 'FIXED_TOTAL' });
+    const result = await resolveCarRouteQuote({ vehicle: 'giza-van', route: route.id, trip: 'round-trip', passengers: 3 });
+    expect(result.kind === 'quote' && result.detail).toMatchObject({ amount: '55.00', roundTripBasis: 'legs', pricingMetadata: { returnPricing: { tierId: tier.id, pricingMode: 'FIXED_TOTAL' } } });
+    await updateCarRoutePrice(tier.id, { currency: 'EUR' });
+    expect((await resolveCarRouteQuote({ vehicle: 'giza-van', route: route.id, trip: 'round-trip', passengers: 3 })).kind).toBe('price_on_request');
+  });
+
+  it('rejects disabled overlaps, invalid ranges, inconsistent modes/currencies, and ambiguous capacity', async () => {
+    const route = await tierSetup();
+    const base = { routeId: route.id, carSlug: 'giza-van', oneWay: '10' };
+    const tier = await createCarRoutePrice({ ...base, minPassengers: 1, maxPassengers: 2, isActive: false });
+    await expect(createCarRoutePrice({ ...base, minPassengers: 2, maxPassengers: 4 })).rejects.toThrow('overlapping');
+    for (const [minPassengers, maxPassengers] of [[0, 2], [3, 2], [1, 7], [1.5, 2]]) await expect(createCarRoutePrice({ ...base, minPassengers, maxPassengers })).rejects.toThrow('range');
+    await expect(createCarRoutePrice({ ...base, minPassengers: 3, maxPassengers: 4, pricingMode: 'PER_PERSON' })).rejects.toThrow('match');
+    await expect(createCarRoutePrice({ ...base, minPassengers: 3, maxPassengers: 4, currency: 'EUR' })).rejects.toThrow('match');
+    await createCarRoutePrice({ ...base, minPassengers: 3, maxPassengers: 4 });
+    await expect(updateCarRoutePrice(tier.id, { maxPassengers: 3 })).rejects.toThrow('overlapping');
+    await expect(updateCarRoutePrice(tier.id, { pricingMode: 'PER_PERSON' })).rejects.toThrow('multi-tier');
+    helpers.store.cars.get('giza-van').seats = 'up to 6';
+    await expect(createCarRoutePrice({ ...base, minPassengers: 5, maxPassengers: 6 })).rejects.toThrow('unclear');
+  });
+
+  it('serializes concurrent overlapping writes and locks the parent before writing (in-memory transaction model)', async () => {
+    const route = await tierSetup();
+    const input = { routeId: route.id, carSlug: 'giza-van', oneWay: '10', minPassengers: 1, maxPassengers: 3 };
+    const results = await Promise.allSettled([createCarRoutePrice(input), createCarRoutePrice({ ...input, minPassengers: 2, maxPassengers: 5 })]);
+    expect(results.filter(r => r.status === 'fulfilled')).toHaveLength(1);
+    expect(helpers.store.prices.size).toBe(1);
+    const { db } = await import('@/lib/server/db');
+    expect(vi.mocked(db.$queryRaw).mock.calls.some(call => String(call[0]).includes('car_route_pricing') && String(call[0]).includes('FOR UPDATE'))).toBe(true);
+  });
   it('sums both directional leg rates when the reverse route is priced', async () => {
     seedCar('giza-van', '6 seats');
     seedLocation('cairo', 'Cairo');

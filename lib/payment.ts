@@ -7,7 +7,7 @@ import { localeFromAr, pickLocaleText, type Locale } from '@/lib/locale-config'
  * confirmed booking is NOT automatically paid. Money moves only
  * through server-side `Payment` records (`lib/server/payments.ts`);
  * the browser never supplies amounts, statuses, references, provider
- * IDs, or ownership. Amounts are USD base dollars in views; the
+ * IDs, or ownership. Amounts retain the stored currency in views; the
  * database stores DECIMAL and the server computes in integer cents.
  *
  * This module is intentionally neutral (no React, no storage): client
@@ -59,7 +59,7 @@ export type Payment = {
   amount: number
   amountPaid: number
   amountRefunded: number
-  currency: 'USD'
+  currency: string
   failureCode: string | null
   failureMessage: string | null
   initiatedAt: string
@@ -86,7 +86,7 @@ export type BookingPaymentSummary = {
   payments: number
   paidTotal: number
   /**
-   * Verified refunded total (USD base dollars, server-computed from real
+   * Verified refunded total (booking currency, server-computed from real
    * Payment rows). Present so customer/admin UIs can render paid,
    * refunded and remaining amounts without trusting client input.
    */

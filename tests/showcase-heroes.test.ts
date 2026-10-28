@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import ts from 'typescript'
 import { readFileSync } from 'node:fs'
 import { heroCatalogue } from '@/lib/hero-catalogue'
+import { EDITORIAL_HERO_IDS } from '@/lib/editorial-hero-definitions'
 import { showcaseDefaults } from '@/lib/showcase-hero-defaults'
 import { SHOWCASE_HERO_IDS, isShowcaseHeroId, originalShowcaseHero, initialShowcaseState, transitionShowcaseHero, publicShowcaseHero, validateShowcaseHero, readShowcasePreviewMessage } from '@/lib/showcase-heroes'
 
@@ -23,7 +24,10 @@ function literalText(node: ts.Node | undefined): Record<string, string> | null {
 describe('all existing static showcase heroes', () => {
   it('has one real editor per static table row and no pending fake actions', () => {
     expect(SHOWCASE_HERO_IDS).toHaveLength(15)
-    expect(heroCatalogue.filter((hero) => 'cms' in hero)).toHaveLength(18)
+    const managed = heroCatalogue.filter((hero) => 'cms' in hero)
+    // Includes guide/accessible editorial pages, not just the original trio.
+    expect(managed.map(hero => hero.id).sort()).toEqual([...SHOWCASE_HERO_IDS, ...EDITORIAL_HERO_IDS, 'homepage'].sort())
+    expect(new Set(managed.map(hero => hero.id)).size).toBe(managed.length)
     expect(heroCatalogue.filter((hero) => !('cms' in hero)).every((hero) => 'editor' in hero)).toBe(true)
     expect(isShowcaseHeroId('__proto__')).toBe(false)
     expect(isShowcaseHeroId('../about')).toBe(false)

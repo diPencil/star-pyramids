@@ -40,15 +40,16 @@ describe('isTourPublished', () => {
 describe('resolveTours', () => {
   const base = [tour('a', { title: 'Static A' }), tour('b', { title: 'Static B' })];
 
-  it('falls back to the bootstrap base while the DB is unreachable', () => {
-    expect(resolveTours(base, null)).toEqual(base);
-    expect(resolveTours(base, null, { includeNew: true })).toEqual(base);
+  it('does not expose bootstrap copies while the published catalogue is unavailable', () => {
+    expect(resolveTours(base, null)).toEqual([]);
+    expect(resolveTours(base, null, { includeNew: true })).toEqual([]);
   });
 
   it('overlays edited DB records onto base slugs', () => {
     const db = new Map([['a', tour('a', { title: 'Edited A', status: 'published' })]]);
     const out = resolveTours(base, db);
-    expect(out.map((t) => t.title)).toEqual(['Edited A', 'Static B']);
+    expect(out.map((t) => t.title)).toEqual(['Edited A']);
+    expect(resolveTours(base, new Map())).toEqual([]);
   });
 
   it('drops unpublished DB rows from public lists (unpublish flow)', () => {
@@ -83,7 +84,7 @@ describe('resolveTours', () => {
       ['day-x', tour('day-x', { category: 'one-day-tours', status: 'published' })],
     ]);
     const out = resolveTours(base, db, { includeNew: true, category: 'one-day-tours' });
-    expect(out.map((t) => t.slug)).toEqual(['a', 'b', 'day-x']);
+    expect(out.map((t) => t.slug)).toEqual(['a', 'day-x']);
   });
 
   it('publish/unpublish toggle end-to-end: record preserved, visibility flips', () => {

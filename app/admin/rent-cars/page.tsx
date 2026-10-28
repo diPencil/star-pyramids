@@ -6,7 +6,7 @@
 // enforce RBAC. Collection state lives here so the header stats and every
 // tab share one source of truth per resource.
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { CircleDollarSign, MapPin, Pencil, Plus, Route as RouteIcon, Trash2 } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableTools, AdminTableWrap, AdminText, Card, StatusPill } from '@/components/admin/admin-ui'
@@ -17,7 +17,8 @@ import { SharedSelect } from '@/components/shared-select'
 import { useDbCarsStatus } from '@/lib/events-cars-client'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { toast } from '@/components/admin/admin-toaster'
-import { formatQuoteAmount } from '@/lib/car-request'
+import { CarPricingManager } from '@/components/admin/car-pricing-manager'
+import type { PricingTier as PriceRow } from '@/lib/car-pricing-admin'
 
 type LocationRow = {
   id: string
@@ -41,22 +42,7 @@ type RouteRow = {
   destination: { slug: string; nameEn: string }
 }
 
-type PriceRow = {
-  id: string
-  routeId: string
-  carSlug: string
-  currency: string
-  oneWayCents: number
-  roundTripMode: 'AUTOMATIC' | 'MANUAL'
-  roundTripCents: number | null
-  roundTripMultiplierBp: number
-  isActive: boolean
-}
-
 type CarRow = { slug: string; title: string; isPublished?: boolean; seats: string }
-
-const centsText = (cents: number) => (cents / 100).toFixed(2)
-const multiplierText = (bp: number) => (bp / 100).toFixed(2)
 
 async function staffRequest<T>(url: string, method: string, body?: unknown): Promise<T> {
   const res = await fetch(url, {
@@ -89,14 +75,13 @@ function useList<T>(url: string, pick: (payload: { locations?: T[]; routes?: T[]
   }
   // Simple load-on-mount list; tabs re-render when their dialog/confirm flows
   // call refresh() after a successful mutation.
-  useMemo(() => refresh(), [])
+  useEffect(() => refresh(), [])
   return { data, loading, error, refresh }
 }
 
 type Tab = 'locations' | 'routes' | 'prices'
 
 const KIND_OPTIONS = ['AIRPORT', 'HOTEL', 'CITY', 'CUSTOM'] as const
-const CURRENCY_OPTIONS = ['USD', 'EUR', 'EGP'] as const
 
 export default function RentCarsOpsPage() {
   const ar = useAdminLocale() === 'ar'
@@ -124,7 +109,7 @@ export default function RentCarsOpsPage() {
     <AdminStats items={[
       { label: <AdminText en="Locations" ar="المواقع" />, value: locations.data.filter((row) => row.isActive).length, note: <AdminText en="Active pick-up points" ar="نقاط استلام نشطة" />, icon: MapPin },
       { label: <AdminText en="Routes" ar="الخطوط" />, value: routes.data.filter((row) => row.isActive).length, note: <AdminText en="Directional pairs (A→B, B→A)" ar="أزواج اتجاهية (أ→ب، ب→أ)" />, icon: RouteIcon },
-      { label: <AdminText en="Priced routes" ar="أسعار مسجّلة" />, value: prices.data.filter((row) => row.isActive).length, note: <AdminText en="Active route × vehicle entries" ar="سجلات خط × مركبة نشطة" />, icon: CircleDollarSign },
+      { label: <AdminText en="Passenger tiers" ar="أسعار مسجّلة" />, value: prices.data.filter((row) => row.isActive).length, note: <AdminText en="Active passenger ranges" ar="سجلات خط × مركبة نشطة" />, icon: CircleDollarSign },
       { label: <AdminText en="Fleet vehicles" ar="مركبات الأسطول" />, value: vehicles.length, note: <AdminText en="Available for pricing" ar="متاحة للأسعار" />, icon: CircleDollarSign, tone: 'violet' },
     ]} />
     <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
@@ -136,7 +121,7 @@ export default function RentCarsOpsPage() {
     </div>
     {tab === 'locations' && <LocationsTab ar={ar} list={locations} />}
     {tab === 'routes' && <RoutesTab ar={ar} list={routes} locations={locations} />}
-    {tab === 'prices' && <PricesTab ar={ar} list={prices} routes={routes} vehicles={vehicles} />}
+    {tab === 'prices' && <CarPricingManager list={prices} routes={routes} vehicles={vehicles} vehicleLoading={cars.loading} vehicleError={cars.error} onRetryVehicles={cars.retry} />}
   </>
 }
 
@@ -409,196 +394,6 @@ function RouteDialog({ mode, row, locations, onClose, onSaved }: { mode: 'create
           <AdminText en="Active" ar="نشط" />
         </label>
       </div>
-    </div>
-  </AdminConfirmDialog>
-}
-
-function PricesTab({ ar, list, routes, vehicles }: { ar: boolean; list: ListState<PriceRow>; routes: ListState<RouteRow>; vehicles: CarRow[] }) {
-  const [query, setQuery] = useState('')
-  const [dialog, setDialog] = useState<{ mode: 'create' | 'edit'; row?: PriceRow } | null>(null)
-  const [removeTarget, setRemoveTarget] = useState<PriceRow | null>(null)
-  const routeLabel = (id: string) => {
-    const route = routes.data.find((row) => row.id === id)
-    return route ? `${route.origin.nameEn} → ${route.destination.nameEn}` : id
-  }
-  const vehicleLabel = (slug: string) => vehicles.find((car) => car.slug === slug)?.title ?? slug
-
-  const rows = useMemo(() => list.data.filter((row) => `${routeLabel(row.routeId)} ${vehicleLabel(row.carSlug)} ${row.currency}`.toLowerCase().includes(query.trim().toLowerCase())), [list.data, query, routes.data, vehicles])
-  const sort = useAdminTableSort(rows, {
-    route: (row) => routeLabel(row.routeId),
-    vehicle: (row) => vehicleLabel(row.carSlug),
-    oneway: (row) => row.oneWayCents,
-    round: (row) => (row.roundTripMode === 'MANUAL' ? row.roundTripCents ?? 0 : Math.round(row.oneWayCents * row.roundTripMultiplierBp / 100)),
-    status: (row) => (row.isActive ? 'active' : 'hidden'),
-  }, 'route', 'asc')
-  const paging = usePagination(sort.sortedRows)
-
-  const priceLockedReason = routes.data.length < 1
-    ? <AdminText en="Locked: create at least one route first." ar="مقفل: أنشئ خطًا واحدًا على الأقل أولًا." />
-    : vehicles.length < 1
-      ? <AdminText en="Locked: no fleet vehicles are available." ar="مقفل: لا توجد مركبات في الأسطول." />
-      : <AdminText en="All amounts are stored as exact integer cents" ar="كل المبالغ محفوظة بالسنت الصحيح" />
-
-  return <Card
-    title={<AdminText en="Pricing" ar="الأسعار" />}
-    sub={priceLockedReason}
-    action={<button type="button" className="sp-btn primary" title={routes.data.length < 1 ? (ar ? 'أنشئ خطًا أولًا' : 'Create a route first') : undefined} disabled={routes.data.length < 1 || vehicles.length < 1} onClick={() => setDialog({ mode: 'create' })}><Plus size={16} /> <AdminText en="New price" ar="سعر جديد" /></button>}
-  >
-    <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث بالخط أو المركبة…' : 'Search by route or vehicle…'} />
-    {list.loading || routes.loading ? <AdminEmpty title={<AdminText en="Loading prices…" ar="جارٍ تحميل الأسعار…" />} />
-      : list.error || routes.error ? <><AdminEmpty title={<AdminText en="Could not load prices" ar="تعذر تحميل الأسعار" />} copy={<AdminText en={list.error || routes.error} ar={list.error || routes.error} />} /><div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}><button type="button" className="sp-btn" onClick={list.refresh}><AdminText en="Retry" ar="إعادة المحاولة" /></button></div></>
-        : rows.length ? <AdminTableWrap><table className="sp-table">
-          <thead><tr>
-            <th className="sp-row-number">#</th>
-            <SortableTh label={<AdminText en="Route" ar="الخط" />} column="route" {...sort} onSort={sort.sortBy} />
-            <SortableTh label={<AdminText en="Vehicle" ar="المركبة" />} column="vehicle" {...sort} onSort={sort.sortBy} />
-            <SortableTh label={<AdminText en="One-way" ar="ذهاب" />} column="oneway" {...sort} onSort={sort.sortBy} />
-            <SortableTh label={<AdminText en="Round trip" ar="ذهاب وعودة" />} column="round" {...sort} onSort={sort.sortBy} />
-            <SortableTh label={<AdminText en="Status" ar="الحالة" />} column="status" {...sort} onSort={sort.sortBy} />
-            <th></th>
-          </tr></thead>
-          <tbody>{paging.pageRows.map((row, index) => <tr key={row.id}>
-            <td className="sp-row-number">{paging.from + index}</td>
-            <td>{routeLabel(row.routeId)}</td>
-            <td>{vehicleLabel(row.carSlug)}</td>
-            <td dir="ltr">{centsText(row.oneWayCents)} {row.currency}</td>
-            <td dir="ltr" style={{ whiteSpace: 'nowrap' }}>
-              {row.roundTripMode === 'MANUAL'
-                ? `${row.roundTripCents !== null ? centsText(row.roundTripCents) : '-'} ${row.currency}` + (ar ? ' (ثابت)' : ' (fixed)')
-                : (ar ? `×${multiplierText(row.roundTripMultiplierBp)} تلقائي` : `×${multiplierText(row.roundTripMultiplierBp)} automatic`)}
-            </td>
-            <td><StatusPill status={row.isActive ? 'active' : 'hidden'} /></td>
-            <td><AdminTableActions>
-              <AdminIconAction icon={Pencil} label={ar ? 'تعديل' : 'Edit'} onClick={() => setDialog({ mode: 'edit', row })} />
-              <AdminIconAction icon={Trash2} label={ar ? 'حذف' : 'Delete'} tone="danger" onClick={() => setRemoveTarget(row)} />
-            </AdminTableActions></td>
-          </tr>)}</tbody>
-        </table></AdminTableWrap>
-          : <AdminEmpty title={<AdminText en="No prices yet" ar="لا أسعار بعد" />} copy={<AdminText en="Unpriced trips show as Price on request." ar="الرحلات غير المسعّرة تظهر كـ«السعر عند الطلب»." />} />}
-    {rows.length > 0 && <AdminPagination page={paging.page} pageCount={paging.pageCount} onPage={paging.setPage} pageSize={paging.pageSize} onPageSize={paging.setPageSize} from={paging.from} to={paging.to} total={paging.total} />}
-    {dialog && <PriceDialog mode={dialog.mode} row={dialog.row} routes={routes.data} vehicles={vehicles} onClose={() => setDialog(null)} onSaved={() => { setDialog(null); list.refresh() }} />}
-    <AdminConfirmDialog
-      open={removeTarget !== null}
-      onClose={() => setRemoveTarget(null)}
-      onConfirm={() => {
-        if (!removeTarget) return
-        staffRequest(`/api/admin/rent-car/prices/${encodeURIComponent(removeTarget.id)}`, 'DELETE')
-          .then(() => {
-            toast.success(ar ? 'تم حذف السعر.' : 'Price deleted.', { dedupeKey: 'rentcar-price-delete' })
-            setRemoveTarget(null)
-            list.refresh()
-          })
-          .catch((err: unknown) => toast.error(err instanceof Error ? err.message : 'Delete failed.', { dedupeKey: 'rentcar-price-delete-error' }))
-      }}
-      title={<AdminText en="Delete price" ar="حذف السعر" />}
-      description={<AdminText en="Remove this route × vehicle price? Associated trips fall back to Price on request." ar="إزالة سعر هذا الخط × المركبة؟ الرحلات المرتبطة تعود إلى «السعر عند الطلب»." />}
-      confirmLabel={<AdminText en="Delete" ar="حذف" />}
-      tone="danger"
-    />
-  </Card>
-}
-
-function PriceDialog({ mode, row, routes, vehicles, onClose, onSaved }: { mode: 'create' | 'edit'; row?: PriceRow; routes: RouteRow[]; vehicles: CarRow[]; onClose: () => void; onSaved: () => void }) {
-  const ar = useAdminLocale() === 'ar'
-  const [routeId, setRouteId] = useState(row?.routeId ?? '')
-  const [carSlug, setCarSlug] = useState(row?.carSlug ?? '')
-  const [currency, setCurrency] = useState(row?.currency ?? 'USD')
-  const [oneWay, setOneWay] = useState(row ? centsText(row.oneWayCents) : '')
-  const [roundMode, setRoundMode] = useState<'AUTOMATIC' | 'MANUAL'>(row?.roundTripMode ?? 'AUTOMATIC')
-  const [roundTrip, setRoundTrip] = useState(row?.roundTripCents != null ? centsText(row.roundTripCents) : '')
-  const [multiplier, setMultiplier] = useState(row ? multiplierText(row.roundTripMultiplierBp) : '2.00')
-  const [isActive, setIsActive] = useState(row?.isActive ?? true)
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
-
-  // Display-only draft estimate: MANUAL shows the entered amount verbatim;
-  // AUTOMATIC multiplies the outbound leg (the live request-time quote may
-  // instead use a priced reverse leg when one exists). Integer-safe: this is
-  // presentational only — the server recomputes every saved figure.
-  const draftRound: string | null = roundMode === 'MANUAL'
-    ? (roundTrip.trim() === '' ? null : roundTrip.trim())
-    : (oneWay.trim() === '' ? null : (Math.round(Number(oneWay) * Number(multiplier) * 100) / 100).toFixed(2))
-  const draftRoundCents = draftRound === null ? null : Math.round(Number(draftRound) * 100)
-
-  const routeOptions = routes.map((route) => ({ value: route.id, label: `${route.origin.nameEn} → ${route.destination.nameEn}` }))
-  const vehicleOptions = vehicles.filter((car) => car.isPublished !== false).map((car) => ({ value: car.slug, label: `${car.title} · ${car.seats}` }))
-
-  const save = () => {
-    setBusy(true)
-    setError('')
-    const payload: Record<string, unknown> = { currency, oneWay, roundTripMode: roundMode, isActive }
-    if (roundMode === 'MANUAL') payload.roundTrip = roundTrip
-    if (roundMode === 'AUTOMATIC') payload.roundTripMultiplier = multiplier
-    const url = mode === 'create'
-      ? '/api/admin/rent-car/prices'
-      : `/api/admin/rent-car/prices/${encodeURIComponent(row?.id ?? '')}`
-    staffRequest<{ price: unknown }>(url, mode === 'create' ? 'POST' : 'PATCH', mode === 'create' ? { ...payload, routeId, carSlug } : payload)
-      .then(() => {
-        toast.success(ar
-          ? (mode === 'create' ? 'تم إنشاء السعر.' : 'تم حفظ تعديلات السعر.')
-          : (mode === 'create' ? 'Price created.' : 'Price updated.'), { dedupeKey: 'rentcar-price-save' })
-        onSaved()
-      })
-      .catch((err: unknown) => { setError(err instanceof Error ? err.message : 'Save failed.'); setBusy(false) })
-  }
-
-  return <AdminConfirmDialog
-    open
-    onClose={onClose}
-    onConfirm={save}
-    title={<AdminText en={mode === 'create' ? 'New route price' : 'Edit route price'} ar={mode === 'create' ? 'سعر جديد' : 'تعديل السعر'} />}
-    confirmLabel={<AdminText en={mode === 'create' ? 'Create price' : 'Save changes'} ar={mode === 'create' ? 'إنشاء' : 'حفظ التعديلات'} />}
-    canConfirm={!busy && routeId !== '' && carSlug !== '' && oneWay.trim() !== '' && (roundMode === 'AUTOMATIC' || roundTrip.trim() !== '')}
-    description={error !== '' ? <span role="alert" style={{ color: 'var(--danger, #b3261e)' }}>{error}</span> : undefined}
-  >
-    <div className="sp-form">
-      {mode === 'create' ? <>
-        <label><AdminText en="Route" ar="الخط" />
-          <SharedSelect value={routeId} onChange={setRouteId} locale={ar ? 'ar' : 'en'} options={[{ value: '', label: ar ? 'اختر خطًا' : 'Select a route…' }, ...routeOptions]} />
-        </label>
-        <label><AdminText en="Fleet vehicle" ar="مركبة الأسطول" />
-          <SharedSelect value={carSlug} onChange={setCarSlug} locale={ar ? 'ar' : 'en'} options={[{ value: '', label: ar ? 'اختر مركبة' : 'Select a vehicle…' }, ...vehicleOptions]} />
-        </label>
-      </> : <p><AdminText en="Route and vehicle are fixed for this price entry." ar="الخط والمركبة ثابتان لهذا السعر." /></p>}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        <label><AdminText en="Currency" ar="العملة" />
-          <SharedSelect value={currency} onChange={setCurrency} locale={ar ? 'ar' : 'en'} options={CURRENCY_OPTIONS.map((value) => ({ value, label: value }))} />
-        </label>
-        <label><AdminText en="One-way price" ar="سعر الذهاب" />
-          <input type="number" min={0} step="0.01" dir="ltr" value={oneWay} onChange={(e) => setOneWay(e.target.value)} placeholder="0.00" />
-        </label>
-      </div>
-      <label><AdminText en="Round-trip pricing mode" ar="طريقة تسعير الذهاب والعودة" />
-        <SharedSelect value={roundMode} onChange={(next) => setRoundMode(next as 'AUTOMATIC' | 'MANUAL')} locale={ar ? 'ar' : 'en'} options={[
-          { value: 'AUTOMATIC', label: ar ? 'تلقائي (معامل العودة)' : 'Automatic (return multiplier)' },
-          { value: 'MANUAL', label: ar ? 'يدوي (سعر ثابت)' : 'Manual (fixed round-trip rate)' },
-        ]} />
-      </label>
-      <p style={{ margin: '4px 0 10px', color: 'var(--muted)', fontSize: 13 }}>
-        {roundMode === 'AUTOMATIC'
-          ? (ar
-            ? 'العودة = سعر الذهاب × المعامل. إذا وُجد خط معاكس مسعّر، تُستخدم لوجته الحقيقية بدلًا من المعامل.'
-            : 'Return = outbound × multiplier. When a priced reverse route exists, its real legs are used instead of the multiplier.')
-          : (ar
-            ? 'مبلغ ثابت يُعرض كما هو لرحلة ذهاب وعودة كاملة.'
-            : 'A fixed amount shown verbatim for the full two-way trip.')}
-      </p>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        {roundMode === 'AUTOMATIC'
-          ? <label><AdminText en="Round-trip multiplier (e.g. 2.00)" ar="معامل الذهاب والعودة (مثال 2.00)" />
-            <input type="number" min={1} max={10} step="0.01" dir="ltr" value={multiplier} onChange={(e) => setMultiplier(e.target.value)} />
-          </label>
-          : <label><AdminText en="Fixed round-trip amount" ar="مبلغ ذهاب وعودة ثابت" />
-            <input type="number" min={0} step="0.01" dir="ltr" value={roundTrip} onChange={(e) => setRoundTrip(e.target.value)} placeholder="0.00" />
-          </label>}
-        <label><AdminText en="Estimated round trip" ar="تقدير الذهاب والعودة" />
-          <input value={draftRoundCents === null ? '' : formatQuoteAmount(draftRoundCents, currency, ar ? 'ar' : 'en')} dir="ltr" readOnly disabled />
-        </label>
-      </div>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
-        <AdminText en="Active" ar="نشط" />
-      </label>
     </div>
   </AdminConfirmDialog>
 }

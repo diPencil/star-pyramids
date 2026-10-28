@@ -25,6 +25,8 @@ function asGalleryItems(value: unknown): GalleryItem[] {
   );
 }
 
+let generation = 0;
+let homepageError = false;
 let homepageCache: GalleryItem[] | null = null;
 let homepageInflight: Promise<GalleryItem[]> | null = null;
 const tourCache = new Map<string, GalleryItem[]>();
@@ -34,24 +36,26 @@ const notify = () => listeners.forEach((fn) => fn());
 
 async function fetchFeed(url: string): Promise<GalleryItem[]> {
   try {
-    const res = await fetch(url, { credentials: 'same-origin' });
-    if (!res.ok) return [];
+    const res = await fetch(url, { credentials: 'same-origin', cache: 'no-store' });
+    if (!res.ok) throw new Error('Gallery unavailable');
     const data = (await res.json()) as GalleryFeed;
+    if (data.unavailable || !Array.isArray(data.items)) throw new Error('Gallery unavailable');
     return asGalleryItems(data.items);
-  } catch {
-    return [];
-  }
+  } catch { throw new Error('Gallery unavailable'); }
 }
 
-function fetchHomepage(): Promise<GalleryItem[]> {
+export function fetchHomepage(): Promise<GalleryItem[]> {
   if (homepageCache) return Promise.resolve(homepageCache);
   if (!homepageInflight) {
-    homepageInflight = fetchFeed('/api/journey-gallery').then((items) => {
-      homepageCache = items;
-      homepageInflight = null;
-      notify();
+    const current = generation;
+    const pending = fetchFeed('/api/journey-gallery').then(items => {
+      if (current === generation) { homepageCache = items; homepageError = false; }
       return items;
+    }).catch(() => { if (current === generation) homepageError = true; return []; }).finally(() => {
+      if (homepageInflight === pending) homepageInflight = null;
+      if (current === generation) notify();
     });
+    homepageInflight = pending;
   }
   return homepageInflight;
 }
@@ -61,23 +65,28 @@ function fetchTourFeed(tourSlug: string): Promise<GalleryItem[]> {
   if (cached) return Promise.resolve(cached);
   const inflight = tourInflight.get(tourSlug);
   if (inflight) return inflight;
+  const current = generation;
   const pending = fetchFeed(`/api/journey-gallery?tour=${encodeURIComponent(tourSlug)}`).then(
     (items) => {
+      if (current !== generation) return [];
       tourCache.set(tourSlug, items);
       tourInflight.delete(tourSlug);
       notify();
       return items;
     },
-  );
+  ).catch(() => { if (current === generation) tourInflight.delete(tourSlug); return []; });
   tourInflight.set(tourSlug, pending);
   return pending;
 }
 
 export function invalidateJourneyGalleryCache() {
+  generation++;
+  homepageError = false;
   homepageCache = null;
   homepageInflight = null;
   tourCache.clear();
   tourInflight.clear();
+  notify();
 }
 
 function useGalleryVersion(): number {
@@ -93,18 +102,17 @@ function useGalleryVersion(): number {
 }
 
 /**
- * DB-driven homepage rows. While loading (or when the gallery tables are
- * unavailable), both lists are empty so the caller renders its legacy
- * photo fallback — existing content is never blanked by a failed fetch.
+ * DB-driven homepage rows with explicit loading/error/retry state.
+ * A failed fetch is never cached as a successful empty gallery.
  */
-export function useHomepageGallery(): { photos: GalleryItem[]; videos: GalleryItem[] } {
+export function useHomepageGallery(): { photos: GalleryItem[]; videos: GalleryItem[]; loading: boolean; error: boolean; retry: () => void } {
   const version = useGalleryVersion();
   useEffect(() => {
-    if (!homepageCache) void fetchHomepage();
-  }, []);
+    if (!homepageCache && !homepageError) void fetchHomepage();
+  }, [version]);
   return useMemo(() => {
     const items = homepageCache ?? [];
-    return { photos: selectHomepagePhotos(items), videos: selectHomepageVideos(items) };
+    return { photos: selectHomepagePhotos(items), videos: selectHomepageVideos(items), loading: homepageCache === null && !homepageError, error: homepageError, retry: invalidateJourneyGalleryCache };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [version]);
 }
@@ -121,7 +129,7 @@ export function useTourGalleryVideos(
   useEffect(() => {
     if (tourSlug && !tourCache.has(tourSlug)) void fetchTourFeed(tourSlug);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tourSlug]);
+  }, [tourSlug, version]);
   return useMemo(() => {
     if (!tourSlug) return [];
     return selectTourVideos(tourCache.get(tourSlug) ?? [], tourSlug);

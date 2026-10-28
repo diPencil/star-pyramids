@@ -1,3 +1,4 @@
+import { CarInputError } from '@/lib/rent-car-errors';
 // Car-request domain service (Phase 2C). Server owns validation,
 // reference issuance, ownership, status lifecycle, and response shaping.
 // The browser never supplies userId, status, references, or internal notes.
@@ -39,6 +40,7 @@ import {
 import { notifyUser, notifyStaff } from './notifications';
 import { sendCustomerEmailSafe, sendStaffEmailSafe } from './email';
 import { resolveCarRequestQuote } from './car-pricing';
+import { readCarPricingMetadata } from '@/lib/car-pricing';
 
 const REF_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const REF_ATTEMPTS = 5;
@@ -80,9 +82,9 @@ const SLUG_PATTERN = /^[a-z0-9-]{1,80}$/;
  * vehicles (`isPublished=false`) and unknown slugs return null; existing
  * CarRequest rows keep their stored slugs untouched (legacy preserved).
  */
-async function findPublishedFleetVehicle(slug: string): Promise<Car | null> {
+async function findPublishedFleetVehicle(slug: string, client: Prisma.TransactionClient = db): Promise<Car | null> {
   if (!SLUG_PATTERN.test(slug)) return null;
-  const row = await db.car.findUnique({ where: { slug } });
+  const row = await client.car.findUnique({ where: { slug } });
   return row && row.isPublished ? row : null;
 }
 
@@ -99,23 +101,24 @@ async function assertConfirmableAssignment(
 ): Promise<void> {
   const assigned = (request.assignedVehicleSlug ?? '').trim();
   if (assigned === '') {
-    throw new Error('Assign a fleet vehicle before confirming this request.');
+    throw new CarInputError('Assign a fleet vehicle before confirming this request.');
   }
   if (!SLUG_PATTERN.test(assigned)) {
-    throw new Error('Select a vehicle from the fleet list.');
+    throw new CarInputError('Select a vehicle from the fleet list.');
   }
+  await client.$queryRaw`SELECT slug FROM cars WHERE slug = ${assigned} FOR UPDATE`;
   const vehicle = await client.car.findUnique({ where: { slug: assigned } });
   if (!vehicle || !vehicle.isPublished) {
-    throw new Error('Select a vehicle from the fleet list.');
+    throw new CarInputError('Select a vehicle from the fleet list.');
   }
   const capacity = parseVehicleCapacity(vehicle.seats);
   if (capacity === null) {
-    throw new Error(
+    throw new CarInputError(
       `The assigned vehicle's seat capacity is unclear (${vehicle.seats || 'empty'}). Set an unambiguous seat count (e.g. "6 seats") on the vehicle before confirming.`,
     );
   }
   if (request.passengers > capacity) {
-    throw new Error(
+    throw new CarInputError(
       `The assigned vehicle seats ${capacity} passengers, but this request has ${request.passengers}.`,
     );
   }
@@ -189,13 +192,13 @@ function text(value: unknown): string | null {
  * accepted (client locale echo) and ignored: car requests carry no prices.
  */
 export function validateCarDraft(input: unknown): ValidatedCarDraft {
-  if (typeof input !== 'object' || input === null) throw new Error('Invalid request.');
+  if (typeof input !== 'object' || input === null) throw new CarInputError('Invalid request.');
   const body = input as Record<string, unknown>;
   for (const key of Object.keys(body)) {
-    if (!DRAFT_KEYS.has(key)) throw new Error('Invalid request.');
+    if (!DRAFT_KEYS.has(key)) throw new CarInputError('Invalid request.');
   }
   const fail = (message: string): never => {
-    throw new Error(message);
+    throw new CarInputError(message);
   };
 
   const vehicleSlug = text(body.vehicleSlug)?.trim() ?? '';
@@ -322,6 +325,7 @@ type CarRequestTransfer = {
   quotedCents: number | null;
   quoteBasis: string | null;
   quoteRoundTripCents: number | null;
+  quotePricingMetadata: string | null;
   quotedAt: Date;
   /** Canonical location names (English) written over pickup/dropoff copy. */
   pickup: string;
@@ -330,12 +334,13 @@ type CarRequestTransfer = {
 
 async function buildCarRequestTransfer(
   draft: ValidatedCarDraft,
+  client: Prisma.TransactionClient = db,
 ): Promise<CarRequestTransfer | null> {
   if (!draft.pickupLocationSlug || !draft.dropoffLocationSlug) return null;
   const [pickupLoc, dropoffLoc, route] = await Promise.all([
-    db.carLocation.findUnique({ where: { slug: draft.pickupLocationSlug } }),
-    db.carLocation.findUnique({ where: { slug: draft.dropoffLocationSlug } }),
-    db.carRoute.findUnique({
+    client.carLocation.findUnique({ where: { slug: draft.pickupLocationSlug } }),
+    client.carLocation.findUnique({ where: { slug: draft.dropoffLocationSlug } }),
+    client.carRoute.findUnique({
       where: {
         originSlug_destinationSlug: {
           originSlug: draft.pickupLocationSlug,
@@ -345,7 +350,7 @@ async function buildCarRequestTransfer(
     }),
   ]);
   if (!pickupLoc || !pickupLoc.isActive || !dropoffLoc || !dropoffLoc.isActive) {
-    throw new Error('Select the pick-up and drop-off locations from the list.');
+    throw new CarInputError('Select the pick-up and drop-off locations from the list.');
   }
 
   let routeId: string | null = null;
@@ -353,6 +358,7 @@ async function buildCarRequestTransfer(
   let quotedCents: number | null = null;
   let quoteBasis: string | null = null;
   let quoteRoundTripCents: number | null = null;
+  let quotePricingMetadata: string | null = null;
   if (route && route.isActive) {
     routeId = route.id;
     // Authoritative re-quote at submission time. Price on Request (route
@@ -363,12 +369,13 @@ async function buildCarRequestTransfer(
       route: route.id,
       trip: draft.tripType === 'Round Trip' ? 'round-trip' : 'one-way',
       passengers: draft.passengers,
-    });
+    }, client);
     if (quote.kind === 'quote') {
       quoteCurrency = quote.currency;
       quotedCents = quote.cents;
       quoteBasis = quote.basis;
       quoteRoundTripCents = draft.tripType === 'Round Trip' ? quote.cents : null;
+      quotePricingMetadata = quote.pricingMetadata ? JSON.stringify(quote.pricingMetadata) : null;
     }
   }
 
@@ -382,6 +389,7 @@ async function buildCarRequestTransfer(
     quotedCents,
     quoteBasis,
     quoteRoundTripCents,
+    quotePricingMetadata,
     quotedAt: new Date(),
     pickup: pickupLoc.nameEn,
     dropoff: dropoffLoc.nameEn,
@@ -446,6 +454,7 @@ export function toCustomerView(row: RequestRow): CarRequest {
             ...(row.quoteRoundTripCents !== null ? { roundTripCents: row.quoteRoundTripCents } : {}),
             basis: row.quoteBasis as 'legs' | 'multiplier' | 'manual',
             quotedAt: (row.quotedAt ?? row.updatedAt).toISOString(),
+            ...(row.quotePricingMetadata ? { pricingMetadata: readCarPricingMetadata(row.quotePricingMetadata) } : {}),
           }
         : null,
   };
@@ -484,6 +493,7 @@ const LEGACY_TRANSFER_COLUMNS = {
   quotedCents: null,
   quoteBasis: null,
   quoteRoundTripCents: null,
+  quotePricingMetadata: null,
   quotedAt: null,
 } as const;
 
@@ -498,6 +508,7 @@ function transferDataColumns(transfer: CarRequestTransfer) {
     quotedCents: transfer.quotedCents,
     quoteBasis: transfer.quoteBasis,
     quoteRoundTripCents: transfer.quoteRoundTripCents,
+    quotePricingMetadata: transfer.quotePricingMetadata,
     quotedAt: transfer.quotedAt,
   } as const;
 }
@@ -509,18 +520,15 @@ export async function createCarRequestRecord(
   // The requested vehicle is a preference only, but it must still point at
   // a real, published fleet vehicle — fabricated or stale slugs are rejected
   // before any record is written.
-  const requested = await findPublishedFleetVehicle(draft.vehicleSlug);
-  if (!requested) {
-    throw new Error('Select a vehicle from the fleet list.');
-  }
-  // Structured transfer + authoritative quote snapshot, recomputed server
-  // side (never client-supplied prices). Legacy free-text drafts pass null.
-  const transfer = await buildCarRequestTransfer(draft);
   let lastError: unknown = null;
   for (let attempt = 0; attempt < REF_ATTEMPTS; attempt += 1) {
     const reference = mintReferenceCandidate();
     try {
-      const row = await db.carRequest.create({
+      const row = await db.$transaction(async tx => {
+        await tx.$queryRaw`SELECT slug FROM cars WHERE slug = ${draft.vehicleSlug} FOR UPDATE`;
+        if (!await findPublishedFleetVehicle(draft.vehicleSlug, tx)) throw new CarInputError('Select a vehicle from the fleet list.');
+        const transfer = await buildCarRequestTransfer(draft, tx);
+        return tx.carRequest.create({
         data: {
           reference,
           userId,
@@ -542,6 +550,7 @@ export async function createCarRequestRecord(
           },
         },
         include: rowInclude,
+      });
       });
       const created = toCustomerView(row);
       // Submission receipt for signed-in customers. Guests (userId
@@ -581,7 +590,7 @@ export async function createCarRequestRecord(
       throw error;
     }
   }
-  throw lastError instanceof Error ? lastError : new Error('Could not create the request. Please try again.');
+  throw lastError instanceof Error ? lastError : new CarInputError('Could not create the request. Please try again.');
 }
 
 export async function listCustomerCarRequests(userId: string): Promise<CarRequest[]> {
@@ -619,15 +628,16 @@ export async function updateCustomerCarRequest(
   if (!existing || existing.userId !== userId) return null;
   const current = FROM_DB_STATUS[existing.status];
   if (current !== 'new' && current !== 'reviewing') {
-    throw new Error('This request can no longer be edited.');
+    throw new CarInputError('This request can no longer be edited.');
   }
   // No-op saves must not pollute the timeline: when every persisted field
   // already matches the draft, return the current view without writing.
   // (DB NULL and draft '' both mean "not set" for optional fields.)
+  const sameStructuredLocations = !!draft.pickupLocationSlug && !!draft.dropoffLocationSlug && existing.pickupLocationSlug === draft.pickupLocationSlug && existing.dropoffLocationSlug === draft.dropoffLocationSlug;
   const unchanged =
     existing.vehicleSlug === draft.vehicleSlug &&    FROM_DB_TRIP_TYPE[existing.tripType] === draft.tripType &&
-    existing.pickup === draft.pickup &&
-    existing.dropoff === draft.dropoff &&
+    (sameStructuredLocations || existing.pickup === draft.pickup) &&
+    (sameStructuredLocations || existing.dropoff === draft.dropoff) &&
     toYmd(existing.pickupDate) === draft.preferredPickupDate &&
     toYmd(existing.returnDate) === draft.preferredReturnDate &&
     existing.passengers === draft.passengers &&
@@ -642,14 +652,15 @@ export async function updateCustomerCarRequest(
   if (unchanged) return toCustomerView(existing);
   // Edited drafts must still point at a real, published fleet vehicle —
   // same rule as initial submission.
-  const edited = await findPublishedFleetVehicle(draft.vehicleSlug);
-  if (!edited) {
-    throw new Error('Select a vehicle from the fleet list.');
-  }
   // Quote/transfer snapshot is recomputed at edit time so a price change
   // between submission and editing never leaves stale money on the record.
-  const transfer = await buildCarRequestTransfer(draft);
   const row = await db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM car_requests WHERE id = ${existing.id} FOR UPDATE`;
+    const fresh = await tx.carRequest.findUnique({ where: { id: existing.id } });
+    if (!fresh || fresh.userId !== userId || !['NEW', 'REVIEWING'].includes(fresh.status)) throw new CarInputError('This request can no longer be edited.');
+    await tx.$queryRaw`SELECT slug FROM cars WHERE slug = ${draft.vehicleSlug} FOR UPDATE`;
+    if (!await findPublishedFleetVehicle(draft.vehicleSlug, tx)) throw new CarInputError('Select a vehicle from the fleet list.');
+    const transfer = await buildCarRequestTransfer(draft, tx);
     await tx.carRequest.update({
       where: { id: existing.id },
       data: {
@@ -687,9 +698,12 @@ export async function cancelCustomerCarRequest(
   if (!existing || existing.userId !== userId) return null;
   const current = FROM_DB_STATUS[existing.status];
   if (!canTransitionCarRequest(current, 'cancelled')) {
-    throw new Error('This request can no longer be cancelled.');
+    throw new CarInputError('This request can no longer be cancelled.');
   }
   const row = await db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM car_requests WHERE id = ${existing.id} FOR UPDATE`;
+    const fresh = await tx.carRequest.findUnique({ where: { id: existing.id } });
+    if (!fresh || fresh.userId !== userId || fresh.status !== existing.status) throw new CarInputError('This request changed. Reload before cancelling.');
     await tx.carRequest.update({
       where: { id: existing.id },
       data: {
@@ -737,12 +751,15 @@ export async function transitionStaffCarRequest(
   if (!existing) return null;
   const current = FROM_DB_STATUS[existing.status];
   if (!canTransitionCarRequest(current, to)) {
-    throw new Error('This status change is not allowed.');
+    throw new CarInputError('This status change is not allowed.');
   }
   if (note.length > CAR_NOTE_MAX || hasControlChars(note)) {
-    throw new Error('Notes must be 1,000 characters or fewer.');
+    throw new CarInputError('Notes must be 1,000 characters or fewer.');
   }
   const row = await db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM car_requests WHERE id = ${existing.id} FOR UPDATE`;
+    const currentRow = await tx.carRequest.findUnique({ where: { id: existing.id } });
+    if (!currentRow || currentRow.status !== existing.status) throw new CarInputError('This request changed. Reload before updating.');
     if (to === 'confirmed') {
       // Server-side integrity (mirrors the UI hint): confirming requires a
       // real, published assigned vehicle with unambiguous capacity for the
@@ -753,7 +770,7 @@ export async function transitionStaffCarRequest(
         where: { id: existing.id },
         select: { passengers: true, assignedVehicleSlug: true },
       });
-      if (!fresh) throw new Error('This status change is not allowed.');
+      if (!fresh) throw new CarInputError('This status change is not allowed.');
       await assertConfirmableAssignment(fresh, tx);
     }
     await tx.carRequest.update({
@@ -804,14 +821,14 @@ export async function assignStaffCarVehicle(
   const slug = vehicleSlug.trim();
   // Assignment must resolve to a real, published fleet vehicle. Hidden or
   // unknown slugs are rejected; existing rows keep their stored slugs.
-  if (!SLUG_PATTERN.test(slug)) throw new Error('Select a vehicle from the fleet list.');
+  if (!SLUG_PATTERN.test(slug)) throw new CarInputError('Select a vehicle from the fleet list.');
   const resolved = await findPublishedFleetVehicle(slug);
   if (!resolved) {
     const row = await db.car.findUnique({ where: { slug }, select: { isPublished: true } });
     if (row && !row.isPublished) {
-      throw new Error('This vehicle is hidden from the website. Publish it before assigning.');
+      throw new CarInputError('This vehicle is hidden from the website. Publish it before assigning.');
     }
-    throw new Error('Select a vehicle from the fleet list.');
+    throw new CarInputError('Select a vehicle from the fleet list.');
   }
   const existing = await db.carRequest.findUnique({
     where: { reference },
@@ -819,9 +836,15 @@ export async function assignStaffCarVehicle(
   });
   if (!existing) return null;
   if (FROM_DB_STATUS[existing.status] === 'cancelled') {
-    throw new Error('Cancelled requests cannot be changed.');
+    throw new CarInputError('Cancelled requests cannot be changed.');
   }
   const row = await db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM car_requests WHERE id = ${existing.id} FOR UPDATE`;
+    const fresh = await tx.carRequest.findUnique({ where: { id: existing.id } });
+    if (!fresh || fresh.status === 'CANCELLED') throw new CarInputError('Cancelled requests cannot be changed.');
+    await tx.$queryRaw`SELECT slug FROM cars WHERE slug = ${slug} FOR UPDATE`;
+    if (!await findPublishedFleetVehicle(slug, tx)) throw new CarInputError('Select a vehicle from the fleet list.');
+    if (fresh.status === 'CONFIRMED') await assertConfirmableAssignment({ assignedVehicleSlug: slug, passengers: fresh.passengers }, tx);
     await tx.carRequest.update({
       where: { id: existing.id },
       data: {
@@ -840,7 +863,7 @@ export async function assignStaffCarVehicle(
 export async function addStaffCarNote(reference: string, note: string): Promise<StaffCarRequest | null> {
   const trimmed = note.trim();
   if (trimmed === '' || trimmed.length > CAR_NOTE_MAX || hasControlChars(trimmed)) {
-    throw new Error('Enter an internal note (1,000 characters or fewer).');
+    throw new CarInputError('Enter an internal note (1,000 characters or fewer).');
   }
   const existing = await db.carRequest.findUnique({
     where: { reference },

@@ -1,4 +1,5 @@
 'use client'
+import { formatCurrency, type Currency } from '@/lib/currency'
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -139,11 +140,8 @@ function focusById(id: string) {
   }
 }
 
-function formatBudget(amount: number, currency: 'USD' | 'EUR' | 'EGP', locale: string): string {
-  const intlLocale = locale === 'ar' ? 'ar-EG' : locale === 'es' ? 'es-ES' : locale === 'it' ? 'it-IT' : 'en-US'
-  return new Intl.NumberFormat(intlLocale, {
-    style: 'currency', currency, maximumFractionDigits: currency === 'EGP' ? 0 : 2,
-  }).format(amount)
+function formatBudget(amount: number, currency: Currency, locale: string): string {
+  return formatCurrency(amount, currency, locale, { minimumFractionDigits: currency === 'EGP' ? 0 : 2, maximumFractionDigits: currency === 'EGP' ? 0 : 2 })
 }
 
 function PlannerInner() {

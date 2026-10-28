@@ -1,16 +1,19 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { WEBSITE_REVIEW_SCOPE } from '@/lib/review-scope'
-import { ArrowLeft, ArrowRight, CheckCircle2, XCircle, CircleAlert, Star } from 'lucide-react'
+import { ArrowLeft, ArrowRight, CheckCircle2, XCircle, CircleAlert } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
-import { AdminText, Avatar, Card, StatusPill } from '@/components/admin/admin-ui'
+import { Avatar, Card } from '@/components/admin/admin-ui'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
-import { useAdminLocale } from '@/components/admin/admin-locale'
+import { useLocale } from '@/components/locale'
+import { reviewText } from '@/lib/review-copy'
+import { useCurrentUser } from '@/lib/use-current-user'
 
 type ReviewDetail = {
   publicId: string
+  trip?: { title: string; href: string } | null
   tourSlug: string
   title: string | null
   rating: number
@@ -28,7 +31,15 @@ type ReviewDetail = {
 }
 
 export default function ReviewDetailPage({ params }: { params: Promise<{ publicId: string }> }) {
-  const ar = useAdminLocale() === 'ar'
+  const { locale } = useLocale()
+  const t = (text: string) => reviewText(text, locale)
+  const ar = false
+  const AdminText = ({ en }: { en: string; ar?: string }) => <>{t(en)}</>
+  const StatusPill = ({ status }: { status: string }) => <span className={`sp-pill is-${status}`}>{t(status.charAt(0).toUpperCase() + status.slice(1))}</span>
+  const { user } = useCurrentUser()
+  const canModerate = !!user && (user.roles.includes('SUPER_ADMIN') || user.permissions?.includes('reviews.moderate'))
+  const busyRef = useRef(false)
+  const [busy, setBusy] = useState(false)
   const [review, setReview] = useState<ReviewDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -54,7 +65,8 @@ export default function ReviewDetailPage({ params }: { params: Promise<{ publicI
   const userName = review ? [review.user.firstName, review.user.lastName].filter(Boolean).join(' ') || review.user.email : ''
 
   const moderate = (action: 'publish' | 'reject' | 'pend') => {
-    if (!review) return
+    if (!review || busyRef.current || !canModerate) return
+    busyRef.current = true; setBusy(true)
     fetch(`/api/admin/reviews/${encodeURIComponent(review.publicId)}`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
@@ -69,7 +81,7 @@ export default function ReviewDetailPage({ params }: { params: Promise<{ publicI
       })
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : 'Could not update the review.')
-      })
+      }).finally(() => { busyRef.current = false; setBusy(false) })
   }
 
   const confirmLabels: Record<'publish' | 'reject' | 'pend', { en: string; ar: string }> = {
@@ -79,13 +91,13 @@ export default function ReviewDetailPage({ params }: { params: Promise<{ publicI
   }
 
   if (loading) {
-    return <><PageHead eyebrow="Reputation" title="Review" titleAr="التقييم" sub="Loading…" subAr="جارٍ التحميل…" /></>
+    return <><PageHead eyebrow="Reputation" title={t('Review')} titleAr="التقييم" sub="Loading…" subAr="جارٍ التحميل…" /></>
   }
 
   if (error && !review) {
     return (
       <>
-        <PageHead eyebrow="Reputation" title="Review" titleAr="التقييم" sub="Not found" subAr="غير موجود" />
+        <PageHead eyebrow="Reputation" title={t('Review')} titleAr="التقييم" sub="Not found" subAr="غير موجود" />
         <Card title={<AdminText en="Could not load review" ar="تعذر تحميل التقييم" />} children={<p>{error}</p>} />
       </>
     )
@@ -101,9 +113,9 @@ export default function ReviewDetailPage({ params }: { params: Promise<{ publicI
     <>
       <PageHead
         eyebrow="Reputation"
-        title="Review"
+        title={t('Review')}
         titleAr="التقييم"
-        sub={review.tourSlug === WEBSITE_REVIEW_SCOPE ? 'Website review' : `Tour: ${review.tourSlug}`}
+        sub={review.tourSlug === WEBSITE_REVIEW_SCOPE ? t('Website review') : review.trip?.title ?? t('Trip unavailable')}
         subAr={review.tourSlug === WEBSITE_REVIEW_SCOPE ? 'تقييم الموقع' : `الرحلة: ${review.tourSlug}`}
         actions={
           <>
@@ -119,15 +131,15 @@ export default function ReviewDetailPage({ params }: { params: Promise<{ publicI
               <div style={{ fontWeight: 700, fontSize: 16 }}>{userName}</div>
               <div style={{ color: 'var(--muted)', fontSize: 13 }}>{review.user.email}</div>
               <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 4 }}>
-                Submitted: {new Date(review.createdAt).toLocaleString(ar ? 'ar-EG' : 'en-US')}
+                Submitted: {new Date(review.createdAt).toLocaleString(locale)}
               </div>
             </div>
           </div>
           <div style={{ marginBottom: 16 }}>
-            <strong>{review.tourSlug === WEBSITE_REVIEW_SCOPE ? (ar ? 'تقييم الموقع' : 'Website review') : review.tourSlug}</strong>
-            <Link href={review.tourSlug === WEBSITE_REVIEW_SCOPE ? '/' : `/egypt-tours/${review.tourSlug}`} target="_blank" rel="noopener noreferrer" className="text-link" style={{ marginLeft: 12 }}>
+            <strong>{review.tourSlug === WEBSITE_REVIEW_SCOPE ? (ar ? 'تقييم الموقع' : t('Website review')) : review.trip?.title ?? t('Trip unavailable')}</strong>
+            {(review.tourSlug === WEBSITE_REVIEW_SCOPE || review.trip) && <Link href={review.tourSlug === WEBSITE_REVIEW_SCOPE ? '/' : review.trip!.href} target="_blank" rel="noopener noreferrer" className="text-link" style={{ marginLeft: 12 }}>
               <AdminText en={review.tourSlug === WEBSITE_REVIEW_SCOPE ? 'View website' : 'View tour page'} ar={review.tourSlug === WEBSITE_REVIEW_SCOPE ? 'عرض الموقع' : 'عرض صفحة الرحلة'} /> <ArrowRight size={14} />
-            </Link>
+            </Link>}
           </div>
           {review.title && <p style={{ fontWeight: 600, marginBottom: 12 }}>"{review.title}"</p>}
           <div style={{ marginBottom: 16 }}>
@@ -143,42 +155,43 @@ export default function ReviewDetailPage({ params }: { params: Promise<{ publicI
           <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{review.text}</p>
         </Card>
 
+        {error && <p role="alert">{error}</p>}
         <Card title={<AdminText en="Moderation" ar="الإشراف" />}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <StatusPill status={review.status.toLowerCase()} />
               <span style={{ fontSize: 13, color: 'var(--muted)' }}>
                 {review.status === 'PUBLISHED' && review.publishedAt
-                  ? `${ar ? 'نشرت في' : 'Published'}: ${new Date(review.publishedAt).toLocaleString(ar ? 'ar-EG' : 'en-US')}`
+                  ? `${ar ? 'نشرت في' : t('Published')}: ${new Date(review.publishedAt).toLocaleString(ar ? 'ar-EG' : 'en-US')}`
                   : review.status === 'PENDING'
-                    ? ar ? 'قيد المراجعة' : 'Awaiting moderation'
-                    : ar ? 'مرفوضة' : 'Rejected'}
+                    ? ar ? 'قيد المراجعة' : t('Awaiting moderation')
+                    : ar ? 'مرفوضة' : t('Rejected')}
               </span>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {canPublish && (
+              {canModerate && canPublish && (
                 <button
                   className="sp-btn primary"
-                  onClick={() => moderate('publish')}
-                  disabled={confirmOpen !== null}
+                  onClick={() => setConfirmOpen({ action: 'publish' })}
+                  disabled={busy || confirmOpen !== null}
                 >
                   <CheckCircle2 size={16} /> <AdminText en="Publish" ar="نشر" />
                 </button>
               )}
-              {canReject && (
+              {canModerate && canReject && (
                 <button
                   className="sp-btn"
-                  onClick={() => moderate('reject')}
-                  disabled={confirmOpen !== null}
+                  onClick={() => setConfirmOpen({ action: 'reject' })}
+                  disabled={busy || confirmOpen !== null}
                 >
                   <XCircle size={16} /> <AdminText en="Reject" ar="رفض" />
                 </button>
               )}
-              {canPend && (
+              {canModerate && canPend && (
                 <button
                   className="sp-btn"
-                  onClick={() => moderate('pend')}
-                  disabled={confirmOpen !== null}
+                  onClick={() => setConfirmOpen({ action: 'pend' })}
+                  disabled={busy || confirmOpen !== null}
                 >
                   <CircleAlert size={16} /> <AdminText en="Return to pending" ar="إعادة للمراجعة" />
                 </button>
@@ -192,7 +205,7 @@ export default function ReviewDetailPage({ params }: { params: Promise<{ publicI
           open={true}
           onClose={() => setConfirmOpen(null)}
           onConfirm={() => { moderate(confirmOpen.action); setConfirmOpen(null); }}
-          title={confirmLabels[confirmOpen.action][ar ? 'ar' : 'en']}
+          title={t(confirmLabels[confirmOpen.action].en)}
           confirmLabel={<AdminText en="Confirm" ar="تأكيد" />}
           cancelLabel={<AdminText en="Cancel" ar="إلغاء" />}
           tone={confirmOpen.action === 'reject' ? 'danger' : 'primary'}

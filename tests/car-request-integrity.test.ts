@@ -23,6 +23,7 @@ const helpers = vi.hoisted(() => {
     locations: new Map<string, Row>(),
     routes: new Map<string, Row>(),
     prices: new Map<string, Row>(),
+    configurations: new Map<string, Row>(),
   }
 
   function project(row: Row, select?: Record<string, boolean>): Row {
@@ -84,6 +85,7 @@ const helpers = vi.hoisted(() => {
   }
 
   const carApi: Record<string, any> = {
+    findUniqueOrThrow: async ({ where }: any) => store.cars.get(where.slug),
     findUnique: async (args: { where: { slug?: string }; select?: any }) => {
       const row = store.cars.get(args.where.slug ?? '')
       return row ? project(row, args.select) : null
@@ -97,6 +99,7 @@ const helpers = vi.hoisted(() => {
   }
 
   const carRequestApi: Record<string, any> = {
+    findMany: async ({ where }: any) => [...store.requests.values()].filter(row => (where.assignedVehicleSlug === undefined || row.assignedVehicleSlug === where.assignedVehicleSlug) && (where.status === undefined || row.status === where.status)),
     findUnique: async (args: { where: { reference?: string; id?: string }; select?: any; include?: any }) =>
       findRequest(args),
     update: async (args: { where: { id: string }; data: Row }) => {
@@ -127,6 +130,25 @@ const helpers = vi.hoisted(() => {
   }
 
   const fakeDb: Record<string, any> = {
+    $queryRaw: async () => [],
+    carRoutePricing: {
+      upsert: async ({ where, create }: any) => {
+        const key = JSON.stringify(where.routeId_carSlug)
+        if (!store.configurations.has(key)) store.configurations.set(key, { id: `cfg-${++modelSeq}`, ...create })
+        return store.configurations.get(key)
+      },
+      findUniqueOrThrow: async ({ where }: any) => {
+        const row = store.configurations.get(JSON.stringify(where.routeId_carSlug))
+        if (!row) throw new Error('Missing configuration')
+        return row
+      },
+      update: async ({ where, data }: any) => {
+        const row = [...store.configurations.values()].find(c => c.id === where.id)!
+        Object.assign(row, data)
+        for (const p of store.prices.values()) if (p.routeId === row.routeId && p.carSlug === row.carSlug) p.currency = row.currency
+        return row
+      },
+    },
     car: carApi,
     carRequest: carRequestApi,
     carLocation: {
@@ -246,16 +268,17 @@ const helpers = vi.hoisted(() => {
         }
         return row ? project(row, args.select) : null
       },
-      findMany: async (args: { where?: { routeId?: string; carSlug?: string }; orderBy?: Row[] }) => {
+      findMany: async (args: { where?: { routeId?: string; carSlug?: string; isActive?: boolean }; orderBy?: Row[]; include?: Row }) => {
         let rows = [...store.prices.values()]
         if (args.where?.routeId !== undefined) rows = rows.filter((row) => row.routeId === args.where.routeId)
         if (args.where?.carSlug !== undefined) rows = rows.filter((row) => row.carSlug === args.where.carSlug)
+        if (args.where?.isActive !== undefined) rows = rows.filter((row) => row.isActive === args.where.isActive)
         sortRows(rows, args.orderBy)
-        return rows.map((row) => structuredClone(row))
+        return rows.map((row) => ({ ...structuredClone(row), ...(args.include?.configuration ? { configuration: store.configurations.get(JSON.stringify({ routeId: row.routeId, carSlug: row.carSlug })) } : {}) }))
       },
       create: async (args: { data: Row }) => {
         const duplicate = [...store.prices.values()].find(
-          (p) => p.routeId === args.data.routeId && p.carSlug === args.data.carSlug,
+          (p) => p.routeId === args.data.routeId && p.carSlug === args.data.carSlug && p.minPassengers === args.data.minPassengers && p.maxPassengers === args.data.maxPassengers,
         )
         if (duplicate) throw prismaError('P2002')
         const row: Row = {
@@ -329,6 +352,8 @@ vi.mock('@/lib/server/auth', () => ({
   hasPermission: vi.fn(() => true),
 }))
 vi.mock('@/lib/server/csrf', () => ({ isSameOriginRequest: vi.fn(() => true) }))
+vi.mock('@/lib/server/rate-limit', () => ({ checkCarRequestRateLimit: vi.fn(async () => ({ allowed: true })), recordCarRequestAttempt: vi.fn(async () => undefined) }))
+vi.mock('@/lib/server/staff-preview', () => ({ getAccountReadUser: vi.fn(async () => ({ id: 'user-1' })), getAccountWriteUser: vi.fn(async () => ({ id: 'user-1' })) }))
 vi.mock('@/lib/catalogue-translations', () => ({
   validateCatalogueTranslations: vi.fn(() => ({})),
 }))
@@ -342,7 +367,7 @@ vi.mock('@/lib/server/catalogue-translations', () => ({
   ),
 }))
 
-import { transitionStaffCarRequest, assignStaffCarVehicle, createCarRequestRecord, updateCustomerCarRequest, validateCarDraft } from '@/lib/server/car-requests'
+import { transitionStaffCarRequest, assignStaffCarVehicle, createCarRequestRecord, updateCustomerCarRequest, getCustomerCarRequest, validateCarDraft } from '@/lib/server/car-requests'
 import {
   createCarLocation,
   createCarRoute,
@@ -355,6 +380,8 @@ import {
 } from '@/lib/server/car-pricing'
 import { parseVehicleCapacity } from '@/lib/car-request'
 import { PUT } from '@/app/api/cars/[slug]/route'
+import { POST as submitCarRequest } from '@/app/api/car-requests/route'
+import { GET as getAccountRequest, PATCH as patchAccountRequest } from '@/app/api/account/car-requests/[ref]/route'
 
 // ---- Fixtures ----
 
@@ -443,6 +470,7 @@ beforeEach(() => {
   store.locations.clear()
   store.routes.clear()
   store.prices.clear()
+  store.configurations.clear()
 })
 
 // ---- parseVehicleCapacity ----
@@ -758,6 +786,8 @@ function seedPrice(routeId: string, carSlug: string, overrides: Partial<Row> = {
     routeId,
     carSlug,
     currency: 'USD',
+    minPassengers: 1,
+    maxPassengers: Number.parseInt(store.cars.get(carSlug)?.seats ?? '4', 10),
     oneWayCents: 2500,
     roundTripMode: 'AUTOMATIC',
     roundTripCents: null,
@@ -768,6 +798,7 @@ function seedPrice(routeId: string, carSlug: string, overrides: Partial<Row> = {
     ...overrides,
   }
   store.prices.set(row.id, row)
+  store.configurations.set(JSON.stringify({ routeId, carSlug }), { id: `cfg-${row.id}`, routeId, carSlug, currency: row.currency, pricingMode: 'FIXED_TOTAL' })
 }
 
 const structuredDraft = () => ({
@@ -778,7 +809,113 @@ const structuredDraft = () => ({
   returnTime: '',
 })
 
+function submissionDraft() {
+  const { contactName, contactEmail, contactPhone, ...details } = structuredDraft()
+  return { ...details, contact: { fullName: contactName, email: contactEmail, phone: contactPhone } }
+}
+
 describe('carRequest transfer snapshot (Stage 8)', () => {
+  it('submits through the real public API, reprices server-side and rejects price injection', async () => {
+    seedCar('toyota-corolla', '4 seats')
+    seedLocation('cairo-airport', 'Cairo International Airport')
+    seedLocation('giza-hotels', 'Giza Hotels')
+    seedRoute('route-aaaa-bbbb', 'cairo-airport', 'giza-hotels')
+    seedPrice('route-aaaa-bbbb', 'toyota-corolla')
+    store.configurations.get(JSON.stringify({ routeId: 'route-aaaa-bbbb', carSlug: 'toyota-corolla' }))!.pricingMode = 'PER_PERSON'
+    const response = await submitCarRequest(new Request('http://localhost/api/car-requests', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(submissionDraft()) }))
+    expect(response.status).toBe(201)
+    const item = await response.json()
+    expect(item.quote).toMatchObject({ cents: 7500, currency: 'USD', pricingMetadata: { passengers: 3 } })
+    const originalSize = store.requests.size
+    const tampered = await submitCarRequest(new Request('http://localhost/api/car-requests', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...submissionDraft(), quotedCents: 1 }) }))
+    expect(tampered.status).toBe(400)
+    expect(store.requests.size).toBe(originalSize)
+  })
+
+  it('prices and creates the snapshot inside the same transaction', async () => {
+    seedCar('toyota-corolla', '4 seats')
+    seedLocation('cairo-airport', 'Cairo International Airport')
+    seedLocation('giza-hotels', 'Giza Hotels')
+    seedRoute('route-aaaa-bbbb', 'cairo-airport', 'giza-hotels')
+    seedPrice('route-aaaa-bbbb', 'toyota-corolla')
+    let active = false
+    const originalTransaction = fakeDb.$transaction, originalRead = fakeDb.carRoutePrice.findMany, originalCreate = fakeDb.carRequest.create
+    const transaction = vi.spyOn(fakeDb, '$transaction').mockImplementation(async (fn: any) => { active = true; try { return await originalTransaction(fn) } finally { active = false } })
+    const read = vi.spyOn(fakeDb.carRoutePrice, 'findMany').mockImplementation(async (args: any) => { expect(active).toBe(true); return originalRead(args) })
+    const create = vi.spyOn(fakeDb.carRequest, 'create').mockImplementation(async (args: any) => { expect(active).toBe(true); return originalCreate(args) })
+    try { await createCarRequestRecord('user-1', structuredDraft()); expect(read).toHaveBeenCalled(); expect(create).toHaveBeenCalled() }
+    finally { transaction.mockRestore(); read.mockRestore(); create.mockRestore() }
+  })
+
+  it('owner API hides foreign requests and rejects invalid/null patches without URI-decoding failures', async () => {
+    const foreign = seedRequest({ userId: 'other-user' })
+    expect((await getAccountRequest(new Request('http://localhost/api/account/car-requests/test'), { params: Promise.resolve({ ref: foreign.reference }) })).status).toBe(404)
+    expect((await getAccountRequest(new Request('http://localhost/api/account/car-requests/test'), { params: Promise.resolve({ ref: '%' }) })).status).toBe(404)
+    const own = seedRequest({ userId: 'user-1' })
+    const response = await patchAccountRequest(new Request('http://localhost/api/account/car-requests/test', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: 'null' }), { params: Promise.resolve({ ref: own.reference }) })
+    expect(response.status).toBe(400)
+  })
+
+  it('preserves legacy money even when historical metadata is malformed', async () => {
+    const row = seedRequest({ userId: 'user-1', quoteCurrency: 'USD', quotedCents: 12345, quoteBasis: 'manual', quoteRoundTripCents: 12345, quotePricingMetadata: '{bad-json', quotedAt: new Date() })
+    const result = await getCustomerCarRequest('user-1', row.reference)
+    expect(result?.quote?.cents).toBe(12345)
+    expect(result?.quote?.pricingMetadata).toBeUndefined()
+    expect(store.requests.get(row.reference).quotePricingMetadata).toBe('{bad-json')
+  })
+
+  it('prevents smaller reassignment after confirmation and capacity changes invalidating confirmed transfers', async () => {
+    seedCar('hyundai-h1-van', '8 seats')
+    seedCar('toyota-corolla', '4 seats')
+    const row = seedRequest({ status: 'CONFIRMED', passengers: 6, assignedVehicleSlug: 'hyundai-h1-van' })
+    await expect(assignStaffCarVehicle(row.reference, 'toyota-corolla')).rejects.toThrow('seats 4')
+    const response = await PUT(new Request('http://localhost/api/cars/hyundai-h1-van', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ seats: '4 seats' }) }), { params: Promise.resolve({ slug: 'hyundai-h1-van' }) })
+    expect(response.status).toBe(400)
+    expect(store.cars.get('hyundai-h1-van')!.seats).toBe('8 seats')
+  })
+  it('keeps saved total and tier provenance immutable when catalogue pricing changes', async () => {
+    seedCar('toyota-corolla', '4 seats')
+    seedLocation('cairo-airport', 'Cairo International Airport')
+    seedLocation('giza-hotels', 'Giza Hotels')
+    seedRoute('route-aaaa-bbbb', 'cairo-airport', 'giza-hotels')
+    seedPrice('route-aaaa-bbbb', 'toyota-corolla')
+    store.configurations.get(JSON.stringify({ routeId: 'route-aaaa-bbbb', carSlug: 'toyota-corolla' }))!.pricingMode = 'PER_PERSON'
+    const created = await createCarRequestRecord('user-1', structuredDraft())
+    const original = structuredClone(created.quote)
+    expect(original?.cents).toBe(7500)
+    expect(original?.pricingMetadata?.outbound).toMatchObject({ pricingMode: 'PER_PERSON', unitCents: 2500 })
+    store.prices.get('pr-cost-route-aaaa-bbbb-toyota-corolla')!.oneWayCents = 9999
+    const read = await getCustomerCarRequest('user-1', created.reference)
+    expect(read?.quote).toEqual(original)
+    expect(await getCustomerCarRequest('other-user', created.reference)).toBeNull()
+  })
+
+  it('preserves concurrent capacity and publication edits when a fleet patch omits them', async () => {
+    seedCar('toyota-corolla', '4 seats')
+    const originalRead = fakeDb.car.findUnique
+    let reads = 0
+    const read = vi.spyOn(fakeDb.car, 'findUnique').mockImplementation(async (args: any) => {
+      const result = await originalRead(args)
+      if (++reads === 1) {
+        store.cars.get('toyota-corolla')!.seats = '8 seats'
+        store.cars.get('toyota-corolla')!.isPublished = false
+      }
+      return result
+    })
+    try {
+      const response = await PUT(new Request('http://localhost/api/cars/toyota-corolla', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: 'Renamed' }) }), { params: Promise.resolve({ slug: 'toyota-corolla' }) })
+      expect(response.status).toBe(200)
+      expect(store.cars.get('toyota-corolla')).toMatchObject({ title: 'Renamed', seats: '8 seats', isPublished: false })
+    } finally { read.mockRestore() }
+  })
+
+  it('rejects capacity edits invalidating configured tiers, even disabled ones', async () => {
+    seedCar('toyota-corolla', '4 seats')
+    seedPrice('route-aaaa-bbbb', 'toyota-corolla', { isActive: false })
+    const response = await PUT(new Request('http://localhost/api/cars/toyota-corolla', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ seats: '2 seats' }) }), { params: Promise.resolve({ slug: 'toyota-corolla' }) })
+    expect(response.status).toBe(400)
+    expect(store.cars.get('toyota-corolla')!.seats).toBe('4 seats')
+  })
   it('snapshots the directional route, canonical names, and exact server-resolved quote', async () => {
     seedCar('toyota-corolla', '4 seats')
     seedLocation('cairo-airport', 'Cairo International Airport')
@@ -799,7 +936,7 @@ describe('carRequest transfer snapshot (Stage 8)', () => {
     expect(row.quotedCents).toBe(2500)
     expect(row.quoteBasis).toBe('multiplier')
     expect(row.quoteRoundTripCents).toBeNull()
-    expect(created.quote).toEqual({
+    expect(created.quote).toMatchObject({
       currency: 'USD',
       cents: 2500,
       basis: 'multiplier',
@@ -1075,7 +1212,7 @@ describe('rent-car catalog CRUD integrity (Stage 8)', () => {
     const route = await createCarRoute({ originSlug: 'cairo-airport', destinationSlug: 'giza-hotels' })
     await createCarRoutePrice({ routeId: route.id, carSlug: 'toyota-corolla', currency: 'USD', oneWay: '25.00', roundTripMode: 'AUTOMATIC', isActive: true })
     await expect(createCarRoutePrice({ routeId: route.id, carSlug: 'toyota-corolla', currency: 'USD', oneWay: '30.00', roundTripMode: 'AUTOMATIC', isActive: true }))
-      .rejects.toThrow('A price for this vehicle and route already exists.')
+      .rejects.toThrow('overlapping passenger tier')
     await expect(createCarRoutePrice({ routeId: route.id, carSlug: 'ghost-van', currency: 'USD', oneWay: '30.00', roundTripMode: 'AUTOMATIC', isActive: true }))
       .rejects.toThrow('Choose the fleet vehicle for this price.')
   })
@@ -1136,12 +1273,11 @@ describe('public quote endpoints resolve routes from location slugs (Stage 8)', 
     }
   })
 
-  it('throws a friendly error when no directional route exists for the slug pair', async () => {
+  it('returns Price on Request when no directional route exists for a valid slug pair', async () => {
     seedCar('toyota-corolla', '4 seats')
     seedLocation('cairo-airport', 'Cairo International Airport')
     seedLocation('giza-hotels', 'Giza Hotels')
-    await expect(resolveCarRouteQuote(quotePayload()))
-      .rejects.toThrow('Choose a route to price.')
+    await expect(resolveCarRouteQuote(quotePayload())).resolves.toMatchObject({ kind: 'price_on_request', reason: 'route_unavailable' })
   })
 
   it('returns price_on_request when the matched route is unpriced for the vehicle', async () => {

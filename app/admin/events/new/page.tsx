@@ -11,6 +11,7 @@ import { useAdminLocale } from '@/components/admin/admin-locale'
 import { slugify } from '@/lib/admin-store'
 import { invalidateEventsCarsCache, useDbEvents, normalizeEventRow } from '@/lib/events-cars-client'
 import { sanitizeEvent } from '@/lib/events'
+import { CURRENCY_OPTIONS, normalizeCurrency } from '@/lib/currency'
 import { ImageField } from '@/components/admin/image-field'
 import { SharedSelect } from '@/components/shared-select'
 import { events } from '@/data/content'
@@ -101,7 +102,8 @@ function EventForm({ initial, editSlug }: { initial: Event | null; editSlug: str
   const [mapQuery, setMapQuery] = useState(initial?.mapQuery ?? '')
   const [pricingType, setPricingType] = useState<'free' | 'paid' | 'request'>(initial?.pricingType ?? 'request')
   const [price, setPrice] = useState(initial?.price != null ? String(initial.price) : '')
-  const [currency, setCurrency] = useState(initial?.currency ?? 'USD')
+  const [currency, setCurrency] = useState(initial ? normalizeCurrency(initial.currency) ?? '' : 'USD')
+  const [currencyChanged, setCurrencyChanged] = useState(false)
   const [capacity, setCapacity] = useState(initial?.capacity != null ? String(initial.capacity) : '')
   const [bookingDeadline, setBookingDeadline] = useState(initial?.bookingDeadline ?? '')
   const [image, setImage] = useState(initial?.image ?? '')
@@ -175,7 +177,7 @@ function EventForm({ initial, editSlug }: { initial: Event | null; editSlug: str
       category: category.trim() || undefined, categoryAr: categoryAr.trim() || undefined,
       featured: featured || undefined, intro: intro.trim() || undefined, introAr: introAr.trim() || undefined,
       pricingType, price: pricingType === 'paid' && price.trim() ? Number(price) : undefined,
-      currency: currency.trim().toUpperCase() || undefined,
+      currency: normalizeCurrency(currency) ?? undefined,
       capacity: capacity.trim() ? Number(capacity) : undefined,
       bookingDeadline: bookingDeadline.trim() || undefined,
       organizerNameAr: initial?.organizerNameAr,
@@ -211,6 +213,7 @@ function EventForm({ initial, editSlug }: { initial: Event | null; editSlug: str
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...clean,
+          currency: editing && !currencyChanged ? undefined : normalizeCurrency(currency),
           translations: savedTranslations,
           slug: finalSlug,
           content: {
@@ -335,7 +338,7 @@ function EventForm({ initial, editSlug }: { initial: Event | null; editSlug: str
       <div className="sp-form">
         <div className="sp-form-2">
           <label><AdminText en="Pricing type" ar="نوع السعر" /><SharedSelect value={pricingType} onChange={(next) => setPricingType(next as typeof pricingType)} locale={ar ? 'ar' : 'en'} options={[{ value: 'request', label: ar ? 'السعر عند الطلب' : 'Request price' }, { value: 'free', label: ar ? 'مجاني' : 'Free' }, { value: 'paid', label: ar ? 'مدفوع' : 'Paid' }]} /></label>
-          <label><AdminText en="Currency" ar="العملة" /><input value={currency} onChange={(e) => setCurrency(e.target.value)} dir="ltr" placeholder="USD" maxLength={8} /></label>
+          <label><AdminText en="Currency" ar="العملة" /><SharedSelect value={currency} onChange={(next) => { if (next !== '' && !normalizeCurrency(next)) return; setCurrency(next); setCurrencyChanged(true) }} locale={ar ? 'ar' : 'en'} label={ar ? 'العملة' : 'Currency'} guidance={initial?.currency && !normalizeCurrency(initial.currency) && !currencyChanged ? `${initial.currency} (${ar ? 'العملة الحالية محفوظة ما لم تغيرها' : 'existing currency preserved unless changed'})` : undefined} options={[{ value: '', label: ar ? 'غير محددة' : 'Unspecified' }, ...CURRENCY_OPTIONS]} /></label>
         </div>
         <div className="sp-form-2">
           <label><AdminText en="Price (paid only)" ar="السعر (للمدفوع فقط)" /><input type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} disabled={pricingType !== 'paid'} /></label>

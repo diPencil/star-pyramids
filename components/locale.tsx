@@ -14,7 +14,8 @@ import {
 import { ensureStorefrontSettings, getDbCurrency, getDbLocalization } from '@/lib/storefront-settings'
 
 export type { Locale }
-export type Currency = 'USD' | 'EUR' | 'EGP'
+export type { Currency } from '@/lib/currency'
+import { isCurrency, formatCurrency, type Currency } from '@/lib/currency'
 
 /**
  * Canonical localized-text picker (EN/ES/IT public + preserved AR).
@@ -30,7 +31,8 @@ export function tx(locale: Locale, v: LText): string {
   return pickLocaleText(locale, v)
 }
 
-const defaultRates: Record<Currency, number> = { USD: 1, EUR: 0.92, EGP: 48 }
+// Zero means no configured rate; never invent a conversion.
+const defaultRates: Record<Currency, number> = { USD: 1, EUR: 0, EGP: 0 }
 
 export type CurrencySettings = {
   eur: number
@@ -51,8 +53,8 @@ export function readCurrencySettings(): CurrencySettings {
   // built-in defaults render until it arrives. No localStorage mirror.
   const db = getDbCurrency()
   return {
-    eur: db?.eur && db.eur > 0 ? db.eur : defaultRates.EUR,
-    egp: db?.egp && db.egp > 0 ? db.egp : defaultRates.EGP,
+    eur: db?.eur && Number.isFinite(db.eur) && db.eur > 0 ? db.eur : defaultRates.EUR,
+    egp: db?.egp && Number.isFinite(db.egp) && db.egp > 0 ? db.egp : defaultRates.EGP,
     defaultCurrency: db?.defaultCurrency ?? 'USD',
     updatedAt: '',
   }
@@ -150,7 +152,7 @@ export function LocaleProvider({ children, initialLocale }: { children: ReactNod
         : sanitizeLocale(readLocalizationSettings().defaultLanguage)
       if (savedLocale) document.cookie = localePreferenceCookie(initialLocale, window.location.protocol === 'https:')
       const savedCurrency = readBrowserPreference('star-currency')
-      const initialCurrency = savedCurrency === 'USD' || savedCurrency === 'EUR' || savedCurrency === 'EGP'
+      const initialCurrency = isCurrency(savedCurrency)
         ? savedCurrency
         : readCurrencySettings().defaultCurrency
       startTransition(() => {
@@ -201,6 +203,7 @@ export function LocaleProvider({ children, initialLocale }: { children: ReactNod
     setLocaleState(next)
   }, [])
   const setCurrency = useCallback((next: Currency) => {
+    if (!isCurrency(next)) return
     try { window.localStorage.setItem('star-currency', next) } catch { /* Keep the choice for this page when storage is unavailable. */ }
     setCurrencyState(next)
   }, [])
@@ -210,11 +213,8 @@ export function LocaleProvider({ children, initialLocale }: { children: ReactNod
 export const useLocale = () => useContext(LocaleCtx)
 
 export function formatPrice(usd: number, currency: Currency, locale: Locale) {
-  const value = usd * getCurrencyRates()[currency]
-  const intlLocale = locale === 'ar' ? 'ar-EG' : locale === 'es' ? 'es-ES' : locale === 'it' ? 'it-IT' : 'en-US'
-  return new Intl.NumberFormat(intlLocale, {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: currency === 'EGP' ? 0 : 2,
-  }).format(value)
+  const rate = getCurrencyRates()[currency]
+  if (!Number.isFinite(rate) || rate <= 0) return formatCurrency(usd, 'USD', locale)
+  const value = usd * rate
+  return formatCurrency(value, currency, locale, { minimumFractionDigits: currency === 'EGP' ? 0 : 2, maximumFractionDigits: currency === 'EGP' ? 0 : 2 })
 }

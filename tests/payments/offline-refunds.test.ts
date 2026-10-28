@@ -26,7 +26,7 @@ const shared = vi.hoisted(() => {
         )
         if (!row) return null
         const full = structuredClone(row)
-        full.booking = { reference: 'SP-BK-TEST01', user: null }
+        full.booking = { ...store.bookings.get(full.bookingId), reference: 'SP-BK-TEST01', user: null }
         full.events = (full.events ?? []).map((e: any) => ({ createdAt: new Date(), ...e }))
         return full
       },
@@ -44,10 +44,12 @@ const shared = vi.hoisted(() => {
       },
     },
     paymentEvent: {
-      findFirst: async (args: { where: { paymentId: string; action: { in: string[] }; note: string } }) => {
+      findFirst: async (args: { where: { paymentId: string; action: { in: string[] }; OR: Array<Record<string, unknown>> } }) => {
         const payment = store.payments.get(args.where.paymentId)
         const event = payment?.events?.find((entry: any) =>
-          args.where.action.in.includes(entry.action) && entry.note === args.where.note,
+          args.where.action.in.includes(entry.action) && args.where.OR.some((identity) =>
+            Object.entries(identity).every(([key, value]) => value == null ? entry[key] == null : entry[key] === value),
+          ),
         )
         return event ? { id: event.id } : null
       },
@@ -63,11 +65,11 @@ const shared = vi.hoisted(() => {
           const sql = strings.join('?')
           if (sql.includes('FROM payments')) {
             const row = [...store.payments.values()].find((p) => p.reference === values[0])
-            return row ? [{ id: row.id, status: row.status, bookingId: row.bookingId, amountPaid: row.amountPaid, amountRefunded: row.amountRefunded }] : []
+            return row ? [{ id: row.id, status: row.status, bookingId: row.bookingId, currency: row.currency, amountPaid: row.amountPaid, amountRefunded: row.amountRefunded }] : []
           }
           if (sql.includes('FROM bookings')) {
             const booking = store.bookings.get(values[0])
-            return booking ? [{ status: booking.status }] : []
+            return booking ? [{ id: booking.id, status: booking.status, currency: booking.currency }] : []
           }
           return []
         },
@@ -153,7 +155,7 @@ function seedPaidPayment(overrides: Record<string, any> = {}) {
     ...overrides,
   }
   shared.store.payments.set(row.id, row)
-  shared.store.bookings.set('bk-1', { id: 'bk-1', status: 'CONFIRMED' })
+  shared.store.bookings.set('bk-1', { id: 'bk-1', status: 'CONFIRMED', currency: 'USD' })
   return row
 }
 
@@ -284,7 +286,7 @@ describe('recordOfflineRefund', () => {
 
   it('allows refunds on cancelled bookings (money was captured)', async () => {
     seedPaidPayment()
-    shared.store.bookings.set('bk-1', { id: 'bk-1', status: 'CANCELLED' })
+    shared.store.bookings.set('bk-1', { id: 'bk-1', status: 'CANCELLED', currency: 'USD' })
     const result = await recordOfflineRefund(refund())
     expect(result.created).toBe(true)
     expect(result.payment.status).toBe('refunded')

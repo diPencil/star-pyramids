@@ -105,7 +105,7 @@ describe('social video URL validation', () => {
 describe('video source resolution (safe playback)', () => {
   it('plays uploaded and legacy local files direct, never as embeds', () => {
     expect(resolveGalleryVideoSource('/gallery-videos/2026/10/abcdef0123456789abcdef0123456789.mp4', 'direct')?.kind).toBe('direct');
-    expect(resolveGalleryVideoSource('/media/2026/10/abcdef0123456789abcdef0123456789.jpg', null)?.kind).toBe('direct');
+    expect(resolveGalleryVideoSource('/media/2026/10/abcdef0123456789abcdef0123456789.jpg', null)).toBeNull();
   });
 
   it('rejects traversal and inline markup in local paths', () => {
@@ -270,7 +270,7 @@ describe('preserved animation and carousel behavior (source guards)', () => {
   it('keeps two independently animated marquee rows with original directions and speeds', () => {
     expect(homepage).toMatch(/className="gal-marquee"/);
     expect(homepage).toMatch(/gal-track/);
-    expect(homepage).toMatch(/gal-track rev/);
+    expect(homepage).toMatch(/video\?' rev'/);
     expect(css).toMatch(/\.gal-track\{[^}]*animation:hlScroll 46s linear infinite\}/);
     expect(css).toMatch(/\.gal-track\.rev\{[^}]*animation:hlScrollRev 52s linear infinite\}/);
     expect(css).toMatch(/@keyframes hlScroll\{to\{transform:translateX\(-50%\)\}\}/);
@@ -280,7 +280,7 @@ describe('preserved animation and carousel behavior (source guards)', () => {
 
   it('pauses the video row while playback is active and never autoplays sound', () => {
     expect(homepage).toMatch(/is-paused/);
-    expect(homepage).toMatch(/role="dialog" aria-modal="true" aria-label=\{'Play video: '/);
+    expect(read('components/gallery-lightbox.tsx')).toMatch(/role="dialog" aria-modal="true"/);
     expect(homepage).not.toMatch(/autoPlay/);
   });
 
@@ -300,7 +300,7 @@ describe('fully dynamic content — no placeholders (source guards)', () => {
     // No hardcoded photo array anywhere in the storefront component.
     expect(homepage).not.toMatch(/const galItems=\[/);
     expect(homepage).not.toMatch(/galItems\.filter/);
-    expect(homepage).toMatch(/dbPhotos\.map/);
+    expect(homepage).toMatch(/row\(dbPhotos,false\)/);
     expect(homepage).toMatch(/useHomepageGallery/);
   });
 

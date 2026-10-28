@@ -1,6 +1,7 @@
 'use client'
 
 import type { Event } from '@/data/types'
+import { formatCurrency, normalizeCurrency } from '@/lib/currency'
 import { localeFromAr, pickLocaleText, type Locale } from '@/lib/locale-config'
 
 const SLUG_PATTERN = /^[a-z0-9-]{1,80}$/
@@ -134,7 +135,7 @@ export function sanitizeEvent(value: unknown): Event | null {
     introAr: text(raw.introAr, 2000),
     pricingType,
     price,
-    currency: text(raw.currency, 8)?.toUpperCase(),
+    currency: normalizeCurrency(raw.currency) ?? text(raw.currency, 8),
     capacity,
     bookingDeadline: isoDate(raw.bookingDeadline),
     organizerName: text(raw.organizerName, 140),
@@ -293,17 +294,14 @@ export function eventMapQuery(event: Pick<Event, 'mapQuery' | 'venueName' | 'cit
   return `${firstCity || event.location} Egypt`
 }
 
-export function eventPriceLabel(event: Pick<Event, 'pricingType' | 'price' | 'currency'>, ar: boolean): string {
-  if (event.pricingType === 'free') return ar ? 'مجاني' : 'Free'
+export function eventPriceLabel(event: Pick<Event, 'pricingType' | 'price' | 'currency'>, ar: boolean | Locale): string {
+  const locale = localeFromAr(ar)
+  if (event.pricingType === 'free') return pickLocaleText(locale, { en: 'Free', es: 'Gratis', it: 'Gratuito', ar: 'مجاني' })
   if (event.pricingType === 'paid' && typeof event.price === 'number') {
-    const cur = event.currency || 'USD'
-    try {
-      return `${ar ? 'من' : 'From'} ${new Intl.NumberFormat(ar ? 'ar-EG' : 'en-US', { style: 'currency', currency: cur, maximumFractionDigits: 0 }).format(event.price)}`
-    } catch {
-      return `${ar ? 'من' : 'From'} ${event.price} ${cur}`
-    }
+    const from = pickLocaleText(locale, { en: 'From', es: 'Desde', it: 'Da', ar: 'من' })
+    return `${from} ${formatCurrency(event.price, normalizeCurrency(event.currency) ?? event.currency, locale)}`
   }
-  return ar ? 'السعر عند الطلب' : 'Request price'
+  return pickLocaleText(locale, { en: 'Request price', es: 'Precio a consultar', it: 'Prezzo su richiesta', ar: 'السعر عند الطلب' })
 }
 
 export function eventStatusLabel(status: EventStatus, ar: boolean | Locale): string | null {

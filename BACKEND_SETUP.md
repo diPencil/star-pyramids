@@ -177,9 +177,22 @@ URLs are no longer produced by any upload flow.
 - **Upload**: `POST /api/media` (authenticated, same-origin, per-scope
   permissions, 120 uploads/hour per user) and `POST /api/avatar`
   (multipart, sets the caller's own avatar).
+- **Multipart limits**: `/api/media` and `/api/admin/website-cms/hero-media`
+  bound incoming bytes before parsing multipart data, including uploads with
+  missing or incorrect `Content-Length`. Existing file limits still apply;
+  the request ceiling includes 64 KiB for multipart fields and boundaries.
 - **Scope permissions**: `avatar` = any signed-in user; `brand` =
   `settings.edit`; `catalogue` = any tours/cars/destinations/offers/blogs/
   events/categories create-or-edit grant.
+
+### Destination publication reads
+
+`GET /api/destinations` and `GET /api/destinations/[slug]` expose only
+published destinations. Explicit `?admin=1` reads include unpublished rows
+and require `destinations.view` or `destinations.edit`; responses are private
+and non-cacheable. Editor lists use a separate browser cache from public
+catalogue reads. Catalogue invalidation discards responses from older requests
+so a delayed response cannot restore previously visible records after a save.
 
 ### Hosting requirements (important)
 

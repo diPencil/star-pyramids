@@ -1,19 +1,19 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowDown, ArrowUp, Eye, EyeOff, Film, Images, Pencil, Plus, Trash2 } from 'lucide-react'
-import { PageHead } from '@/components/admin/admin-shell'
-import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableTools, AdminTableWrap, AdminText, Card } from '@/components/admin/admin-ui'
+import { GalleryPageHead as PageHead, GalleryText as AdminText, galleryText, useGalleryLocale } from '@/components/admin/gallery-text'
+import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableTools, AdminTableWrap, Card } from '@/components/admin/admin-ui'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
-import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
 import { SharedSelect } from '@/components/shared-select'
 import { invalidateJourneyGalleryCache } from '@/lib/journey-gallery-client'
 import { toast } from '@/components/admin/admin-toaster'
 import {
   galleryPlatformLabel,
+  sortGalleryItems,
   type GalleryItem,
 } from '@/lib/journey-gallery'
 
@@ -45,7 +45,8 @@ function itemSubtitle(item: GalleryItem): string {
 }
 
 export default function JourneyGalleryPage() {
-  const ar = useAdminLocale() === 'ar'
+  const locale = useGalleryLocale(), ar = false
+  const t = (value: string) => galleryText(value, locale)
   const [items, setItems] = useState<GalleryItem[] | null>(null)
   const [loadError, setLoadError] = useState('')
   const [migrationPending, setMigrationPending] = useState(false)
@@ -55,6 +56,7 @@ export default function JourneyGalleryPage() {
   const [target, setTarget] = useState('all')
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [actionBusy, setActionBusy] = useState('')
+  const mutationLock = useRef(false)
 
   const load = async () => {
     setLoadError('')
@@ -62,9 +64,9 @@ export default function JourneyGalleryPage() {
     try {
       const res = await fetch('/api/journey-gallery?admin=1', { credentials: 'same-origin' })
       const data = (await res.json().catch(() => null)) as { items?: unknown; error?: unknown } | null
-      if (res.status === 401 || res.status === 403) throw new Error(ar ? 'غير مصرح لك بإدارة المعرض.' : 'You are not allowed to manage the gallery.')
-      if (res.status === 503) { setMigrationPending(true); setItems([]); return }
-      if (!res.ok || !Array.isArray(data?.items)) throw new Error(typeof data?.error === 'string' ? data.error : (ar ? 'تعذر تحميل المعرض.' : 'Could not load the gallery.'))
+      if (res.status === 401 || res.status === 403) throw new Error(t("You are not allowed to manage the gallery."))
+      if (res.status === 503) throw new Error(t('Gallery management is unavailable'))
+      if (!res.ok || !Array.isArray(data?.items)) throw new Error(typeof data?.error === 'string' ? data.error : (t("Could not load the gallery.")))
       setItems(data.items as GalleryItem[])
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Could not load the gallery.')
@@ -76,21 +78,23 @@ export default function JourneyGalleryPage() {
   const refresh = async () => { invalidateJourneyGalleryCache(); await load() }
 
   const mutate = async (fn: () => Promise<void>, busyKey: string) => {
+    if (mutationLock.current) return
+    mutationLock.current = true
     setActionBusy(busyKey)
     try { await fn(); await refresh() }
     catch (err) {
       toast.error(err instanceof Error ? err.message : 'Action failed.', { dedupeKey: `${busyKey}-error` })
     }
-    finally { setActionBusy('') }
+    finally { mutationLock.current = false; setActionBusy('') }
   }
 
   const setPublished = (item: GalleryItem, published: boolean) =>
     mutate(async () => {
       const res = await fetch(`/api/journey-gallery/${encodeURIComponent(item.id)}`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ ...payloadOf(item), isPublished: published }),
+        body: JSON.stringify({ isPublished: published }),
       })
       const data = (await res.json().catch(() => null)) as { error?: unknown } | null
       if (!res.ok) throw new Error(typeof data?.error === 'string' ? data.error : 'Failed to update visibility.')
@@ -107,12 +111,12 @@ export default function JourneyGalleryPage() {
       const res = await fetch(`/api/journey-gallery/${encodeURIComponent(id)}`, { method: 'DELETE', credentials: 'same-origin' })
       const data = (await res.json().catch(() => null)) as { error?: unknown } | null
       if (!res.ok) throw new Error(typeof data?.error === 'string' ? data.error : 'Failed to delete item.')
-      toast.success(ar ? 'تم حذف عنصر المعرض.' : 'Gallery item deleted.', { dedupeKey: `gallery-delete-${id}` })
+      toast.success(t("Gallery item deleted."), { dedupeKey: `gallery-delete-${id}` })
     }, `delete-${id}`)
 
   const liveItems = items ?? []
   // Canonical display order shared by the storefronts.
-  const orderedAll = useMemo(() => [...liveItems].sort((a, b) => a.sortOrder - b.sortOrder), [liveItems])
+  const orderedAll = useMemo(() => sortGalleryItems(liveItems), [liveItems])
 
   const rows = useMemo(() => liveItems
     .filter((item) => typeFilter === 'all' || (typeFilter === 'photo' ? item.mediaType === 'IMAGE' : item.mediaType === 'VIDEO'))
@@ -171,10 +175,10 @@ export default function JourneyGalleryPage() {
     {migrationPending ? <Card title={<AdminText en="Database tables pending" ar="جداول قاعدة البيانات معلقة" />} sub={<AdminText en="The additive journey-gallery migration has not been applied yet." ar="لم يتم تطبيق ترحيل معرض الرحلات بعد." />}>
       <AdminEmpty title={<AdminText en="Gallery management is unavailable" ar="إدارة المعرض غير متاحة" />} copy={<AdminText en="Apply prisma/migrations/20261013000000_journey_gallery/migration.sql with explicit authorization. The website keeps showing its existing gallery content meanwhile." ar="طبّق الترحيل بتصريح صريح. ويستمر الموقع في عرض محتوى المعرض الحالي." />} />
     </Card> : <Card title={<AdminText en="All gallery items" ar="كل عناصر المعرض" />} sub={<AdminText en={`${rows.length} of ${liveItems.length} shown`} ar={`عرض ${rows.length} من ${liveItems.length}`} />}>
-      <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث في المعرض...' : 'Search the gallery...'}>
-        <SharedSelect value={typeFilter} onChange={setTypeFilter} locale={ar ? 'ar' : 'en'} label={ar ? 'النوع' : 'Type'} options={[{ value: 'all', label: ar ? 'كل الأنواع' : 'All types' }, { value: 'photo', label: ar ? 'صور' : 'Photos' }, { value: 'video', label: ar ? 'فيديوهات' : 'Videos' }]} />
-        <SharedSelect value={visibility} onChange={(next) => setVisibility(next as typeof visibility)} locale={ar ? 'ar' : 'en'} label={ar ? 'الظهور' : 'Visibility'} options={[{ value: 'all', label: ar ? 'الكل' : 'All' }, { value: 'published', label: ar ? 'المنشورة' : 'Published' }, { value: 'hidden', label: ar ? 'المخفية' : 'Hidden' }]} />
-        <SharedSelect value={target} onChange={setTarget} locale={ar ? 'ar' : 'en'} label={ar ? 'مكان العرض' : 'Placement'} options={[{ value: 'all', label: ar ? 'كل الأماكن' : 'All placements' }, { value: 'homepage', label: ar ? 'الرئيسية' : 'Homepage' }, { value: 'tours', label: ar ? 'صفحات الرحلات' : 'Tour pages' }]} />
+      <AdminTableTools query={query} onQueryChange={setQuery} placeholder={t("Search the gallery...")}>
+        <SharedSelect value={typeFilter} onChange={setTypeFilter} locale={locale} label={t("Type")} options={[{ value: 'all', label: t("All types") }, { value: 'photo', label: t("Photos") }, { value: 'video', label: t("Videos") }]} />
+        <SharedSelect value={visibility} onChange={(next) => setVisibility(next as typeof visibility)} locale={locale} label={t("Visibility")} options={[{ value: 'all', label: t("All") }, { value: 'published', label: t("Published") }, { value: 'hidden', label: t("Hidden") }]} />
+        <SharedSelect value={target} onChange={setTarget} locale={locale} label={t("Placement")} options={[{ value: 'all', label: t("All placements") }, { value: 'homepage', label: t("Homepage") }, { value: 'tours', label: t("Tour pages") }]} />
       </AdminTableTools>
       {items === null && !loadError ? <AdminEmpty title={<AdminText en="Loading gallery…" ar="جارٍ تحميل المعرض…" />} copy={<AdminText en="Reading the authoritative gallery." ar="تتم قراءة المعرض المعتمد." />} />
       : loadError ? <><AdminEmpty title={<AdminText en="Could not load the gallery" ar="تعذر تحميل المعرض" />} copy={<AdminText en={loadError} ar={loadError} />} /><div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}><button type="button" className="sp-btn" onClick={() => void load()}><AdminText en="Retry" ar="إعادة المحاولة" /></button></div></>
@@ -193,15 +197,15 @@ export default function JourneyGalleryPage() {
               // eslint-disable-next-line @next/next/no-img-element
               : item.thumbnail ? <img src={item.thumbnail} alt="" loading="lazy" className="sp-record-thumb" /> : <span className="sp-record-thumb" style={{ display: 'inline-grid', placeItems: 'center', background: '#122a5f', color: '#fff' }}><Film size={18} /></span>}</td>
             <td><strong>{item.title}</strong><br /><small style={{ color: 'var(--sp-muted)' }}>{itemSubtitle(item)}</small></td>
-            <td>{item.mediaType === 'IMAGE' ? (ar ? 'صورة' : 'Photo') : (ar ? 'فيديو' : 'Video')}</td>
-            <td><small style={{ color: 'var(--sp-muted)' }}>{[item.showOnHomepage ? (ar ? 'الرئيسية' : 'Homepage') : null, item.showOnTours ? (item.tourScope === 'ALL_TOURS' ? (ar ? 'كل الرحلات' : 'All tours') : (ar ? `${item.tourSlugs.length} رحلات` : `${item.tourSlugs.length} tours`)) : null].filter(Boolean).join(' · ') || '-'}</small></td>
+            <td>{item.mediaType === 'IMAGE' ? (t("Photo")) : (t("Video"))}</td>
+            <td><small style={{ color: 'var(--sp-muted)' }}>{[item.showOnHomepage ? (t("Homepage")) : null, item.showOnTours ? (item.tourScope === 'ALL_TOURS' ? (t("All tours")) : (ar ? `${item.tourSlugs.length} رحلات` : `${item.tourSlugs.length} tours`)) : null].filter(Boolean).join(' · ') || '-'}</small></td>
             <td>{item.sortOrder}</td>
-            <td><span className={`sp-status is-${hidden ? 'cancelled' : 'confirmed'}`}>{hidden ? (ar ? 'مخفية' : 'Hidden') : (ar ? 'منشورة' : 'Published')}</span></td>
+            <td><span className={`sp-status is-${hidden ? 'cancelled' : 'confirmed'}`}>{hidden ? (t("Hidden")) : (t("Published"))}</span></td>
             <td><AdminTableActions>
-              <AdminIconAction icon={ArrowUp} label={ar ? 'تحريك لأعلى' : 'Move up'} onClick={() => void moveItem(item.id, -1)} disabled={!canMoveUp} />
-              <AdminIconAction icon={ArrowDown} label={ar ? 'تحريك لأسفل' : 'Move down'} onClick={() => void moveItem(item.id, 1)} disabled={!canMoveDown} />
+              <AdminIconAction icon={ArrowUp} label={t("Move up")} onClick={() => void moveItem(item.id, -1)} disabled={!canMoveUp} />
+              <AdminIconAction icon={ArrowDown} label={t("Move down")} onClick={() => void moveItem(item.id, 1)} disabled={!canMoveDown} />
               <AdminIconAction icon={Pencil} label={ar ? `تعديل ${item.title}` : `Edit ${item.title}`} href={`/admin/gallery/new?id=${encodeURIComponent(item.id)}`} />
-              <button type="button" className="sp-icon-btn" onClick={() => void setPublished(item, hidden)} disabled={actionBusy !== ''} aria-label={hidden ? (ar ? `نشر ${item.title}` : `Publish ${item.title}`) : (ar ? `إخفاء ${item.title}` : `Hide ${item.title}`)} title={hidden ? (ar ? 'نشر' : 'Publish') : (ar ? 'إخفاء' : 'Hide')}>{hidden ? <Eye size={18} /> : <EyeOff size={18} />}</button>
+              <button type="button" className="sp-icon-btn" onClick={() => void setPublished(item, hidden)} disabled={actionBusy !== ''} aria-label={hidden ? (ar ? `نشر ${item.title}` : `Publish ${item.title}`) : (ar ? `إخفاء ${item.title}` : `Hide ${item.title}`)} title={hidden ? (t("Publish")) : (t("Hide"))}>{hidden ? <Eye size={18} /> : <EyeOff size={18} />}</button>
               <AdminIconAction icon={Trash2} label={ar ? `حذف ${item.title}` : `Delete ${item.title}`} tone="danger" onClick={() => setDeleteId(item.id)} />
             </AdminTableActions></td>
           </tr>

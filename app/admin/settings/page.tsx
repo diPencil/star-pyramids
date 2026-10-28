@@ -1,4 +1,5 @@
 'use client'
+import { CURRENCY_OPTIONS, formatCurrency, type Currency } from '@/lib/currency'
 
 import { ReviewIntegrationsSettings } from '@/components/admin/review-integrations'
 import { WebsiteAppearance } from '@/components/admin/website-appearance'
@@ -50,7 +51,7 @@ function secretConfigured(snapshot: SettingsSnapshot | null, key: string): boole
 
 async function patchSettings(
   values: Record<string, string>,
-  rates?: { eur: string; egp: string },
+  rates?: { eur?: string; egp?: string },
 ): Promise<SettingsSnapshot> {
   const res = await fetch('/api/admin/settings', {
     method: 'PATCH',
@@ -386,9 +387,9 @@ function ContactTab({ snapshot, canWrite, onSaved }: TabShell) {
 function CurrencyTab({ snapshot, canWrite, onSaved }: TabShell) {
   const ar = useAdminLocale() === 'ar'
   const t = useTabState(snapshot, (snap) => ({
-    eur: snap?.rates.eur ?? String(defaultCurrencySettings.eur),
-    egp: snap?.rates.egp ?? String(defaultCurrencySettings.egp),
-    defaultCurrency: (val(snap, 'app.defaultCurrency', defaultCurrencySettings.defaultCurrency) as 'USD' | 'EUR' | 'EGP'),
+    eur: snap?.rates.eur ?? '',
+    egp: snap?.rates.egp ?? '',
+    defaultCurrency: (val(snap, 'app.defaultCurrency', defaultCurrencySettings.defaultCurrency) as Currency),
   }))
 
   const eurNum = Number(t.form.eur)
@@ -398,7 +399,7 @@ function CurrencyTab({ snapshot, canWrite, onSaved }: TabShell) {
   const save = async () => {
     t.setSaving(true)
     t.setError('')
-    if (!(eurNum > 0) || !(egpNum > 0)) {
+    if ((t.form.eur.trim() && (!Number.isFinite(eurNum) || eurNum <= 0)) || (t.form.egp.trim() && (!Number.isFinite(egpNum) || egpNum <= 0))) {
       t.setError(ar ? 'أدخل أسعارا أكبر من الصفر.' : 'Enter rates greater than zero.')
       t.setSaving(false)
       return
@@ -406,7 +407,7 @@ function CurrencyTab({ snapshot, canWrite, onSaved }: TabShell) {
     try {
       const next = await patchSettings(
         { 'app.defaultCurrency': t.form.defaultCurrency },
-        { eur: t.form.eur.trim(), egp: t.form.egp.trim() },
+        { ...(t.form.eur.trim() ? { eur: t.form.eur.trim() } : {}), ...(t.form.egp.trim() ? { egp: t.form.egp.trim() } : {}) },
       )
       onSaved(next)
       toast.success(ar ? 'تم الحفظ بنجاح.' : 'Saved successfully.', { dedupeKey: 'settings-save' })
@@ -423,7 +424,7 @@ function CurrencyTab({ snapshot, canWrite, onSaved }: TabShell) {
     try {
       const next = await patchSettings(
         { 'app.defaultCurrency': defaultCurrencySettings.defaultCurrency },
-        { eur: String(defaultCurrencySettings.eur), egp: String(defaultCurrencySettings.egp) },
+        undefined,
       )
       onSaved(next)
       toast.success(ar ? 'تم الحفظ بنجاح.' : 'Saved successfully.', { dedupeKey: 'settings-save' })
@@ -445,21 +446,21 @@ function CurrencyTab({ snapshot, canWrite, onSaved }: TabShell) {
         <label><AdminText en="Euro (EUR)" ar="اليورو (EUR)" /><input type="number" min="0" step="0.01" value={t.form.eur} onChange={(e) => t.setForm((f) => ({ ...f, eur: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
         <label><AdminText en="Egyptian Pound (EGP)" ar="الجنيه المصري (EGP)" /><input type="number" min="0" step="0.5" value={t.form.egp} onChange={(e) => t.setForm((f) => ({ ...f, egp: e.target.value }))} dir="ltr" disabled={!canWrite || t.saving} /></label>
       </div>
-      <label><AdminText en="Default currency" ar="العملة الافتراضية" /><SharedSelect value={t.form.defaultCurrency} onChange={(next) => t.setForm((f) => ({ ...f, defaultCurrency: next as 'USD' | 'EUR' | 'EGP' }))} locale={ar ? 'ar' : 'en'} options={[{ value: 'USD', label: 'USD' }, { value: 'EUR', label: 'EUR' }, { value: 'EGP', label: 'EGP' }]} disabled={!canWrite || t.saving} /></label>
+      <label><AdminText en="Default currency" ar="العملة الافتراضية" /><SharedSelect value={t.form.defaultCurrency} onChange={(next) => t.setForm((f) => ({ ...f, defaultCurrency: next as Currency }))} locale={ar ? 'ar' : 'en'} options={CURRENCY_OPTIONS} disabled={!canWrite || t.saving} /></label>
       <p className="sp-group-title"><AdminText en="Live preview ($120 tour)" ar="معاينة حية (رحلة بـ 120 دولارا)" /></p>
       <div className="sp-status2">
         <div><small>USD</small><b>${(previewUsd).toLocaleString('en-US')}</b></div>
-        <div><small>EUR</small><b>€{(eurNum > 0 ? previewUsd * eurNum : 0).toLocaleString('en-US')}</b></div>
+        <div><small>EUR</small><b>{Number.isFinite(eurNum) && eurNum > 0 ? formatCurrency(previewUsd * eurNum, 'EUR') : 'Not configured'}</b></div>
       </div>
       <div className="sp-status2" style={{ marginTop: 12 }}>
-        <div><small>EGP</small><b>{Math.round(egpNum > 0 ? previewUsd * egpNum : 0).toLocaleString('en-US')} £</b></div>
-        <div><small><AdminText en="SCOPE" ar="النطاق" /></small><b><AdminText en="Every website price" ar="كل أسعار الموقع" /></b></div>
+        <div><small>EGP</small><b>{Number.isFinite(egpNum) && egpNum > 0 ? formatCurrency(previewUsd * egpNum, 'EGP') : 'Not configured'}</b></div>
+        <div><small><AdminText en="SCOPE" ar="النطاق" /></small><b><AdminText en="USD tour and offer display only" ar="كل أسعار الموقع" /></b></div>
       </div>
-      <p className="sp-integration-note"><AdminText en="Rates are manual. No live FX integration exists in this phase." ar="الأسعار يدوية. لا يوجد تكامل مباشر لأسعار الصرف في هذه المرحلة." /></p>
+      <p className="sp-integration-note"><AdminText en="Rates are manual. Without a configured rate, USD prices remain displayed in USD. Native event/car prices and payment records are not converted." ar="الأسعار يدوية. لا يوجد تكامل مباشر لأسعار الصرف في هذه المرحلة." /></p>
       {!canWrite && <ReadOnlyNote />}
       <SaveFeedback error={t.error} />
       <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-        <button type="button" className="sp-btn" onClick={reset} disabled={!canWrite || t.saving}><AdminText en="Reset defaults" ar="استعادة الافتراضية" /></button>
+        <button type="button" className="sp-btn" onClick={reset} disabled={!canWrite || t.saving}><AdminText en="Reset display currency" ar="استعادة الافتراضية" /></button>
         <button type="button" className="sp-btn dark" onClick={save} disabled={!canWrite || t.saving}>{t.saving ? <AdminText en="Saving…" ar="جارٍ الحفظ…" /> : <AdminText en="Save rates" ar="حفظ الأسعار" />}</button>
       </div>
     </div>

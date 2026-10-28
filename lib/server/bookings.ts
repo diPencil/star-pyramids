@@ -432,7 +432,7 @@ type BookingRow = Prisma.BookingGetPayload<{
   include: {
     items: true;
     activities: true;
-    payments: { select: { status: true; amountPaid: true; amountRefunded: true; reference: true; createdAt: true } };
+    payments: { select: { status: true; amountPaid: true; amountRefunded: true; reference: true; createdAt: true; currency: true } };
     user: { select: { email: true; firstName: true; lastName: true } };
   };
 }>;
@@ -498,6 +498,7 @@ export function toCustomerView(row: BookingRow): Booking {
     row.paymentStatus === 'PAID' ? 'paid' : row.paymentStatus === 'REFUNDED' ? 'refunded' : 'pending';
   const summary = deriveBookingPaymentSummary(
     row.payments.map((p) => ({
+      currency: p.currency,
       status: FROM_DB_PAYMENT_STATUS[p.status],
       amountPaidCents: decimalToCents(p.amountPaid),
       amountRefundedCents: decimalToCents(p.amountRefunded),
@@ -505,6 +506,7 @@ export function toCustomerView(row: BookingRow): Booking {
       createdAt: p.createdAt,
     })),
     decimalToCents(row.total),
+    row.currency,
   );
   const paymentStatus: BookingPaymentStatus =
     summary.state === 'paid' ? 'paid' : summary.state === 'refunded' ? 'refunded' : storedPayment;
@@ -527,7 +529,7 @@ export function toCustomerView(row: BookingRow): Booking {
     subtotal: dollars(decimalToCents(row.subtotal)),
     discount: dollars(decimalToCents(row.discount)),
     total: dollars(decimalToCents(row.total)),
-    currency: 'USD',
+    currency: row.currency,
     contact: {
       name: row.contactName,
       email: row.contactEmail,
@@ -556,6 +558,7 @@ export function toStaffView(row: BookingRow): StaffBooking {
 
 const paymentSelect: Prisma.BookingInclude['payments'] = {
   select: {
+    currency: true,
     status: true,
     amountPaid: true,
     amountRefunded: true,
@@ -580,10 +583,41 @@ export async function createBookingRecord(
   userId: string | null,
   draft: ValidatedBookingDraft,
 ): Promise<{ booking: Booking; created: boolean; guestAccessUrl: string | null }> {
+  const assertReplayOwnership = (row: BookingRow) => {
+    if (row.userId !== userId) throw new Error('That submission key was already used for a different booking.');
+    // Guest keys are capabilities, not authenticated accounts. Bind their
+    // replay to the original contact and request instead of returning any
+    // guest's financial/contact snapshot for a reused global key.
+    if (userId === null) {
+      const requested = draft.lines.map((line) => JSON.stringify([
+        line.tourSlug, line.travelDate, line.adults, line.children, line.infants,
+        [...line.addons].sort(), line.adultUnitCents, line.childUnitCents,
+        line.infantUnitCents, line.addonTotalCents, line.lineTotalCents,
+      ])).sort();
+      const stored = row.items.map((line) => {
+        const addons = readJsonText(line.addons);
+        return JSON.stringify([
+          line.tourSlug, line.travelDate, line.adults, line.children, line.infants,
+          Array.isArray(addons) ? [...addons].sort() : [], decimalToCents(line.adultUnit),
+          decimalToCents(line.childUnit), decimalToCents(line.infantUnit),
+          decimalToCents(line.addonTotal), decimalToCents(line.lineTotal),
+        ]);
+      }).sort();
+      if (row.contactName !== draft.contactName || row.contactEmail !== draft.contactEmail ||
+        row.contactPhone !== draft.contactPhone || (row.notes ?? '') !== draft.notes || row.currency !== 'USD' ||
+        decimalToCents(row.total) !== draft.totalCents || decimalToCents(row.subtotal) !== draft.subtotalCents ||
+        decimalToCents(row.discount) !== draft.discountCents || JSON.stringify(stored) !== JSON.stringify(requested)) {
+        throw new Error('That submission key was already used for a different booking.');
+      }
+    }
+  };
   const existingByKey = draft.idempotencyKey
     ? await db.booking.findUnique({ where: { idempotencyKey: draft.idempotencyKey }, include: rowInclude })
     : null;
-  if (existingByKey) return { booking: toCustomerView(existingByKey), created: false, guestAccessUrl: null };
+  if (existingByKey) {
+    assertReplayOwnership(existingByKey);
+    return { booking: toCustomerView(existingByKey), created: false, guestAccessUrl: null };
+  }
 
   let lastError: unknown = null;
   for (let attempt = 0; attempt < REF_ATTEMPTS; attempt += 1) {
@@ -686,7 +720,10 @@ export async function createBookingRecord(
             where: { idempotencyKey: draft.idempotencyKey },
             include: rowInclude,
           });
-          if (winner) return { booking: toCustomerView(winner), created: false, guestAccessUrl: null };
+          if (winner) {
+            assertReplayOwnership(winner);
+            return { booking: toCustomerView(winner), created: false, guestAccessUrl: null };
+          }
         }
         lastError = error;
         continue;

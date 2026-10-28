@@ -95,6 +95,22 @@ function hostOf(url: URL): string {
   return url.hostname.toLowerCase().replace(/^www\./, '');
 }
 
+export function safeGalleryLocalPath(value: string): boolean {
+  try {
+    const decoded = decodeURIComponent(value);
+    return decoded.startsWith('/') && !decoded.startsWith('//') && !/[\\\s<>"\u0000-\u001f]/.test(decoded) && !decoded.split(/[/?#]/).includes('..');
+  } catch { return false; }
+}
+
+export function validateGalleryOrder(value: unknown): value is Array<{ id: string; sortOrder: number }> {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 500) return false;
+  const seen = new Set<string>();
+  return value.every(entry => {
+    if (!entry || typeof entry !== 'object' || typeof entry.id !== 'string' || !entry.id || entry.id.length > 64 || seen.has(entry.id) || !Number.isInteger(entry.sortOrder) || entry.sortOrder < 0 || entry.sortOrder > 999999) return false;
+    seen.add(entry.id); return true;
+  });
+}
+
 export type ParsedSocialVideo = {
   platform: Exclude<GalleryPlatform, 'direct' | 'external'>;
   /** Canonical watch URL persisted as `mediaUrl` (dedup + idempotency). */
@@ -216,7 +232,7 @@ export function resolveGalleryVideoSource(
   const trimmed = mediaUrl.trim();
   // Same-origin uploads (videos) and legacy public assets always play direct.
   if (trimmed.startsWith(VIDEO_URL_PREFIX) || trimmed.startsWith('/')) {
-    if (/[\s<>"]/.test(trimmed) || trimmed.includes('..')) return null;
+    if (!safeGalleryLocalPath(trimmed) || !/\.(mp4|webm|ogg)(?:[?#]|$)/i.test(trimmed)) return null;
     return { kind: 'direct', platform: 'direct', src: trimmed };
   }
   const social = parseSocialVideoUrl(trimmed);
@@ -310,9 +326,9 @@ function isValidThumbnail(value: string): boolean {
   const trimmed = value.trim();
   if (!trimmed) return true;
   if (trimmed.startsWith('/')) {
-    return !/[\s<>"]/.test(trimmed) && !trimmed.includes('..');
+    return safeGalleryLocalPath(trimmed) && !/\.(mp4|webm|ogg)(?:[?#]|$)/i.test(trimmed);
   }
-  return safeHttpsUrl(trimmed) !== null;
+  return safeHttpsUrl(trimmed) !== null && !/\.(mp4|webm|ogg)(?:[?#]|$)/i.test(trimmed);
 }
 
 /**
@@ -324,6 +340,11 @@ export function validateGalleryPayload(
   input: GalleryPayload,
   options?: { knownTourSlugs?: readonly string[] },
 ): { ok: true; value: NormalizedGalleryPayload } | { ok: false; error: string } {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return { ok: false, error: 'Invalid gallery item.' };
+  for (const key of ['isPublished', 'showOnHomepage', 'showOnTours'] as const) {
+    if (input[key] !== undefined && typeof input[key] !== 'boolean') return { ok: false, error: 'Visibility values must be boolean.' };
+  }
+  if (input.sortOrder !== undefined && input.sortOrder !== '' && (typeof input.sortOrder !== 'number' || !Number.isInteger(input.sortOrder) || input.sortOrder < 0 || input.sortOrder > 999999)) return { ok: false, error: 'Order must be an integer from 0 to 999999.' };
   const mediaType = input.mediaType;
   if (mediaType !== 'IMAGE' && mediaType !== 'VIDEO') {
     return { ok: false, error: 'Choose whether this item is a photo or a video.' };
@@ -339,7 +360,8 @@ export function validateGalleryPayload(
     // Images reuse the existing image pipeline (`/media/...`) or legacy
     // public assets (`/...`); remote https imagery is tolerated for
     // imported legacy content but never downloaded server-side.
-    const isLocal = rawUrl.startsWith('/') && !/[\s<>"]/.test(rawUrl) && !rawUrl.includes('..');
+    const isLocal = safeGalleryLocalPath(rawUrl);
+    if (/\.(mp4|webm|ogg)(?:[?#]|$)/i.test(rawUrl)) return { ok: false, error: 'Choose an image, not a video.' };
     if (!isLocal && safeHttpsUrl(rawUrl) === null) {
       return { ok: false, error: 'Enter a valid image path or https URL.' };
     }
@@ -354,7 +376,7 @@ export function validateGalleryPayload(
       platform = 'direct';
     } else if (rawUrl.startsWith('/')) {
       // Legacy direct files (e.g. existing public mp4 assets).
-      if (/[\s<>"]/.test(rawUrl) || rawUrl.includes('..')) {
+      if (!safeGalleryLocalPath(rawUrl) || !/\.(mp4|webm|ogg)(?:[?#]|$)/i.test(rawUrl)) {
         return { ok: false, error: 'That video path is invalid.' };
       }
       platform = 'direct';

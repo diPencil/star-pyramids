@@ -1,3 +1,4 @@
+import { isCurrency, formatCurrency } from './currency'
 import type { Currency } from '@/components/locale'
 import { localeFromAr, pickLocaleText, type Locale } from '@/lib/locale-config'
 
@@ -29,6 +30,12 @@ export const CAR_PHONE_MAX = 24
 export const CAR_PASSENGER_MAX = 50
 
 export type CarTripType = 'One Way' | 'Round Trip'
+export function carTripTypeForKey(current: CarTripType | '', key: string): CarTripType | undefined {
+  if (key === 'Home') return 'One Way'
+  if (key === 'End') return 'Round Trip'
+  if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(key)) return current === 'One Way' ? 'Round Trip' : 'One Way'
+  return undefined
+}
 
 export type CarRequestContact = {
   fullName: string
@@ -208,7 +215,7 @@ export function sanitizeCarDraft(value: unknown): CarRequestDraft | null {
   const raw = value as Partial<CarRequestDraft>
   const contact = (typeof raw.contact === 'object' && raw.contact !== null ? raw.contact : {}) as Partial<CarRequestContact>
   const tripType: CarRequestDraft['tripType'] = raw.tripType === 'One Way' || raw.tripType === 'Round Trip' ? raw.tripType : ''
-  const currency: Currency = raw.currency === 'EUR' || raw.currency === 'EGP' ? raw.currency : 'USD'
+  const currency: Currency = isCurrency(raw.currency) ? raw.currency : 'USD'
   const preferredPickupDate = typeof raw.preferredPickupDate === 'string' && (raw.preferredPickupDate === '' || isValidCarDate(raw.preferredPickupDate))
     ? raw.preferredPickupDate
     : ''
@@ -288,6 +295,7 @@ export type CarRequest = {
   returnTime?: string
   /** Authoritative quote snapshot (NULL/undefined amounts mean Price on Request). */
   quote?: {
+    pricingMetadata?: import('@/lib/car-pricing').CarPricingMetadata
     currency: string
     cents: number
     roundTripCents?: number
@@ -346,20 +354,11 @@ export function carRequestStatusLabel(status: CarRequestStatus, ar: boolean | Lo
 /**
  * Format an integer-cents amount ALREADY denominated in `currency` (route
  * quotes carry their own currency and are never converted client-side by
- * formatPrice's USD-based rates). Mirrors formatPrice's fraction behavior;
+ * formatPrice's USD-based rates). Preserve minor units for every currency;
  * unsupported codes fall back to the ISO code verbatim.
  */
 export function formatQuoteAmount(cents: number, currency: string, locale: Locale): string {
-  const intlLocale =
-    locale === 'ar' ? 'ar-EG' : locale === 'es' ? 'es-ES' : locale === 'it' ? 'it-IT' : 'en-US'
-  if (!['USD', 'EUR', 'EGP'].includes(currency)) {
-    return `${(cents / 100).toFixed(2)} ${currency}`
-  }
-  return new Intl.NumberFormat(intlLocale, {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: currency === 'EGP' ? 0 : 2,
-  }).format(cents / 100)
+  return formatCurrency(cents / 100, currency, locale)
 }
 
 /**

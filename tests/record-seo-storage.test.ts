@@ -22,7 +22,7 @@ const timestamp = new Date('2026-01-01T00:00:00.000Z')
 const seo = () => ({ ...emptyRecordSeoContent(), text: { en: { title: 'Egypt', description: 'Explore Egypt' }, es: { title: 'Egipto', description: 'Explore Egipto' }, it: { title: 'Egitto', description: 'Explore Egitto' } }, structuredData: false })
 const saved = () => transitionRecordSeo(initialRecordSeoState(), 'save-draft', seo())
 const published = () => transitionRecordSeo(saved(), 'publish')
-const row = (extra: Record<string, unknown> = {}) => ({ slug: 'egypt', title: 'Egypt', name: 'Egypt', summary: 'Summary', copy: 'Copy', image: '/egypt.png', updatedAt: timestamp, status: 'published', isPublished: true, active: true, showInDestinations: true, tourSlug: null, content: '{}', detail: '{}', ...extra })
+const row = (extra: Record<string, unknown> = {}) => ({ slug: 'egypt', title: 'Egypt', category: 'one-day-tours', destinationSlug: 'cairo', price: 125, duration: '1 day', name: 'Egypt', summary: 'Summary', copy: 'Copy', image: '/egypt.png', updatedAt: timestamp, status: 'published', isPublished: true, active: true, showInDestinations: true, tourSlug: null, content: '{}', detail: '{}', ...extra })
 const kinds: RecordSeoKind[] = ['tour', 'blog', 'destination', 'event', 'offer', 'category']
 const model = (kind: RecordSeoKind) => mocks[kind === 'category' ? 'multiDayCategory' : kind]
 const prefixes: Record<RecordSeoKind, string> = { tour: '/egypt-tours/', blog: '/blogs/', destination: '/destinations/', event: '/events/', offer: '/special-offers/', category: '/egypt-tours/multi-days-tours/' }

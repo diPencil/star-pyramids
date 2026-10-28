@@ -1,3 +1,4 @@
+import { isCurrency } from './currency'
 import { countryCode } from '@/data/countries'
 import type { Currency } from '@/components/locale'
 import { localeFromAr, pickLocaleText, type Locale } from '@/lib/locale-config'
@@ -244,7 +245,7 @@ export function sanitizeTripDraft(value: unknown): MakeYourTripRequestDraft | nu
   const raw = value as Partial<MakeYourTripRequestDraft>
   const contact = (typeof raw.contact === 'object' && raw.contact !== null ? raw.contact : {}) as Partial<TripRequestContact>
   const timeMode: TripTimeMode = raw.timeMode === 'approx' || raw.timeMode === 'unsure' ? raw.timeMode : 'exact'
-  const currency: Currency = raw.currency === 'EUR' || raw.currency === 'EGP' ? raw.currency : 'USD'
+  const currency: Currency = isCurrency(raw.currency) ? raw.currency : 'USD'
   const preferredFrom = typeof raw.preferredFrom === 'string' && (raw.preferredFrom === '' || isValidTripDate(raw.preferredFrom))
     ? raw.preferredFrom
     : ''

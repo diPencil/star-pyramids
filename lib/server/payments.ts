@@ -14,6 +14,7 @@ import { randomInt, randomUUID } from 'node:crypto';
 import { Prisma, PaymentStatus as DbStatus } from '@prisma/client';
 
 import { db } from './db';
+import { TOUR_BOOKING_CURRENCY } from '@/lib/currency';
 import {
   ACTIVE_PAYMENT_STATUSES,
   canTransitionPayment,
@@ -136,7 +137,7 @@ export function toCustomerPaymentView(row: PaymentRow): Payment {
     amount: dollars(decimalToCents(row.amount)),
     amountPaid: dollars(decimalToCents(row.amountPaid)),
     amountRefunded: dollars(decimalToCents(row.amountRefunded)),
-    currency: 'USD',
+    currency: row.currency,
     failureCode: row.failureCode,
     failureMessage: row.failureMessage,
     initiatedAt: row.initiatedAt.toISOString(),
@@ -168,9 +169,15 @@ export function toStaffPaymentView(row: PaymentRow): StaffPayment {
  * `bookingTotalCents` is the server-side booking total.
  */
 export function deriveBookingPaymentSummary(
-  payments: { status: PaymentStatus; amountPaidCents: number; amountRefundedCents: number; reference: string; createdAt: Date }[],
+  payments: { status: PaymentStatus; amountPaidCents: number; amountRefundedCents: number; reference: string; createdAt: Date; currency?: string }[],
   bookingTotalCents: number,
+  bookingCurrency: string = TOUR_BOOKING_CURRENCY,
 ): BookingPaymentSummary {
+  // Optional currency keeps existing pure-helper callers compatible. Persisted
+  // callers always supply it; an explicit mismatch must never be summed.
+  if (payments.some((p) => p.currency !== undefined && p.currency !== bookingCurrency)) {
+    throw new Error('Payment currency does not match booking currency. Financial review is required.');
+  }
   const ordered = [...payments].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   const paidTotal = payments
     .filter((p) => p.status === 'paid' || p.status === 'partially_refunded' || p.status === 'refunded')
@@ -263,45 +270,76 @@ export async function initiateCustomerPayment(
   if (booking.status !== 'PENDING' && booking.status !== 'CONFIRMED') {
     throw new Error('This booking is no longer payable.');
   }
+  if (booking.currency !== TOUR_BOOKING_CURRENCY) {
+    throw new Error('Only USD bookings can take new payments. Financial review is required.');
+  }
   const totalCents = decimalToCents(booking.total);
   if (totalCents <= 0) throw new Error('This booking has no amount due.');
 
-  if (input.idempotencyKey !== '') {
-    const existingByKey = await db.payment.findUnique({
-      where: { idempotencyKey: input.idempotencyKey },
-      include: paymentInclude,
-    });
-    if (existingByKey) return { payment: toCustomerPaymentView(existingByKey), created: false };
-  }
-
-  const active = await db.payment.findFirst({
-    where: { bookingId: booking.id, status: { in: ['PENDING', 'PROCESSING'] } },
-    orderBy: { createdAt: 'desc' },
-    include: paymentInclude,
-  });
-  if (active) return { payment: toCustomerPaymentView(active), created: false };
+  const assertReplayOwnership = (row: PaymentRow) => {
+    if (row.bookingId !== booking.id || row.booking.userId !== userId || row.booking.reference !== input.bookingReference) {
+      throw new Error('That submission key was already used for a different payment.');
+    }
+    if (row.currency !== booking.currency || row.booking.currency !== booking.currency) {
+      throw new Error('Payment currency does not match booking currency. Financial review is required.');
+    }
+  };
 
   let lastError: unknown = null;
   for (let attempt = 0; attempt < REF_ATTEMPTS; attempt += 1) {
     const reference = mintReferenceCandidate();
     try {
-      const row = await db.payment.create({
-        data: {
-          reference,
-          bookingId: booking.id,
-          provider: 'pending',
-          status: 'PENDING',
-          currency: 'USD',
-          amount: centsToDecimal(totalCents),
-          amountPaid: centsToDecimal(0),
-          amountRefunded: centsToDecimal(0),
-          idempotencyKey: input.idempotencyKey === '' ? null : input.idempotencyKey,
-          events: {
-            create: { actorRole: 'customer', action: 'Payment initiated' },
+      const result = await db.$transaction(async (tx) => {
+        const locked = await tx.$queryRaw<Array<{ id: string; userId: string | null; status: string; total: Prisma.Decimal; currency: string }>>`
+          SELECT id, userId, status, total, currency FROM bookings
+          WHERE id = ${booking.id} FOR UPDATE`;
+        const current = locked[0];
+        if (!current || current.userId !== userId) throw new Error('Booking not found.');
+        if (current.currency !== TOUR_BOOKING_CURRENCY) {
+          throw new Error('Only USD bookings can take new payments. Financial review is required.');
+        }
+        if (current.status !== 'PENDING' && current.status !== 'CONFIRMED') {
+          throw new Error('This booking is no longer payable.');
+        }
+        if (decimalToCents(current.total) <= 0) throw new Error('This booking has no amount due.');
+        // These checks share the booking lock with creation, so concurrent
+        // requests with different keys still create only one active attempt.
+        if (input.idempotencyKey !== '') {
+          const replay = await tx.payment.findUnique({ where: { idempotencyKey: input.idempotencyKey }, include: paymentInclude });
+          if (replay) {
+            assertReplayOwnership(replay);
+            return { row: replay, created: false };
+          }
+        }
+        const active = await tx.payment.findFirst({
+          where: { bookingId: current.id, status: { in: ['PENDING', 'PROCESSING'] } },
+          orderBy: { createdAt: 'desc' }, include: paymentInclude,
+        });
+        if (active) {
+          assertReplayOwnership(active);
+          return { row: active, created: false };
+        }
+        const row = await tx.payment.create({
+          data: {
+            reference,
+            bookingId: booking.id,
+            provider: 'pending',
+            status: 'PENDING',
+            currency: 'USD',
+            amount: centsToDecimal(decimalToCents(current.total)),
+            amountPaid: centsToDecimal(0),
+            amountRefunded: centsToDecimal(0),
+            idempotencyKey: input.idempotencyKey === '' ? null : input.idempotencyKey,
+            events: {
+              create: { actorRole: 'customer', action: 'Payment initiated' },
+            },
           },
-        },
-        include: paymentInclude,
+          include: paymentInclude,
+        });
+        return { row, created: true };
       });
+      const { row } = result;
+      if (!result.created) return { payment: toCustomerPaymentView(row), created: false };
       // Initiation receipt only, on first creation. Idempotent replays
       // and active-attempt dedup return early with created:false, so a
       // retried initiation never notifies twice. Copy stays truthful:
@@ -356,7 +394,10 @@ export async function initiateCustomerPayment(
             where: { idempotencyKey: input.idempotencyKey },
             include: paymentInclude,
           });
-          if (winner) return { payment: toCustomerPaymentView(winner), created: false };
+          if (winner) {
+            assertReplayOwnership(winner);
+            return { payment: toCustomerPaymentView(winner), created: false };
+          }
         }
         lastError = error;
         continue;
@@ -395,6 +436,7 @@ export interface RecordOfflinePaymentInput {
 type LockedOfflineBookingRow = {
   id: string;
   status: string;
+  currency: string;
   total: Prisma.Decimal | number | string;
 };
 
@@ -447,6 +489,7 @@ export async function recordOfflinePayment(
     throw new Error('Enter an amount with at most 2 decimals.');
   }
   const amountCents = Math.round(input.amount * 100);
+  if (!Number.isSafeInteger(amountCents) || amountCents <= 0) throw new Error('Invalid payment amounts.');
   const referenceNote =
     typeof input.referenceNote === 'string' ? input.referenceNote.trim() : '';
   if (referenceNote.length > 255 || hasControlChars(referenceNote)) {
@@ -458,7 +501,10 @@ export async function recordOfflinePayment(
 
   const replayMatches = (row: PaymentRow) =>
     row.booking.reference === bookingReference &&
+    row.currency === TOUR_BOOKING_CURRENCY &&
+    row.booking.currency === TOUR_BOOKING_CURRENCY &&
     row.provider === 'offline' &&
+    row.events.some((event) => event.action === 'Offline payment recorded' && event.note === `Offline ${OFFLINE_METHOD_LABELS[method]} receipt${referenceNote ? `: ${referenceNote}` : ''}`) &&
     decimalToCents(row.amountPaid) === amountCents;
 
   let result: { row: PaymentRow; created: boolean } | null = null;
@@ -470,10 +516,13 @@ export async function recordOfflinePayment(
         // The balance check and the PAID row now commit atomically, so
         // two different idempotency keys cannot overpay the same balance.
         const locked = await tx.$queryRaw<LockedOfflineBookingRow[]>`
-          SELECT id, status, total FROM bookings
+          SELECT id, status, total, currency FROM bookings
           WHERE reference = ${bookingReference} FOR UPDATE`;
         const booking = locked[0];
         if (!booking) return null;
+        if (booking.currency !== TOUR_BOOKING_CURRENCY) {
+          throw new Error('Only USD bookings can take new payments. Financial review is required.');
+        }
         if (booking.status !== 'PENDING' && booking.status !== 'CONFIRMED') {
           throw new Error('Only pending or confirmed bookings can take payment.');
         }
@@ -491,8 +540,11 @@ export async function recordOfflinePayment(
 
         const settled = await tx.payment.findMany({
           where: { bookingId: booking.id },
-          select: { status: true, amountPaid: true, amountRefunded: true },
+          select: { status: true, amountPaid: true, amountRefunded: true, currency: true },
         });
+        if (settled.some((payment) => payment.currency !== booking.currency)) {
+          throw new Error('Payment currency does not match booking currency. Financial review is required.');
+        }
         const isSettled = (status: string) =>
           status === 'PAID' || status === 'PARTIALLY_REFUNDED' || status === 'REFUNDED';
         const paidCents = settled
@@ -635,6 +687,7 @@ export async function recordOfflineRefund(
     throw new Error('Enter an amount with at most 2 decimals.');
   }
   const amountCents = Math.round(input.amount * 100);
+  if (!Number.isSafeInteger(amountCents) || amountCents <= 0) throw new Error('Invalid payment amounts.');
   const externalReference =
     typeof input.externalReference === 'string' ? input.externalReference.trim() : '';
   if (
@@ -658,6 +711,10 @@ export async function recordOfflineRefund(
   });
   if (!existing) throw new Error('Payment not found.');
 
+  if (existing.currency !== TOUR_BOOKING_CURRENCY || existing.booking.currency !== TOUR_BOOKING_CURRENCY) {
+    throw new Error('Offline refunds require a USD payment and booking. Financial review is required.');
+  }
+
   // Natural idempotency key, checked BEFORE balance math so a repeat
   // submission of a settled refund returns instead of tripping the
   // zero-balance guard: the same payment + amount + external reference
@@ -670,7 +727,8 @@ export async function recordOfflineRefund(
   const duplicate = existing.events.some(
     (event) =>
       (event.action === 'Payment refunded' || event.action === 'Payment partially refunded') &&
-      event.note === receiptNote,
+      ((event.amountCents === amountCents && event.method === method && event.externalReference === externalReference) ||
+        (event.amountCents == null && event.method == null && event.externalReference == null && event.note === receiptNote)),
   );
   if (duplicate) {
     return { payment: toStaffPaymentView(existing), created: false };
@@ -868,6 +926,7 @@ type LockedPaymentRow = {
   id: string;
   status: string;
   bookingId: string;
+  currency: string;
   amountPaid: Prisma.Decimal | number | string;
   amountRefunded: Prisma.Decimal | number | string;
 };
@@ -927,7 +986,7 @@ async function transitionPayment(
   const existing = await db.payment.findUnique({ where: { reference } });
   if (!existing) return null;
   const preview = FROM_DB_STATUS[existing.status];
-  if (!canTransitionPayment(preview, to)) {
+  if (options.refundDeltaCents === undefined && !canTransitionPayment(preview, to)) {
     throw new Error('This payment change is not allowed.');
   }
   const now = new Date();
@@ -938,19 +997,31 @@ async function transitionPayment(
       // Lock the payment row and re-validate on locked (current)
       // state: a concurrent transition that committed after the
       // pre-read above cannot slip through.
+      // Keep the same booking -> payment lock order as cancellation/receipts.
+      const lockedBooking = await tx.$queryRaw<{ id: string; status: string; currency: string }[]>`
+        SELECT id, status, currency FROM bookings WHERE id = ${existing.bookingId} FOR UPDATE`;
+      const booking = lockedBooking[0];
+      if (!booking) throw new Error('Booking not found.');
       const locked = await tx.$queryRaw<LockedPaymentRow[]>`
-        SELECT id, status, bookingId, amountPaid, amountRefunded
+        SELECT id, status, bookingId, currency, amountPaid, amountRefunded
         FROM payments WHERE reference = ${reference} FOR UPDATE`;
       const currentRow = locked[0];
       if (!currentRow) {
         throw new Error('Payment not found.');
+      }
+      if (currentRow.bookingId !== booking.id || currentRow.currency !== booking.currency ||
+        (options.refundDeltaCents !== undefined && booking.currency !== TOUR_BOOKING_CURRENCY)) {
+        throw new Error('Payment currency does not match booking currency. Financial review is required.');
       }
       if (options.dedupeEventNote) {
         const duplicate = await tx.paymentEvent.findFirst({
           where: {
             paymentId: currentRow.id,
             action: { in: ['Payment refunded', 'Payment partially refunded'] },
-            note: options.dedupeEventNote,
+            OR: [
+              { amountCents: options.eventAmountCents, method: options.eventMethod, externalReference: options.eventExternalReference },
+              { amountCents: null, method: null, externalReference: null, note: options.dedupeEventNote },
+            ],
           },
           select: { id: true },
         });
@@ -977,16 +1048,8 @@ async function transitionPayment(
       if (!canTransitionPayment(current, appliedTo)) {
         throw new Error('This payment change is not allowed.');
       }
-      // Paid settlement on a cancelled booking is refused: lock the
-      // booking row too (same booking→payment lock order as the
-      // cancellation path, so the two can never deadlock) and check
-      // its current committed status.
-      if (appliedTo === 'paid') {
-        const lockedBooking = await tx.$queryRaw<{ status: string }[]>`
-          SELECT status FROM bookings WHERE id = ${currentRow.bookingId} FOR UPDATE`;
-        if (lockedBooking[0] && lockedBooking[0].status === 'CANCELLED') {
-          throw new PaidOnCancelledBooking(reference);
-        }
+      if (appliedTo === 'paid' && booking.status === 'CANCELLED') {
+        throw new PaidOnCancelledBooking(reference);
       }
       const amountPaidCents = options.amountPaidCents ?? lockedPaidCents;
       const amountRefundedCents = options.refundDeltaCents !== undefined

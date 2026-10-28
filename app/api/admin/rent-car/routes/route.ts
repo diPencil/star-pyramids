@@ -1,3 +1,4 @@
+import { rentCarFailure } from '@/lib/server/rent-car-errors';
 // Staff-only route management (Phase 2). Directional identity means A→B and
 // B→A are separate rows; duplicates are rejected with a friendly conflict.
 import { NextResponse } from 'next/server';
@@ -22,11 +23,12 @@ export async function POST(request: Request) {
   const originOk = isSameOriginRequest(request);
   if (!originOk) return NextResponse.json({ error: 'Invalid request origin.' }, { status: 403 });
 
-  const data = await request.json();
   try {
+    const data = await request.json();
     const created = await createCarRoute(data);
     return NextResponse.json({ route: created }, { status: 201 });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Invalid request.' }, { status: 400 });
+    const failure = rentCarFailure(error);
+    return NextResponse.json({ error: failure.error }, { status: failure.status });
   }
 }

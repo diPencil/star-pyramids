@@ -8,6 +8,7 @@ import {
   listPublishedGallery,
   listGalleryItems,
   listTourGalleryItems,
+  listGalleryTourChoices,
 } from '@/lib/server/journey-gallery';
 
 /**
@@ -25,6 +26,14 @@ export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const tourSlug = params.get('tour')?.trim() || null;
   const adminList = params.get('admin') === '1';
+  if (params.get('tourChoices') === '1') {
+    const user = await getCurrentUser();
+    if (!user) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+    if (!['gallery.view', 'gallery.create', 'gallery.edit'].some(key => hasPermission(user, key))) return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
+    try { return NextResponse.json({ tours: await listGalleryTourChoices() }, { headers: { 'Cache-Control': 'private, no-store' } }); }
+    catch { return NextResponse.json({ error: 'Could not load tour choices.' }, { status: 503 }); }
+  }
+  if (tourSlug && tourSlug.length > 80) return NextResponse.json({ error: 'Invalid tour.' }, { status: 400 });
 
   if (adminList) {
     const user = await getCurrentUser();

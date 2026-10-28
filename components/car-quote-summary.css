@@ -1,0 +1,6 @@
+.car-quote-summary{display:grid;gap:6px;min-width:0;max-width:100%;font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+.car-quote-summary>span,.car-quote-summary>small{display:block;font-weight:500;color:var(--muted,#667085)}
+.car-quote-summary>strong{font-size:16px;line-height:1.5;white-space:normal}
+.car-quote-summary>small{font-size:12px}
+.car-quote-message{padding-block:12px;font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+.car-location-notice{margin-block:12px;font-size:13px;line-height:1.6}

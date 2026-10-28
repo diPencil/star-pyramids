@@ -1,14 +1,16 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { WEBSITE_REVIEW_SCOPE } from '@/lib/review-scope'
-import { ArrowRight, CircleAlert, CheckCircle2, XCircle, Search } from 'lucide-react'
+import { ArrowRight, CircleAlert, CheckCircle2, XCircle } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
-import { AdminEmpty, AdminIconAction, AdminTableActions, AdminTableTools, AdminTableWrap, AdminText, Avatar, Card, StatusPill } from '@/components/admin/admin-ui'
-import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
-import { useAdminLocale } from '@/components/admin/admin-locale'
-import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
+import { AdminEmpty, AdminIconAction, AdminTableActions, AdminTableTools, AdminTableWrap, Avatar, Card, } from '@/components/admin/admin-ui'
+import { SortableTh } from '@/components/admin/admin-table-sort'
+import { useLocale } from '@/components/locale'
+import { reviewText } from '@/lib/review-copy'
+import { useCurrentUser } from '@/lib/use-current-user'
+import { AdminPagination } from '@/components/admin/admin-pagination'
 import { toast } from '@/components/admin/admin-toaster'
 
 const statusTabs = [
@@ -19,6 +21,7 @@ const statusTabs = [
 ] as const
 
 type ReviewRow = {
+  trip?: { title: string; href: string } | null
   publicId: string
   tourSlug: string
   title: string | null
@@ -43,7 +46,20 @@ function userName(row: ReviewRow): string {
 }
 
 export default function ReviewsPage() {
-  const ar = useAdminLocale() === 'ar'
+  const { locale } = useLocale()
+  const t = (text: string) => reviewText(text, locale)
+  const ar = false
+  const AdminText = ({ en }: { en: string; ar?: string }) => <>{t(en)}</>
+  const StatusPill = ({ status }: { status: string }) => <span className={`sp-pill is-${status}`}>{t(status.charAt(0).toUpperCase() + status.slice(1))}</span>
+  const { user } = useCurrentUser()
+  const canModerate = !!user && (user.roles.includes('SUPER_ADMIN') || user.permissions?.includes('reviews.moderate'))
+  const busyRef = useRef(false)
+  const [busy, setBusy] = useState(false)
+  const [scope, setScope] = useState('all')
+  const [page, setPage] = useState(1), [pageSize, setPageSize] = useState(20), [total, setTotal] = useState(0), [refresh, setRefresh] = useState(0)
+  const [sortKey, setSortKey] = useState('createdAt'), [direction, setDirection] = useState<'asc' | 'desc'>('desc')
+  const reviewSort = { sortKey, direction, sortBy: (key: string) => { setPage(1); setSortKey(key); setDirection(key === sortKey && direction === 'asc' ? 'desc' : 'asc') } }
+  const pagingValues = { page, pageSize, setPage, setPageSize: (size: number) => { setPage(1); setPageSize(size) }, total, from: total ? (page - 1) * pageSize + 1 : 0, to: Math.min(page * pageSize, total), pageCount: Math.max(1, Math.ceil(total / pageSize)) }
   const [reviews, setReviews] = useState<ReviewRow[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -52,15 +68,19 @@ export default function ReviewsPage() {
 
   useEffect(() => {
     let cancelled = false
-    const params = new URLSearchParams()
+    setLoading(true); setLoadError(''); setReviews([])
+    const params = new URLSearchParams({ page: String(page), limit: String(pageSize), scope, sort: sortKey, direction })
     if (filter !== 'all') params.set('status', filter.toUpperCase())
     if (query.trim()) params.set('q', query.trim())
     fetch(`/api/admin/reviews?${params.toString()}`, { credentials: 'same-origin' })
       .then(async (res) => {
-        const data = (await res.json()) as { reviews?: ReviewRow[]; error?: string }
+        const data = (await res.json()) as { reviews?: ReviewRow[]; pagination?: { total: number }; error?: string }
         if (!res.ok) throw new Error(data.error || 'Could not load reviews.')
         if (!cancelled && Array.isArray(data.reviews)) {
           setReviews(data.reviews)
+          setTotal(data.pagination?.total ?? 0)
+          const lastPage = Math.max(1, Math.ceil((data.pagination?.total ?? 0) / pageSize))
+          if (page > lastPage) { setPage(lastPage); return }
           setLoading(false)
         }
       })
@@ -71,19 +91,14 @@ export default function ReviewsPage() {
         }
       })
     return () => { cancelled = true }
-  }, [filter, query])
+  }, [filter, query, scope, page, pageSize, sortKey, direction, refresh])
 
-  const visible = useMemo(() => reviews, [reviews])
-  const reviewSort = useAdminTableSort(visible, {
-    tourSlug: (row) => row.tourSlug,
-    userName: (row) => userName(row),
-    rating: (row) => row.rating,
-    status: (row) => row.status,
-    createdAt: (row) => row.createdAt,
-  }, 'createdAt', 'desc')
-  const paging = usePagination(reviewSort.sortedRows)
+  const visible = reviews
+  const paging = { ...pagingValues, pageRows: reviews }
 
   const moderate = (publicId: string, action: 'publish' | 'reject' | 'pend') => {
+    if (busyRef.current || !canModerate) return
+    busyRef.current = true; setBusy(true)
     fetch(`/api/admin/reviews/${encodeURIComponent(publicId)}`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
@@ -94,36 +109,38 @@ export default function ReviewsPage() {
         const data = (await res.json()) as { review?: ReviewRow; error?: string }
         if (!res.ok) throw new Error(data.error || 'Could not update the review.')
         setReviews((prev) => prev.map((r) => (r.publicId === data.review?.publicId ? data.review! : r)))
+        setRefresh(value => value + 1)
         toast.success(action === 'publish'
-          ? (ar ? 'تم نشر التقييم.' : 'Review published.')
+          ? t('Review published.')
           : action === 'reject'
-            ? (ar ? 'تم رفض التقييم.' : 'Review rejected.')
-            : (ar ? 'أُعيد التقييم للمراجعة.' : 'Review returned to pending.'),
+            ? t('Review rejected.')
+            : t('Review returned to pending.'),
         { dedupeKey: `reviews-${action}` })
       })
       .catch((error: unknown) => {
         toast.error(error instanceof Error ? error.message : 'Could not update the review.', { dedupeKey: 'reviews-moderate-error' })
-      })
+      }).finally(() => { busyRef.current = false; setBusy(false) })
   }
 
   return (
     <>
       <PageHead
         eyebrow="Reputation"
-        title="Reviews"
+        title={t("Reviews")}
         titleAr="التقييمات"
-        sub="Moderate customer reviews for tours"
+        sub={t("Moderate website and trip reviews")}
         subAr="إدارة تقييمات العملاء للرحلات"
       />
       <Card
         title={<AdminText en="All reviews" ar="كل التقييمات" />}
-        sub={<AdminText en={`${visible.length} of ${reviews.length} reviews shown`} ar={`عرض ${visible.length} من ${reviews.length} تقييمات`} />}
+        sub={<AdminText en={`${total} ${t('Reviews')}`} ar={`عرض ${visible.length} من ${reviews.length} تقييمات`} />}
       >
-        <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث بعميل أو رحلة أو نص...' : 'Search customer, tour or text...'}>
+        <AdminTableTools query={query} onQueryChange={value => { setPage(1); setQuery(value) }} placeholder={ar ? 'ابحث بعميل أو رحلة أو نص...' : t('Search customer, tour or text...')}>
+          <div className="sp-tabs" role="group" aria-label={t("Review source")}>{[["all", "All reviews"], ["website", "Website reviews"], ["trips", "Trip reviews"]].map(([value, label]) => <button type="button" key={value} aria-pressed={scope === value} className={scope === value ? "active" : ""} onClick={() => { setPage(1); setScope(value) }}>{t(label)}</button>)}</div>
           <div className="sp-tabs">
             {statusTabs.map((status) => (
-              <button key={status.id} type="button" className={filter === status.id ? 'active' : ''} onClick={() => setFilter(status.id)}>
-                {ar ? status.ar : status.en}
+              <button key={status.id} type="button" className={filter === status.id ? 'active' : ''} aria-pressed={filter === status.id} onClick={() => { setPage(1); setFilter(status.id) }}>
+                {t(status.en)}
               </button>
             ))}
           </div>
@@ -131,7 +148,7 @@ export default function ReviewsPage() {
         {loading ? (
           <p><AdminText en="Loading reviews…" ar="جارٍ تحميل التقييمات…" /></p>
         ) : loadError && !reviews.length ? (
-          <AdminEmpty title={<AdminText en="Could not load reviews" ar="تعذر تحميل التقييمات" />} copy={<AdminText en={loadError} ar={loadError} />} />
+          <AdminEmpty title={<AdminText en="Could not load reviews" ar="تعذر تحميل التقييمات" />} copy={<><AdminText en={loadError} ar={loadError} /><button className="sp-btn" onClick={() => setRefresh(v => v + 1)}>{t("Retry")}</button></>} />
         ) : visible.length ? (
           <>
             <AdminTableWrap>
@@ -152,8 +169,8 @@ export default function ReviewsPage() {
                     <tr key={r.publicId}>
                       <td className="sp-row-number">{paging.from + index}</td>
                       <td>
-                        <Link href={r.tourSlug === WEBSITE_REVIEW_SCOPE ? '/' : `/egypt-tours/${r.tourSlug}`} target="_blank" rel="noopener noreferrer">
-                          {r.tourSlug === WEBSITE_REVIEW_SCOPE ? <AdminText en="Website review" ar="تقييم الموقع" /> : r.tourSlug}
+                        <Link href={r.tourSlug === WEBSITE_REVIEW_SCOPE ? '/' : r.trip?.href ?? `/admin/reviews/${encodeURIComponent(r.publicId)}`} target="_blank" rel="noopener noreferrer">
+                          {r.tourSlug === WEBSITE_REVIEW_SCOPE ? <AdminText en="Website review" ar="تقييم الموقع" /> : r.trip?.title ?? t('Trip unavailable')}
                         </Link>
                       </td>
                       <td>
@@ -179,20 +196,20 @@ export default function ReviewsPage() {
                       <td>{new Date(r.createdAt).toLocaleDateString(ar ? 'ar-EG' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</td>
                       <td>
                         <AdminTableActions>
-                          <AdminIconAction icon={ArrowRight} label={ar ? `عرض التفاصيل` : `View details`} href={`/admin/reviews/${encodeURIComponent(r.publicId)}`} />
-                          {r.status === 'PENDING' && (
+                          <AdminIconAction icon={ArrowRight} label={ar ? `عرض التفاصيل` : t('View details')} href={`/admin/reviews/${encodeURIComponent(r.publicId)}`} />
+                          {canModerate && !busy && r.status === 'PENDING' && (
                             <>
-                              <AdminIconAction icon={CheckCircle2} label={ar ? `نشر` : `Publish`} tone="success" onClick={() => moderate(r.publicId, 'publish')} />
-                              <AdminIconAction icon={XCircle} label={ar ? `رفض` : `Reject`} tone="danger" onClick={() => moderate(r.publicId, 'reject')} />
+                              <AdminIconAction icon={CheckCircle2} label={ar ? `نشر` : t('Publish')} tone="success" onClick={() => moderate(r.publicId, 'publish')} />
+                              <AdminIconAction icon={XCircle} label={ar ? `رفض` : t('Reject')} tone="danger" onClick={() => moderate(r.publicId, 'reject')} />
                             </>
                           )}
-                          {r.status === 'PUBLISHED' && (
+                          {canModerate && !busy && r.status === 'PUBLISHED' && (
                             <>
                               <AdminIconAction icon={XCircle} label={ar ? `رفض` : `Reject`} tone="danger" onClick={() => moderate(r.publicId, 'reject')} />
-                              <AdminIconAction icon={CircleAlert} label={ar ? `إعادة للمراجعة` : `Return to pending`} tone="default" onClick={() => moderate(r.publicId, 'pend')} />
+                              <AdminIconAction icon={CircleAlert} label={ar ? `إعادة للمراجعة` : t('Return to pending')} tone="default" onClick={() => moderate(r.publicId, 'pend')} />
                             </>
                           )}
-                          {r.status === 'REJECTED' && (
+                          {canModerate && !busy && r.status === 'REJECTED' && (
                             <>
                               <AdminIconAction icon={CheckCircle2} label={ar ? `نشر` : `Publish`} tone="success" onClick={() => moderate(r.publicId, 'publish')} />
                               <AdminIconAction icon={CircleAlert} label={ar ? `إعادة للمراجعة` : `Return to pending`} tone="default" onClick={() => moderate(r.publicId, 'pend')} />

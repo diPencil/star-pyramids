@@ -8,12 +8,20 @@ import { getCurrentUser, hasPermission } from '@/lib/server/auth';
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-export async function GET() {
-  // Public: list all destinations (read-only, no auth required)
+export async function GET(request: Request) {
+  const admin = new URL(request.url).searchParams.get('admin') === '1';
+  if (admin) {
+    const user = await getCurrentUser();
+    if (!user) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+    if (!hasPermission(user, 'destinations.view') && !hasPermission(user, 'destinations.edit')) {
+      return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
+    }
+  }
   const destinations = await db.destination.findMany({
+    where: admin ? {} : { isPublished: true },
     orderBy: [{ displayOrder: 'asc' }, { title: 'asc' }],
   });
-  return NextResponse.json(await catalogueTranslationResponse('destination', { destinations }));
+  return NextResponse.json(await catalogueTranslationResponse('destination', { destinations }), { headers: { 'Cache-Control': 'private, no-store' } });
 }
 
 export async function POST(request: Request) {

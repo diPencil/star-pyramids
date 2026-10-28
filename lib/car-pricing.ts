@@ -1,10 +1,9 @@
+import { CarInputError } from '@/lib/rent-car-errors';
 // Rent Cars pricing (Phase 2): pure helpers shared by server services and
 // future UI. All financial amounts travel as integer minor units (cents) —
 // floating-point arithmetic is never used for money. The multiplier is also
 // integer-scaled (basis points, hundredths: 200 = ×2.00) so every quote is
 // computed with exact integer math and deterministic half-up rounding.
-import 'server-only';
-
 import { parseVehicleCapacity, type CarTripType } from '@/lib/car-request';
 
 export const DEFAULT_ROUND_TRIP_MULTIPLIER_BP = 200;
@@ -13,10 +12,51 @@ export const MAX_ROUND_TRIP_MULTIPLIER_BP = 1000;
 export const MAX_MONEY_CENTS = 2_000_000_000;
 export const MAX_PASSENGERS = 50;
 
-export const SUPPORTED_CURRENCIES = ['USD', 'EUR', 'EGP'] as const;
-export type SupportedCurrency = (typeof SUPPORTED_CURRENCIES)[number];
+import { SUPPORTED_CURRENCIES, normalizeCurrency, type SupportedCurrency } from './currency';
+export { SUPPORTED_CURRENCIES, normalizeCurrency, type SupportedCurrency } from './currency';
 
 export type RoundTripMode = 'AUTOMATIC' | 'MANUAL';
+export type CarPricingMode = 'FIXED_TOTAL' | 'PER_PERSON';
+export type CarPricingMetadata = {
+  version: 1;
+  passengers: number;
+  outbound: { tierId: string; minPassengers: number; maxPassengers: number; pricingMode: CarPricingMode; unitCents: number; currency: string };
+  returnPricing: { basis: 'manual' | 'legs' | 'multiplier'; tierId?: string; pricingMode?: CarPricingMode; unitCents?: number; currency?: string; multiplierBp?: number } | null;
+};
+
+export function readCarPricingMetadata(input: unknown): CarPricingMetadata | undefined {
+  try {
+    const value = typeof input === 'string' ? JSON.parse(input) : input;
+    if (!value || typeof value !== 'object' || value.version !== 1 || !Number.isSafeInteger(value.passengers) || value.passengers < 1 || value.passengers > MAX_PASSENGERS) return undefined;
+    const outbound = value.outbound;
+    const validUnit = (unit: unknown) => typeof unit === 'number' && Number.isSafeInteger(unit) && unit > 0 && unit <= MAX_MONEY_CENTS;
+    const validMode = (mode: unknown) => mode === 'FIXED_TOTAL' || mode === 'PER_PERSON';
+    if (!outbound || typeof outbound.tierId !== 'string' || !validMode(outbound.pricingMode) || !validUnit(outbound.unitCents) || !SUPPORTED_CURRENCIES.includes(outbound.currency)) return undefined;
+    if (!Number.isSafeInteger(outbound.minPassengers) || !Number.isSafeInteger(outbound.maxPassengers) || outbound.minPassengers < 1 || outbound.maxPassengers > 100 || value.passengers < outbound.minPassengers || value.passengers > outbound.maxPassengers) return undefined;
+    const back = value.returnPricing;
+    if (back !== null) {
+      if (!back || !['manual', 'legs', 'multiplier'].includes(back.basis)) return undefined;
+      if (back.basis === 'multiplier') {
+        if (!Number.isSafeInteger(back.multiplierBp) || back.multiplierBp < 100 || back.multiplierBp > 1000) return undefined;
+      } else if (!validMode(back.pricingMode) || !validUnit(back.unitCents) || back.currency !== outbound.currency || typeof back.tierId !== 'string') return undefined;
+      if (back.basis === 'manual' && back.pricingMode !== outbound.pricingMode) return undefined;
+    }
+    return value as CarPricingMetadata;
+  } catch { return undefined; }
+}
+
+export function validatePassengerTier(min: unknown, max: unknown, capacity: number | null): void {
+  if (capacity === null) throw new CarInputError('Vehicle capacity is unclear.');
+  if (typeof min !== 'number' || typeof max !== 'number' || !Number.isSafeInteger(min) || !Number.isSafeInteger(max) || min < 1 || min > max || max > capacity) {
+    throw new CarInputError('Passenger tier must be a valid whole-number range within vehicle capacity.');
+  }
+}
+
+export function passengerAmount(unitCents: number, passengers: number, mode: CarPricingMode): number {
+  const total = mode === 'PER_PERSON' ? unitCents * passengers : unitCents;
+  if (!Number.isSafeInteger(total) || total < 1 || total > MAX_MONEY_CENTS) throw new CarInputError('Quoted amount exceeds the supported limit.');
+  return total;
+}
 
 export type MoneyInput = string | number;
 
@@ -72,16 +112,9 @@ export function scaleCentsByMultiplier(cents: number, multiplierBp: number): num
   return Math.floor((cents * multiplierBp + 50) / 100);
 }
 
-export function isSupportedCurrency(value: unknown): value is SupportedCurrency {
-  return (
-    typeof value === 'string' &&
-    (SUPPORTED_CURRENCIES as readonly string[]).includes(value.toUpperCase())
-  );
-}
-
-/** Normalize a currency input; uppercase + allowlist, null when unsupported. */
-export function normalizeCurrency(value: unknown): SupportedCurrency | null {
-  return isSupportedCurrency(value) ? (value.toUpperCase() as SupportedCurrency) : null;
+/** Legacy normalizing predicate; use isCurrency for canonical type narrowing. */
+export function isSupportedCurrency(value: unknown): boolean {
+  return normalizeCurrency(value) !== null;
 }
 
 export type QuoteRoundTripBasis = 'manual' | 'legs' | 'multiplier';

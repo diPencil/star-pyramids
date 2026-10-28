@@ -6,10 +6,12 @@ import {
   MediaUploadError,
   checkMediaUploadRateLimit,
   storeUploadedImage,
+  maxUploadBytes,
   type MediaScope,
 } from '@/lib/server/media';
 import { VideoUploadError, storeUploadedVideo } from '@/lib/server/journey-video-storage';
 import { MAX_GALLERY_VIDEO_BYTES } from '@/lib/journey-gallery';
+import { readUploadForm, UploadBodyTooLarge } from '@/lib/server/upload-form';
 
 // Multipart uploads are read by the Node.js stream parser; the Edge runtime
 // has no `File`/`FormData` body support for this path.
@@ -27,6 +29,8 @@ const SCOPE_PERMISSIONS: Readonly<Record<MediaScope, readonly string[]>> = {
   avatar: [],
   brand: ['settings.edit'],
   catalogue: [
+    'gallery.create',
+    'gallery.edit',
     'tours.create',
     'tours.edit',
     'cars.create',
@@ -71,9 +75,9 @@ export async function POST(request: Request) {
 
   let form: FormData;
   try {
-    form = await request.formData();
-  } catch {
-    return NextResponse.json({ error: 'Invalid upload.' }, { status: 400 });
+    form = await readUploadForm(request, Math.max(maxUploadBytes(), MAX_GALLERY_VIDEO_BYTES) + 65536);
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof UploadBodyTooLarge ? 'Upload is too large.' : 'Invalid upload.' }, { status: error instanceof UploadBodyTooLarge ? 413 : 400 });
   }
 
   const scope = parseScope(form.get('scope'));

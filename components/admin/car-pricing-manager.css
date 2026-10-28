@@ -1,0 +1,14 @@
+.sp-car-pricing-filters,.sp-car-pricing-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.sp-car-pricing-filters{margin-bottom:16px}
+.sp-car-pricing-filters label,.sp-car-pricing-fields label{display:grid;gap:8px;min-width:0;font-weight:600}
+.sp-car-pricing-configuration{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:12px;margin-bottom:12px;border-block:1px solid var(--sp-border,var(--border))}
+.sp-car-pricing-note{display:block;color:var(--sp-muted,var(--muted));font-size:12px;line-height:1.6;white-space:normal;max-width:260px}
+.sp-car-pricing-form{min-width:0}
+.sp-car-pricing-form p{margin:0;font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+.sp-car-pricing-form .sp-car-pricing-note{max-width:none}
+.sp-car-pricing-check{display:flex!important;align-items:flex-start;gap:8px}
+.sp-car-pricing-check input{flex:none;width:18px!important;height:18px!important;margin-top:2px}
+.sp-car-pricing-error{color:var(--sp-danger,#b3261e)}
+.sp-car-pricing-example{display:block;padding:10px 12px;background:var(--sp-bg,#f5f7fb);border:1px solid var(--sp-border,var(--border));border-radius:8px;font-weight:700;overflow-wrap:anywhere}
+.sp-car-pricing-table{min-width:1000px}
+@media(max-width:560px){.sp-car-pricing-filters,.sp-car-pricing-fields{grid-template-columns:minmax(0,1fr)}.sp-car-pricing-configuration{align-items:flex-start;flex-direction:column}}
