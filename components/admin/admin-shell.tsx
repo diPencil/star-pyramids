@@ -1,4 +1,5 @@
 'use client'
+import { BrandMark } from '@/components/brand-mark'
 import { currencyChoices, isCurrency, type Currency } from '@/lib/currency'
 
 import Link from 'next/link'
@@ -327,7 +328,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       <aside ref={sidebarRef} id="admin-mobile-menu" className={cn('sp-side', mobileOpen && 'open')} inert={mobileDrawer && !mobileOpen ? true : undefined} role={mobileDrawer && mobileOpen ? 'dialog' : undefined} aria-modal={mobileDrawer && mobileOpen ? true : undefined} aria-label={ar ? 'قائمة الإدارة' : 'Admin navigation'}>
         <div className="sp-brand">
           <Link href="/admin/dashboard" className="sp-brand-link">
-            <span className="sp-brand-mark"><img src="/favicon.png" alt="" /></span>
+            <span className="sp-brand-mark"><BrandMark alt="" /></span>
             {!collapsed && (
               <span className="sp-brand-copy">
                 <strong>STAR PYRAMIDS</strong>

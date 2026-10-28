@@ -50,6 +50,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const locale = await getServerLocale()
   const ogLocale = getOgLocale(locale)
   const siteUrl = await getSiteUrl()
+  const favicon = await getSetting('site.favicon').catch(() => null)
   const defaultSeoTitle = await getSetting('site.seoTitle').catch(() => null)
   const globalSeo = await getGlobalSeo(locale).catch(() => ({} as Metadata))
 
@@ -99,11 +100,10 @@ export async function generateMetadata(): Promise<Metadata> {
     icons: {
       icon: [
         {
-          url: '/favicon.png',
-          type: 'image/png',
+          url: favicon || '/favicon.png',
         },
       ],
-      apple: '/favicon.png',
+      apple: favicon || '/favicon.png',
     },
   }
 }

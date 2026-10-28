@@ -1,4 +1,5 @@
 'use client'
+import { BrandMark } from '@/components/brand-mark'
 
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -410,7 +411,8 @@ export const reviewPlatforms = [] as const
 export const platformSummary: Record<string, { avg: string; count: string }> = {}
 
 export function PlatformIcon({ id }: { id: string }) {
-  const icons: Record<string, string> = { website: '/favicon.png', tripadvisor: '/review-platforms/tripadvisor.ico', trustindex: '/review-platforms/trustindex.png', getyourguide: '/review-platforms/getyourguide.ico' }
+  if (id === 'website') return <span className="platform-ic" aria-hidden="true"><BrandMark width={24} height={24} style={{ width: 24, height: 24, objectFit: 'contain' }} /></span>
+  const icons: Record<string, string> = { tripadvisor: '/review-platforms/tripadvisor.ico', trustindex: '/review-platforms/trustindex.png', getyourguide: '/review-platforms/getyourguide.ico' }
   if (icons[id]) return <span className="platform-ic" aria-hidden="true"><img src={icons[id]} alt="" width={24} height={24} style={{ width: 24, height: 24, objectFit: 'contain' }}/></span>
   if (id === 'google') return <span className="platform-ic" aria-label="Google"><svg viewBox="0 0 24 24"><path fill="#4285F4" d="M23.5 12.3c0-.9-.1-1.5-.3-2.3H12v4.3h6.5c-.1 1.1-.8 2.7-2.4 3.8l3.6 2.8c2.2-2 3.8-5 3.8-8.6z" /><path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.8-2.9c-1 .7-2.4 1.2-4.1 1.2-3.1 0-5.8-2.1-6.8-5l-3.7 2.9C3.5 21.3 7.5 24 12 24z" /><path fill="#FBBC05" d="M5.2 14.4c-.2-.7-.4-1.5-.4-2.4s.1-1.7.4-2.4l-3.7-2.9C.5 8.6 0 10.2 0 12s.5 3.4 1.4 4.9l3.8-2.5z" /><path fill="#EA4335" d="M12 4.7c1.8 0 3 .8 3.7 1.4l3.3-3.2C17.9 1.1 15.2 0 12 0 7.5 0 3.5 2.7 1.4 6.9l3.8 2.9c1-2.9 3.7-5.1 6.8-5.1z" /></svg></span>
   return null

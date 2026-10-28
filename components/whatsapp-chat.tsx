@@ -1,4 +1,5 @@
 'use client'
+import { BrandMark } from '@/components/brand-mark'
 
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -103,7 +104,7 @@ export function WhatsAppWidget({ open, onOpen, onClose }: { open: boolean; onOpe
     {mobileTarget && createPortal(<button type="button" className="mobile-support-trigger" onClick={() => (open ? onClose() : openPanel())} aria-expanded={open} aria-label={open ? t.closeLabel : t.openLabel}><span className="mobile-whatsapp-circle"><WhatsAppGlyph size={26}/></span><span>WhatsApp</span>{!open && unread > 0 && <b>{unread}</b>}</button>, mobileTarget)}
     {open && <section className="wa-panel" role="dialog" aria-label={t.name} aria-modal="false">
       <header className="wa-head">
-        <span className="wa-avatar" aria-hidden="true"><img src="/favicon.png" alt="" /></span>
+        <span className="wa-avatar" aria-hidden="true"><BrandMark alt="" /></span>
         <div><strong>{t.name}</strong><span className="wa-online"><i aria-hidden="true" />{t.online}</span></div>
         <button type="button" className="wa-close" onClick={onClose} aria-label={t.closeLabel}><X size={17} /></button>
       </header>

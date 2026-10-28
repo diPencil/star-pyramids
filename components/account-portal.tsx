@@ -1,4 +1,5 @@
 'use client'
+import { BrandMark } from '@/components/brand-mark'
 import { formatCurrency, CURRENCY_OPTIONS, type Currency } from '@/lib/currency'
 
 // 'use client' is required here: the access token is read from the router
@@ -296,7 +297,7 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
     <aside ref={sidebarRef} id="customer-mobile-menu" className="customer-account-side" inert={mobileDrawer && !mobileOpen ? true : undefined} role={mobileDrawer && mobileOpen ? 'dialog' : undefined} aria-modal={mobileDrawer && mobileOpen ? true : undefined} aria-label={tx(locale, { en: 'Account navigation', es: 'Navegación de la cuenta', it: 'Navigazione account', ar: 'قائمة الحساب' })}>
       <button type="button" className="customer-drawer-close" onClick={() => setMobileOpen(false)} aria-label={tx(locale, { en: 'Close menu', es: 'Cerrar el menú', it: 'Chiudi il menu', ar: 'إغلاق القائمة' })}><X size={20}/></button>
       <Link href="/account" className="customer-dashboard-brand" onClick={() => setMobileOpen(false)}>
-        <img src="/favicon.png" alt="" />
+        <BrandMark alt="" />
         <span><strong>STAR PYRAMIDS</strong><small>{tx(locale, { en: 'TRAVELER ACCOUNT', es: 'CUENTA DEL VIAJERO', it: 'ACCOUNT VIAGGIATORE', ar: 'حساب المسافر' })}</small></span>
       </Link>
         <div className="customer-profile-mini">
@@ -321,7 +322,7 @@ export function AccountShell({ section, children, headLeading }: { section: Acco
     <div className="customer-dashboard-main" inert={mobileDrawer && mobileOpen ? true : undefined}>
       <header className="customer-dashboard-topbar">
         <button ref={menuTriggerRef} type="button" className="customer-mobile-menu" onClick={() => setMobileOpen(true)} aria-expanded={mobileOpen} aria-controls="customer-mobile-menu" aria-label={tx(locale, { en: 'Open menu', es: 'Abrir el menú', it: 'Apri il menu', ar: 'فتح القائمة' })}><Menu size={20} /></button>
-        <Link href="/account" className="customer-mobile-brand"><img src="/favicon.png" alt="" /><strong>STAR PYRAMIDS</strong></Link>
+        <Link href="/account" className="customer-mobile-brand"><BrandMark alt="" /><strong>STAR PYRAMIDS</strong></Link>
         <div className="customer-dashboard-search">
           <Search size={17} />
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={tx(locale, { en: 'Search trips and destinations...', es: 'Busca viajes y destinos…', it: 'Cerca viaggi e destinazioni…', ar: 'ابحث عن رحلة أو وجهة...' })} />
@@ -1650,7 +1651,7 @@ function MessagesSection() {
   return <div className="customer-chat-layout">
     <section className="customer-chat-panel">
       <header className="customer-chat-head">
-        <span className="customer-chat-team-avatar"><img src="/favicon.png" alt="" /></span>
+        <span className="customer-chat-team-avatar"><BrandMark alt="" /></span>
         <div><strong>{tx(locale, { en: 'STAR PYRAMIDS travel team', es: 'Equipo de viajes de STAR PYRAMIDS', it: 'Team viaggi STAR PYRAMIDS', ar: 'فريق رحلات STAR PYRAMIDS' })}</strong><small><i />{tx(locale, { en: 'Account and booking support', es: 'Asistencia con tu cuenta y reservas', it: 'Assistenza account e prenotazioni', ar: 'دعم حسابك وحجوزاتك' })}</small></div>
         <span className="customer-chat-channel"><MessageCircle size={14} />{tx(locale, { en: 'Account chat', es: 'Chat de la cuenta', it: 'Chat account', ar: 'محادثة الحساب' })}</span>
       </header>
@@ -1663,7 +1664,7 @@ function MessagesSection() {
             : <>
                 {!messages.length && <div className="customer-chat-welcome"><span><MessageCircle size={25} /></span><h2>{locale === 'es' ? `Hola ${firstName}` : locale === 'it' ? `Ciao ${firstName}` : locale === 'ar' ? `أهلًا ${firstName}` : `Hi ${firstName}`}</h2><p>{tx(locale, { en: 'Ask about a booking, pricing, or trip details. The team reply will stay here in this conversation.', es: 'Pregunta por una reserva, precios o detalles del viaje. La respuesta del equipo quedará aquí, en esta conversación.', it: 'Chiedi info su una prenotazione, prezzi o dettagli del viaggio. La risposta del team resterà qui in questa conversazione.', ar: 'اكتب سؤالك عن الحجز أو الأسعار أو تفاصيل رحلتك، وسيظهر الرد هنا في نفس المحادثة.' })}</p><div>{(locale === 'es' ? ['Quiero seguir mi reserva', 'Quiero cambiar la fecha de mi viaje', 'Tengo una pregunta sobre un pago'] : locale === 'it' ? ['Voglio seguire la mia prenotazione', 'Voglio cambiare la data del viaggio', 'Ho una domanda su un pagamento'] : locale === 'ar' ? ['أريد متابعة حجزي', 'أحتاج تعديل موعد الرحلة', 'لدي سؤال عن الدفع'] : ['Track my booking', 'Change my travel date', 'I have a payment question']).map((prompt) => <button type="button" key={prompt} onClick={() => setDraft(prompt)}>{prompt}</button>)}</div></div>}
                 {messages.map((message) => <div key={message.id} className={`customer-chat-row ${message.senderRole === 'staff' ? 'agent' : 'customer'}`}>
-                  {message.senderRole === 'staff' && <span className="customer-chat-bubble-avatar"><img src="/favicon.png" alt="" /></span>}
+                  {message.senderRole === 'staff' && <span className="customer-chat-bubble-avatar"><BrandMark alt="" /></span>}
                   <div>
                     <span className="customer-chat-bubble">
                       <p>{message.body}</p>

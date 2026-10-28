@@ -1,4 +1,5 @@
 'use client'
+import { BrandMark } from '@/components/brand-mark'
 
 import { formatCurrency } from '@/lib/currency'
 import { tx, useLocale } from './locale'
@@ -55,7 +56,7 @@ export function BookingPrintDocument({ booking }: { booking: Booking }) {
     <div className="booking-print-doc" dir={locale === 'ar' ? 'rtl' : 'ltr'}>
       <header className="bpd-head">
         <span className="bpd-brand">
-          <img src="/favicon.png" alt="" />
+          <BrandMark alt="" />
           <span><strong>STAR PYRAMIDS</strong><small>{tx(locale, { en: 'Booking document', es: 'Documento de reserva', it: 'Documento di prenotazione', ar: 'وثيقة حجز' })}</small></span>
         </span>
         <span className="bpd-title">

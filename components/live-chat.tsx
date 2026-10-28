@@ -1,4 +1,5 @@
 'use client'
+import { BrandMark } from '@/components/brand-mark'
 
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -210,7 +211,7 @@ export function LiveChatWidget({ open, onOpen, onClose }: { open: boolean; onOpe
     {teaser && !open && <button type="button" className="livechat-teaser" onClick={openPanel}>{t.teaser}</button>}
     {open && <section className="livechat-panel" role="dialog" aria-label={t.name} aria-modal="false">
       <header className="livechat-head">
-        <span className="livechat-avatar" aria-hidden="true"><img src="/favicon.png" alt="" /></span>
+        <span className="livechat-avatar" aria-hidden="true"><BrandMark alt="" /></span>
         <div><strong>{t.name}</strong><span className="livechat-online"><i aria-hidden="true" />{t.online}</span></div>
         <button type="button" className="livechat-close" onClick={onClose} aria-label={t.closeLabel}><X size={17} /></button>
       </header>
