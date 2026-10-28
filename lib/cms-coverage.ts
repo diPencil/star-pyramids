@@ -47,8 +47,8 @@ export function findCmsPage(key: string) { return cmsPageRegistry.find((page) =>
 export function cmsRoutePattern(page: CmsPageDefinition) { return (CRUISE_HERO_IDS as readonly string[]).includes(page.key) ? '/egypt-tours/nile-cruises/[type]' : page.pattern ?? page.route }
 export const cmsSharedRegistry: CoverageSection[] = [
   body('brand', 'Header logo, favicon and brand settings', 'business', '/admin/settings'),
-  body('navigation', 'Navigation routes, search and account controls', 'functional'),
-  body('nav-labels', 'Localized navigation labels', 'cms', '/admin/website-cms/pages/shared'),
+  body('navigation', 'Search, account and mobile bottom-bar controls', 'functional'),
+  body('nav-labels', 'Published desktop/mobile menus and localized labels', 'cms', '/admin/website-cms/navigation'),
   body('footer-company', 'Footer description, copyright and contact details', 'business', '/admin/settings'),
   body('footer-labels', 'Localized footer navigation and certification labels', 'cms', '/admin/website-cms/pages/shared'),
   body('top-promos', 'Top promotional bars', 'business', '/admin/offers'),

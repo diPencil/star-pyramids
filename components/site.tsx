@@ -1,4 +1,8 @@
 'use client'
+import { NavigationMenu } from './navigation-menu'
+import { usePublishedNavigation } from './navigation-context'
+import { useMarketingNotifications } from '@/lib/marketing-notifications-client'
+import { localizedNotification } from '@/lib/marketing-notifications'
 import { useShowcaseHero } from './showcase-hero-context'
 import { useSharedCopy } from './presentation-content-context'
 import { SharedHelpCTA } from './shared-help-cta'
@@ -49,111 +53,9 @@ export { extra } from '@/lib/site-copy'
 
 export function Logo(){const brand=useBrandSettings(); return <Link href="/" className="brand-logo" aria-label="STAR PYRAMIDS Tours Egypt"><img className="brand-img" src={brand.logo || '/logo.png'} alt="STAR PYRAMIDS Tours Egypt"/></Link>}
 
-const MARKETING_NOTIF_KEY = 'sp-marketing-notifications-v1';
-
-type MarketingNotifItem = {
-  id: string;
-  type: 'offer' | 'tour' | 'promo' | 'car';
-  title: string;
-  desc: string;
-  time: string;
-  href: string;
-  unread: boolean;
-};
-
-function getMarketingItems(locale: Locale): MarketingNotifItem[] {
-  return [
-    {
-      id: '1',
-      type: 'offer',
-      title: tx(locale, { en: 'Special Offer: 20% OFF Luxury Nile Cruises Luxor & Aswan', es: 'Oferta exclusiva: 20% de descuento en cruceros por el Nilo Luxor y Asuán', it: 'Offerta esclusiva: 20% di sconto sulle crociere sul Nilo Luxor e Assuan', ar: 'عرض حصري: خصم 20% على كروز النيل الأقصر وأسوان' }),
-      desc: tx(locale, { en: 'Book your 5-star cruise now and enjoy all-inclusive stay & private guide', es: 'Reserva tu crucero 5 estrellas y disfruta de estancia todo incluido y guía privado', it: 'Prenota ora la tua crociera 5 stelle con soggiorno all-inclusive e guida privata', ar: 'احجز رحلتك البحرية الآن واستمتع بإقامة 5 نجوم شاملة كلياً' }),
-      time: tx(locale, { en: '15m ago', es: 'hace 15 min', it: '15 min fa', ar: 'منذ 15 دقيقة' }),
-      href: '/special-offers',
-      unread: true,
-    },
-    {
-      id: '2',
-      type: 'tour',
-      title: tx(locale, { en: 'New Tour: White Desert & Bahariya Oasis 3-Day Safari', es: 'Nuevo circuito: safari de 3 días por el Desierto Blanco y el oasis de Bahariya', it: 'Nuovo tour: safari di 3 giorni nel Deserto Bianco e nell\'oasi di Bahariya', ar: 'رحلة جديدة: مغامرة سفاري الصحراء البيضاء والواحات 3 أيام' }),
-      desc: tx(locale, { en: 'Discover magical landscapes and luxury stargazing camping in Egypt', es: 'Descubre paisajes mágicos y acampada de lujo bajo las estrellas en Egipto', it: 'Scopri paesaggi magici e campeggio di lusso sotto le stelle in Egitto', ar: 'اكتشف رمال مصر الساحرة والتخييم تحت النجوم مع مرشد خبير' }),
-      time: tx(locale, { en: '2h ago', es: 'hace 2 h', it: '2 ore fa', ar: 'منذ ساعتين' }),
-      href: '/egypt-tours/multi-days-tours',
-      unread: true,
-    },
-    {
-      id: '3',
-      type: 'promo',
-      title: tx(locale, { en: 'Exclusive Promo Code: STAR2026', es: 'Código de descuento exclusivo: STAR2026', it: 'Codice sconto esclusivo: STAR2026', ar: 'كود خصم حصري: STAR2026' }),
-      desc: tx(locale, { en: 'Save extra 5% on all tour packages when booking this week', es: 'Ahorra un 5% extra en todos los paquetes al reservar esta semana', it: 'Risparmia un ulteriore 5% su tutti i pacchetti prenotando questa settimana', ar: 'وفّر 5% إضافية عند حجز أي باقة سياحية هذا الأسبوع' }),
-      time: tx(locale, { en: '1d ago', es: 'hace 1 día', it: '1 giorno fa', ar: 'منذ يوم' }),
-      href: '/special-offers',
-      unread: false,
-    },
-    {
-      id: '4',
-      type: 'car',
-      title: tx(locale, { en: 'Updated Car Rental & VIP Airport Transfers', es: 'Nueva flota de alquiler y traslados VIP al aeropuerto', it: 'Nuova flotta a noleggio e trasferimenti VIP per l\'aeroporto', ar: 'تحديث أسطول سيارات الليموزين وتوصيل المطار' }),
-      desc: tx(locale, { en: 'New premium fleet available with private chauffeur at best rates', es: 'Nueva flota premium con chófer privado al mejor precio', it: 'Nuova flotta premium con autista privato alle migliori tariffe', ar: 'أحدث موديلات السيارات مع سائق خاص بأفضل الأسعار' }),
-      time: tx(locale, { en: '2d ago', es: 'hace 2 días', it: '2 giorni fa', ar: 'منذ يومين' }),
-      href: '/rent-car',
-      unread: false,
-    },
-  ];
-}
-
-function loadReadIds(): Set<string> {
-  if (typeof window === 'undefined') return new Set();
-  try {
-    const raw = window.localStorage.getItem(MARKETING_NOTIF_KEY);
-    if (!raw) return new Set();
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return new Set();
-    return new Set(parsed.filter((id): id is string => typeof id === 'string'));
-  } catch {
-    return new Set();
-  }
-}
-
-function saveReadIds(ids: Set<string>): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(MARKETING_NOTIF_KEY, JSON.stringify([...ids]));
-  } catch {
-    // Storage full or unavailable; this preference is non-critical.
-  }
-}
-
-function NotificationDropdown({ locale, onClose, onUnreadCountChange }: { locale: Locale; onClose: () => void; onUnreadCountChange: (count: number) => void }) {
-
-  const [items, setItems] = useState<MarketingNotifItem[]>(() => {
-    const readIds = loadReadIds();
-    return getMarketingItems(locale).map(item => ({
-      ...item,
-      unread: item.unread && !readIds.has(item.id),
-    }));
-  });
-
-  const unreadCount = items.filter(i => i.unread).length;
-
-  useEffect(() => {
-    onUnreadCountChange(unreadCount);
-  }, [unreadCount, onUnreadCountChange]);
-
-  const markAllRead = () => {
-    setItems(prev => prev.map(i => ({ ...i, unread: false })));
-    const readIds = loadReadIds();
-    items.forEach(i => readIds.add(i.id));
-    saveReadIds(readIds);
-  };
-
-  const markItemRead = (id: string) => {
-    setItems(prev => prev.map(i => i.id === id ? { ...i, unread: false } : i));
-    const readIds = loadReadIds();
-    readIds.add(id);
-    saveReadIds(readIds);
-  };
-
+export function NotificationDropdown({ locale, onClose, state }: { locale: Locale; onClose: () => void; state: ReturnType<typeof useMarketingNotifications> }) {
+  const { unreadCount, loading, error, busy, refresh, markRead, markAllRead } = state
+  const items = state.items.map(item => localizedNotification(item, locale))
   return (
     <div className="notif-dropdown" role="dialog" aria-label="Notifications" onClick={e => e.stopPropagation()}>
       <div className="notif-head">
@@ -162,31 +64,34 @@ function NotificationDropdown({ locale, onClose, onUnreadCountChange }: { locale
           {unreadCount > 0 && <span className="notif-count-badge">{unreadCount} {tx(locale, { en: 'new', es: 'nuevas', it: 'nuove', ar: 'جديد' })}</span>}
         </div>
         {unreadCount > 0 && (
-          <button type="button" className="notif-mark-read" onClick={markAllRead}>
+          <button type="button" className="notif-mark-read" disabled={busy} onClick={() => { void markAllRead() }}>
             {tx(locale, { en: 'Mark all read', es: 'Marcar todo como leído', it: 'Segna tutto come letto', ar: 'تعيين الكل كمقروء' })}
           </button>
         )}
       </div>
       <div className="notif-list">
+        {loading && <p role="status">{tx(locale, { en: 'Loading offers…', es: 'Cargando ofertas…', it: 'Caricamento offerte…' })}</p>}
+        {error && <div role="alert"><p>{tx(locale, { en: 'Offers could not be updated. Please try again.', es: 'No se pudieron actualizar las ofertas. Inténtalo de nuevo.', it: 'Impossibile aggiornare le offerte. Riprova.' })}</p><button type="button" className="text-link" onClick={refresh}>{tx(locale, { en: 'Try again', es: 'Reintentar', it: 'Riprova' })}</button></div>}
+        {!loading && !error && !items.length && <p role="status">{tx(locale, { en: 'No current offers. New published offers will appear here.', es: 'No hay ofertas actuales. Las nuevas ofertas aparecerán aquí.', it: 'Nessuna offerta attuale. Le nuove offerte appariranno qui.' })}</p>}
         {items.map(item => (
           <Link
             key={item.id}
             href={item.href}
             onClick={() => {
-              markItemRead(item.id);
+              void markRead(item.id);
               onClose();
             }}
-            className={`notif-item ${item.unread ? 'unread' : ''}`}
+            className={`notif-item ${!item.readAt ? 'unread' : ''}`}
           >
-            <div className={`notif-icon-bubble ${item.type}`}>
-              {item.type === 'offer' ? <BadgePercent size={18} /> : item.type === 'tour' ? <Sparkles size={18} /> : item.type === 'promo' ? <Gift size={18} /> : <CarFront size={18} />}
+            <div className="notif-icon-bubble offer">
+              <BadgePercent size={18} />
             </div>
             <div className="notif-content">
               <strong>{item.title}</strong>
-              <p>{item.desc}</p>
-              <span className="notif-time">{item.time}</span>
+              <p>{item.message}</p>
+              <span className="notif-time">{new Date(item.createdAt).toLocaleString(locale === 'es' ? 'es-ES' : locale === 'it' ? 'it-IT' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
             </div>
-            {item.unread && <span className="notif-unread-dot" />}
+            {!item.readAt && <span className="notif-unread-dot" />}
           </Link>
         ))}
       </div>
@@ -355,13 +260,15 @@ export function NavLinks({ nav, activeKey, pathname, idPrefix, onToursOpen, tour
 }
 
 export function Header() {
+  const publishedMenu = usePublishedNavigation()
   const [menu, setMenu] = useState(false)
   const { user: headerUser, loading: headerUserLoading } = useCurrentUser()
   const [toursOpen, setToursOpen] = useState(false)
   const [companyOpen, setCompanyOpen] = useState(false)
   const [languageOpen, setLanguageOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
-  const [marketingUnreadCount, setMarketingUnreadCount] = useState(0)
+  const marketingNotifications = useMarketingNotifications(headerUserLoading ? undefined : headerUser?.roles.includes('CUSTOMER') && !isStaffUser(headerUser) ? headerUser.publicId : null)
+  const marketingUnreadCount = marketingNotifications.unreadCount
   const [query, setQuery] = useState('')
   const [promoIdx, setPromoIdx] = useState(0)
   const [scrolled, setScrolled] = useState(false)
@@ -498,8 +405,8 @@ export function Header() {
         <div className="header-actions">
           <LanguageToggle label={LOCALE_SHORT_LABELS[locale] + ' - ' + currency} onOpen={() => setLanguageOpen(true)}/>
           <div className="notif-wrapper">
-            <button type="button" className={`icon-btn notif-btn ${notifOpen ? 'active' : ''}`} onClick={() => setNotifOpen((value) => !value)} aria-label={tx(locale, { en: 'Notifications', es: 'Notificaciones', it: 'Notifiche', ar: 'الإشعارات' })} aria-expanded={notifOpen}><Bell size={18}/>{marketingUnreadCount > 0 && <span className="notif-badge-pulse"/>}</button>
-            {notifOpen && <NotificationDropdown locale={locale} onClose={() => setNotifOpen(false)} onUnreadCountChange={setMarketingUnreadCount}/>}
+            <button type="button" className={`icon-btn notif-btn ${notifOpen ? 'active' : ''}`} onClick={() => { setNotifOpen((value) => !value); marketingNotifications.refresh() }} aria-label={tx(locale, { en: 'Notifications', es: 'Notificaciones', it: 'Notifiche', ar: 'الإشعارات' })} aria-expanded={notifOpen}><Bell size={18}/>{marketingUnreadCount > 0 && <span className="notif-badge-pulse"/>}</button>
+            {notifOpen && <NotificationDropdown locale={locale} onClose={() => setNotifOpen(false)} state={marketingNotifications}/>}
           </div>
           <Link className={`icon-btn header-cart${cartLines > 0 ? ' has-items' : ''}`} href="/cart" aria-label={cartLabel}>
             <ShoppingCart size={18}/>
@@ -511,10 +418,10 @@ export function Header() {
 
       <div className="header-nav">
         <div className="container header-nav-inner">
-          <nav aria-label={tx(locale, { en: 'Primary navigation', es: 'Navegación principal', it: 'Navigazione principale', ar: 'القائمة الرئيسية' })}>
-            <NavLinks nav={navConfig} activeKey={activeNav} pathname={pathname} idPrefix="primary-nav" onToursOpen={() => setToursOpen((value) => !value)} toursOpen={toursOpen} onCompanyOpen={() => setCompanyOpen((value) => !value)} companyOpen={companyOpen} tourLinks={tourLinks} t={t} ex={ex} />
+          <nav className={publishedMenu !== null ? 'cms-managed-nav' : undefined} aria-label={tx(locale, { en: 'Primary navigation', es: 'Navegación principal', it: 'Navigazione principale', ar: 'القائمة الرئيسية' })}>
+            {publishedMenu !== null ? <NavigationMenu navigation={publishedMenu} locale={locale} pathname={pathname} idPrefix="published-primary"/> : <NavLinks nav={navConfig} activeKey={activeNav} pathname={pathname} idPrefix="primary-nav" onToursOpen={() => setToursOpen((value) => !value)} toursOpen={toursOpen} onCompanyOpen={() => setCompanyOpen((value) => !value)} companyOpen={companyOpen} tourLinks={tourLinks} t={t} ex={ex} />}
           </nav>
-          <div className="nav-right-actions"><Link className={`make-trip-link${activeNav === 'make' ? ' active' : ''}`} href="/make-your-trip">{t.make}</Link><HeaderAuthAction user={headerUser} loading={headerUserLoading} signInLabel={t.signIn} dashboardLabel={t.dashboard} accountLabel={t.account} /></div>
+          <div className="nav-right-actions">{publishedMenu !== null ? <NavigationMenu navigation={publishedMenu} locale={locale} pathname={pathname} actions/> : <Link className={`make-trip-link${activeNav === 'make' ? ' active' : ''}`} href="/make-your-trip">{t.make}</Link>}<HeaderAuthAction user={headerUser} loading={headerUserLoading} signInLabel={t.signIn} dashboardLabel={t.dashboard} accountLabel={t.account} /></div>
         </div>
       </div>
 
@@ -522,7 +429,7 @@ export function Header() {
       {menu && <dialog ref={mobileMenuRef} id="public-mobile-menu" className="mobile-nav" aria-label={tx(locale, { en: 'Mobile navigation', es: 'Navegación móvil', it: 'Navigazione mobile', ar: 'قائمة الموبايل' })} onCancel={() => setMenu(false)} onMouseDown={(event) => { if (event.target === event.currentTarget) setMenu(false) }}>
         <div className="mobile-nav-content">
           <div className="mobile-nav-heading"><Logo/><button type="button" className="icon-btn" autoFocus onClick={() => setMenu(false)} aria-label={tx(locale, { en: 'Close menu', es: 'Cerrar menú', it: 'Chiudi menu', ar: 'إغلاق القائمة' })}><X size={20}/></button></div>
-          <nav>{mobileGroups.map((group) => <section key={group.label}><h2>{group.label}</h2>{group.links.map(([label, href]) => <Link key={href} href={href} aria-current={pathname === href ? 'page' : undefined} onClick={() => setMenu(false)}>{label}<ArrowRight size={16} aria-hidden="true"/></Link>)}</section>)}</nav>
+          <nav>{publishedMenu !== null ? <NavigationMenu navigation={publishedMenu} locale={locale} pathname={pathname} mobile onNavigate={() => setMenu(false)}/> : mobileGroups.map((group) => <section key={group.label}><h2>{group.label}</h2>{group.links.map(([label, href]) => <Link key={href} href={href} aria-current={pathname === href ? 'page' : undefined} onClick={() => setMenu(false)}>{label}<ArrowRight size={16} aria-hidden="true"/></Link>)}</section>)}</nav>
           <div className="mobile-nav-account"><HeaderAuthAction mobile user={headerUser} loading={headerUserLoading} signInLabel={t.signIn} dashboardLabel={t.dashboard} accountLabel={t.account} onNavigate={() => setMenu(false)} /></div>
         </div>
       </dialog>}
@@ -535,15 +442,15 @@ export function Header() {
     <div className={scrolled ? 'compact-sticky-header is-open' : 'compact-sticky-header'} aria-hidden={!scrolled}>
       <div className="container compact-sticky-inner">
         <Logo/>
-        <nav aria-label={tx(locale, { en: 'Sticky navigation', es: 'Navegación fija', it: 'Navigazione fissa', ar: 'القائمة العائمة' })}>
-          <NavLinks nav={navConfig} activeKey={activeNav} pathname={pathname} idPrefix="compact-nav" onToursOpen={() => setToursOpen((value) => !value)} toursOpen={toursOpen} onCompanyOpen={() => setCompanyOpen((value) => !value)} companyOpen={companyOpen} tourLinks={tourLinks} t={t} ex={ex} />
+        <nav className={publishedMenu !== null ? 'cms-managed-nav' : undefined} aria-label={tx(locale, { en: 'Sticky navigation', es: 'Navegación fija', it: 'Navigazione fissa', ar: 'القائمة العائمة' })}>
+          {publishedMenu !== null ? <NavigationMenu navigation={publishedMenu} locale={locale} pathname={pathname} idPrefix="published-sticky"/> : <NavLinks nav={navConfig} activeKey={activeNav} pathname={pathname} idPrefix="compact-nav" onToursOpen={() => setToursOpen((value) => !value)} toursOpen={toursOpen} onCompanyOpen={() => setCompanyOpen((value) => !value)} companyOpen={companyOpen} tourLinks={tourLinks} t={t} ex={ex} />}
         </nav>
         <div className="compact-sticky-actions">
           <Link className={`icon-btn header-cart${cartLines > 0 ? ' has-items' : ''}`} href="/cart" aria-label={cartLabel}>
             <ShoppingCart size={16}/>
             {cartLines > 0 && <span className="cart-count-badge" aria-hidden="true">{cartLines > 9 ? '9+' : cartLines}</span>}
           </Link>
-          <Link className={`make-trip-link${activeNav === 'make' ? ' active' : ''}`} href="/make-your-trip">{t.make}</Link>
+          {publishedMenu !== null ? <NavigationMenu navigation={publishedMenu} locale={locale} pathname={pathname} actions idPrefix="published-sticky-actions"/> : <Link className={`make-trip-link${activeNav === 'make' ? ' active' : ''}`} href="/make-your-trip">{t.make}</Link>}
           <HeaderAuthAction user={headerUser} loading={headerUserLoading} signInLabel={t.signIn} dashboardLabel={t.dashboard} accountLabel={t.account} />
         </div>
       </div>

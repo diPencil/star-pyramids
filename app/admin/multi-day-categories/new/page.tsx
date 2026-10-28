@@ -1,5 +1,7 @@
 'use client'
 
+import { CreationTimeline } from '@/components/admin/creation-timeline'
+
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { ContentLanguageTabs, TranslatedInput, TranslatedTextarea } from '@/components/admin/content-language-tabs'
@@ -167,7 +169,8 @@ export default function CategoryEditorPage() {
     ) : editSlug && !editing ? (
       <Card title={<AdminText en="Category not found" ar="الفئة غير موجودة" />}><p style={{ color: 'var(--sp-muted)' }}><AdminText en="The requested category does not exist." ar="الفئة المطلوبة غير موجودة." /></p></Card>
     ) : <>
-      <Card title={<AdminText en="Basic information" ar="البيانات الأساسية" />}>
+      <CreationTimeline busy={saving} steps={[
+      { id: 'basics', label: 'Basic information', content: <><Card title={<AdminText en="Basic information" ar="البيانات الأساسية" />}>
 <ContentLanguageTabs translations={translations} setTranslations={setTranslations}>
         <div className="sp-form">
           <div className="sp-form">
@@ -177,27 +180,18 @@ export default function CategoryEditorPage() {
           <label><AdminText en="Slug" ar="الرابط" /><input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="honeymoon" dir="ltr" readOnly={Boolean(editSlug)} /></label>
         </div>
       </ContentLanguageTabs>
-</Card>
-      <Card title={<AdminText en="Content" ar="المحتوى" />}>
+</Card><Card title={<AdminText en="Content" ar="المحتوى" />}>
 <ContentLanguageTabs translations={translations} setTranslations={setTranslations}>
         <div className="sp-form">
           <label><AdminText en="Short description " ar="وصف قصير " /><TranslatedTextarea field="copy" rows={3} value={copy} onChange={(e) => setCopy(e.target.value)} /></label>
 
         </div>
       </ContentLanguageTabs>
-</Card>
-      <Card title={<AdminText en="Media" ar="الوسائط" />} sub={<AdminText en="Cover image" ar="صورة الغلاف" />}>
+</Card></> },
+      { id: 'media', label: 'Media', content: <><Card title={<AdminText en="Media" ar="الوسائط" />} sub={<AdminText en="Cover image" ar="صورة الغلاف" />}>
         <ImageField value={image} onChange={setImage} />
-      </Card>
-      <Card title={<AdminText en="Publishing" ar="النشر" />}>
-        <div className="sp-form">
-          <div className="sp-form-2">
-            <label className="sp-check-row"><input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} /><span><AdminText en="Published" ar="منشور" /><small><AdminText en="Hidden categories disappear from the website" ar="الفئات المخفية تختفي من الموقع" /></small></span></label>
-            <label><AdminText en="Display order" ar="ترتيب العرض" /><input type="number" value={order} onChange={(e) => setOrder(e.target.value)} dir="ltr" placeholder={ar ? 'مثال: 10' : 'e.g. 10'} /></label>
-          </div>
-        </div>
-      </Card>
-      <Card title={<AdminText en="Linked multi day tours" ar="الرحلات متعددة الأيام المرتبطة" />} sub={<AdminText en="These tours appear on the public category page" ar="هذه الرحلات تظهر في صفحة الفئة العامة" />}>
+      </Card></> },
+      { id: 'tours', label: 'Linked tours', content: <><Card title={<AdminText en="Linked multi day tours" ar="الرحلات متعددة الأيام المرتبطة" />} sub={<AdminText en="These tours appear on the public category page" ar="هذه الرحلات تظهر في صفحة الفئة العامة" />}>
         <div className="sp-form">
           {linkedTours.length ? <div className="sp-repeat-list">{linkedTours.map((tour) => <article className="sp-repeat-card" key={tour.slug}>
             <header><span>{tour.image ? <img src={tour.image} alt="" style={{ width: 28, height: 28, borderRadius: 8, objectFit: 'cover' }} /> : '•'}</span><strong>{tour.title}</strong><button type="button" className="sp-icon-btn danger" onClick={() => setLinkedSlugs((current) => current.filter((s) => s !== tour.slug))} aria-label={ar ? `إزالة ${tour.title}` : `Remove ${tour.title}`} title={ar ? 'إزالة' : 'Remove'}><Trash2 size={16} /></button></header>
@@ -211,7 +205,16 @@ export default function CategoryEditorPage() {
             <small style={{ color: 'var(--sp-muted)' }} dir="ltr">{tour.slug} · {tour.duration}</small>
           </article>)}</div> : <p style={{ color: 'var(--sp-muted)' }}><AdminText en="No matching tours." ar="لا توجد رحلات مطابقة." /></p>)}
         </div>
-      </Card>
+      </Card></> },
+      { id: 'publishing', label: 'Review & publish', content: <><Card title={<AdminText en="Publishing" ar="النشر" />}>
+        <div className="sp-form">
+          <div className="sp-form-2">
+            <label className="sp-check-row"><input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} /><span><AdminText en="Published" ar="منشور" /><small><AdminText en="Hidden categories disappear from the website" ar="الفئات المخفية تختفي من الموقع" /></small></span></label>
+            <label><AdminText en="Display order" ar="ترتيب العرض" /><input type="number" value={order} onChange={(e) => setOrder(e.target.value)} dir="ltr" placeholder={ar ? 'مثال: 10' : 'e.g. 10'} /></label>
+          </div>
+        </div>
+      </Card></> }
+      ]} />
       {error && <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>}
       <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
         <button type="button" className="sp-btn primary" onClick={save} disabled={saving}><AdminText en="Save category" ar="حفظ الفئة" /></button>

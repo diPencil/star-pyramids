@@ -8,6 +8,7 @@
 import 'server-only';
 
 import { db } from './db';
+import { MARKETING_READ_TYPE } from '../marketing-notifications';
 
 /** Closed set of customer-facing notification types. Payment
  *  success/failure/refund types exist for forward compatibility with
@@ -132,7 +133,7 @@ export async function createNotification(
 /** Newest-first notifications for the customer. Empty when none. */
 export async function listNotifications(userId: string): Promise<CustomerNotification[]> {
   const rows = await db.notification.findMany({
-    where: { userId },
+    where: { userId, type: { not: MARKETING_READ_TYPE } },
     orderBy: { createdAt: 'desc' },
     take: LIST_LIMIT,
     select: { id: true, type: true, title: true, message: true, href: true, readAt: true, createdAt: true },

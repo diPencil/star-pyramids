@@ -40,6 +40,7 @@ import { clearMessageDraft, readMessageDraft, saveMessageDraft } from '@/lib/cus
 import {
   useCustomerNotifications, type CustomerNotification,
 } from '@/lib/customer-notifications'
+import { localizedNotification } from '@/lib/marketing-notifications'
 import { NotificationPanel as SharedNotificationPanel } from '@/components/notification-panel'
 import { useSupportChat } from '@/lib/support-chat'
 import { whatsappHref } from '@/data/company'
@@ -385,7 +386,7 @@ function NotificationPanel({ onClose }: { onClose: () => void }) {
   }
   return (
     <SharedNotificationPanel
-      items={recent}
+      items={recent.map(item => localizedNotification(item, locale))}
       unreadCount={unreadCount}
       loading={loading}
       loadError={loadError ? customerErrorText(locale, loadError, tx(locale, { en: 'Could not load notifications.', es: 'No se pudieron cargar las notificaciones.', it: 'Impossibile caricare le notifiche.', ar: 'تعذر تحميل الإشعارات.' })) : ''}

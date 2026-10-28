@@ -1,0 +1,9 @@
+.sp-creation-timeline{min-width:0;max-width:100%}
+.sp-creation-timeline .sp-creation-steps{grid-template-columns:repeat(var(--creation-steps),minmax(90px,1fr));min-width:0}
+.sp-creation-timeline .sp-steps button:disabled{cursor:wait;opacity:.6}
+.sp-creation-panel[hidden]{display:none!important}
+.sp-creation-panel{min-width:0}
+.sp-creation-navigation{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-block:16px;flex-wrap:wrap}
+.sp-creation-navigation>span{color:var(--sp-muted);font-size:12px}
+.sp-creation-navigation button:focus-visible,.sp-creation-footer button:focus-visible{outline:2px solid var(--sp-blue);outline-offset:2px}
+.sp-creation-footer{min-width:0}

@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { CreationTimeline } from '@/components/admin/creation-timeline'
 import { useEffect, useMemo, useState } from 'react'
 import { DestinationSectionsEditor, DestinationCoverEditor } from '@/components/admin/destination-sections-editor'
 import { DestinationBuilderPreview } from '@/components/admin/destination-builder-preview'
@@ -224,13 +225,19 @@ export default function DestinationEditorPage() {
     ) : editSlug && !editing ? (
       <Card title={<AdminText en="Destination not found" ar="الوجهة غير موجودة" />}><p style={{ color: 'var(--sp-muted)' }}><AdminText en="The requested destination does not exist." ar="الوجهة المطلوبة غير موجودة." /></p></Card>
     ) : <><fieldset disabled={saving || uploading || !canSave} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
-      <Card title="Destination builder" sub="Edit the same content and item order shown on the public detail page.">
+      <DestinationBuilderPreview item={draft} tours={draftTours}/>
+      <CreationTimeline busy={saving || uploading} ariaLabel="Destination builder steps" steps={[
+        { id: 'hero', label: 'Hero', content: <>      <Card title="Destination builder" sub="Edit the same content and item order shown on the public detail page.">
         <label>Canonical slug<input value={slug} onChange={event => setSlug(event.target.value)} placeholder="siwa-oasis" dir="ltr" readOnly={Boolean(editSlug)}/></label>
-        <DestinationBuilderPreview item={draft} tours={draftTours}/>
         <p className="sp-builder-note">This preview does not save or publish. Record content below follows the public page hierarchy. Template-wide visibility, section order and shared CTA labels belong to <Link href="/admin/website-cms/pages/destination-detail">Website CMS → Destination template</Link>.</p>
       </Card>
-      <DestinationSectionsEditor item={draft} onChange={changeDraft} setTranslations={setTranslations} onUpload={onUpload} disabled={saving || uploading || !canSave}/>
-      <Card title={<AdminText en="7. Related trips / One Day Tours" ar="رحلات اليوم الواحد" />} sub={<AdminText en="This destination appears on One Day Tours with these tours" ar="تظهر هذه الوجهة في رحلات اليوم الواحد مع هذه الرحلات" />}>
+<DestinationSectionsEditor item={draft} onChange={changeDraft} setTranslations={setTranslations} onUpload={onUpload} disabled={saving || uploading || !canSave} section="hero"/></> },
+        { id: 'facts', label: 'Facts', content: <DestinationSectionsEditor item={draft} onChange={changeDraft} setTranslations={setTranslations} onUpload={onUpload} disabled={saving || uploading || !canSave} section="facts"/> },
+        { id: 'story', label: 'Story', content: <DestinationSectionsEditor item={draft} onChange={changeDraft} setTranslations={setTranslations} onUpload={onUpload} disabled={saving || uploading || !canSave} section="story"/> },
+        { id: 'experiences', label: 'Experiences', content: <DestinationSectionsEditor item={draft} onChange={changeDraft} setTranslations={setTranslations} onUpload={onUpload} disabled={saving || uploading || !canSave} section="experiences"/> },
+        { id: 'rhythm', label: 'Journey', content: <DestinationSectionsEditor item={draft} onChange={changeDraft} setTranslations={setTranslations} onUpload={onUpload} disabled={saving || uploading || !canSave} section="rhythm"/> },
+        { id: 'practical', label: 'Practical', content: <DestinationSectionsEditor item={draft} onChange={changeDraft} setTranslations={setTranslations} onUpload={onUpload} disabled={saving || uploading || !canSave} section="practical"/> },
+        { id: 'trips', label: 'Related trips', content: <>      <Card title={<AdminText en="7. Related trips / One Day Tours" ar="رحلات اليوم الواحد" />} sub={<AdminText en="This destination appears on One Day Tours with these tours" ar="تظهر هذه الوجهة في رحلات اليوم الواحد مع هذه الرحلات" />}>
         <label>Editorial related trip slugs (canonical, comma separated)<input value={tourSlugs} onChange={event => setTourSlugs(event.target.value)} onBlur={() => setTourSlugs(tourSlugs.split(',').map(value => value.trim()).filter(Boolean).map(value => previewTours.find(tour => tour.slug === value)?.slug ?? previewTours.find(tour => tour.aliases?.includes(value))?.slug ?? value).filter((value, index, rows) => rows.indexOf(value) === index).join(', '))} dir="ltr"/></label>
         <ul>{draft.detail.tourSlugs.map(value => { const tour = previewTours.find(row => row.slug === value || row.aliases?.includes(value)); return <li key={value}>{tour?.title ?? value}{tour ? tour.status !== 'published' ? ' — unpublished; excluded publicly' : '' : ' — unavailable or not loaded; existing reference preserved'}</li> })}</ul>
         <p className="sp-builder-note">The public page combines editorial selections with published trips assigned to this destination. Missing or unpublished references never appear publicly.</p>
@@ -251,8 +258,10 @@ export default function DestinationEditorPage() {
           </article>)}</div> : <p style={{ color: 'var(--sp-muted)' }}><AdminText en="No matching tours." ar="لا توجد رحلات مطابقة." /></p>)}
         </div></fieldset>
       </Card>
-      <DestinationCoverEditor item={draft} onChange={changeDraft} onUpload={onUpload} disabled={saving || uploading || !canSave}/>
-      <Card title="SEO & shared presentation" sub="Existing SEO and shared CMS editors remain the source of truth.">
+</> },
+        { id: 'cover', label: 'Cover & CTA', content: <>      <DestinationCoverEditor item={draft} onChange={changeDraft} onUpload={onUpload} disabled={saving || uploading || !canSave}/>
+</> },
+        { id: 'publish', label: 'Review & publish', content: <>      <Card title="SEO & shared presentation" sub="Existing SEO and shared CMS editors remain the source of truth.">
         {editSlug ? <Link className="sp-btn" href={`/admin/website-cms/seo/dynamic/destination/${encodeURIComponent(editSlug)}`}>Edit destination SEO</Link> : <p className="sp-builder-note">Save the destination before managing its SEO override. Existing SEO metadata is preserved by the API.</p>}
       </Card>
       <Card title={<AdminText en="Publishing" ar="النشر" />}>
@@ -267,6 +276,8 @@ export default function DestinationEditorPage() {
           </div>
         </div>
       </Card>
+<Card title="Review destination"><dl><dt>Name</dt><dd>{title || 'Not entered'}</dd><dt>Facts / experiences / stages / practical items</dt><dd>{draft.detail.facts.length} / {draft.detail.experiences.length} / {draft.detail.rhythm.length} / {draft.detail.practical.length}</dd><dt>Publication</dt><dd>{published ? 'Published when saved' : 'Unpublished when saved'}</dd></dl><p className="sp-builder-note">Navigation never saves. Use Save destination to apply the current fields and publication choice.</p></Card></> },
+      ]}/>
       {error && <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>}
       <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
         <button type="button" className="sp-btn primary" onClick={save} disabled={saveDisabled}><AdminText en="Save destination" ar="حفظ الوجهة" /></button>

@@ -11,7 +11,9 @@ import { TranslatedInput, TranslatedTextarea, useContentLanguage } from './conte
 import { SharedSelect } from '../shared-select'
 import { useAdminLocale } from './admin-locale'
 
-type Props = { value: BlogEditorial; onChange: (value: BlogEditorial) => void }
+export type BlogEditorialFormSection = 'hero' | 'facts' | 'sections' | 'navigation' | 'practical' | 'cta'
+
+type Props = { value: BlogEditorial; onChange: (value: BlogEditorial) => void; section?: BlogEditorialFormSection | 'all' }
 
 const move = <T,>(items: readonly T[], from: number, to: number): T[] => {
   if (to < 0 || to >= items.length) return [...items]
@@ -69,7 +71,7 @@ function StringRows({ values, prefix, label, placeholder, onChange }: {
   </div>
 }
 
-export function BlogEditorialForm({ value, onChange }: Props) {
+export function BlogEditorialForm({ value, onChange, section = 'all' }: Props) {
   const ar = useAdminLocale() === 'ar'
   const facts = value.facts ?? []
   const links = value.sidebarLinks ?? []
@@ -84,7 +86,7 @@ export function BlogEditorialForm({ value, onChange }: Props) {
   const set = <K extends keyof BlogEditorial>(key: K, next: BlogEditorial[K]) => onChange({ ...value, [key]: next })
 
   return <>
-    <Card title={<AdminText en="Article hero" ar="واجهة المقال" />} sub={<AdminText en="The same cinematic hero used by the current public story design." ar="نفس واجهة المقال السينمائية المستخدمة حاليًا." />}>
+    {(section === 'all' || section === 'hero') && <Card title={<AdminText en="Article hero" ar="واجهة المقال" />} sub={<AdminText en="The same cinematic hero used by the current public story design." ar="نفس واجهة المقال السينمائية المستخدمة حاليًا." />}>
       <div className="sp-form">
         <ImageField value={value.heroImage ?? ''} onChange={(heroImage) => set('heroImage', heroImage)} preview="wide" previewAlt={value.heroAlt} linkLabel={{ en: 'Hero image URL', ar: 'رابط صورة الواجهة' }} uploadLabel={{ en: 'Upload hero image', ar: 'رفع صورة الواجهة' }} />
         <div className="sp-form-2">
@@ -93,9 +95,9 @@ export function BlogEditorialForm({ value, onChange }: Props) {
         </div>
         <label><AdminText en="Hero introduction" ar="مقدمة الواجهة" /><TranslatedTextarea field="editorial.heroDescription" value={value.heroDescription ?? ''} rows={3} onChange={(event) => set('heroDescription', event.target.value)} /></label>
       </div>
-    </Card>
+    </Card>}
 
-    <Card title={<AdminText en="At-a-glance facts" ar="معلومات سريعة" />} sub={<AdminText en="Compact fact cards displayed directly below the hero." ar="كروت المعلومات المختصرة أسفل الواجهة مباشرة." />}>
+    {(section === 'all' || section === 'facts') && <Card title={<AdminText en="At-a-glance facts" ar="معلومات سريعة" />} sub={<AdminText en="Compact fact cards displayed directly below the hero." ar="كروت المعلومات المختصرة أسفل الواجهة مباشرة." />}>
       <div className="sp-form">
         <div className="sp-repeat-list compact">{facts.map((fact, index) => <article className="sp-repeat-card" key={`fact-${index}`}>
           <BlockHeader index={index} count={facts.length} title={fact.label || `Fact ${index + 1}`} prefix="editorial.facts" onMove={(to) => set('facts', move(facts, index, to))} onRemove={() => set('facts', facts.filter((_, position) => position !== index))} />
@@ -105,9 +107,9 @@ export function BlogEditorialForm({ value, onChange }: Props) {
         </article>)}</div>
         <button type="button" className="sp-btn" onClick={() => set('facts', [...facts, { icon: 'Compass', label: '', value: '' }])}><Plus size={16} /><AdminText en="Add fact" ar="إضافة معلومة" /></button>
       </div>
-    </Card>
+    </Card>}
 
-    <Card title={<AdminText en="Article sections" ar="سكاشن المقال" />} sub={<AdminText en="Every section keeps the current editorial typography, image layouts and responsive behavior." ar="كل سكشن يحتفظ بتصميم النصوص والصور والـresponsive الحالي." />}>
+    {(section === 'all' || section === 'sections') && <Card title={<AdminText en="Article sections" ar="سكاشن المقال" />} sub={<AdminText en="Every section keeps the current editorial typography, image layouts and responsive behavior." ar="كل سكشن يحتفظ بتصميم النصوص والصور والـresponsive الحالي." />}>
       <div className="sp-form">
         <div className="sp-repeat-list">{sections.map((section, index) => <article className="sp-repeat-card" key={`section-${index}`}>
           <BlockHeader index={index} count={sections.length} title={section.heading || `Section ${index + 1}`} prefix="editorial.sections" onMove={(to) => set('sections', move(sections, index, to))} onRemove={() => set('sections', sections.filter((_, position) => position !== index))} />
@@ -131,9 +133,9 @@ export function BlogEditorialForm({ value, onChange }: Props) {
         </article>)}</div>
         <button type="button" className="sp-btn primary" onClick={() => set('sections', [...sections, { id: `section-${sections.length + 1}`, number: String(sections.length + 1).padStart(2, '0'), eyebrow: '', heading: '', copy: [] } satisfies BlogGuideSection])}><Plus size={16} /><AdminText en="Add article section" ar="إضافة سكشن" /></button>
       </div>
-    </Card>
+    </Card>}
 
-    <Card title={<AdminText en="Guide navigation & sidebar" ar="التنقل والبطاقة الجانبية" />} sub={<AdminText en="Links point to section anchors; the optional card links to a real tour." ar="الروابط تشير لسكاشن المقال، والبطاقة الاختيارية ترتبط برحلة حقيقية." />}>
+    {(section === 'all' || section === 'navigation') && <Card title={<AdminText en="Guide navigation & sidebar" ar="التنقل والبطاقة الجانبية" />} sub={<AdminText en="Links point to section anchors; the optional card links to a real tour." ar="الروابط تشير لسكاشن المقال، والبطاقة الاختيارية ترتبط برحلة حقيقية." />}>
       <div className="sp-form">
         <div className="sp-builder-subhead"><div><strong><AdminText en="In this guide links" ar="روابط محتويات المقال" /></strong><small><AdminText en="Keep labels short; every anchor must match a section ID." ar="اجعل العناوين مختصرة، وكل رابط يجب أن يطابق معرف سكشن." /></small></div><button type="button" className="sp-btn" onClick={() => set('sidebarLinks', sections.map((section) => ({ href: `#${section.id}`, label: section.eyebrow || section.heading }))) }><ListChecks size={16} /><AdminText en="Sync from sections" ar="مزامنة من السكاشن" /></button></div>
         <div className="sp-repeat-list compact">{links.map((link, index) => <article className="sp-repeat-card" key={`link-${index}`}>
@@ -150,9 +152,9 @@ export function BlogEditorialForm({ value, onChange }: Props) {
         <TourCtaPicker value={value.sidebarAction?.tourSlug ?? ''} onChange={(tourSlug) => set('sidebarAction', { label: value.sidebarAction?.label ?? '', heading: value.sidebarAction?.heading ?? '', tourSlug })} />
         <button type="button" className="sp-btn" onClick={() => set('sidebarAction', undefined)}><Trash2 size={16} /><AdminText en="Clear sidebar card" ar="مسح البطاقة الجانبية" /></button>
       </div>
-    </Card>
+    </Card>}
 
-    <Card title={<AdminText en="Tips, quote & checklist" ar="النصائح والاقتباس والقائمة" />} sub={<AdminText en="Practical content rendered with the existing guide cards and checklist design." ar="محتوى عملي يظهر بنفس كروت الدليل وتصميم القائمة الحالي." />}>
+    {(section === 'all' || section === 'practical') && <Card title={<AdminText en="Tips, quote & checklist" ar="النصائح والاقتباس والقائمة" />} sub={<AdminText en="Practical content rendered with the existing guide cards and checklist design." ar="محتوى عملي يظهر بنفس كروت الدليل وتصميم القائمة الحالي." />}>
       <div className="sp-form">
         <p className="sp-builder-note"><AdminText en="Tip cards appear in the section whose anchor ID is “essentials”, matching the current article template." ar="تظهر كروت النصائح داخل السكشن الذي معرفه essentials، مثل تصميم المقال الحالي." /></p>
         <div className="sp-repeat-list compact">{tips.map((tip, index) => <article className="sp-repeat-card" key={`tip-${index}`}>
@@ -176,9 +178,9 @@ export function BlogEditorialForm({ value, onChange }: Props) {
         </article>)}</div>
         <button type="button" className="sp-btn" onClick={() => set('checklist', [...checklist, { title: '', detail: '' }])}><Plus size={16} /><AdminText en="Add checklist item" ar="إضافة عنصر للقائمة" /></button>
       </div>
-    </Card>
+    </Card>}
 
-    <Card title={<AdminText en="Final journey call to action" ar="دعوة الرحلة النهائية" />} sub={<AdminText en="The full-width image CTA shown before related stories." ar="دعوة الإجراء بعرض الصفحة قبل المقالات المرتبطة." />}>
+    {(section === 'all' || section === 'cta') && <Card title={<AdminText en="Final journey call to action" ar="دعوة الرحلة النهائية" />} sub={<AdminText en="The full-width image CTA shown before related stories." ar="دعوة الإجراء بعرض الصفحة قبل المقالات المرتبطة." />}>
       <div className="sp-form">
         <div className="sp-form-2">
           <label><AdminText en="Eyebrow" ar="العنوان التمهيدي" /><TranslatedInput field="editorial.cta.eyebrow" value={value.cta?.eyebrow ?? ''} onChange={(event) => set('cta', { eyebrow: event.target.value, heading: value.cta?.heading ?? '', copy: value.cta?.copy ?? '', tourSlug: value.cta?.tourSlug, tourLabel: value.cta?.tourLabel, customLabel: value.cta?.customLabel })} /></label>
@@ -192,6 +194,6 @@ export function BlogEditorialForm({ value, onChange }: Props) {
         </div>
         <button type="button" className="sp-btn" onClick={() => set('cta', undefined)}><Trash2 size={16} /><AdminText en="Clear final CTA" ar="مسح الدعوة النهائية" /></button>
       </div>
-    </Card>
+    </Card>}
   </>
 }

@@ -8,6 +8,7 @@ import { validateDestinationWrite } from '@/lib/destination-write'
 import { DestinationSectionsEditor, DestinationCoverEditor } from '@/components/admin/destination-sections-editor'
 import { DestinationPreviewContent } from '@/components/admin/destination-builder-preview'
 import { DestinationDetailView } from '@/components/extended-pages'
+import { CreationTimeline } from '@/components/admin/creation-timeline'
 import { PublicAppearance } from '@/components/public-appearance'
 import { TourCard, TourCardPresentation } from '@/components/site'
 import { InitialLocaleProvider, LocaleProvider } from '@/components/locale'
@@ -159,6 +160,17 @@ describe('real public-style unsaved preview', () => {
 })
 
 describe('section-based builder controls', () => {
+  it('keeps all destination controls mounted exactly once in focused timeline panels', () => {
+    const item = source(), onChange = vi.fn(), onUpload = vi.fn(), setTranslations = vi.fn()
+    const props = { item, onChange, onUpload, setTranslations }
+    const sections = ['hero', 'facts', 'story', 'experiences', 'rhythm', 'practical'] as const
+    const all = render(createElement(DestinationSectionsEditor, props))
+    const timeline = render(createElement(CreationTimeline, { steps: sections.map(section => ({ id: section, label: section, content: createElement(DestinationSectionsEditor, { ...props, section }) })) }))
+    expect(timeline.match(/ hidden=""/g)).toHaveLength(5)
+    for (const tag of ['input', 'textarea']) expect(timeline.match(new RegExp(`<${tag}(?=[ >])`, 'g'))?.length).toBe(all.match(new RegExp(`<${tag}(?=[ >])`, 'g'))?.length)
+    expect(timeline).toContain('/museum.jpg')
+    expect(onChange).not.toHaveBeenCalled()
+  })
   it('exposes all existing section fields, image controls and structural actions on the same editor', () => {
     const item = { ...source(), translations: destinationBuilderTranslations(source()) }
     const onChange = vi.fn(), onUpload = vi.fn(), setTranslations = vi.fn()

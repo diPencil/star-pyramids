@@ -118,6 +118,7 @@ export async function fetchDbTours(): Promise<Map<string, Tour> | null> {
 }
 
 export function invalidateToursCache() {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('sp-marketing-offers-changed'))
   generation++;
   cachedBySlug = null;
   inflight = null;

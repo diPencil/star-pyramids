@@ -1,5 +1,7 @@
 'use client'
 
+import { CreationTimeline } from '@/components/admin/creation-timeline'
+
 import { CampaignFields } from '@/components/admin/campaign-fields'
 import { PromoBarFields } from '@/components/admin/promo-bar-fields'
 import { isPromoBar, readCampaign } from '@/lib/marketing-campaigns'
@@ -280,106 +282,75 @@ function OfferForm({ initial, editSlug }: { initial: Offer | null; editSlug: str
   return <>
     <PageHead eyebrow="Special Offers" title={editing ? (editingBars ? 'Edit promotional bar' : 'Edit offer') : 'New offer'} titleAr={editing ? (editingBars ? 'تعديل الشريط الترويجي' : 'تعديل عرض') : 'عرض جديد'} sub={editing ? `Editing ${editSlug}` : 'Link a tour, create a complete tour, or publish a marketing campaign'} subAr={editing ? `تعديل ${editSlug}` : 'اربط رحلة موجودة أو انشر عرضا مستقلا'} backHref="/admin/offers" actions={<button type="button" className="sp-btn dark" onClick={save} disabled={saving || (!editing && mode === 'create')}><AdminText en={editing ? 'Save changes' : 'Publish offer'} ar={editing ? 'حفظ التعديلات' : 'نشر العرض'} /></button>} />
     {!editing && <Card title={<AdminText en="Creation method" ar="طريقة الإنشاء" />} sub={<AdminText en="A published linked-tour offer appears automatically on the homepage and Special Offers page" ar="عرض الرحلة المرتبط والمنشور يظهر تلقائيا في الصفحة الرئيسية وصفحة العروض الخاصة" />}>
-<ContentLanguageTabs translations={translations} setTranslations={setTranslations}>
-      <div className="sp-tabs" style={{ marginBottom: 16 }}>
+<ContentLanguageTabs translations={translations} setTranslations={setTranslations}><CreationTimeline busy={saving} steps={[{ id: 'method', label: 'Creation method', content: <div className="sp-form"><div className="sp-tabs" style={{ marginBottom: 16 }}>
         <button type="button" className={mode === 'existing' ? 'active' : ''} onClick={() => setMode('existing')}><AdminText en="Link existing tour" ar="ربط رحلة موجودة" /></button>
         <button type="button" className={mode === 'new' ? 'active' : ''} onClick={() => setMode('new')}><AdminText en="Marketing campaign" ar="حملة تسويقية" /></button>
         <button type="button" className={mode === 'bars' ? 'active' : ''} onClick={() => setMode('bars')}><AdminText en="Promotional Bars" ar="الأشرطة الترويجية" /></button>
         <button type="button" className={mode === 'create' ? 'active' : ''} onClick={() => setMode('create')}><AdminText en="New tour with offer" ar="رحلة جديدة بعرض" /></button>
-      </div>
-      {mode === 'create' && <div className="sp-form"><p><AdminText en="Create the complete tour in Trip Builder, then return here to link its offer." ar="أنشئ الرحلة الكاملة في منشئ الرحلات، ثم ارجع لربط العرض بها." /></p><Link href="/admin/trips/builder" className="sp-btn primary" style={{ justifySelf: 'start' }}><AdminText en="Open Trip Builder" ar="فتح منشئ الرحلات" /></Link></div>}
-      {mode === 'existing' ? (
-        <div className="sp-form">
-          <label><AdminText en="Tour type" ar="نوع الرحلة" /><SharedSelect value={category} onChange={value => { setCategory(value); setTourSlug('') }} locale={ar ? 'ar' : 'en'} options={[{value:'all',label:ar?'كل الأنواع':'All tour types'},{value:'one-day-tours',label:'One-day tours'},{value:'multi-days-tours',label:'Multi-day packages'},{value:'nile-cruises',label:'Nile cruises'},{value:'shore-excursions',label:'Shore excursions'}]} /></label>
-          <label><AdminText en="Starts at (optional)" ar="يبدأ في (اختياري)" /><DateInput value={startsAt} onChange={e => setStartsAt(e.target.value)} /></label>
-          {tourStatus.loading && <p role="status"><AdminText en="Loading tours…" ar="جارٍ تحميل الرحلات…" /></p>}
-          {tourStatus.error && <p role="alert">{tourStatus.error} <button type="button" className="sp-btn" onClick={tourStatus.retry}><AdminText en="Retry" ar="إعادة المحاولة" /></button></p>}
-          <label><AdminText en="Tour" ar="الرحلة" /><SharedSelect value={tourSlug} onChange={setTourSlug} locale={ar ? 'ar' : 'en'} popupWidth="trigger" options={liveTours.filter(t => category === 'all' || t.category === category).map((t) => ({ value: t.slug, label: `${t.title} - $${t.price}` }))} /></label>
-          <div className="sp-form-2">
-            <label><AdminText en="Discount %" ar="نسبة الخصم %" /><input type="number" min={1} max={90} placeholder={ar ? 'مثال: 15' : 'e.g. 15'} value={percent} onChange={(e) => { setPercent(e.target.value); setBadge(e.target.value ? `SAVE ${e.target.value}%` : '') }} /></label>
-            <label><AdminText en="Ends at" ar="ينتهي في" /><DateInput value={endsAt} onChange={(e) => setEndsAt(e.target.value)} /></label>
-          </div>
-          <div className="sp-form-2">
-            <label><AdminText en="Badge" ar="الشارة" /><TranslatedInput field="badge" value={badge} onChange={(e) => setBadge(e.target.value)} /></label>
-            <label><AdminText en="Price after discount" ar="السعر بعد الخصم" /><input value={`$${dealPrice}`} readOnly /></label>
-          </div>
-          <label><AdminText en="Offer description" ar="وصف العرض" /><TranslatedTextarea field="copy" rows={3} value={copy} onChange={(e) => setCopy(e.target.value)} placeholder={tour?.summary} /></label>
-          <label className="sp-check"><input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} /> <AdminText en="Published (visible on website)" ar="منشور (ظاهر على الموقع)" /></label>
-        </div>
-      ) : mode === 'new' ? (
-        <div className="sp-form">
-          <div className="sp-form-2">
+      </div>{mode === 'create' && <div className="sp-form"><p><AdminText en="Create the complete tour in Trip Builder, then return here to link its offer." ar="أنشئ الرحلة الكاملة في منشئ الرحلات، ثم ارجع لربط العرض بها." /></p><Link href="/admin/trips/builder" className="sp-btn primary" style={{ justifySelf: 'start' }}><AdminText en="Open Trip Builder" ar="فتح منشئ الرحلات" /></Link></div>}</div> },
+      { id: 'details', label: 'Offer details', content: <div className="sp-form">{mode === 'existing' ? <><label><AdminText en="Tour type" ar="نوع الرحلة" /><SharedSelect value={category} onChange={value => { setCategory(value); setTourSlug('') }} locale={ar ? 'ar' : 'en'} options={[{value:'all',label:ar?'كل الأنواع':'All tour types'},{value:'one-day-tours',label:'One-day tours'},{value:'multi-days-tours',label:'Multi-day packages'},{value:'nile-cruises',label:'Nile cruises'},{value:'shore-excursions',label:'Shore excursions'}]} /></label>
+{tourStatus.loading && <p role="status"><AdminText en="Loading tours…" ar="جارٍ تحميل الرحلات…" /></p>}
+{tourStatus.error && <p role="alert">{tourStatus.error} <button type="button" className="sp-btn" onClick={tourStatus.retry}><AdminText en="Retry" ar="إعادة المحاولة" /></button></p>}
+<label><AdminText en="Tour" ar="الرحلة" /><SharedSelect value={tourSlug} onChange={setTourSlug} locale={ar ? 'ar' : 'en'} popupWidth="trigger" options={liveTours.filter(t => category === 'all' || t.category === category).map((t) => ({ value: t.slug, label: `${t.title} - $${t.price}` }))} /></label></> : mode === 'new' ? <><div className="sp-form-2">
             <label><AdminText en="Title" ar="العنوان" /><TranslatedInput field="title" value={title} onChange={(e) => { setTitle(e.target.value); if (!slugTouched) setSlug(slugify(e.target.value)) }} placeholder="Summer Nile Escape" /></label>
             <label><AdminText en="Badge" ar="الشارة" /><TranslatedInput field="badge" value={badge} onChange={(e) => setBadge(e.target.value)} placeholder="SAVE 20%" /></label>
           </div>
-          <label><AdminText en="Slug" ar="المعرف" /><input value={slugTouched ? slug : slugify(title)} dir="ltr" onChange={(e) => { setSlugTouched(true); setSlug(cleanSlugInput(e.target.value)) }} placeholder="custom-..." /><small><AdminText en="Lowercase letters, numbers, dashes. Must be unique." ar="أحرف صغيرة وأرقام وشرطات. يجب أن يكون فريدًا." /></small></label>
-          <label><AdminText en="Description" ar="الوصف" /><TranslatedTextarea field="copy" rows={3} value={copy} onChange={(e) => setCopy(e.target.value)} /></label>
-          <div className="sp-form-2">
+<label><AdminText en="Slug" ar="المعرف" /><input value={slugTouched ? slug : slugify(title)} dir="ltr" onChange={(e) => { setSlugTouched(true); setSlug(cleanSlugInput(e.target.value)) }} placeholder="custom-..." /><small><AdminText en="Lowercase letters, numbers, dashes. Must be unique." ar="أحرف صغيرة وأرقام وشرطات. يجب أن يكون فريدًا." /></small></label></> : mode === 'bars' ? <><label><AdminText en="Slug" ar="المعرف" /><input value={slugTouched ? slug : slugify(title)} dir="ltr" onChange={(e) => { setSlugTouched(true); setSlug(cleanSlugInput(e.target.value)) }} placeholder="promo-..." /><small><AdminText en="Lowercase letters, numbers, dashes. Must be unique." ar="أحرف صغيرة وأرقام وشرطات. يجب أن يكون فريدًا." /></small></label></> : <p>Complete the tour in Trip Builder, then return to link its offer.</p>}</div> },
+      { id: 'pricing', label: 'Pricing & schedule', content: <div className="sp-form">{mode === 'existing' ? <><label><AdminText en="Starts at (optional)" ar="يبدأ في (اختياري)" /><DateInput value={startsAt} onChange={e => setStartsAt(e.target.value)} /></label>
+<div className="sp-form-2">
+            <label><AdminText en="Discount %" ar="نسبة الخصم %" /><input type="number" min={1} max={90} placeholder={ar ? 'مثال: 15' : 'e.g. 15'} value={percent} onChange={(e) => { setPercent(e.target.value); setBadge(e.target.value ? `SAVE ${e.target.value}%` : '') }} /></label>
+            <label><AdminText en="Ends at" ar="ينتهي في" /><DateInput value={endsAt} onChange={(e) => setEndsAt(e.target.value)} /></label>
+          </div>
+<div className="sp-form-2">
+            <label><AdminText en="Badge" ar="الشارة" /><TranslatedInput field="badge" value={badge} onChange={(e) => setBadge(e.target.value)} /></label>
+            <label><AdminText en="Price after discount" ar="السعر بعد الخصم" /><input value={`$${dealPrice}`} readOnly /></label>
+          </div></> : mode === 'new' ? <><div className="sp-form-2">
             <label><AdminText en="Price" ar="السعر" /><input type="number" value={price} onChange={(e) => setPrice(e.target.value)} /></label>
             <label><AdminText en="Price before discount" ar="السعر قبل الخصم" /><input type="number" value={originalPrice} onChange={(e) => setOriginalPrice(e.target.value)} /></label>
           </div>
-          <div className="sp-form-2">
+<div className="sp-form-2">
             <label><AdminText en="Duration" ar="المدة" /><TranslatedInput field="duration" value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="5 days" /></label>
             <label><AdminText en="Deadline" ar="الموعد النهائي" /><DateInput value={endsAt} onChange={(e) => setEndsAt(e.target.value)} /></label>
           </div>
-          <ImageField value={image} onChange={setImage} />
-          <label><AdminText en="Gallery (one URL per line)" ar="المعرض (رابط في كل سطر)"/><textarea rows={3} value={gallery} onChange={e => setGallery(e.target.value)}/></label>
-          <label><AdminText en="Starts at (optional)" ar="يبدأ في (اختياري)"/><DateInput value={startsAt} onChange={e => setStartsAt(e.target.value)}/></label>
-          <CampaignFields value={campaign} onChange={setCampaign}/>
-          <label><AdminText en="Highlights (one per line)" ar="النقاط البارزة (سطر لكل نقطة)" /><TranslatedTextarea field="highlights" rows={3} value={highlights} onChange={(e) => setHighlights(e.target.value)} /></label>
-          <div className="sp-form-2">
-            <label className="sp-check"><input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} /> <AdminText en="Published (visible on website)" ar="منشور (ظاهر على الموقع)" /></label>
-            <label><AdminText en="Display order" ar="ترتيب العرض" /><input type="number" step="1" value={displayOrder} onChange={(e) => setDisplayOrder(e.target.value)} placeholder="1" /></label>
-          </div>
-        </div>
-      ) : mode === 'bars' ? (
-        <div className="sp-form">
-          <label><AdminText en="Slug" ar="المعرف" /><input value={slugTouched ? slug : slugify(title)} dir="ltr" onChange={(e) => { setSlugTouched(true); setSlug(cleanSlugInput(e.target.value)) }} placeholder="promo-..." /><small><AdminText en="Lowercase letters, numbers, dashes. Must be unique." ar="أحرف صغيرة وأرقام وشرطات. يجب أن يكون فريدًا." /></small></label>
-          <PromoBarFields title={title} setTitle={(v) => { setTitle(v); if (!slugTouched) setSlug(slugify(v)) }} copy={copy} setCopy={setCopy} campaign={campaign} setCampaign={setCampaign} showTop={barTop} showFooter={barFooter} setPlacement={setPlacement} />
-          <div className="sp-form-2">
+<label><AdminText en="Starts at (optional)" ar="يبدأ في (اختياري)"/><DateInput value={startsAt} onChange={e => setStartsAt(e.target.value)}/></label></> : mode === 'bars' ? <><div className="sp-form-2">
             <label><AdminText en="Starts at (optional)" ar="يبدأ في (اختياري)" /><DateInput value={startsAt} onChange={e => setStartsAt(e.target.value)} /></label>
             <label><AdminText en="Ends at (optional)" ar="ينتهي في (اختياري)" /><DateInput value={endsAt} onChange={(e) => setEndsAt(e.target.value)} /></label>
-          </div>
-          <div className="sp-form-2">
+          </div></> : <p>Complete the tour in Trip Builder, then return to link its offer.</p>}</div> },
+      { id: 'content', label: 'Content & media', content: <div className="sp-form">{mode === 'existing' ? <><label><AdminText en="Offer description" ar="وصف العرض" /><TranslatedTextarea field="copy" rows={3} value={copy} onChange={(e) => setCopy(e.target.value)} placeholder={tour?.summary} /></label></> : mode === 'new' ? <><label><AdminText en="Description" ar="الوصف" /><TranslatedTextarea field="copy" rows={3} value={copy} onChange={(e) => setCopy(e.target.value)} /></label>
+<ImageField value={image} onChange={setImage} />
+<label><AdminText en="Gallery (one URL per line)" ar="المعرض (رابط في كل سطر)"/><textarea rows={3} value={gallery} onChange={e => setGallery(e.target.value)}/></label>
+<CampaignFields value={campaign} onChange={setCampaign}/>
+<label><AdminText en="Highlights (one per line)" ar="النقاط البارزة (سطر لكل نقطة)" /><TranslatedTextarea field="highlights" rows={3} value={highlights} onChange={(e) => setHighlights(e.target.value)} /></label></> : mode === 'bars' ? <><PromoBarFields title={title} setTitle={(v) => { setTitle(v); if (!slugTouched) setSlug(slugify(v)) }} copy={copy} setCopy={setCopy} campaign={campaign} setCampaign={setCampaign} showTop={barTop} showFooter={barFooter} setPlacement={setPlacement} /></> : <p>Complete the tour in Trip Builder, then return to link its offer.</p>}</div> },
+      { id: 'publishing', label: 'Review & publish', content: <div className="sp-form">{mode === 'existing' ? <><label className="sp-check"><input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} /> <AdminText en="Published (visible on website)" ar="منشور (ظاهر على الموقع)" /></label></> : mode === 'new' ? <><div className="sp-form-2">
             <label className="sp-check"><input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} /> <AdminText en="Published (visible on website)" ar="منشور (ظاهر على الموقع)" /></label>
             <label><AdminText en="Display order" ar="ترتيب العرض" /><input type="number" step="1" value={displayOrder} onChange={(e) => setDisplayOrder(e.target.value)} placeholder="1" /></label>
-          </div>
-        </div>
-      ) : null}
-      {error && <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>}
-      <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+          </div></> : mode === 'bars' ? <><div className="sp-form-2">
+            <label className="sp-check"><input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} /> <AdminText en="Published (visible on website)" ar="منشور (ظاهر على الموقع)" /></label>
+            <label><AdminText en="Display order" ar="ترتيب العرض" /><input type="number" step="1" value={displayOrder} onChange={(e) => setDisplayOrder(e.target.value)} placeholder="1" /></label>
+          </div></> : <p>Complete the tour in Trip Builder, then return to link its offer.</p>}</div> }]} footer={<>{error && <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>}<div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
         <button type="button" className="sp-btn primary" onClick={save} disabled={saving || mode === 'create'}>{mode === 'bars' ? <AdminText en="Publish bar" ar="نشر الشريط" /> : <AdminText en="Publish offer" ar="نشر العرض" />}</button>
-      </div>
-    </ContentLanguageTabs>
+      </div></>} /></ContentLanguageTabs>
 </Card>}
     {editing && (editingBars ? <Card title={<AdminText en="Promotional bar" ar="الشريط الترويجي" />} sub={<AdminText en="Bar placements, message, button and schedule. Other catalogue fields are preserved." ar="مواضع الشريط والرسالة والزر والمواعيد. تُحفظ باقي حقول الكتالوج كما هي." />}>
-<ContentLanguageTabs translations={translations} setTranslations={setTranslations}>
-      <div className="sp-form">
-        <PromoBarFields title={title} setTitle={setTitle} copy={copy} setCopy={setCopy} campaign={campaign} setCampaign={setCampaign} showTop={barTop} showFooter={barFooter} setPlacement={setPlacement} />
-        <div className="sp-form-2">
+<ContentLanguageTabs translations={translations} setTranslations={setTranslations}><CreationTimeline busy={saving} steps={[{ id: 'content', label: 'Bar content', content: <div className="sp-form"><PromoBarFields title={title} setTitle={setTitle} copy={copy} setCopy={setCopy} campaign={campaign} setCampaign={setCampaign} showTop={barTop} showFooter={barFooter} setPlacement={setPlacement} /></div> },
+      { id: 'schedule', label: 'Schedule', content: <div className="sp-form"><div className="sp-form-2">
           <label><AdminText en="Starts at (optional)" ar="يبدأ في (اختياري)" /><DateInput value={startsAt} onChange={e => setStartsAt(e.target.value)} /></label>
           <label><AdminText en="Deadline" ar="الموعد النهائي" /><DateInput value={endsAt} onChange={(e) => setEndsAt(e.target.value)} /></label>
-        </div>
-        <div className="sp-form-2">
+        </div></div> },
+      { id: 'publishing', label: 'Review & publish', content: <div className="sp-form"><div className="sp-form-2">
           <label className="sp-check"><input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} /> <AdminText en="Published (visible on website)" ar="منشور (ظاهر على الموقع)" /></label>
           <label><AdminText en="Display order" ar="ترتيب العرض" /><input type="number" step="1" value={displayOrder} onChange={(e) => setDisplayOrder(e.target.value)} placeholder="1" /></label>
-        </div>
-      </div>
-      {error && <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>}
-      <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+        </div></div> }]} footer={<>{error && <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>}<div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
         <button type="button" className="sp-btn primary" onClick={save} disabled={saving}><AdminText en="Save changes" ar="حفظ التعديلات" /></button>
-      </div>
-    </ContentLanguageTabs>
+      </div></>} /></ContentLanguageTabs>
 </Card> : <Card title={<AdminText en="Offer details" ar="بيانات العرض" />}>
-<ContentLanguageTabs translations={translations} setTranslations={setTranslations}>
-      <div className="sp-form">
-        {initial?.tourSlug && <><p><AdminText en="Linked tour" ar="الرحلة المرتبطة" />: <Link href={`/admin/trips/builder?slug=${initial.tourSlug}`}>{initial.tourSlug}</Link></p><div className="sp-form-2"><label><AdminText en="Discount %" ar="نسبة الخصم" /><input type="number" min={1} max={90} step="0.01" value={percent} onChange={e=>setPercent(e.target.value)} /></label><label><AdminText en="Starts at (optional)" ar="يبدأ في (اختياري)" /><DateInput value={startsAt} onChange={e=>setStartsAt(e.target.value)} /></label></div><p><AdminText en="Tour images, duration and booking prices come from the linked tour." ar="صور الرحلة ومدتها وأسعار الحجز تأتي من الرحلة المرتبطة." /></p></>}
-        <div className="sp-form-2">
+<ContentLanguageTabs translations={translations} setTranslations={setTranslations}><CreationTimeline busy={saving} steps={[{ id: 'details', label: 'Offer details', content: <div className="sp-form">{initial?.tourSlug && <><p><AdminText en="Linked tour" ar="الرحلة المرتبطة" />: <Link href={`/admin/trips/builder?slug=${initial.tourSlug}`}>{initial.tourSlug}</Link></p><div className="sp-form-2"><label><AdminText en="Discount %" ar="نسبة الخصم" /><input type="number" min={1} max={90} step="0.01" value={percent} onChange={e=>setPercent(e.target.value)} /></label><label><AdminText en="Starts at (optional)" ar="يبدأ في (اختياري)" /><DateInput value={startsAt} onChange={e=>setStartsAt(e.target.value)} /></label></div><p><AdminText en="Tour images, duration and booking prices come from the linked tour." ar="صور الرحلة ومدتها وأسعار الحجز تأتي من الرحلة المرتبطة." /></p></>}
+<div className="sp-form-2">
           <label><AdminText en="Title" ar="العنوان" /><TranslatedInput field="title" value={title} onChange={(e) => setTitle(e.target.value)} /></label>
           <label><AdminText en="Badge" ar="الشارة" /><TranslatedInput field="badge" value={badge} onChange={(e) => setBadge(e.target.value)} /></label>
         </div>
-        <label><AdminText en="Description" ar="الوصف" /><TranslatedTextarea field="copy" rows={3} value={copy} onChange={(e) => setCopy(e.target.value)} /></label>
-        {!initial?.tourSlug && <><div className="sp-form-2">
+<label><AdminText en="Description" ar="الوصف" /><TranslatedTextarea field="copy" rows={3} value={copy} onChange={(e) => setCopy(e.target.value)} /></label></div> },
+      { id: 'pricing', label: 'Pricing & schedule', content: <div className="sp-form">{!initial?.tourSlug && <><div className="sp-form-2">
           <label><AdminText en="Price" ar="السعر" /><input type="number" value={price} onChange={(e) => setPrice(e.target.value)} /></label>
           <label><AdminText en="Price before discount" ar="السعر قبل الخصم" /><input type="number" value={originalPrice} onChange={(e) => setOriginalPrice(e.target.value)} /></label>
         </div>
@@ -387,21 +358,17 @@ function OfferForm({ initial, editSlug }: { initial: Offer | null; editSlug: str
           <label><AdminText en="Duration" ar="المدة" /><TranslatedInput field="duration" value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="5 days" /></label>
         </div>
         </>}
-        <label><AdminText en="Deadline" ar="الموعد النهائي" /><DateInput value={endsAt} onChange={(e) => setEndsAt(e.target.value)} /></label>
-        {!initial?.tourSlug && <><CampaignFields value={campaign} onChange={setCampaign}/><label><AdminText en="Starts at (optional)" ar="يبدأ في (اختياري)"/><DateInput value={startsAt} onChange={e => setStartsAt(e.target.value)}/></label><ImageField value={image} onChange={setImage} />
+<label><AdminText en="Deadline" ar="الموعد النهائي" /><DateInput value={endsAt} onChange={(e) => setEndsAt(e.target.value)} /></label></div> },
+      { id: 'content', label: 'Content & media', content: <div className="sp-form">{!initial?.tourSlug && <><CampaignFields value={campaign} onChange={setCampaign}/><label><AdminText en="Starts at (optional)" ar="يبدأ في (اختياري)"/><DateInput value={startsAt} onChange={e => setStartsAt(e.target.value)}/></label><ImageField value={image} onChange={setImage} />
         <label><AdminText en="Gallery (one URL per line)" ar="المعرض (رابط في كل سطر)" /><textarea rows={3} value={gallery} onChange={(e) => setGallery(e.target.value)} placeholder="https://..." /></label>
         </>}
-        <label><AdminText en="Highlights (one per line)" ar="النقاط البارزة (سطر لكل نقطة)" /><TranslatedTextarea field="highlights" rows={3} value={highlights} onChange={(e) => setHighlights(e.target.value)} /></label>
-        <div className="sp-form-2">
+<label><AdminText en="Highlights (one per line)" ar="النقاط البارزة (سطر لكل نقطة)" /><TranslatedTextarea field="highlights" rows={3} value={highlights} onChange={(e) => setHighlights(e.target.value)} /></label></div> },
+      { id: 'publishing', label: 'Review & publish', content: <div className="sp-form"><div className="sp-form-2">
           <label className="sp-check"><input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} /> <AdminText en="Published (visible on website)" ar="منشور (ظاهر على الموقع)" /></label>
           <label><AdminText en="Display order" ar="ترتيب العرض" /><input type="number" step="1" value={displayOrder} onChange={(e) => setDisplayOrder(e.target.value)} placeholder="1" /></label>
-        </div>
-      </div>
-      {error && <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>}
-      <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+        </div></div> }]} footer={<>{error && <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>}<div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
         <button type="button" className="sp-btn primary" onClick={save} disabled={saving}><AdminText en="Save changes" ar="حفظ التعديلات" /></button>
-      </div>
-    </ContentLanguageTabs>
+      </div></>} /></ContentLanguageTabs>
 </Card>)}
   </>
 }

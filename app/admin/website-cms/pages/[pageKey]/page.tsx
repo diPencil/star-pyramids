@@ -7,7 +7,7 @@ import { Card } from '@/components/admin/admin-ui'
 import { isPageDocumentId } from '@/lib/additional-page-content'
 export default async function Page({ params }: { params: Promise<{ pageKey: string }> }) {
   const { pageKey } = await params
-  if (pageKey === 'shared') return <PageVisualEditor key={pageKey} pageId={pageKey} />
+  if (pageKey === 'shared') return <><p className="cms-coverage-note">Public menu structure and published menu labels are owned by <Link href="/admin/website-cms/navigation">Navigation Manager</Link>. These legacy labels continue to supply the original fallback and functional search/account/footer controls.</p><PageVisualEditor key={pageKey} pageId={pageKey} /></>
   const page = findCmsPage(pageKey)
   if (!page) notFound()
   if (isPageDocumentId(pageKey)) return <PageVisualEditor key={pageKey} pageId={pageKey} />

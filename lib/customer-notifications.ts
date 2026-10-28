@@ -1,191 +1,68 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { MARKETING_CHANGE_EVENT, currentNotification, isMarketingNotification, type MarketingNotification } from './marketing-notifications'
 
 export type CustomerNotification = {
-  id: string
-  type: string
-  title: string
-  message: string
-  href: string | null
-  readAt: string | null
-  createdAt: string
+  id: string; type: string; title: string; message: string; href: string | null; readAt: string | null; createdAt: string
+  expiresAt?: string | null
+  localized?: MarketingNotification['localized']
 }
-
 const EVENT_NAME = 'sp-customer-notifications'
 const PANEL_LIMIT = 8
 
-let cache: CustomerNotification[] | null = null
-let unreadCache = 0
-let settled = false
-let inflight: Promise<void> | null = null
-
-function emitNotificationsChange() {
-  window.dispatchEvent(new Event(EVENT_NAME))
-}
-
-async function fetchNotifications(): Promise<void> {
-  if (!inflight) {
-    inflight = (async () => {
-      try {
-        const res = await fetch('/api/account/notifications', { credentials: 'same-origin' })
-        if (!res.ok) return
-        const data = (await res.json()) as { notifications?: unknown; unreadCount?: unknown }
-        if (!Array.isArray(data.notifications)) return
-        const rows = data.notifications.filter((row): row is CustomerNotification =>
-          typeof row === 'object' &&
-          row !== null &&
-          typeof (row as CustomerNotification).id === 'string' &&
-          typeof (row as CustomerNotification).title === 'string')
-        cache = rows
-        unreadCache = typeof data.unreadCount === 'number' ? data.unreadCount : rows.filter((row) => !row.readAt).length
-        settled = true
-        emitNotificationsChange()
-      } catch {
-        /* unreachable API keeps the previous set; panel shows its error state */
-      } finally {
-        inflight = null
-      }
-    })()
-  }
-  await inflight
-}
-
-async function patchNotifications(body: { action: 'read' | 'read-all'; id?: string }): Promise<boolean> {
-  try {
-    const res = await fetch('/api/account/notifications', {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify(body),
-    })
-    if (!res.ok) return false
-    const data = (await res.json()) as { unreadCount?: unknown }
-    if (typeof data.unreadCount === 'number') unreadCache = data.unreadCount
-    return true
-  } catch {
-    return false
-  }
-}
-
-/**
- * Revalidate the shared notification cache from the server (Phase 2I
- * read-sync). Called after a conversation read resolves matching
- * notifications server-side, so the bell reflects the new state
- * immediately without polling or manual refresh.
- */
+/** Revalidate active account consumers after a successful domain/read operation. */
 export function invalidateNotifications(): void {
-  settled = false
-  void fetchNotifications()
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(EVENT_NAME))
 }
 
-/**
- * Authoritative authenticated notification state (Phase 2H).
- *
- * Single shared cache across every consumer (account bell, panels):
- * one fetch per mount burst, optimistic read marking, and a window
- * event to keep all mounted instances synchronized. No polling, no
- * localStorage mirror — the database is the source of truth.
- */
+/** Owner-authenticated state. No cross-session module cache or localStorage mirror. */
 export function useCustomerNotifications() {
-  const [notifications, setNotifications] = useState<CustomerNotification[]>(() => (cache ? [...cache] : []))
-  const [unreadCount, setUnreadCount] = useState(() => unreadCache)
-  const [loading, setLoading] = useState(() => !settled)
+  const [notifications, setNotifications] = useState<CustomerNotification[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
-
+  const sequence = useRef(0), mounted = useRef(false)
+  const load = useCallback(async () => {
+    const request = ++sequence.current
+    try {
+      const response = await fetch('/api/account/notifications', { credentials: 'same-origin', cache: 'no-store' })
+      if (!response.ok) throw Error('Could not load notifications.')
+      const body = await response.json()
+      if (!Array.isArray(body.notifications)) throw Error('Could not load notifications.')
+      const rows: CustomerNotification[] = body.notifications.filter((item: CustomerNotification) => item && typeof item.id === 'string' && typeof item.title === 'string' && typeof item.createdAt === 'string')
+      if (!mounted.current || request !== sequence.current) return
+      setNotifications(rows.filter(item => currentNotification(item)))
+      setUnreadCount(Math.max(0, (typeof body.unreadCount === 'number' ? body.unreadCount : rows.filter(item => !item.readAt).length) - rows.filter(item => !item.readAt && !currentNotification(item)).length))
+      setLoadError('')
+    } catch {
+      if (!mounted.current || request !== sequence.current) return
+      setNotifications([]); setUnreadCount(0); setLoadError('Could not load notifications.')
+    } finally { if (mounted.current && request === sequence.current) setLoading(false) }
+  }, [])
   useEffect(() => {
-    let cancelled = false
-    const sync = () => {
-      if (cancelled) return
-      setNotifications(cache ? [...cache] : [])
-      setUnreadCount(unreadCache)
-    }
-    if (!settled) {
-      fetchNotifications()
-        .then(() => {
-          if (cancelled) return
-          sync()
-          // Settled without data means guests/unauthorized or an
-          // unreachable API — show the error state instead of
-          // hanging on loading.
-          if (!settled) setLoadError('Could not load notifications.')
-          setLoading(false)
-        })
-        .catch(() => {
-          if (cancelled) return
-          setLoadError('Could not load notifications.')
-          setLoading(false)
-        })
-    } else {
-      setLoading(false)
-    }
-    window.addEventListener(EVENT_NAME, sync)
-    return () => {
-      cancelled = true
-      window.removeEventListener(EVENT_NAME, sync)
-    }
+    mounted.current = true
+    void load()
+    const revalidate = () => { void load() }
+    const interval = window.setInterval(revalidate, 30000)
+    window.addEventListener(EVENT_NAME, revalidate)
+    window.addEventListener(MARKETING_CHANGE_EVENT, revalidate)
+    window.addEventListener('focus', revalidate)
+    return () => { mounted.current = false; sequence.current++; window.clearInterval(interval); window.removeEventListener(EVENT_NAME, revalidate); window.removeEventListener(MARKETING_CHANGE_EVENT, revalidate); window.removeEventListener('focus', revalidate) }
+  }, [load])
+  const refresh = useCallback(() => { setLoading(true); setLoadError(''); void load() }, [load])
+  const patch = useCallback(async (body: { action: 'read' | 'read-all'; id?: string }): Promise<boolean> => {
+    try {
+      const response = await fetch('/api/account/notifications', { method: 'PATCH', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+      if (!response.ok) throw Error('Could not update notifications.')
+      const result = await response.json()
+      invalidateNotifications()
+      const partial = result.marketingUnavailable && (body.action === 'read-all' || body.id && isMarketingNotification(body.id))
+      if (partial && mounted.current) setLoadError('Some offer notifications could not be updated. Please try again.')
+      return !partial
+    } catch { if (mounted.current) setLoadError('Could not update notifications.'); return false }
   }, [])
-
-  const refresh = useCallback(() => {
-    settled = false
-    setLoading(true)
-    setLoadError('')
-    fetchNotifications().then(() => {
-      setNotifications(cache ? [...cache] : [])
-      setUnreadCount(unreadCache)
-      if (!settled) setLoadError('Could not load notifications.')
-      setLoading(false)
-    })
-  }, [])
-
-  const markRead = useCallback(async (id: string): Promise<boolean> => {
-    const previous = cache
-    if (cache) {
-      const row = cache.find((item) => item.id === id)
-      if (row && !row.readAt) {
-        cache = cache.map((item) => (item.id === id ? { ...item, readAt: new Date().toISOString() } : item))
-        unreadCache = Math.max(0, unreadCache - 1)
-        emitNotificationsChange()
-      }
-    }
-    const ok = await patchNotifications({ action: 'read', id })
-    if (!ok) {
-      cache = previous
-      unreadCache = (previous ?? []).filter((item) => !item.readAt).length
-      emitNotificationsChange()
-    } else {
-      await fetchNotifications()
-    }
-    return ok
-  }, [])
-
-  const markAllRead = useCallback(async (): Promise<boolean> => {
-    const previous = cache
-    if (cache) {
-      const now = new Date().toISOString()
-      cache = cache.map((item) => (item.readAt ? item : { ...item, readAt: now }))
-      unreadCache = 0
-      emitNotificationsChange()
-    }
-    const ok = await patchNotifications({ action: 'read-all' })
-    if (!ok) {
-      cache = previous
-      unreadCache = (previous ?? []).filter((item) => !item.readAt).length
-      emitNotificationsChange()
-    } else {
-      await fetchNotifications()
-    }
-    return ok
-  }, [])
-
-  return {
-    notifications,
-    unreadCount,
-    loading,
-    loadError,
-    refresh,
-    markRead,
-    markAllRead,
-    recent: notifications.slice(0, PANEL_LIMIT),
-  }
+  const markRead = useCallback((id: string) => patch({ action: 'read', id }), [patch])
+  const markAllRead = useCallback(() => patch({ action: 'read-all' }), [patch])
+  return { notifications, unreadCount, loading, loadError, refresh, markRead, markAllRead, recent: notifications.slice(0, PANEL_LIMIT) }
 }

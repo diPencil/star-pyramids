@@ -229,6 +229,26 @@
         "Retain showInDestinations for curated/homepage selections without changing saved flags",
         "No browser QA or production changes"
       ]
+    },
+    {
+      "area": "admin-creation-timelines",
+      "direction": "Reuse the compact Trip Builder timeline for the five requested creation editors",
+      "summary": "Stable, mounted steps for Destination, Category, Event, Offer and Story with previous/next navigation and globally visible save/errors; no automatic writes or changed save contracts.",
+      "constraints": [
+        "Preserve every existing field, translation, media control, permission and handler",
+        "Keep English admin navigation and enabled EN/ES/IT content; Arabic remains disabled",
+        "No browser testing, database changes or deployment"
+      ]
+    },
+    {
+      "area": "website-navigation-manager",
+      "direction": "Existing admin two-panel menu editor",
+      "summary": "A compact menu structure tree beside the selected item settings, reusing existing cards, controls and confirmation dialogs. Published primary/sticky navigation and the mobile drawer retain existing classes and appearance.",
+      "constraints": [
+        "Single SiteSetting draft/published source with immutable dynamic record references",
+        "One dropdown level; accessible move controls alongside drag and drop",
+        "EN/ES/IT only; no browser testing or new UI dependencies"
+      ]
     }
   ]
 }

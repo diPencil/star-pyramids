@@ -1,5 +1,7 @@
 'use client'
 
+import { CreationTimeline } from '@/components/admin/creation-timeline'
+
 import { Suspense, useEffect, useState } from 'react'
 import { ContentLanguageTabs, TranslatedInput, TranslatedTextarea } from '@/components/admin/content-language-tabs'
 import { type CatalogueTranslations } from '@/lib/catalogue-translations'
@@ -122,7 +124,8 @@ function BlogForm({ initial, editSlug }: { initial: Blog | null; editSlug: strin
       actions={<button type="button" className="sp-btn dark" onClick={save} disabled={saving}><AdminText en={editing ? 'Save changes' : (published ? 'Publish story' : 'Save draft')} ar={editing ? 'حفظ التعديلات' : (published ? 'نشر المقال' : 'حفظ مسودة')} /></button>}
     />
     <ContentLanguageTabs translations={translations} setTranslations={setTranslations}>
-    <Card title={<AdminText en="Story details" ar="بيانات المقال" />} sub={<AdminText en="Card information, publishing and ordering. The full article builder follows below." ar="بيانات الكارت والنشر والترتيب، ثم منشئ المقال الكامل بالأسفل." />}>
+    <CreationTimeline busy={saving} steps={[
+      { id: 'details', label: 'Story details', content: <><Card title={<AdminText en="Story details" ar="بيانات المقال" />} sub={<AdminText en="Card information, publishing and ordering. The full article builder follows below." ar="بيانات الكارت والنشر والترتيب، ثم منشئ المقال الكامل بالأسفل." />}>
       <div className="sp-form">
         <div className="sp-form-2">
           <label><AdminText en="Title" ar="العنوان" /><TranslatedInput field="title" value={title} onChange={(e) => { setTitle(e.target.value); if (!slugTouched && !editing) setSlug(slugify(e.target.value)) }} /></label>
@@ -134,17 +137,24 @@ function BlogForm({ initial, editSlug }: { initial: Blog | null; editSlug: strin
         </div>
         <ImageField value={image} onChange={setImage} />
         <label><AdminText en="Excerpt" ar="المقتطف" /><TranslatedTextarea field="excerpt" rows={3} value={excerpt} onChange={(e) => setExcerpt(e.target.value)} /></label>
-        <div className="sp-form-2">
+
+      </div>
+      </Card></> },
+      { id: 'article-hero', label: 'Article hero', content: <BlogEditorialForm section="hero" value={editorial} onChange={setEditorial} /> },
+      { id: 'article-facts', label: 'At-a-glance facts', content: <BlogEditorialForm section="facts" value={editorial} onChange={setEditorial} /> },
+      { id: 'article-sections', label: 'Article sections', content: <BlogEditorialForm section="sections" value={editorial} onChange={setEditorial} /> },
+      { id: 'article-navigation', label: 'Guide navigation & sidebar', content: <BlogEditorialForm section="navigation" value={editorial} onChange={setEditorial} /> },
+      { id: 'article-practical', label: 'Tips, quote & checklist', content: <BlogEditorialForm section="practical" value={editorial} onChange={setEditorial} /> },
+      { id: 'article-cta', label: 'Final call to action', content: <BlogEditorialForm section="cta" value={editorial} onChange={setEditorial} /> },
+      { id: 'publishing', label: 'Review & publish', content: <><Card title="Publishing"><div className="sp-form-2">
           <label className="sp-check"><input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} /> <AdminText en="Published (visible on website)" ar="منشور (ظاهر على الموقع)" /></label>
           <label><AdminText en="Display order" ar="ترتيب العرض" /><input type="number" step="1" value={displayOrder} onChange={(e) => setDisplayOrder(e.target.value)} placeholder="1" /></label>
-        </div>
-      </div>
-      {error && <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>}
+        </div></Card></> }
+      ]} footer={<>{error && <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>}
       <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
         <button type="button" className="sp-btn primary" onClick={save} disabled={saving}><AdminText en={editing ? 'Save changes' : (published ? 'Publish story' : 'Save draft')} ar={editing ? 'حفظ التعديلات' : (published ? 'نشر المقال' : 'حفظ مسودة')} /></button>
       </div>
-</Card>
-    <BlogEditorialForm value={editorial} onChange={setEditorial} />
+</>} />
     </ContentLanguageTabs>
   </>
 }

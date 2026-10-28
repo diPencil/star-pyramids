@@ -193,6 +193,7 @@ const adminBlogsCache = createCache<Blog>('/api/blogs?admin=1', 'blogs', (row) =
  * successful POST/PUT/DELETE so admin + public views stay truthful.
  */
 export function invalidateOffersBlogsCache() {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('sp-marketing-offers-changed'))
   offersCache.invalidate();
   blogsCache.invalidate();
   adminBlogsCache.invalidate();

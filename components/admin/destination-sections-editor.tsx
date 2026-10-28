@@ -47,12 +47,12 @@ function Rows({ section, item, onChange, onUpload, disabled }: Props & { section
   </div>
 }
 
-export function DestinationSectionsEditor(props: Props) {
+export function DestinationSectionsEditor(props: Props & { section?: 'hero' | 'facts' | 'story' | 'experiences' | 'rhythm' | 'practical' }) {
   const { item, onChange, setTranslations, onUpload, disabled } = props
   const detail = (key: 'heroImage' | 'heroAlt' | 'eyebrow' | 'intro', value: string) => onChange({ ...item, detail: { ...item.detail, [key]: value } })
   const languages = (children: React.ReactNode) => <ContentLanguageTabs translations={item.translations ?? {}} setTranslations={setTranslations}>{children}</ContentLanguageTabs>
   return <>
-    <Card title="1. Hero" sub="Destination name, introductory copy and background shown at the top of the detail page.">
+    {(!props.section || props.section === 'hero') && <Card title="1. Hero" sub="Destination name, introductory copy and background shown at the top of the detail page.">
       {languages(<div className="sp-form">
         <label>Destination name<TranslatedInput field="title" value={item.title} onChange={event => onChange({ ...item, title: event.target.value })}/></label>
         <label>Hero description / card summary<TranslatedTextarea field="copy" value={item.copy} onChange={event => onChange({ ...item, copy: event.target.value })} rows={3}/></label>
@@ -61,12 +61,12 @@ export function DestinationSectionsEditor(props: Props) {
       </div>)}
       <ImageField value={item.detail.heroImage} onChange={value => detail('heroImage', value)} preview="wide" previewAlt={item.detail.heroAlt} disabled={disabled} onUploadingChange={active => onUpload('hero', active)}/>
       <p className="sp-builder-note">The same hero image is reused beside Journey rhythm. Removing it leaves those media areas empty.</p>
-    </Card>
-    <Card title={sections.facts.title} sub="Display order follows the item order below. Each fact contains a label and value.">{languages(<Rows {...props} section="facts"/>)}</Card>
-    <Card title="3. Destination story" sub="The introduction and audience tags shown below the facts.">
+    </Card>}
+    {(!props.section || props.section === 'facts') && <Card title={sections.facts.title} sub="Display order follows the item order below. Each fact contains a label and value.">{languages(<Rows {...props} section="facts"/>)}</Card>}
+    {(!props.section || props.section === 'story') && <Card title="3. Destination story" sub="The introduction and audience tags shown below the facts.">
       {languages(<><label>Introduction<TranslatedTextarea field="detail.intro" value={item.detail.intro} onChange={event => detail('intro', event.target.value)} rows={5}/></label><h4>Best suited for</h4><Rows {...props} section="bestFor"/></>)}
-    </Card>
-    {(['experiences', 'rhythm', 'practical'] as const).map(section => <Card key={section} title={sections[section].title} sub="Add, translate and arrange the items exactly as they should appear publicly.">{languages(<Rows {...props} section={section}/>)}</Card>)}
+    </Card>}
+    {(['experiences', 'rhythm', 'practical'] as const).filter(section => !props.section || props.section === section).map(section => <Card key={section} title={sections[section].title} sub="Add, translate and arrange the items exactly as they should appear publicly.">{languages(<Rows {...props} section={section}/>)}</Card>)}
 
   </>
 }

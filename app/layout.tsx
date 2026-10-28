@@ -1,3 +1,5 @@
+import { NavigationProvider } from '@/components/navigation-context'
+import { publishedNavigation } from '@/lib/server/navigation'
 import { Analytics } from '@vercel/analytics/next'
 import { Alexandria, Montserrat } from 'next/font/google'
 import type { Metadata, Viewport } from 'next'
@@ -162,7 +164,7 @@ export default async function RootLayout({
         )}
         <BrandFavicon />
         <EnquiryHistoryTracking />
-        <InitialLocaleProvider locale={locale}><PresentationProvider states={{ ...await readPresentationStates(), faq: await readPublishedPage('faq') }}><PublicAppearance tokens={await readPublishedAppearance()}>{children}</PublicAppearance></PresentationProvider></InitialLocaleProvider>
+        <NavigationProvider initial={await publishedNavigation().catch(() => ({ revision: -1, primaryLocale: 'en' as const, items: [] }))}><InitialLocaleProvider locale={locale}><PresentationProvider states={{ ...await readPresentationStates(), faq: await readPublishedPage('faq') }}><PublicAppearance tokens={await readPublishedAppearance()}>{children}</PublicAppearance></PresentationProvider></InitialLocaleProvider></NavigationProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>
