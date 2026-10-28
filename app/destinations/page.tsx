@@ -1,3 +1,4 @@
+import { getPublishedDestinations } from '@/lib/server/destinations'
 import type { Metadata } from 'next'
 import { pageContentMetadata } from '@/lib/server/page-content-metadata'
 import { DestinationsPage } from '@/components/extended-pages'
@@ -26,5 +27,6 @@ export default async function Page() {
     hero = state.mode === 'original' ? { hidden: false, content: originalEditorialHero('destinations') } : publicFaqHero(state)
   }
   catch { hero = { hidden: false, content: null, unavailable: true } }
-  return <FaqHeroProvider state={hero}><DestinationsPage /></FaqHeroProvider>
+  const destinations = await getPublishedDestinations().catch(() => null)
+  return <FaqHeroProvider state={hero}><DestinationsPage initialDestinations={destinations ?? undefined} loadError={destinations === null} /></FaqHeroProvider>
 }

@@ -296,6 +296,19 @@ export function getNavConfig(t: Record<string, string>, ex: Record<string, strin
   }
 }
 
+/** Keep desktop/sticky discovery links in sync without moving existing mobile links. */
+export function getEgyptTourNavLinks(t: Record<string, string>, ex: Record<string, string>, locale: Locale) {
+  const categories = [
+    [tx(locale, { en: 'All Trips', es: 'Todos los viajes', it: 'Tutti i viaggi', ar: 'كل الرحلات' }), '/trips'],
+    [ex.cat1, '/egypt-tours/one-day-tours'],
+    [ex.cat2, '/egypt-tours/multi-days-tours'],
+    [ex.cat3, '/egypt-tours/nile-cruises'],
+    [ex.cat4, '/egypt-tours/shore-excursions'],
+  ] as const
+  const destination = [tx(locale, { en: 'Destinations', es: 'Destinos', it: 'Destinazioni', ar: 'الوجهات' }), '/destinations'] as const
+  return { desktop: [...categories, destination], mobile: [...categories, [t.offer, '/special-offers'] as const, destination] }
+}
+
 /**
  * Shared navigation links component — used by both normal and sticky headers.
  * Single source for order, routes, labels, dropdown definitions, and active state.
@@ -458,15 +471,9 @@ export function Header() {
     }
   }, [])
 
-  const tourLinks = [
-    [tx(locale, { en: 'All Trips', es: 'Todos los viajes', it: 'Tutti i viaggi', ar: 'كل الرحلات' }), '/trips'],
-    [ex.cat1, '/egypt-tours/one-day-tours'],
-    [ex.cat2, '/egypt-tours/multi-days-tours'],
-    [ex.cat3, '/egypt-tours/nile-cruises'],
-    [ex.cat4, '/egypt-tours/shore-excursions'],
-  ] as const
+  const { desktop: tourLinks, mobile: mobileTourLinks } = getEgyptTourNavLinks(t, ex, locale)
   const mobileGroups = [
-    { label: t.tours, links: [...tourLinks, [t.offer, '/special-offers'], [tx(locale, { en: 'Destinations', es: 'Destinos', it: 'Destinazioni', ar: 'الوجهات' }), '/destinations']] },
+    { label: t.tours, links: mobileTourLinks },
     { label: tx(locale, { en: 'Plan & discover', es: 'Planifica y descubre', it: 'Pianifica e scopri', ar: 'خطط واستكشف' }), links: [[t.make, '/make-your-trip'], [t.rent, '/rent-car'], [t.events, '/events'], [t.blogs, '/blogs'], [ex.guideLink, '/egypt-travel-guide']] },
     { label: tx(locale, { en: 'Help & company', es: 'Ayuda y empresa', it: 'Assistenza e azienda', ar: 'المساعدة والشركة' }), links: [[t.about, '/about'], [t.contact, '/contact'], [ex.faqsLink, '/faq'], [ex.accessLink, '/accessible-travel']] },
   ]

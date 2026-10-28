@@ -25,7 +25,12 @@ export function originalEditorialHero(id: EditorialHeroId): FaqHero {
 const desertImage = 'https://images.unsplash.com/photo-1503177119275-0aa32b3a9368?auto=format&fit=crop&w=1200&q=85'
 
 export function validateEditorialHero(id: EditorialHeroId, input: unknown): FaqHero {
-  const content = validateFaqHero(input)
+  // Older destination hero documents may omit their optional background.
+  // Preserve their text/draft/publication state while using the original media.
+  const raw = input && typeof input === 'object' && !Array.isArray(input) ? input as Record<string, unknown> : null
+  const normalized = id === 'destinations' && raw && (raw.image == null || typeof raw.image === 'string' && !raw.image.trim())
+    ? { ...raw, image: originalEditorialHero(id).image } : input
+  const content = validateFaqHero(normalized)
   if (isInformationPageId(id) !== (content.sections !== undefined)) throw new HeroValidationError('Check the supported page sections.')
   return content
 }

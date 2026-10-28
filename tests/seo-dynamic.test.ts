@@ -6,7 +6,7 @@ const state = vi.hoisted(() => ({ cookie: undefined as string | undefined, recor
 vi.mock('next/headers', () => ({ cookies: async () => ({ get: (key: string) => key === 'star-locale' && state.cookie ? { value: state.cookie } : undefined }) }))
 vi.mock('@/lib/server/settings', () => ({ getSetting: async () => 'Star Pyramids' }))
 vi.mock('@/lib/server/catalogue-translations', () => ({ attachCatalogueTranslations: vi.fn(async (_kind: string, rows: object[]) => rows.map((row) => ({ ...row, translations: state.translations }))) }))
-vi.mock('@/lib/server/tours', () => ({ findTourBySlug: vi.fn(async () => state.linkedTour === undefined ? state.record : state.linkedTour) }))
+vi.mock('@/lib/server/tours', () => ({ listTours: vi.fn(async () => []), findTourBySlug: vi.fn(async () => state.linkedTour === undefined ? state.record : state.linkedTour) }))
 vi.mock('@/lib/server/blogs', () => ({ findBlogBySlug: async () => state.record }))
 vi.mock('@/lib/server/destinations', () => ({
   findDestinationBySlug: async () => state.record,
@@ -43,7 +43,7 @@ beforeEach(() => {
   state.cookie = undefined
   state.linkedTour = undefined
   state.translations = {}
-  state.record = { slug: 'canonical', title: 'Original title', image: '/record.jpg', summary: 'Original summary', excerpt: 'Original excerpt', copy: 'Original copy', status: 'published' }
+  state.record = { slug: 'canonical', title: 'Original title', image: '/record.jpg', summary: 'Original summary', excerpt: 'Original excerpt', copy: 'Original copy', detail: { tourSlugs: [] }, status: 'published' }
 })
 
 describe.each(routes)('%s metadata', (route, generate) => {

@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { listTours } from '@/lib/server/tours';
-import { getPublishedDestinations, getPublishedOneDayDestinations } from '@/lib/server/destinations';
+import { getPublishedDestinationDetails, getPublishedOneDayDestinations } from '@/lib/server/destinations';
 import { listBlogSlugs } from '@/lib/server/blogs';
 import { getPublishedDbEvents } from '@/lib/server/events';
 import { getPublishedDbOffers } from '@/lib/server/offers';
@@ -42,7 +42,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // On repository failure omit that collection rather than inventing fallback URLs.
   const [tours, destinations, blogs, events, offers, regions, categories] = await Promise.all([
     listTours().catch(() => []),
-    getPublishedDestinations().catch(() => []),
+    getPublishedDestinationDetails().catch(() => []),
     listBlogSlugs().catch(() => []),
     getPublishedDbEvents().catch(() => []),
     getPublishedDbOffers().catch(() => []),

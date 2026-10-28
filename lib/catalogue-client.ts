@@ -120,12 +120,13 @@ function createCache<T>(url: string, map: (row: Record<string, unknown>) => T | 
       entry.list = null;
       entry.inflight = null;
       entry.error = null;
+      entry.listeners.forEach((notify) => notify());
+      if (entry.listeners.size) load();
     },
     use(base: readonly T[]): T[] {
       // Bumped when the shared DB cache resolves so the memo below recomputes.
       const [version, setVersion] = useState(0);
       useEffect(() => {
-        if (entry.list) return;
         const notify = () => setVersion((n) => n + 1);
         entry.listeners.add(notify);
         load();
@@ -221,8 +222,8 @@ export function dbSlugify(value: string): string {
  * DB-backed destination list for client components (public + admin).
  * No browser storage is consulted.
  */
-export function useDbDestinations(base: readonly Destination[]): Destination[] {
-  return useCatalogueLanguage(destinationsCache.use(base), 'destination');
+export function useDbDestinations(_base: readonly Destination[]): Destination[] {
+  return useCatalogueLanguage(destinationsCache.use([]), 'destination');
 }
 
 /**
@@ -248,4 +249,15 @@ export function useDbDestinationsStatus(): DbListStatus<Destination> {
  */
 export function useDbCategoriesStatus(): DbListStatus<MultiDayCategory> {
   return categoriesCache.useStatus();
+}
+
+/** Public cache stays separate from private rows and never invents bootstrap records. */
+export function usePublicDestinationsStatus(): DbListStatus<Destination> {
+  const status = destinationsCache.useStatus();
+  const [started, setStarted] = useState(false);
+  // A fresh server seed must beat a warm browser cache on navigation.
+  // Revalidate every mount, retaining generation protection for old requests.
+  useEffect(() => { status.refresh(); setStarted(true); }, []);
+  const localized = useCatalogueLanguage(status.data ?? [], 'destination');
+  return { ...status, data: !started || status.data === null ? null : localized, error: started ? status.error : null };
 }

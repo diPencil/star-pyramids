@@ -18,20 +18,21 @@ import { placedOffers } from '@/lib/marketing-campaigns'
 import { isOfferActive, offerHref } from '@/lib/special-offers'
 import { getActiveDealPercent } from '@/data/tours'
 import { useBrandSettings } from '@/lib/admin-store'
-import { vehicleTransmissionLabel } from '@/lib/catalogue-translations'
+import { localizeCatalogue, vehicleTransmissionLabel } from '@/lib/catalogue-translations'
 import { useDbCars, useDbCarsStatus, useDbEvents } from '@/lib/events-cars-client'
 import { useCarQuote } from '@/lib/car-quote-client'
 import { CarQuoteSummary } from './car-quote-summary'
 import { parseVehicleCapacity } from '@/lib/car-request'
 import { useDbBlogs, useDbOffers, useDbOffersStatus } from '@/lib/offers-blogs-client'
-import { useDbDestinations } from '@/lib/catalogue-client'
-import { useDbTours } from '@/lib/tours-client'
+import { usePublicDestinationsStatus } from '@/lib/catalogue-client'
+import { listedDestinations, destinationTours } from '@/lib/destination-public'
+import { invalidateToursCache, useDbTours, useDbToursStatus } from '@/lib/tours-client'
 import { eventCity, eventMapQuery, eventPriceLabel, eventStatusLabel, getEventStatus, getPublishedEvents, getRelatedEvents, isEventPublished, parseLegacyEventRange, resolveEventRange } from '@/lib/events'
 import { formatCurrency } from '@/lib/currency'
 import { EventRequestForm } from './event-request-form'
 import { phoneHref, whatsappHref } from '@/data/company'
 import { catalogTours, getDealPrice, getToursBySlugs } from '@/data/tours'
-import type { Blog, Car, Event, Offer, Tour } from '@/data/types'
+import type { Blog, Car, Destination, Event, Offer, Tour } from '@/data/types'
 import { parseCarRequestQuery, parseSearchQuery } from '@/lib/query'
 import { CAR_LOCATION_MAX, CAR_NOTE_MAX, hasCarErrors, isCarReference, sanitizeCarDraft, validateCarRequest, type CarFieldErrors, type CarRequest, type CarRequestDraft } from '@/lib/car-request'
 import { ImpersonationBanner } from './impersonation-banner'
@@ -52,8 +53,9 @@ export function EditorialHero({ eyebrow, title, copy, image = siteImages.pyramid
   const { locale } = useLocale()
   if (state?.hidden || state?.unavailable) return null
   const content = state?.content
+  const heroImage = content?.image?.trim() || image
   const text = content && locale !== 'ar' ? content.text[locale] : null
-  return <section className="editorial-hero"><img src={content?.image ?? image} alt={text?.alt ?? ''}/><div className="editorial-overlay"/><div className="container editorial-content">{(text?.eyebrow ?? eyebrow) && <span>{text?.eyebrow ?? eyebrow}</span>}<h1>{text?.heading ?? title}</h1><p>{text?.description ?? copy}</p><Link className="primary-btn" href={content?.href ?? href}>{text?.action ?? action}<ArrowRight size={17}/></Link></div></section>
+  return <section className="editorial-hero">{heroImage && <img src={heroImage} alt={text?.alt ?? ''}/>}<div className="editorial-overlay"/><div className="container editorial-content">{(text?.eyebrow ?? eyebrow) && <span>{text?.eyebrow ?? eyebrow}</span>}<h1>{text?.heading ?? title}</h1><p>{text?.description ?? copy}</p><Link className="primary-btn" href={content?.href ?? href}>{text?.action ?? action}<ArrowRight size={17}/></Link></div></section>
 }
 
 export function DetailNotFound({ title, copy, backHref, backLabel }: { title: string; copy: string; backHref: string; backLabel: string }) {
@@ -830,30 +832,46 @@ function CarRequestContent() {
   </>
 }
 
-export function DestinationsPage() {
+type DestinationListProps = { initialDestinations?: Destination[]; loadError?: boolean }
+export function DestinationsPage(props: DestinationListProps = {}) {
+  return <SiteShell><DestinationsPageContent {...props} /></SiteShell>
+}
+function DestinationCatalogueStatus({ error, retry, empty = false }: { error?: boolean; retry: () => void; empty?: boolean }) {
+  const { locale } = useLocale()
+  return <div role={error ? 'alert' : 'status'} className="container section">
+    <p>{error ? tx(locale, { en: 'Destinations could not be loaded. Please try again.', es: 'No se pudieron cargar los destinos. Inténtalo de nuevo.', it: 'Impossibile caricare le destinazioni. Riprova.' }) : empty ? tx(locale, { en: 'No destinations are available yet.', es: 'Aún no hay destinos disponibles.', it: 'Nessuna destinazione disponibile al momento.' }) : tx(locale, { en: 'Loading destinations…', es: 'Cargando destinos…', it: 'Caricamento destinazioni…' })}</p>
+    {error && <button className="primary-btn" type="button" onClick={retry}>{tx(locale, { en: 'Try again', es: 'Reintentar', it: 'Riprova' })}</button>}
+  </div>
+}
+function DestinationsPageContent({ initialDestinations, loadError }: DestinationListProps) {
   const cms = usePresentation("destinations")
- const { locale } = useLocale(); const ar = locale === 'ar'; const liveDestinations = useDbDestinations(destinations).filter((d) => d.showInDestinations !== false && d.isPublished !== false); return <SiteShell><EditorialHero eyebrow={tx(locale, { en: 'See the full picture', es: 'Mira el panorama completo', it: 'Guarda il quadro completo', ar: 'الصورة الكاملة' })} title={tx(locale, { en: 'Every destination tells a different Egypt story', es: 'Cada destino cuenta una historia distinta de Egipto', it: 'Ogni destinazione racconta una storia diversa dell\'Egitto', ar: 'كل وجهة تحكي قصة مختلفة عن مصر' })} copy={tx(locale, { en: 'Build a trip around the places that make you curious, from ancient capitals to salt-white deserts and coral-blue seas.', es: 'Crea un viaje en torno a los lugares que despierten tu curiosidad, desde capitales antiguas hasta desiertos blancos y mares de coral.', it: 'Costruisci un viaggio intorno ai luoghi che accendono la tua curiosità, dalle antiche capitali ai deserti bianchi e ai mari corallini.', ar: 'ابنِ رحلتك حول الأماكن التي تثير فضولك، من العواصم القديمة للصحارى البيضاء والشواطئ المرجانية.' })} image={siteImages.desert} href="/make-your-trip" action={tx(locale, { en: 'Build my route', es: 'Crea mi ruta', it: 'Crea il mio itinerario', ar: 'ابنِ خط سيرك' })}/><main className="section container"><div className="destination-large-grid">{liveDestinations.map(item=><article className="destination-large" key={item.slug}><img src={item.image} alt={item.title}/><div><span className="eyebrow">{cms.text("presentation","description0",tx(locale, { en: 'Discover Egypt', es: 'Descubre Egipto', it: 'Scopri l\'Egitto', ar: 'اكتشف مصر' }))}</span><h2>{item.title}</h2><p>{item.copy}</p><Link href={`/destinations/${item.slug}`} className="text-link">{cms.text("presentation","description1",tx(locale, { en: 'Explore destination', es: 'Descubre el destino', it: 'Scopri la destinazione', ar: 'استكشف الوجهة' }))} <ArrowRight size={15}/></Link></div></article>)}</div></main></SiteShell> }
+ const { locale } = useLocale(); const status = usePublicDestinationsStatus(); const error = Boolean(status.error || (loadError && status.data === null)); const rows = status.data ?? (error ? undefined : initialDestinations?.map(row => localizeCatalogue(row, 'destination', locale))); const liveDestinations = listedDestinations(rows ?? []); return <><EditorialHero eyebrow={tx(locale, { en: 'See the full picture', es: 'Mira el panorama completo', it: 'Guarda il quadro completo', ar: 'الصورة الكاملة' })} title={tx(locale, { en: 'Every destination tells a different Egypt story', es: 'Cada destino cuenta una historia distinta de Egipto', it: 'Ogni destinazione racconta una storia diversa dell\'Egitto', ar: 'كل وجهة تحكي قصة مختلفة عن مصر' })} copy={tx(locale, { en: 'Build a trip around the places that make you curious, from ancient capitals to salt-white deserts and coral-blue seas.', es: 'Crea un viaje en torno a los lugares que despierten tu curiosidad, desde capitales antiguas hasta desiertos blancos y mares de coral.', it: 'Costruisci un viaggio intorno ai luoghi che accendono la tua curiosità, dalle antiche capitali ai deserti bianchi e ai mari corallini.', ar: 'ابنِ رحلتك حول الأماكن التي تثير فضولك، من العواصم القديمة للصحارى البيضاء والشواطئ المرجانية.' })} image={siteImages.desert} href="/make-your-trip" action={tx(locale, { en: 'Build my route', es: 'Crea mi ruta', it: 'Crea il mio itinerario', ar: 'ابنِ خط سيرك' })}/><main className="section container">{(error || !rows || !liveDestinations.length) && <DestinationCatalogueStatus error={error} empty={Boolean(rows && !liveDestinations.length)} retry={status.retry} />}<PresentationSection pageId="destinations" id="presentation"><div className="destination-large-grid">{liveDestinations.map(item=><article className="destination-large" key={item.slug}>{item.image && <img src={item.image} alt={item.title} loading="lazy"/>}<div><span className="eyebrow">{cms.text("presentation","description0",tx(locale, { en: 'Discover Egypt', es: 'Descubre Egipto', it: 'Scopri l\'Egitto', ar: 'اكتشف مصر' }))}</span><h2>{item.title}</h2><p>{item.copy}</p><Link href={`/destinations/${item.slug}`} className="text-link">{cms.text("presentation","description1",tx(locale, { en: 'Explore destination', es: 'Descubre el destino', it: 'Scopri la destinazione', ar: 'استكشف الوجهة' }))} <ArrowRight size={15}/></Link></div></article>)}</div></PresentationSection></main></> }
 
 const destinationFactIcons = [Clock3, Sun, Compass, MapPin]
 
-export function DestinationDetailPage({ slug }: { slug: string }) {
+type DestinationDetailProps = { slug: string; initialDestination?: Destination; initialTours?: Tour[] }
+export function DestinationDetailPage(props: DestinationDetailProps) {
+  return <SiteShell><DestinationDetailContent {...props} /></SiteShell>
+}
+function DestinationDetailContent({ slug, initialDestination, initialTours = [] }: DestinationDetailProps) {
   const cms = usePresentation("destination-detail")
 
   const { locale } = useLocale()
-  const ar = locale === 'ar'
-  const liveItem = useDbDestinations(destinations).find((entry) => entry.slug === slug)
-  const dbTours = useDbTours(catalogTours, { includeNew: true })
+  const status = usePublicDestinationsStatus()
+  const tours = useDbToursStatus([], { includeNew: true })
+  const [toursStarted, setToursStarted] = useState(false)
+  useEffect(() => { invalidateToursCache(); setToursStarted(true) }, [])
+  const liveItem = status.data === null ? (status.error ? undefined : initialDestination && localizeCatalogue(initialDestination, 'destination', locale)) : status.data.find(entry => entry.slug === slug)
   const item = liveItem && liveItem.isPublished !== false ? liveItem : undefined
-  if (!item) return <DetailNotFound title={tx(locale, { en: 'Destination not found', es: 'Destino no encontrado', it: 'Destinazione non trovata', ar: 'الوجهة غير موجودة' })} copy={tx(locale, { en: 'The destination you were looking for has taken a different route.', es: 'El destino que buscabas ha tomado otro camino.', it: 'La destinazione che cercavi ha preso un\'altra strada.', ar: 'الوجهة التي تبحث عنها سلكت طريقًا آخر.' })} backHref="/destinations" backLabel={tx(locale, { en: 'Explore destinations', es: 'Descubre los destinos', it: 'Scopri le destinazioni', ar: 'استكشف الوجهات' })}/>
+  if (status.error || (!item && status.data === null)) return <DestinationCatalogueStatus error={Boolean(status.error)} retry={status.retry} />
+  if (!item) return <main className="not-found"><h1>{tx(locale, { en: 'Destination not found', es: 'Destino no encontrado', it: 'Destinazione non trovata' })}</h1><Link href="/destinations" className="primary-btn">{tx(locale, { en: 'Explore destinations', es: 'Descubre los destinos', it: 'Scopri le destinazioni' })}</Link></main>
   const detail = item.detail
-  const relatedTours = detail.tourSlugs
-    .map((tourSlug) => dbTours.find((tour) => tour.slug === tourSlug))
-    .filter((tour): tour is Tour => Boolean(tour))
+  const relatedTours = destinationTours(item, tours.data?.length && !toursStarted ? initialTours : tours.data ?? (tours.error ? [] : initialTours))
 
-  return <SiteShell>
+  return <>
     <main className="destination-detail-page"><PresentationOrder pageId="destination-detail">
       <section className="destination-detail-hero">
-        <img src={detail.heroImage} alt={detail.heroAlt}/>
+        {detail.heroImage && <img src={detail.heroImage} alt={detail.heroAlt}/>}
         <div className="destination-detail-shade"/>
         <div className="container destination-detail-hero-content">
           <nav aria-label={tx(locale, { en: 'Breadcrumb', es: 'Ruta de navegación', it: 'Percorso di navigazione', ar: 'مسار التنقل' })}><Link href="/destinations">{tx(locale, { en: 'Destinations', es: 'Destinos', it: 'Destinazioni', ar: 'الوجهات' })}</Link><span>›</span><span aria-current="page">{item.title}</span></nav>
@@ -894,7 +912,7 @@ export function DestinationDetailPage({ slug }: { slug: string }) {
           <header className="destination-section-head"><div><span className="eyebrow">{cms.text("destination-experiences","description0",tx(locale, { en: 'Signature experiences', es: 'Experiencias emblemáticas', it: 'Esperienze imperdibili', ar: 'تجارب مميزة' }))}</span><h2>{cms.text("destination-experiences","description1",tx(locale, { en: 'The moments that define', es: 'Los momentos que definen', it: 'I momenti che definiscono', ar: 'اللحظات التي تميز' }))} {item.title}.</h2></div><p>{cms.text("destination-experiences","description2",tx(locale, { en: 'Not a checklist. A considered mix of landmarks, local texture, and enough space to actually feel the place.', es: 'No es una lista de tareas: es una mezcla cuidada de monumentos, ambiente local y espacio suficiente para sentir de verdad el lugar.', it: 'Non una lista di cose da spuntare, ma un mix studiato di monumenti, atmosfera locale e spazio per vivere davvero il luogo.', ar: 'ليست قائمة مهام، بل مزيج مدروس من المعالم والروح المحلية ومساحة كافية لتشعر بالمكان فعلًا.' }))}</p></header>
           <div className="destination-experience-grid">
             {detail.experiences.map((experience, index) => <article key={experience.title} className={index === 0 ? 'featured' : ''}>
-              <img src={experience.image} alt={experience.alt} loading="lazy"/>
+              {experience.image && <img src={experience.image} alt={experience.alt} loading="lazy"/>}
               <div><span>0{index + 1}</span><h3>{experience.title}</h3><p>{experience.copy}</p></div>
             </article>)}
           </div>
@@ -902,7 +920,7 @@ export function DestinationDetailPage({ slug }: { slug: string }) {
       </section></PresentationSection>
 
       <PresentationSection pageId="destination-detail" id="destination-rhythm"><section className="destination-rhythm container">
-<div className="destination-rhythm-image"><img src={detail.heroImage} alt={tx(locale, { en: `A memorable view of ${item.title}`, es: `Una vista inolvidable de ${item.title}`, it: `Una vista memorabile di ${item.title}`, ar: `منظر لا يُنسى من ${item.title}` })} loading="lazy"/><span>{cms.text("destination-rhythm","description0",tx(locale, { en: 'Suggested rhythm', es: 'Ritmo sugerido', it: 'Ritmo suggerito', ar: 'إيقاع مقترح' }))}</span></div>
+<div className="destination-rhythm-image">{detail.heroImage && <img src={detail.heroImage} alt={tx(locale, { en: `A memorable view of ${item.title}`, es: `Una vista inolvidable de ${item.title}`, it: `Una vista memorabile di ${item.title}`, ar: `منظر لا يُنسى من ${item.title}` })} loading="lazy"/>}<span>{cms.text("destination-rhythm","description0",tx(locale, { en: 'Suggested rhythm', es: 'Ritmo sugerido', it: 'Ritmo suggerito', ar: 'إيقاع مقترح' }))}</span></div>
         <div className="destination-rhythm-copy">
           <span className="eyebrow">{cms.text("destination-rhythm","description1",tx(locale, { en: 'A route that breathes', es: 'Una ruta que respira', it: 'Un itinerario che respira', ar: 'خط سير يتنفس' }))}</span>
           <h2>{cms.text("destination-rhythm","description2",tx(locale, { en: 'How to experience', es: 'Cómo vivir', it: 'Come vivere', ar: 'كيف تعيش' }))} {item.title} {cms.text("destination-rhythm","description3",tx(locale, { en: 'without rushing it.', es: 'sin prisas.', it: 'senza fretta.', ar: 'دون استعجال.' }))}</h2>
@@ -923,12 +941,12 @@ export function DestinationDetailPage({ slug }: { slug: string }) {
       </section></PresentationSection>}
 
       <PresentationSection pageId="destination-detail" id="destination-plan-cta"><section className="destination-plan-cta">
-        <img src={item.image} alt="" loading="lazy"/>
+        {item.image && <img src={item.image} alt="" loading="lazy"/>}
         <div/>
         <div className="container"><span className="eyebrow">{cms.text("destination-plan-cta","description0",tx(locale, { en: 'Your Egypt, thoughtfully arranged', es: 'Tu Egipto, organizado con esmero', it: 'Il tuo Egitto, organizzato con cura', ar: 'مصر بتنظيم مدروس' }))}</span><h2>{cms.text("destination-plan-cta","description1",tx(locale, { en: 'Make', es: 'Haz de', it: 'Fai di', ar: 'اجعل' }))} {item.title} {cms.text("destination-plan-cta","description2",tx(locale, { en: 'part of a journey built around you.', es: 'parte de un viaje creado a tu medida.', it: 'parte di un viaggio costruito intorno a te.', ar: 'جزءًا من رحلة مبنية حولك.' }))}</h2><p>{cms.text("destination-plan-cta","description3",tx(locale, { en: 'Share your dates, pace, and interests. Our local team will connect the details into one smooth itinerary.', es: 'Comparte tus fechas, tu ritmo y tus intereses. Nuestro equipo local unirá los detalles en un itinerario fluido.', it: 'Condividi date, ritmo e interessi: il nostro team locale collegherà i dettagli in un itinerario fluido.', ar: 'شاركنا مواعيدك وإيقاعك واهتماماتك، وسيربط فريقنا المحلي التفاصيل في برنامج واحد سلس.' }))}</p><CmsPublicLink href={cms.link("destination-plan-cta","links0","/make-your-trip")} className="primary-btn">{cms.text("destination-plan-cta","description4",tx(locale, { en: 'Build my trip', es: 'Crea mi viaje', it: 'Crea il mio viaggio', ar: 'ابنِ رحلتي' }))} <ArrowRight size={17}/></CmsPublicLink></div>
       </section></PresentationSection>
     </PresentationOrder></main>
-  </SiteShell>
+  </>
 }
 
 export function BlogsPage({ initialBlogs }: { initialBlogs: Blog[] }) { return <SiteShell><BlogsPageContent initialBlogs={initialBlogs} /></SiteShell> }

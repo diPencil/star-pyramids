@@ -7,6 +7,21 @@ const row = (slug: string) => ({ slug, title: slug, isPublished: slug !== 'draft
 beforeEach(() => vi.resetModules())
 afterEach(() => vi.unstubAllGlobals())
 
+it('never substitutes bootstrap records when the public database is empty or fails', async () => {
+  const fetcher = vi.fn().mockResolvedValueOnce(Response.json({ destinations: [] })).mockResolvedValueOnce(new Response('Unavailable', { status: 503 }))
+  vi.stubGlobal('fetch', fetcher)
+  const cache = await import('@/lib/catalogue-client')
+  const bootstrap = [{ ...row('bootstrap'), image: '', copy: '', detail: { heroImage: '', heroAlt: '', eyebrow: '', intro: '', facts: [], bestFor: [], experiences: [], rhythm: [], practical: [], tourSlugs: [] } }]
+  expect(cache.useDbDestinations(bootstrap)).toEqual([])
+  await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1))
+  await new Promise(resolve => setTimeout(resolve, 0))
+  expect(cache.useDbDestinations(bootstrap)).toEqual([])
+  cache.invalidateCatalogueCache()
+  await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2))
+  await new Promise(resolve => setTimeout(resolve, 0))
+  expect(cache.useDbDestinations(bootstrap)).toEqual([])
+})
+
 it('keeps private destination rows separate when navigating to public content', async () => {
   const fetcher = vi.fn().mockImplementation(async (url: string) => Response.json({ destinations: url.includes('admin=1') ? [row('public'), row('draft')] : [row('public')] }))
   vi.stubGlobal('fetch', fetcher)

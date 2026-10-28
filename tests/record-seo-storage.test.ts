@@ -198,6 +198,7 @@ describe('original category editor and API read preservation', () => {
     ['tour', updateTour, 'detail'], ['blog', updateBlog, 'content'],
     ['destination', updateDestination, 'detail'], ['event', updateEvent, 'content'], ['offer', updateOffer, 'content'],
   ] as const)('the actual %s PUT atomically renames its self-canonical with the business slug', async (kind, update, field) => {
+    if (kind === 'tour') mocks.$queryRaw.mockResolvedValueOnce([{ slug: 'cairo' }])
     const state = { ...published(), draft: { ...seo(), canonical: prefixes[kind] + 'egypt' }, published: { ...seo(), canonical: prefixes[kind] + 'egypt' } }
     const raw = JSON.stringify({ editorial: {}, original: true, seoManager: state })
     model(kind).findUnique.mockResolvedValueOnce(row({ [field]: raw })).mockResolvedValueOnce(null)
@@ -214,6 +215,7 @@ describe('original category editor and API read preservation', () => {
     ['tour', updateTour, 'detail'], ['blog', updateBlog, 'content'],
     ['destination', updateDestination, 'detail'], ['event', updateEvent, 'content'], ['offer', updateOffer, 'content'],
   ] as const)('the actual %s PUT preserves DB SEO and guards against concurrent saves', async (kind, update, field) => {
+    if (kind === 'tour') mocks.$queryRaw.mockResolvedValueOnce([{ slug: 'cairo' }])
     const state = published()
     const raw = JSON.stringify({ editorial: {}, original: true, seoManager: state })
     model(kind).findUnique.mockResolvedValue(row({ [field]: raw }))

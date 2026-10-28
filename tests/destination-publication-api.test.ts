@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const m = vi.hoisted(() => ({ user: vi.fn(), permission: vi.fn(), many: vi.fn(), one: vi.fn(), translations: vi.fn() }))
+const m = vi.hoisted(() => ({ user: vi.fn(), permission: vi.fn(), many: vi.fn(), one: vi.fn(), translations: vi.fn(), tours: vi.fn() }))
 vi.mock('@/lib/server/auth', () => ({ getCurrentUser: m.user, hasPermission: m.permission }))
-vi.mock('@/lib/server/db', () => ({ db: { destination: { findMany: m.many, findUnique: m.one }, $queryRaw: m.translations } }))
+vi.mock('@/lib/server/db', () => ({ db: { destination: { findMany: m.many, findUnique: m.one }, tour: { findMany: m.tours }, $queryRaw: m.translations } }))
 import { GET as list } from '@/app/api/destinations/route'
 import { GET as detail } from '@/app/api/destinations/[slug]/route'
 
@@ -17,11 +17,36 @@ beforeEach(() => {
   m.user.mockResolvedValue(null)
   m.permission.mockReturnValue(false)
   m.translations.mockResolvedValue([])
+  m.tours.mockResolvedValue([])
   m.many.mockImplementation(async ({ where }) => rows.filter(row => where.isPublished === undefined || row.isPublished === where.isPublished))
   m.one.mockImplementation(async ({ where }) => rows.find(row => row.slug === where.slug) ?? null)
 })
 
 describe('destination public/private publication boundary', () => {
+  it('removes unpublished/deleted references and canonicalizes published aliases in list and detail responses only', async () => {
+    const references = ['draft-secret', 'deleted-secret', 'old-public-name', 'published-tour', 'draft-alias']
+    const stored = { ...rows[0], detail: JSON.stringify({ intro: 'Public copy', tourSlugs: references }) }
+    m.many.mockResolvedValue([stored]); m.one.mockResolvedValue(stored)
+    m.tours.mockResolvedValue([
+      { slug: 'published-tour', aliases: JSON.stringify(['old-public-name']), status: 'published' },
+      // Defense in depth: even unexpected non-published query results cannot leak.
+      { slug: 'draft-secret', aliases: JSON.stringify(['draft-alias']), status: 'draft' },
+    ])
+    const publicList = await (await list(request())).json()
+    const publicDetail = await (await detail(request(), context('public'))).json()
+    for (const row of [publicList.destinations[0], publicDetail.destination]) {
+      expect(JSON.parse(row.detail).tourSlugs).toEqual(['published-tour'])
+      expect(JSON.stringify(row)).not.toMatch(/draft-secret|deleted-secret|draft-alias|old-public-name/)
+    }
+    expect(m.tours).toHaveBeenCalledWith({ where: { status: 'published' }, select: { slug: true, aliases: true, status: true } })
+    m.user.mockResolvedValue({ id: 'staff' }); m.permission.mockReturnValue(true)
+    const adminList = await (await list(request('?admin=1'))).json()
+    const adminDetail = await (await detail(request('?admin=1'), context('public'))).json()
+    expect(JSON.parse(adminList.destinations[0].detail).tourSlugs).toEqual(references)
+    expect(JSON.parse(adminDetail.destination.detail).tourSlugs).toEqual(references)
+    expect(JSON.parse(stored.detail).tourSlugs).toEqual(references)
+    expect(m.tours).toHaveBeenCalledTimes(2)
+  })
   it('exposes only published rows, including one-day-only records, without private SEO', async () => {
     const response = await list(request())
     const body = await response.json()

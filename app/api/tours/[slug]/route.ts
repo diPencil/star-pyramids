@@ -1,4 +1,4 @@
-import { validateTourPublication, validateTourWrite } from '@/lib/tour-write';
+import { lockTourDestination, TourDestinationConflictError, validateTourPublication, validateTourWrite } from '@/lib/tour-write';
 import { decodeTourJson, encodeTourJson } from '@/lib/tour-json';
 import { preserveRecordSeo } from '@/lib/record-seo';
 import { applyLinkedOfferDeals } from '@/lib/server/special-offers';
@@ -176,7 +176,9 @@ export async function PUT(
 
   let tour;
   try {
-    tour = await db.tour.update({
+    tour = await db.$transaction(async tx => {
+    await lockTourDestination(tx, data.destinationSlug === undefined ? existing.destinationSlug : data.destinationSlug);
+    return tx.tour.update({
     where: { slug: paramSlug, detail: existing.detail, updatedAt: existing.updatedAt },
     data: encodeTourJson({
       slug: data.slug || existing.slug,
@@ -205,10 +207,12 @@ export async function PUT(
       status: data.status ?? existing.status,
     }),
   });
+    });
 
   } catch (error) {
+    if (error instanceof TourDestinationConflictError) return NextResponse.json({ error: error.message }, { status: 409 });
     const code = (error as { code?: string }).code;
-    if (code === 'P2002' || code === 'P2025') return NextResponse.json({ error: 'Tour changed or its slug is already in use. Reload before saving.' }, { status: 409 });
+    if (code === 'P2002' || code === 'P2025' || code === 'P2034') return NextResponse.json({ error: 'Tour changed or its slug is already in use. Reload before saving.' }, { status: 409 });
     throw error;
   }
 

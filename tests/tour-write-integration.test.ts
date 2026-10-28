@@ -3,24 +3,57 @@ import { tourWritePayload } from '@/lib/tour-write'
 import { blankTour, editorData } from '@/components/admin/trip-builder'
 import { buildTripPreview } from '@/lib/trip-builder-preview'
 import { decodeTourJson } from '@/lib/tour-json'
-const memory = vi.hoisted(() => ({ rows: new Map<string, any>(), allowed: true, authenticated: true, origin: true, now: 0, conflict: false }))
+const memory = vi.hoisted(() => ({ rows: new Map<string, any>(), destinations: new Set<string>(), trace: [] as string[], beforeLock: undefined as undefined | (() => void), allowed: true, authenticated: true, origin: true, now: 0, conflict: false }))
 vi.mock('@/lib/server/auth', () => ({ getCurrentUser: async () => memory.authenticated ? { id: 'staff' } : null, hasPermission: () => memory.allowed }))
 vi.mock('@/lib/server/csrf', () => ({ isSameOriginRequest: () => memory.origin }))
 vi.mock('@/lib/server/special-offers', () => ({ applyLinkedOfferDeals: async (rows: unknown[]) => rows }))
 vi.mock('@/lib/server/tours', () => ({ getTourBookingCounts: vi.fn(), findTourDeletionBlockers: async () => [] }))
-vi.mock('@/lib/server/db', () => ({ db: { tour: {
+vi.mock('@/lib/server/db', () => { const db = { tour: {
   findUnique: async ({ where }: any) => memory.rows.get(where.slug) ?? null,
   findMany: async () => [...memory.rows.values()],
-  create: async ({ data }: any) => { if (memory.rows.has(data.slug)) throw { code: 'P2002' }; const row = { ...data, updatedAt: new Date(1700000000000 + ++memory.now) }; memory.rows.set(row.slug, row); return row },
-  update: async ({ where, data }: any) => { const row = memory.rows.get(where.slug); if (memory.conflict) throw { code: 'P2025' }; const next = { ...row, ...Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined)), updatedAt: new Date(1700000000000 + ++memory.now) }; memory.rows.set(next.slug, next); return next },
-} } }))
+  create: async ({ data }: any) => { memory.trace.push('create'); if (memory.rows.has(data.slug)) throw { code: 'P2002' }; const row = { ...data, updatedAt: new Date(1700000000000 + ++memory.now) }; memory.rows.set(row.slug, row); return row },
+  update: async ({ where, data }: any) => { memory.trace.push('update'); const row = memory.rows.get(where.slug); if (memory.conflict) throw { code: 'P2025' }; const next = { ...row, ...Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined)), updatedAt: new Date(1700000000000 + ++memory.now) }; memory.rows.set(next.slug, next); return next },
+}, $queryRaw: async (strings: TemplateStringsArray, slug: string) => {
+  expect(strings.join(' ').replace(/\s+/g, ' ')).toContain('FROM destinations WHERE slug = FOR UPDATE')
+  memory.beforeLock?.(); memory.trace.push(`lock:${slug}`)
+  return memory.destinations.has(slug) ? [{ slug }] : []
+} }; return { db: { ...db, $transaction: async (mutate: (tx: typeof db) => Promise<unknown>) => {
+  memory.trace.push('begin')
+  try { const row = await mutate(db); memory.trace.push('commit'); return row }
+  catch (error) { memory.trace.push('rollback'); throw error }
+} } } })
 import { POST, GET as list } from '@/app/api/tours/route'
 import { PUT, GET } from '@/app/api/tours/[slug]/route'
 const context = { params: Promise.resolve({ slug: 'audit-trip' }) }
 const request = (method: string, data: unknown) => new Request('https://example.test/api/tours', { method, body: JSON.stringify(data) })
 const initial = () => ({ ...blankTour(), slug: 'audit-trip', title: 'Audit trip', price: 120.25, image: '/egypt-hero.png', duration: '1 day', location: 'Cairo', destinationSlug: 'cairo', titleAr: 'Legacy title', groupSize: '10', travelStyle: 'Private', deal: { percent: 10, endsAt: '2099-01-01' }, dayDetail: { overview: ['Overview'], stops: [], travelerPrices: [{ travelers: 1, adultPrice: 120.25, childPrice: 60, infantPrice: 0 }], addOns: [] } })
-beforeEach(() => { memory.rows.clear(); memory.allowed = true; memory.authenticated = true; memory.origin = true; memory.conflict = false; memory.now = 0 })
+beforeEach(() => { memory.rows.clear(); memory.destinations.clear(); memory.destinations.add('cairo'); memory.trace = []; memory.beforeLock = undefined; memory.allowed = true; memory.authenticated = true; memory.origin = true; memory.conflict = false; memory.now = 0 })
 describe('real Tour handlers with isolated in-memory persistence', () => {
+  it('holds the destination parent lock inside create/edit transactions without testing listing visibility', async () => {
+    // The parent exists; publication/listing flags are deliberately not part of the locking SELECT.
+    expect((await POST(request('POST', tourWritePayload(initial(), 'published')))).status).toBe(201)
+    expect(memory.trace).toEqual(['begin', 'lock:cairo', 'create', 'commit'])
+    memory.trace = []
+    expect((await PUT(request('PUT', { title: 'Unrelated edit' }), context)).status).toBe(200)
+    expect(memory.trace).toEqual(['begin', 'lock:cairo', 'update', 'commit'])
+  })
+  it('rejects missing targets and parents renamed/deleted before lock acquisition without writing', async () => {
+    expect((await POST(request('POST', { ...initial(), destinationSlug: 'missing' }))).status).toBe(409)
+    expect(memory.rows.size).toBe(0)
+    memory.trace = []; memory.beforeLock = () => memory.destinations.delete('cairo')
+    expect((await POST(request('POST', initial()))).status).toBe(409)
+    expect(memory.trace).toEqual(['begin', 'lock:cairo', 'rollback'])
+    expect(memory.rows.size).toBe(0)
+  })
+  it('checks omitted and explicitly selected edit targets, but permits clearing a draft association', async () => {
+    await POST(request('POST', tourWritePayload(initial(), 'draft')))
+    memory.destinations.delete('cairo'); memory.trace = []
+    expect((await PUT(request('PUT', { title: 'Must not save' }), context)).status).toBe(409)
+    expect((await PUT(request('PUT', { destinationSlug: 'missing' }), context)).status).toBe(409)
+    expect(memory.rows.get('audit-trip').title).toBe('Audit trip')
+    expect((await PUT(request('PUT', { destinationSlug: null }), context)).status).toBe(200)
+    expect(memory.rows.get('audit-trip').destinationSlug).toBeNull()
+  })
   it('creates a draft, reopens/edits/previews, publishes and filters the public read model', async () => {
     const created = await POST(request('POST', tourWritePayload(initial(), 'draft')))
     expect(created.status).toBe(201)

@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
 import { getCurrentUser, hasPermission } from '@/lib/server/auth';
+import { applyDestinationTourChanges, destinationFailure, publicDestinationReferences, validateDestinationWrite } from '@/lib/destination-write';
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -21,7 +22,8 @@ export async function GET(request: Request) {
     where: admin ? {} : { isPublished: true },
     orderBy: [{ displayOrder: 'asc' }, { title: 'asc' }],
   });
-  return NextResponse.json(await catalogueTranslationResponse('destination', { destinations }), { headers: { 'Cache-Control': 'private, no-store' } });
+  const visible = admin ? destinations : await publicDestinationReferences(destinations, db);
+  return NextResponse.json(await catalogueTranslationResponse('destination', { destinations: visible }), { headers: { 'Cache-Control': 'private, no-store' } });
 }
 
 export async function POST(request: Request) {
@@ -39,7 +41,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid request origin.' }, { status: 403 });
   }
 
-  const data = await request.json();
+  try {
+  const data = validateDestinationWrite(await request.json().catch(() => null), true);
+  if (data.tourChanges?.length && !hasPermission(user, 'tours.edit')) return NextResponse.json({ error: 'Tour editing permission is required to change associations.' }, { status: 403 });
   if (data?.translations !== undefined) {
     try { validateCatalogueTranslations('destination', data.translations); }
     catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'Invalid translations.' }, { status: 400 }); }
@@ -52,27 +56,36 @@ export async function POST(request: Request) {
   if (!data.title || typeof data.title !== 'string' || !data.title.trim()) {
     return NextResponse.json({ error: 'Enter the destination name.' }, { status: 400 });
   }
+  const title = data.title.trim();
 
   const existing = await db.destination.findUnique({ where: { slug } });
   if (existing) {
     return NextResponse.json({ error: 'Slug must be unique.' }, { status: 409 });
   }
 
-  const destination = await saveWithCatalogueTranslations('destination', data.translations, undefined, (tx) => tx.destination.create({
+  const destination = await saveWithCatalogueTranslations('destination', data.translations, undefined, async (tx) => {
+  const created = await tx.destination.create({
     data: {
       slug,
-      title: data.title.trim().slice(0, 120),
+      title,
       nameAr: typeof data.nameAr === 'string' && data.nameAr.trim() ? data.nameAr.trim().slice(0, 120) : null,
       image: typeof data.image === 'string' ? data.image.trim().slice(0, 2000) : '',
-      copy: typeof data.copy === 'string' && data.copy.trim() ? data.copy.trim().slice(0, 2000) : data.title.trim().slice(0, 120),
+      copy: typeof data.copy === 'string' ? data.copy.trim().slice(0, 2000) : title,
       copyAr: typeof data.copyAr === 'string' && data.copyAr.trim() ? data.copyAr.trim().slice(0, 2000) : null,
       showInOneDayTours: data.showInOneDayTours === true,
       showInDestinations: data.showInDestinations !== false,
       isPublished: data.isPublished !== false,
-      displayOrder: Number.isFinite(Number(data.displayOrder)) ? Number(data.displayOrder) : 999,
+      displayOrder: data.displayOrder ?? 999,
       detail: preserveRecordSeo({}, data.detail ?? {})!,
     },
-  }));
+  });
+  await applyDestinationTourChanges(tx, data.tourChanges ?? [], created.slug);
+  return created;
+  });
 
   return NextResponse.json(await catalogueTranslationResponse('destination', { destination }), { status: 201 });
+  } catch (error) {
+    const failure = destinationFailure(error);
+    return NextResponse.json({ error: failure.error }, { status: failure.status });
+  }
 }

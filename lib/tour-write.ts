@@ -1,5 +1,16 @@
 import { readJsonText } from './json-text'
 import type { Tour } from '@/data/types'
+import type { Prisma } from '@prisma/client'
+
+export class TourDestinationConflictError extends Error {}
+/** The same parent lock used by Destination rename/delete; keep it until the tour write commits. */
+export async function lockTourDestination(tx: Prisma.TransactionClient, destinationSlug: unknown): Promise<void> {
+  if (destinationSlug === undefined || destinationSlug === null) return
+  if (typeof destinationSlug !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(destinationSlug) || destinationSlug.length > 80) throw new TourDestinationConflictError('Select an existing destination before saving.')
+  // This locking read sees the current parent after waiting for rename/delete, not an older MVCC snapshot.
+  const rows = await tx.$queryRaw<{ slug: string }[]>`SELECT slug FROM destinations WHERE slug = ${destinationSlug} FOR UPDATE`
+  if (!rows.some(row => row.slug === destinationSlug)) throw new TourDestinationConflictError('This destination changed or was removed. Reload and select an existing destination.')
+}
 
 /** Explicit clears must survive JSON.stringify and Prisma's omitted-field semantics. */
 export function tourWritePayload(tour: Tour, status: 'draft' | 'published') {

@@ -13,7 +13,7 @@ export function vehicleTransmissionLabel(value: string, locale: Locale): string 
 }
 
 const fields: Record<CatalogueKind, RegExp> = {
-  destination: /^(title|copy|stay|bestFor)$/,
+  destination: /^(title|copy|stay|bestFor|detail\.(heroAlt|eyebrow|intro|facts\.\d+\.(label|value)|experiences\.\d+\.(title|copy|alt)|rhythm\.\d+\.(label|title|copy)|practical\.\d+\.(title|copy)))$/,
   category: /^(name|copy)$/,
   event: /^(title|category|copy|intro|location|venueName|address|city|organizerName|included\.\d+|excluded\.\d+|highlights\.\d+\.(title|description)|program\.\d+\.(day|title|description)|addOns\.\d+\.title)$/,
   offer: /^(title|badge|copy|duration|highlights|campaign\.(body|terms|ctaLabel|priceLabel))$/,
@@ -104,11 +104,23 @@ export function localizeCatalogue<T extends { slug: string } & TranslatedContent
   if (!values || locale === 'en') return item
   const result: Record<string, unknown> = { ...item }
   const lines = (text: string) => text.split('\n').map((line) => line.trim()).filter(Boolean)
-  for (const [key, text] of Object.entries(values)) {
+  // Apply specific nested translations after broad legacy aliases, independent of JSON key order.
+  const entries = Object.entries(values).sort(([a], [b]) => Number(a.startsWith('detail.')) - Number(b.startsWith('detail.')))
+  for (const [key, text] of entries) {
     if (!text.trim() || !fields[kind].test(key)) continue
     if (kind === 'destination') {
-      const detail = { ...(result.detail as Record<string, unknown>) }
-      if (key === 'stay') {
+      const detail = JSON.parse(JSON.stringify(result.detail ?? {})) as Record<string, unknown>
+      if (key.startsWith('detail.')) {
+        const parts = key.split('.').slice(1)
+        let target: Record<string, unknown> = detail
+        let valid = true
+        for (const part of parts.slice(0, -1)) {
+          const next = target[part]
+          if (!next || typeof next !== 'object') { valid = false; break }
+          target = next as Record<string, unknown>
+        }
+        if (valid) target[parts[parts.length - 1]] = text
+      } else if (key === 'stay') {
         const facts = detail.facts as { label: string; value: string }[] | undefined
         if (facts?.length) detail.facts = facts.map((fact, index) => index === 0 ? { ...fact, value: text } : fact)
       } else if (key === 'bestFor') detail.bestFor = lines(text)

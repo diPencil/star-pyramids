@@ -7,7 +7,7 @@ vi.mock('@/lib/server/catalogue-translations', () => ({ attachCatalogueTranslati
 vi.mock('@/lib/server/db', () => { throw new Error('SEO tests must not access the database') })
 vi.mock('@/lib/server/tours', () => ({ listTours: vi.fn() }))
 vi.mock('@/lib/server/destinations', () => ({
-  getPublishedDestinations: vi.fn(), getPublishedOneDayDestinations: vi.fn(),
+  getPublishedDestinationDetails: vi.fn(), getPublishedOneDayDestinations: vi.fn(),
 }))
 vi.mock('@/lib/server/blogs', () => ({ listBlogSlugs: vi.fn() }))
 vi.mock('@/lib/server/events', () => ({ getPublishedDbEvents: vi.fn() }))
@@ -19,7 +19,7 @@ import { getCanonicalUrl, getHreflangEntries, getSiteUrl } from '@/lib/seo'
 import sitemap from '@/app/sitemap'
 import robots from '@/app/robots'
 import { listTours } from '@/lib/server/tours'
-import { getPublishedDestinations, getPublishedOneDayDestinations } from '@/lib/server/destinations'
+import { getPublishedDestinationDetails, getPublishedOneDayDestinations } from '@/lib/server/destinations'
 import { listBlogSlugs } from '@/lib/server/blogs'
 import { getPublishedDbEvents } from '@/lib/server/events'
 import { getPublishedDbOffers } from '@/lib/server/offers'
@@ -32,7 +32,7 @@ import { generateBlogPostingJsonLd, generateOrganizationJsonLd, generateTouristT
 afterEach(() => { vi.unstubAllEnvs(); vi.resetAllMocks() })
 beforeEach(() => {
   vi.mocked(readSeoState).mockResolvedValue(initialPageState())
-  for (const reader of [listTours, getPublishedDestinations, getPublishedOneDayDestinations,
+  for (const reader of [listTours, getPublishedDestinationDetails, getPublishedOneDayDestinations,
     listBlogSlugs, getPublishedDbEvents, getPublishedDbOffers, getPublishedCategories]) {
     vi.mocked(reader).mockResolvedValue([])
   }
@@ -133,7 +133,7 @@ describe('technical discovery', () => {
       { slug: 'published-tour', aliases: ['old-tour'], status: 'published' },
       { slug: 'draft-tour', status: 'draft' },
     ] as Tour[])
-    vi.mocked(getPublishedDestinations).mockResolvedValue([{ slug: 'giza' }] as never)
+    vi.mocked(getPublishedDestinationDetails).mockResolvedValue([{ slug: 'giza', showInDestinations: false, isPublished: true }] as never)
     vi.mocked(getPublishedOneDayDestinations).mockResolvedValue([{ slug: 'cairo' }] as never)
     vi.mocked(listBlogSlugs).mockResolvedValue(['story', 'story'])
     vi.mocked(getPublishedDbEvents).mockResolvedValue([{ slug: 'festival' }] as never)
@@ -154,7 +154,7 @@ describe('technical discovery', () => {
   })
 
   it('omits unavailable collections without static entity fallbacks', async () => {
-    for (const reader of [listTours, getPublishedDestinations, getPublishedOneDayDestinations,
+    for (const reader of [listTours, getPublishedDestinationDetails, getPublishedOneDayDestinations,
       listBlogSlugs, getPublishedDbEvents, getPublishedDbOffers, getPublishedCategories]) {
       vi.mocked(reader).mockRejectedValue(new Error('unavailable'))
     }

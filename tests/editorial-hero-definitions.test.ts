@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import ts from 'typescript'
 import { readFileSync } from 'node:fs'
-import { EDITORIAL_HERO_IDS, isEditorialHeroId, originalEditorialHero } from '@/lib/editorial-hero-definitions'
+import { EDITORIAL_HERO_IDS, isEditorialHeroId, originalEditorialHero, validateEditorialHero } from '@/lib/editorial-hero-definitions'
 import { validateFaqHero } from '@/lib/faq-hero'
 
 describe('editorial hero identity and original content', () => {
@@ -14,7 +14,7 @@ describe('editorial hero identity and original content', () => {
     const file = ts.createSourceFile('extended-pages.tsx', readFileSync('components/extended-pages.tsx', 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
     let hero: ts.JsxSelfClosingElement | undefined
     const visit = (node: ts.Node) => {
-      if (ts.isFunctionDeclaration(node) && node.name?.text === 'DestinationsPage') {
+      if (ts.isFunctionDeclaration(node) && node.name?.text === 'DestinationsPageContent') {
         const find = (child: ts.Node) => { if (ts.isJsxSelfClosingElement(child) && child.tagName.getText(file) === 'EditorialHero') hero = child; ts.forEachChild(child, find) }
         ts.forEachChild(node, find)
       }
@@ -37,6 +37,13 @@ describe('editorial hero identity and original content', () => {
     expect(original.image).toBe('https://images.unsplash.com/photo-1503177119275-0aa32b3a9368?auto=format&fit=crop&w=1200&q=85')
     expect(original.href).toBe('/make-your-trip')
   })
+  it.each([undefined, null, '', '   '])('preserves legacy destination text with missing optional media: %s', image => {
+    const original = originalEditorialHero('destinations')
+    const content = validateEditorialHero('destinations', { ...original, image })
+    expect(content.text).toEqual(original.text)
+    expect(content.image).toBe(original.image)
+    expect(() => validateEditorialHero('destinations', { ...original, image: 'javascript:alert(1)' })).toThrow()
+  })
   it('lists information pages only after their real routes use the CMS renderer', () => {
     const catalogue = readFileSync('lib/hero-catalogue.ts', 'utf8')
     for (const [id, path] of [['guide', 'egypt-travel-guide'], ['accessible', 'accessible-travel']]) {
@@ -47,6 +54,6 @@ describe('editorial hero identity and original content', () => {
     }
     const route = readFileSync('app/destinations/page.tsx', 'utf8')
     expect(route).toContain("readFaqHeroState('destinations')")
-    expect(route).toContain('<DestinationsPage />')
+    expect(route).toContain('<DestinationsPage initialDestinations=')
   })
 })

@@ -11,10 +11,16 @@ import { AdminPagination, usePagination } from '@/components/admin/admin-paginat
 import { invalidateCatalogueCache, useDbDestinationsStatus } from '@/lib/catalogue-client'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { toast } from '@/components/admin/admin-toaster'
+import { SharedSelect } from '@/components/shared-select'
+import { useCurrentUser } from '@/lib/use-current-user'
 
 export default function DestinationsPage() {
   const ar = useAdminLocale() === 'ar'
+  const { user } = useCurrentUser()
+  const can = (permission: string) => Boolean(user && (user.roles.includes('SUPER_ADMIN') || user.permissions?.includes(permission)))
   const [query, setQuery] = useState('')
+  const [visibility, setVisibility] = useState('all')
+  const [listing, setListing] = useState('all')
   const [removeTarget, setRemoveTarget] = useState<{ slug: string; title: string } | null>(null)
   const [removeBusy, setRemoveBusy] = useState(false)
   const [removeError, setRemoveError] = useState('')
@@ -24,7 +30,7 @@ export default function DestinationsPage() {
   const { data, loading, error, retry, refresh } = useDbDestinationsStatus()
   const liveDestinations = data ?? []
   const removeDestination = async () => {
-    if (!removeTarget || removeBusy) return
+    if (!removeTarget || removeBusy || !can('destinations.delete')) return
     setRemoveBusy(true)
     setRemoveError('')
     try {
@@ -49,8 +55,10 @@ export default function DestinationsPage() {
     }
   }
   const rows = useMemo(() => liveDestinations.filter((d) =>
-    `${d.title} ${d.nameAr ?? ''} ${d.copy}`.toLowerCase().includes(query.trim().toLowerCase())
-  ), [liveDestinations, query])
+    `${d.title} ${d.slug} ${d.nameAr ?? ''} ${d.copy}`.toLowerCase().includes(query.trim().toLowerCase()) &&
+    (visibility === 'all' || (visibility === 'published' ? d.isPublished !== false : d.isPublished === false)) &&
+    (listing === 'all' || (listing === 'listed' ? d.showInDestinations !== false : d.showInDestinations === false))
+  ), [liveDestinations, query, visibility, listing])
   const linkedTours = liveDestinations.reduce((sum, d) => sum + d.detail.tourSlugs.length, 0)
   const experiences = liveDestinations.reduce((sum, d) => sum + d.detail.experiences.length, 0)
   const published = liveDestinations.filter((d) => d.isPublished !== false).length
@@ -64,7 +72,7 @@ export default function DestinationsPage() {
   const paging = usePagination(destinationSort.sortedRows)
 
   return <>
-    <PageHead eyebrow="Catalogue" title="Destinations" titleAr="الوجهات" sub="Landing pages, experiences and linked tours" subAr="صفحات الهبوط والتجارب والرحلات المرتبطة" actions={<Link className="sp-btn primary" href="/admin/destinations/new"><Plus size={17} /> <AdminText en="New destination" ar="وجهة جديدة" /></Link>} />
+    <PageHead eyebrow="Catalogue" title="Destinations" titleAr="الوجهات" sub="Landing pages, experiences and linked tours" subAr="صفحات الهبوط والتجارب والرحلات المرتبطة" actions={can('destinations.create') ? <Link className="sp-btn primary" href="/admin/destinations/new"><Plus size={17} /> <AdminText en="New destination" ar="وجهة جديدة" /></Link> : undefined} />
     <AdminStats items={[
       { label: <AdminText en="Destinations" ar="الوجهات" />, value: liveDestinations.length, note: <AdminText en="Published landing pages" ar="صفحات هبوط منشورة" />, icon: MapPinned },
       { label: <AdminText en="Linked tours" ar="الرحلات المرتبطة" />, value: linkedTours, note: <AdminText en="Tour connections" ar="روابط الرحلات" />, icon: Link2, tone: 'orange' },
@@ -72,7 +80,10 @@ export default function DestinationsPage() {
       { label: <AdminText en="Published" ar="المنشورة" />, value: published, note: <AdminText en="Visible on the website" ar="ظاهرة على الموقع" />, icon: ExternalLink, tone: 'violet' },
     ]} />
     <Card title={<AdminText en="All destinations" ar="كل الوجهات" />} sub={<AdminText en={`${rows.length} of ${liveDestinations.length} shown`} ar={`عرض ${rows.length} من ${liveDestinations.length}`} />}>
-      <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث في الوجهات...' : 'Search destinations...'} />
+      <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث في الوجهات...' : 'Search destinations...'}>
+        <SharedSelect value={visibility} onChange={setVisibility} label="Filter by publication" options={[{ value: 'all', label: 'All publication states' }, { value: 'published', label: 'Published' }, { value: 'hidden', label: 'Unpublished' }]} />
+        <SharedSelect value={listing} onChange={setListing} label="Filter by listing visibility" options={[{ value: 'all', label: 'All listing states' }, { value: 'listed', label: 'Shown in Destinations' }, { value: 'excluded', label: 'Excluded from listing' }]} />
+      </AdminTableTools>
       {loading ? <AdminEmpty title={<AdminText en="Loading destinations…" ar="جارٍ تحميل الوجهات…" />} copy={<AdminText en="Reading the authoritative catalogue." ar="تتم قراءة السجل المعتمد." />} />
       : error ? <><AdminEmpty title={<AdminText en="Could not load destinations" ar="تعذر تحميل الوجهات" />} copy={<AdminText en={error} ar={error} />} /><div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}><button type="button" className="sp-btn" onClick={retry}><AdminText en="Retry" ar="إعادة المحاولة" /></button></div></>
       : rows.length ? <AdminTableWrap><table className="sp-table">
@@ -85,9 +96,9 @@ export default function DestinationsPage() {
           <td>{d.showInOneDayTours ? <StatusPill status="active" /> : <span style={{ color: 'var(--sp-muted)' }}>-</span>}</td>
           <td><StatusPill status={d.isPublished === false ? 'hidden' : 'published'} /></td>
           <td><AdminTableActions>
-            <AdminIconAction icon={Pencil} label={ar ? `تعديل ${d.title}` : `Edit ${d.title}`} href={`/admin/destinations/new?slug=${d.slug}`} />
-            <AdminIconAction icon={ExternalLink} label={ar ? `عرض ${d.title}` : `View ${d.title}`} href={d.showInDestinations === false ? `/egypt-tours/one-day-tours/${d.slug}` : `/destinations/${d.slug}`} />
-            <AdminIconAction icon={Trash2} label={ar ? `حذف ${d.title}` : `Delete ${d.title}`} tone="danger" onClick={() => { setRemoveError(''); setRemoveTarget({ slug: d.slug, title: d.title }) }} />
+            {can('destinations.edit') && <AdminIconAction icon={Pencil} label={ar ? `تعديل ${d.title}` : `Edit ${d.title}`} href={`/admin/destinations/new?slug=${d.slug}`} />}
+            {d.isPublished !== false && <AdminIconAction icon={ExternalLink} label={ar ? `عرض ${d.title}` : `View ${d.title}`} href={`/destinations/${d.slug}`} />}
+            {can('destinations.delete') && <AdminIconAction icon={Trash2} label={ar ? `حذف ${d.title}` : `Delete ${d.title}`} tone="danger" onClick={() => { setRemoveError(''); setRemoveTarget({ slug: d.slug, title: d.title }) }} />}
           </AdminTableActions></td>
         </tr>)}</tbody>
       </table></AdminTableWrap> : <AdminEmpty title={<AdminText en="No destinations found" ar="لا توجد وجهات" />} copy={<AdminText en="Try changing the search or filters." ar="جرب تغيير البحث أو الفلاتر." />} />}
@@ -98,7 +109,7 @@ export default function DestinationsPage() {
       onClose={() => { if (!removeBusy) setRemoveTarget(null) }}
       onConfirm={() => { void removeDestination() }}
       title={<AdminText en="Delete this destination?" ar="حذف هذه الوجهة؟" />}
-      description={<AdminText en="This permanently removes the destination landing page and its content from the admin catalogue." ar="يزيل هذه الوجهة ومحتواها نهائيًا من كتالوج الإدارة." />}
+      description={<AdminText en="This permanently removes the destination and its content. Destinations with associated tours cannot be deleted until those tours are reassigned." ar="يزيل هذه الوجهة ومحتواها نهائيًا من كتالوج الإدارة." />}
       confirmLabel={<AdminText en={removeBusy ? 'Deleting…' : 'Delete destination'} ar={removeBusy ? 'جارٍ الحذف…' : 'حذف الوجهة'} />}
       cancelLabel={<AdminText en="Keep" ar="إبقاء" />}
       tone="danger"

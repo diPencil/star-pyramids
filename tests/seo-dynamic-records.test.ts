@@ -9,7 +9,7 @@ vi.mock('@/lib/server/record-seo', () => ({ getPublishedRecordSeo: vi.fn(async (
 vi.mock('@/lib/server/global-seo', () => ({ getGlobalSeo: async () => ({ openGraph: { images: [{ url: '/global.jpg' }] }, twitter: { images: ['/global.jpg'] } }) }))
 vi.mock('@/lib/server/catalogue-translations', () => ({ attachCatalogueTranslations: async (_kind: string, rows: object[]) => rows }))
 vi.mock('@/lib/server/tours', () => ({ findTourBySlug: async () => ({ ...record, status: 'published', category: state.category, destinationSlug: state.destinationSlug }), getRelatedDbTours: async () => [], listTours: async () => [{ slug: 'live', status: 'published' }, { slug: 'draft', status: 'draft' }] }))
-vi.mock('@/lib/server/destinations', () => ({ findDestinationBySlug: async () => record, getPublishedDestinations: async () => [{ slug: 'giza' }], getPublishedOneDayDestinations: async () => [{ ...record, slug: 'giza' }] }))
+vi.mock('@/lib/server/destinations', () => ({ findDestinationBySlug: async () => record, getPublishedDestinationDetails: async () => [{ slug: 'giza' }], getPublishedOneDayDestinations: async () => [{ ...record, slug: 'giza' }] }))
 vi.mock('@/lib/server/blogs', () => ({ findBlogBySlug: async () => ({ ...record, category: 'Travel' }), getPublishedDbBlogs: async () => [], listBlogSlugs: async () => ['story'] }))
 vi.mock('@/lib/server/events', () => ({ findEventBySlug: async () => record, getPublishedDbEvents: async () => [{ slug: 'festival' }] }))
 vi.mock('@/lib/server/offers', () => ({ findOfferBySlug: async () => record, getPublishedDbOffers: async () => [{ slug: 'offer' }, { slug: 'linked', tourSlug: 'live' }, { slug: 'hidden', isPublished: false }] }))

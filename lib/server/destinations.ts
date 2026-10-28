@@ -5,11 +5,15 @@
 import "server-only";
 
 import { db } from "./db";
+import { attachCatalogueTranslations } from "./catalogue-translations";
+import type { CatalogueTranslations } from "../catalogue-translations";
+import { publicDestinationReferences } from "../destination-write";
 import { stripRecordSeo } from '../record-seo';
 import { getPublishedOneDayDestinations as publishedOneDay } from "@/data/tours";
 import type { Destination } from "@/data/types";
 
 type DbDestinationRow = {
+  translations?: CatalogueTranslations;
   slug: string;
   title: string;
   nameAr: string | null;
@@ -27,6 +31,7 @@ type DbDestinationRow = {
 export function toDestination(row: DbDestinationRow): Destination {
   const detail = (stripRecordSeo(row.detail) ?? {}) as Destination["detail"];
   return {
+    translations: row.translations,
     title: row.title,
     slug: row.slug,
     image: row.image,
@@ -57,18 +62,18 @@ export function toDestination(row: DbDestinationRow): Destination {
 /** All destinations, ordered for admin/listing use. */
 export async function listDestinations(): Promise<Destination[]> {
   const rows = await db.destination.findMany({ orderBy: [{ displayOrder: "asc" }, { title: "asc" }] });
-  return rows.map((r) => toDestination(r as unknown as DbDestinationRow));
+  return (await attachCatalogueTranslations("destination", rows)).map((r) => toDestination(r as unknown as DbDestinationRow));
 }
 
 /** Canonical slugs only. */
 export async function listDestinationSlugs(): Promise<string[]> {
-  const rows = await db.destination.findMany({ select: { slug: true } });
+  const rows = await db.destination.findMany({ where: { isPublished: true }, select: { slug: true } });
   return rows.map((r) => r.slug);
 }
 
 export async function findDestinationBySlug(slug: string): Promise<Destination | null> {
   const row = await db.destination.findUnique({ where: { slug } });
-  return row ? toDestination(row as unknown as DbDestinationRow) : null;
+  return row ? toDestination((await attachCatalogueTranslations("destination", [row]))[0] as unknown as DbDestinationRow) : null;
 }
 
 /** Editorial landing pages: visible on /destinations + homepage. */
@@ -77,10 +82,19 @@ export async function getPublishedDestinations(): Promise<Destination[]> {
     where: { showInDestinations: true, isPublished: true },
     orderBy: [{ displayOrder: "asc" }, { title: "asc" }],
   });
-  return rows.map((r) => toDestination(r as unknown as DbDestinationRow));
+  return (await attachCatalogueTranslations("destination", await publicDestinationReferences(rows, db))).map((r) => toDestination(r as unknown as DbDestinationRow));
 }
 
 /** One Day Tours discovery sections (same ordering rules as bootstrap). */
 export async function getPublishedOneDayDestinations(): Promise<Destination[]> {
-  return publishedOneDay(await listDestinations());
+  return publishedOneDay(await getPublishedDestinationDetails());
+}
+
+/** Publication controls detail URLs; listing visibility only controls editorial cards. */
+export async function getPublishedDestinationDetails(): Promise<Destination[]> {
+  const rows = await db.destination.findMany({
+    where: { isPublished: true },
+    orderBy: [{ displayOrder: "asc" }, { title: "asc" }],
+  });
+  return (await attachCatalogueTranslations("destination", await publicDestinationReferences(rows, db))).map((row) => toDestination(row as unknown as DbDestinationRow));
 }

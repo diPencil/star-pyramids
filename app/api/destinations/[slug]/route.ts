@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
 import { getCurrentUser, hasPermission } from '@/lib/server/auth';
+import { applyDestinationTourChanges, destinationFailure, DestinationWriteError, publicDestinationReferences, validateDestinationWrite } from '@/lib/destination-write';
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -28,7 +29,8 @@ export async function GET(
     return NextResponse.json({ notFound: true }, { status: 404 });
   }
 
-  return NextResponse.json(await catalogueTranslationResponse('destination', { destination }), { headers: { 'Cache-Control': 'private, no-store' } });
+  const visible = admin ? destination : (await publicDestinationReferences([destination], db))[0];
+  return NextResponse.json(await catalogueTranslationResponse('destination', { destination: visible }), { headers: { 'Cache-Control': 'private, no-store' } });
 }
 
 export async function PUT(
@@ -49,7 +51,9 @@ export async function PUT(
     return NextResponse.json({ error: 'Invalid request origin.' }, { status: 403 });
   }
 
-  const data = await request.json();
+  try {
+  const data = validateDestinationWrite(await request.json().catch(() => null));
+  if (data.tourChanges?.length && !hasPermission(user, 'tours.edit')) return NextResponse.json({ error: 'Tour editing permission is required to change associations.' }, { status: 403 });
   if (data?.translations !== undefined) {
     try { validateCatalogueTranslations('destination', data.translations); }
     catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'Invalid translations.' }, { status: 400 }); }
@@ -59,6 +63,10 @@ export async function PUT(
   const existing = await db.destination.findUnique({ where: { slug: paramSlug } });
   if (!existing) {
     return NextResponse.json({ error: 'Destination not found.' }, { status: 404 });
+  }
+
+  if (data.expectedUpdatedAt !== undefined && data.expectedUpdatedAt !== existing.updatedAt.toISOString()) {
+    return NextResponse.json({ error: 'This destination changed in another editor. Reload before saving.' }, { status: 409 });
   }
 
   if (data.slug && data.slug !== existing.slug) {
@@ -72,24 +80,41 @@ export async function PUT(
     }
   }
 
-  const destination = await saveWithCatalogueTranslations('destination', data.translations, existing.slug, (tx) => tx.destination.update({
+  const destination = await saveWithCatalogueTranslations('destination', data.translations, existing.slug, async (tx) => {
+  await tx.$queryRaw`SELECT slug FROM destinations WHERE slug = ${paramSlug} FOR UPDATE`;
+  const updated = await tx.destination.update({
     where: { slug: paramSlug, detail: existing.detail, updatedAt: existing.updatedAt },
     data: {
       slug: data.slug ? String(data.slug).trim().toLowerCase() || existing.slug : existing.slug,
       title: typeof data.title === 'string' && data.title.trim() ? data.title.trim().slice(0, 120) : existing.title,
       nameAr: data.nameAr === undefined ? existing.nameAr : (typeof data.nameAr === 'string' && data.nameAr.trim() ? data.nameAr.trim().slice(0, 120) : null),
-      image: typeof data.image === 'string' ? data.image.trim().slice(0, 2000) : existing.image,
-      copy: typeof data.copy === 'string' && data.copy.trim() ? data.copy.trim().slice(0, 2000) : existing.copy,
+      image: data.image === null ? '' : typeof data.image === 'string' ? data.image.trim().slice(0, 2000) : existing.image,
+      copy: typeof data.copy === 'string' ? data.copy.trim().slice(0, 2000) : existing.copy,
       copyAr: data.copyAr === undefined ? existing.copyAr : (typeof data.copyAr === 'string' && data.copyAr.trim() ? data.copyAr.trim().slice(0, 2000) : null),
       showInOneDayTours: data.showInOneDayTours === undefined ? existing.showInOneDayTours : data.showInOneDayTours === true,
       showInDestinations: data.showInDestinations === undefined ? existing.showInDestinations : data.showInDestinations !== false,
       isPublished: data.isPublished === undefined ? existing.isPublished : data.isPublished !== false,
-      displayOrder: data.displayOrder === undefined || data.displayOrder === '' ? existing.displayOrder : (Number.isFinite(Number(data.displayOrder)) ? Number(data.displayOrder) : existing.displayOrder),
+      displayOrder: data.displayOrder === undefined ? existing.displayOrder : data.displayOrder ?? 999,
       detail: preserveRecordSeo(existing.detail, data.detail === null ? {} : data.detail, false, { kind: 'destination', oldSlug: existing.slug, newSlug: data.slug ? String(data.slug).trim().toLowerCase() || existing.slug : existing.slug })!,
     },
-  }));
+  });
+  await applyDestinationTourChanges(tx, data.tourChanges ?? [], existing.slug);
+  if (updated.slug !== existing.slug) {
+    const links = await tx.tour.findMany({ where: { destinationSlug: existing.slug }, orderBy: { slug: 'asc' }, select: { slug: true, updatedAt: true } });
+    if (links.length && !hasPermission(user, 'tours.edit')) throw new DestinationWriteError('Tour editing permission is required to rename a linked destination.', 403);
+    for (const tour of links) {
+      const result = await tx.tour.updateMany({ where: { slug: tour.slug, destinationSlug: existing.slug, updatedAt: tour.updatedAt }, data: { destinationSlug: updated.slug } });
+      if (result.count !== 1) throw new DestinationWriteError('Tour associations changed. Reload before renaming.', 409);
+    }
+  }
+  return updated;
+  });
 
   return NextResponse.json(await catalogueTranslationResponse('destination', { destination }));
+  } catch (error) {
+    const failure = destinationFailure(error);
+    return NextResponse.json({ error: failure.error }, { status: failure.status });
+  }
 }
 
 export async function DELETE(
@@ -97,8 +122,7 @@ export async function DELETE(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   // Staff-only delete with same-origin mutation protection.
-  // Tours keep their destinationSlug entries; one-day grouping ignores
-  // unknown slugs, so no tour row is modified or lost.
+  // Referenced destinations cannot be removed; trips must be reassigned first.
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
@@ -119,7 +143,17 @@ export async function DELETE(
     return NextResponse.json({ error: 'Destination not found.' }, { status: 404 });
   }
 
-  await deleteWithCatalogueTranslations('destination', paramSlug, (tx) => tx.destination.delete({ where: { slug: paramSlug } }));
+  try {
+  await deleteWithCatalogueTranslations('destination', paramSlug, async (tx) => {
+    await tx.$queryRaw`SELECT slug FROM destinations WHERE slug = ${paramSlug} FOR UPDATE`;
+    const links = await tx.tour.findMany({ where: { destinationSlug: paramSlug }, select: { slug: true } });
+    if (links.length) throw new DestinationWriteError('This destination has associated tours. Reassign them before deleting.', 409);
+    return tx.destination.delete({ where: { slug: paramSlug, detail: existing.detail, updatedAt: existing.updatedAt } });
+  });
 
   return NextResponse.json({ deleted: true });
+  } catch (error) {
+    const failure = destinationFailure(error);
+    return NextResponse.json({ error: failure.error }, { status: failure.status });
+  }
 }
