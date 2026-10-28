@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { searchHref, searchPublishedContent, type SearchSources } from '@/lib/site-search'
+import { nextSearchOption, searchHref, searchPublishedContent, type SearchSources } from '@/lib/site-search'
 import type { Blog, Destination, Event, Offer, Tour } from '@/data/types'
 
 const sources = (overrides: Partial<SearchSources> = {}): SearchSources => ({ tours: [], destinations: [], events: [], offers: [], blogs: [], ...overrides })
@@ -10,6 +10,19 @@ const offer = (overrides: Partial<Offer> = {}) => ({ slug: 'discount', title: 'C
 const blog = (overrides: Partial<Blog> = {}) => ({ slug: 'guide', title: 'Cairo guide', image: '/blog.jpg', excerpt: 'Markets and food', category: 'Tips', isPublished: true, ...overrides } as Blog)
 
 describe('live public search contracts', () => {
+  it('matches partial destination names and ranks title prefixes before incidental copy', () => {
+    const rows = searchPublishedContent(sources({ tours: [tour({ title: 'Private transfer', summary: 'From Cairo' })], destinations: [destination({ title: 'Cairo', slug: 'cairo' })], blogs: [blog({ title: 'Cairo guide' })] }), 'cair')
+    expect(rows.map(row => row.type)).toEqual(['Destination', 'Blog', 'Tour'])
+    expect(rows[0].href).toBe('/destinations/cairo')
+    expect(rows[0].href).not.toBe(rows[0].image)
+  })
+  it('moves through suggestions by keyboard, wraps safely and handles an empty list', () => {
+    expect(nextSearchOption(-1, 'ArrowDown', 3)).toBe(0)
+    expect(nextSearchOption(2, 'ArrowDown', 3)).toBe(0)
+    expect(nextSearchOption(-1, 'ArrowUp', 3)).toBe(2)
+    expect(nextSearchOption(1, 'ArrowUp', 3)).toBe(0)
+    expect(nextSearchOption(0, 'ArrowDown', 0)).toBe(-1)
+  })
   it('contains no demo content when the current database collections are empty', () => {
     expect(searchPublishedContent(sources(), '')).toEqual([])
     expect(searchPublishedContent(sources(), 'Cairo')).toEqual([])

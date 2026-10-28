@@ -4,6 +4,13 @@ import { isOfferActive, offerHref } from './special-offers'
 
 export type SearchSources = { tours: readonly Tour[]; destinations: readonly Destination[]; events: readonly Event[]; offers: readonly Offer[]; blogs: readonly Blog[] }
 export type SearchResult = { type: 'Tour' | 'Destination' | 'Event' | 'Offer' | 'Blog'; slug: string; title: string; image: string; copy: string; href: string; keywords?: string }
+export const SEARCH_TYPE_LABELS = {
+  Tour: { en: 'Tour', es: 'Circuito', it: 'Tour' },
+  Destination: { en: 'Destination', es: 'Destino', it: 'Destinazione' },
+  Event: { en: 'Event', es: 'Evento', it: 'Evento' },
+  Offer: { en: 'Offer', es: 'Oferta', it: 'Offerta' },
+  Blog: { en: 'Blog', es: 'Blog', it: 'Blog' },
+}
 export const searchHref = (query: string) => '/search?q=' + encodeURIComponent(query.trim().slice(0, 120))
 const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
 
@@ -18,10 +25,16 @@ export function searchPublishedContent(sources: SearchSources, query: string, no
   ]
   const terms = normalize(query.slice(0, 120)).split(/\s+/).filter(Boolean)
   const seen = new Set<string>()
+  const score = (item: SearchResult) => normalize(item.title).startsWith(normalize(query)) ? 0 : terms.every(term => normalize(item.title).includes(term)) ? 1 : 2
   return results.filter(item => {
     const key = item.type + ':' + item.slug
     if (!item.slug || seen.has(key) || !terms.every(term => normalize(`${item.title} ${item.copy} ${item.keywords ?? ''}`).includes(term))) return false
     seen.add(key)
     return true
-  })
+  }).sort((a, b) => score(a) - score(b))
+}
+
+export function nextSearchOption(current: number, key: 'ArrowDown' | 'ArrowUp', count: number) {
+  if (!count) return -1
+  return key === 'ArrowDown' ? (current + 1) % count : (current <= 0 ? count - 1 : current - 1)
 }

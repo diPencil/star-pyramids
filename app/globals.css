@@ -1436,3 +1436,35 @@ limited. These selectors are intentionally scoped to Select, not DateInput. */
 .destinations-catalogue .destination-large h2 a:hover{color:var(--blue)}
 @media(max-width:1100px){.destinations-catalogue .destination-large-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:760px){.destinations-catalogue .destination-large-grid{grid-template-columns:minmax(0,1fr);gap:20px}.destinations-catalogue .destination-large>div{padding:20px}.destinations-catalogue .destination-large h2{font-size:20px}}
+
+/* Public search: page links remain readable; media never controls result height. */
+.public-search-control{position:relative}
+.public-search-submit{display:flex;align-items:center;justify-content:center;border:0;background:transparent;color:inherit;padding:0;cursor:pointer;min-width:28px;min-height:32px}
+.public-search-control input{min-width:0}
+.public-search-dropdown{position:absolute;top:calc(100% + 10px);inset-inline:0;z-index:80;background:#fff;border:1px solid var(--border);border-radius:18px;box-shadow:0 16px 40px rgba(10,32,76,.16);color:var(--text);overflow:hidden;text-align:start}
+.public-search-options{max-height:min(440px,55dvh);overflow-y:auto;overscroll-behavior:contain;scroll-padding-block:8px}
+.public-search-option{display:flex;align-items:center;gap:12px;padding:12px 16px;text-decoration:none;border-bottom:1px solid var(--border);min-height:76px}
+.public-search-option:hover,.public-search-option[aria-selected=true]{background:#f1f5ff}
+.public-search-option>img{flex:0 0 48px;width:48px;height:48px;object-fit:cover;border-radius:10px}
+.public-search-option>span{min-width:0;flex:1;display:grid;gap:3px}
+.public-search-option small{font-size:11px;font-weight:700;color:var(--primary)}
+.public-search-option strong{font-size:14px;line-height:1.4;color:var(--text);overflow-wrap:anywhere}
+.public-search-option>span>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--muted)}
+.public-search-option>svg{flex-shrink:0;color:var(--blue)}
+.public-search-all{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;color:var(--blue);font-size:13px;font-weight:700;background:#f8faff;min-height:48px}
+.public-search-status{margin:0;padding:14px 16px;font-size:13px;color:var(--muted)}
+.public-search-status p{margin:0 0 8px}
+.public-search-control .public-search-status button{width:auto;height:auto;min-height:32px;padding:4px 10px;border:1px solid var(--border);border-radius:8px;color:var(--blue);background:#fff}
+.public-search-control a:focus-visible,.public-search-control button:focus-visible{outline:2px solid var(--blue);outline-offset:-3px}
+.public-search-results-list{display:grid;gap:18px;margin-bottom:48px}
+.public-search-result{display:flex;gap:24px;padding:20px;border:1px solid var(--border);border-radius:20px;background:#fff;min-width:0;align-items:flex-start}
+.public-search-result-image{display:block;flex:0 0 168px;width:168px;height:126px;border-radius:12px;overflow:hidden}
+.public-search-result-image img{display:block;width:100%;height:100%;min-height:0;object-fit:cover}
+.public-search-result-copy{min-width:0;flex:1}
+.public-search-result-copy small{font-size:12px;font-weight:700;color:var(--primary)}
+.public-search-result-copy h2{margin:6px 0 10px;font-size:21px;line-height:1.4;overflow-wrap:anywhere}
+.public-search-result-copy h2 a{color:var(--text)}
+.public-search-result-copy p{margin:0 0 12px;color:var(--muted);font-size:14px;line-height:1.7;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.public-search-result-copy .text-link{font-size:13px;min-height:32px}
+.public-search-result-copy a:focus-visible{outline:2px solid var(--blue);outline-offset:4px}
+@media(max-width:760px){.public-search-result{gap:14px;padding:16px;border-radius:16px}.public-search-result-image{flex-basis:88px;width:88px;height:88px}.public-search-result-copy h2{font-size:17px}.public-search-result-copy p{font-size:13px;-webkit-line-clamp:2}.public-search-option{padding:12px;gap:10px}.public-search-option strong{font-size:13px}.public-search-dropdown{border-radius:14px}.public-search-options{max-height:45dvh}}

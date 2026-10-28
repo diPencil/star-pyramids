@@ -252,12 +252,12 @@ export function useDbCategoriesStatus(): DbListStatus<MultiDayCategory> {
 }
 
 /** Public cache stays separate from private rows and never invents bootstrap records. */
-export function usePublicDestinationsStatus(): DbListStatus<Destination> {
+export function usePublicDestinationsStatus({ revalidateOnMount = true }: { revalidateOnMount?: boolean } = {}): DbListStatus<Destination> {
   const status = destinationsCache.useStatus();
   const [started, setStarted] = useState(false);
   // A fresh server seed must beat a warm browser cache on navigation.
   // Revalidate every mount, retaining generation protection for old requests.
-  useEffect(() => { status.refresh(); setStarted(true); }, []);
+  useEffect(() => { if (revalidateOnMount) status.refresh(); setStarted(true); }, []);
   const localized = useCatalogueLanguage(status.data ?? [], 'destination');
   return { ...status, data: !started || status.data === null ? null : localized, error: started ? status.error : null };
 }

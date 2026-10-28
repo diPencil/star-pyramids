@@ -6,7 +6,7 @@ it('keeps mobile search outside the sticky header so it scrolls with the page', 
   const source = readFileSync('components/site.tsx', 'utf8')
   const headerStart = source.indexOf('<header ref={primaryHeaderRef}')
   const headerEnd = source.indexOf('</header>', headerStart)
-  const searchStart = source.indexOf('<form className="mobile-header-search container"')
+  const searchStart = source.indexOf('<HeaderSearch mobile')
   expect(headerStart).toBeGreaterThan(-1)
   expect(searchStart).toBeGreaterThan(headerEnd)
 })

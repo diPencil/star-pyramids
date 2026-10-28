@@ -2,6 +2,16 @@
   "version": 1,
   "decisions": [
     {
+      "area": "public-search",
+      "direction": "Live page suggestions",
+      "summary": "Keep the existing desktop/mobile search field; show named, typed page links beneath it while typing, with bounded thumbnails and readable text-led full results.",
+      "constraints": [
+        "Use published database content only, with the same source for suggestions and full search",
+        "Open canonical content pages rather than image files",
+        "Preserve EN/ES/IT, keyboard navigation, mobile bounds and honest loading/error states"
+      ]
+    },
+    {
       "area": "trips-catalogue",
       "direction": "Unified Egypt Trip Finder",
       "summary": "A compact catalogue with a search-first header, scannable filters, and the existing STAR PYRAMIDS tour cards across all four trip categories.",
