@@ -294,6 +294,17 @@
         "Do not fabricate featured records, statistics or published content",
         "No media edits, browser automation, database writes or deployment"
       ]
+    },
+    {
+      "area": "homepage-top-tours",
+      "direction": "Single-row automatic horizontal tour slider",
+      "summary": "Keep existing TourCard and HorizontalSlider; show four cards on large screens, two on tablet and 86% cards on phones. Advance every five seconds with localized arrows and pause/play.",
+      "constraints": [
+        "Preserve CMS selection, limits, order, visibility and canonical card data",
+        "Pause for interaction, hidden/offscreen content and reduced motion",
+        "Keep other homepage sections unchanged and add no dependencies or database writes",
+        "No browser automation, commit, push or deployment without explicit approval"
+      ]
     }
   ]
 }

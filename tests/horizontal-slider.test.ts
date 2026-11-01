@@ -1,0 +1,123 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { Children, createElement, isValidElement, type ReactNode, type ReactElement } from 'react'
+import { HorizontalSlider } from '@/components/horizontal-slider'
+
+// Exercise actual component effects/handlers without a browser or another renderer dependency.
+const hooks = vi.hoisted(() => ({ cursor: 0, cells: [] as unknown[], pending: [] as Array<() => void> }))
+type Effect = { deps?: readonly unknown[]; cleanup?: () => void }
+vi.mock('react', async original => ({
+  ...await original<typeof import('react')>(),
+  useRef: <T,>(value: T) => {
+    const index = hooks.cursor++
+    return hooks.cells[index] ?? (hooks.cells[index] = { current: value })
+  },
+  useState: <T,>(value: T) => {
+    const index = hooks.cursor++
+    if (!(index in hooks.cells)) hooks.cells[index] = value
+    return [hooks.cells[index], (next: T | ((previous: T) => T)) => { hooks.cells[index] = typeof next === 'function' ? (next as (previous: T) => T)(hooks.cells[index] as T) : next }]
+  },
+  useCallback: (fn: unknown) => fn,
+  useEffect: (run: () => void | (() => void), deps?: readonly unknown[]) => {
+    const index = hooks.cursor++, previous = hooks.cells[index] as Effect | undefined
+    if (!previous || !deps || deps.some((value, i) => !Object.is(value, previous.deps?.[i]))) {
+      hooks.pending.push(() => { previous?.cleanup?.(); hooks.cells[index] = { deps, cleanup: run() } })
+    }
+  },
+}))
+
+function find(node: ReactNode, predicate: (node: ReactElement<Record<string, unknown>>) => boolean): ReactElement<Record<string, unknown>> | undefined {
+  for (const child of Children.toArray(node)) {
+    if (!isValidElement<Record<string, unknown>>(child)) continue
+    if (predicate(child)) return child
+    const found = find(child.props.children as ReactNode, predicate)
+    if (found) return found
+  }
+}
+const fire = (node: ReactElement<Record<string, unknown>>, handler: string, event?: unknown) => (node.props[handler] as (event: unknown) => void)(event)
+
+function fixture(count = 6, width = 400) {
+  const motion = { matches: false }
+  const doc = { visibilityState: 'visible' }
+  const win = Object.assign(new EventTarget(), { matchMedia: () => motion, setInterval, clearInterval, innerHeight: 800 })
+  vi.stubGlobal('window', win); vi.stubGlobal('document', doc)
+  let resize = () => {}
+  const disconnect = vi.fn()
+  vi.stubGlobal('ResizeObserver', class { constructor(callback: () => void) { resize = callback } observe() {} disconnect = disconnect })
+  const children = Array.from({ length: count }, (_, index) => ({ offsetLeft: index * 200 }))
+  const track = { children: Object.assign(children, { item: (index: number) => children[index] }), clientWidth: width, scrollWidth: count * 200, scrollLeft: 0, getBoundingClientRect: () => ({ top: 100, bottom: 500 }), scrollTo: vi.fn(({ left }: { left: number }) => { track.scrollLeft = left }) }
+  let root: ReturnType<typeof HorizontalSlider>
+  const render = () => {
+    hooks.cursor = 0
+    root = HorizontalSlider({ className: 'test-track', ariaLabel: 'Top tours', previousLabel: 'Previous', nextLabel: 'Next', rotationLabels: { pause: 'Pause', play: 'Play' }, autoAdvanceMs: 5000, children: Array.from({ length: count }, (_, i) => createElement('article', { key: i }, 'Tour ' + i)) })
+    const region = find(root, element => element.props.role === 'region')
+    if (region) (region.props.ref as { current: unknown }).current = track
+    const pending = hooks.pending.splice(0); pending.forEach(effect => effect())
+    return root!
+  }
+  render(); render()
+  return { track, win, doc, motion, disconnect, render, resize: () => resize(), get root() { return root! }, region: () => find(root, node => node.props.role === 'region')!, button: (label: string) => find(root, node => node.props['aria-label'] === label)! }
+}
+
+beforeEach(() => { hooks.cursor = 0; hooks.cells = []; hooks.pending = []; vi.useFakeTimers(); vi.setSystemTime(100_000) })
+afterEach(() => {
+  for (const cell of hooks.cells) (cell as Effect | undefined)?.cleanup?.()
+  vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks()
+})
+
+describe('horizontal tour slider interaction', () => {
+  it('advances, loops, pauses and resumes without duplicating cards', () => {
+    const f = fixture()
+    vi.advanceTimersByTime(5000); expect(f.track.scrollLeft).toBe(200)
+    vi.advanceTimersByTime(20_000); expect(f.track.scrollLeft).toBe(0)
+    fire(f.button('Pause'), 'onClick'); f.render()
+    vi.advanceTimersByTime(10_000); expect(f.track.scrollLeft).toBe(0)
+    fire(f.button('Play'), 'onClick'); f.render()
+    vi.advanceTimersByTime(5000); expect(f.track.scrollLeft).toBe(200)
+    expect(Children.count(f.region().props.children as ReactNode)).toBe(6)
+  })
+  it('does not resume on mouse leave while a card still has keyboard focus', () => {
+    const f = fixture()
+    fire(f.root!, 'onFocusCapture'); fire(f.root!, 'onMouseEnter'); fire(f.root!, 'onMouseLeave')
+    vi.advanceTimersByTime(5000); expect(f.track.scrollTo).not.toHaveBeenCalled()
+    fire(f.root!, 'onBlurCapture', { currentTarget: { contains: () => true }, relatedTarget: {} })
+    vi.advanceTimersByTime(5000); expect(f.track.scrollTo).not.toHaveBeenCalled()
+    fire(f.root!, 'onBlurCapture', { currentTarget: { contains: () => false }, relatedTarget: null })
+    vi.advanceTimersByTime(5000); expect(f.track.scrollLeft).toBe(200)
+  })
+  it('pauses during swipes, hidden tabs, offscreen rendering and live reduced-motion changes', () => {
+    const f = fixture()
+    fire(f.root!, 'onPointerDown'); vi.advanceTimersByTime(5000)
+    expect(f.track.scrollTo).not.toHaveBeenCalled()
+    fire(f.root!, 'onPointerUp'); f.doc.visibilityState = 'hidden'; vi.advanceTimersByTime(5000)
+    f.doc.visibilityState = 'visible'; f.motion.matches = true; vi.advanceTimersByTime(5000)
+    f.motion.matches = false; f.track.getBoundingClientRect = () => ({ top: 900, bottom: 1300 }); vi.advanceTimersByTime(5000)
+    expect(f.track.scrollTo).not.toHaveBeenCalled()
+    f.track.getBoundingClientRect = () => ({ top: 100, bottom: 500 }); vi.advanceTimersByTime(5000)
+    expect(f.track.scrollLeft).toBe(200)
+  })
+  it('synchronizes touch scrolling before manual arrows and honors reduced motion for keyboard navigation', () => {
+    const f = fixture()
+    f.track.scrollLeft = 400; fire(f.region(), 'onScroll'); f.render()
+    fire(f.button('Next'), 'onClick'); expect(f.track.scrollLeft).toBe(600)
+    f.motion.matches = true
+    const target = {}, event = { target, currentTarget: target, key: 'End', preventDefault: vi.fn() }
+    fire(f.region(), 'onKeyDown', event)
+    expect(event.preventDefault).toHaveBeenCalledOnce()
+    expect(f.track.scrollTo).toHaveBeenLastCalledWith({ left: 800, behavior: 'auto' })
+    fire(f.region(), 'onKeyDown', { ...event, target: {}, key: 'ArrowRight' })
+    expect(f.track.scrollLeft).toBe(800) // Card image controls keep their own key events.
+  })
+  it('remeasures responsive widths, hides unnecessary controls and cleans up effects', () => {
+    const f = fixture(4, 400)
+    expect(f.button('Next')).toBeDefined()
+    f.track.clientWidth = 800; f.resize(); f.render()
+    expect(f.button('Next')).toBeUndefined()
+    expect(vi.getTimerCount()).toBe(0)
+    for (const cell of hooks.cells) (cell as Effect | undefined)?.cleanup?.()
+    expect(f.disconnect).toHaveBeenCalled()
+  })
+  it('renders no empty region or autoplay for an empty catalogue', () => {
+    const f = fixture(0)
+    expect(f.root).toBeNull(); expect(vi.getTimerCount()).toBe(0)
+  })
+})

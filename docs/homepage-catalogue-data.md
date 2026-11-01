@@ -5,7 +5,7 @@
 - **Highlights of Egypt** uses published destination records eligible for directory display. Creating a tour does not create or publish a destination.
 - **Our Travel Blogs** uses published blog records. The homepage no longer substitutes bootstrap articles while the database response is unavailable. Creating a tour does not create a blog post.
 
-All four sections preserve their CMS manual/automatic modes, visibility, limits, layout and localization owners. No schema, database, pricing, booking, publication or offer-placement writes are involved.
+All four sections preserve their CMS manual/automatic modes, visibility, limits and localization owners. Top Tours now uses the owner's [horizontal slider layout](homepage-top-tours-slider.md) with the existing cards; other section layouts remain unchanged. No schema, database, pricing, booking, publication or offer-placement writes are involved.
 
 ## Cache freshness
 
