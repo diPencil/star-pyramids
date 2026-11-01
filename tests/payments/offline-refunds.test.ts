@@ -1,5 +1,5 @@
 // Offline (manual) refund tests: staff-recorded returns of captured
-// money. All DB/mail boundaries mocked — no production records touched.
+// money. All DB/mail boundaries mocked  -  no production records touched.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
@@ -262,7 +262,7 @@ describe('recordOfflineRefund', () => {
     // Whatever interleaving wins, captured money is never exceeded and
     // the ledger stays internally consistent (status/amounts/events
     // agree). NOTE: the in-memory mock rolls back by restoring a
-    // snapshot, which — unlike per-transaction InnoDB rollback — can
+    // snapshot, which  -  unlike per-transaction InnoDB rollback  -  can
     // clobber a concurrent commit; production isolation is stronger
     // than this mock, so only invariants are asserted here.
     const stored = shared.store.payments.get('pay-1')!

@@ -61,7 +61,7 @@ function parseScope(value: unknown): MediaScope | null {
  * what every image field in the admin and account areas now persists
  * instead of a Base64 data URL.
  *
- * The caller supplies only a `scope` label — never a path, filename or
+ * The caller supplies only a `scope` label  -  never a path, filename or
  * destination. Filenames are generated server-side from CSPRNG bytes, so a
  * crafted name cannot traverse directories, collide, or overwrite an
  * existing image.

@@ -18,7 +18,7 @@ type RecordBody = {
  * Staff-only offline receipt recording (cash / bank transfer).
  * Gated by `payments.edit`; every success is audited. The service
  * owns validation, balance checks, idempotency and the PAID
- * transition — the browser supplies details only, never statuses.
+ * transition  -  the browser supplies details only, never statuses.
  */
 export async function POST(request: Request) {
   if (!isSameOriginRequest(request)) {

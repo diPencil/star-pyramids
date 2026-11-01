@@ -20,7 +20,7 @@ export default function BlogsPage() {
   const [visibility, setVisibility] = useState<'all' | 'published' | 'hidden'>('all')
   const [deleteSlug, setDeleteSlug] = useState<string | null>(null)
   // DB-authoritative catalogue with no static fallback: while the API is
-  // loading or failing, the screen shows loading/error — never bootstrap
+  // loading or failing, the screen shows loading/error  -  never bootstrap
   // rows masquerading as database records.
   const { data, loading, error, retry, refresh } = useDbBlogsStatus()
   const liveBlogs = data ?? []

@@ -47,7 +47,7 @@ export function CampaignAction({ item }: { item: Offer }) {
   const { locale } = useLocale()
   const tours = useDbTours(catalogTours, { includeNew: true })
   // A linked tour wins while it stays published; otherwise the saved custom
-  // URL and finally the contact fallback apply — never a broken link.
+  // URL and finally the contact fallback apply  -  never a broken link.
   const href = item.tourSlug ? offerHref(item) : resolveTourCtaHref(campaign.ctaTourSlug, tours) ?? (safeCampaignHref(campaign.ctaHref) ? campaign.ctaHref : `/contact?offer=${encodeURIComponent(item.slug)}`)
   const label = campaign.ctaLabel || tx(locale, { en: 'Plan my trip', es: 'Planificar mi viaje', it: 'Pianifica il mio viaggio', ar: 'خطط رحلتي' })
   return href.startsWith('/') ? <Link className="primary-btn" href={href}>{label}<ArrowRight size={16}/></Link> : <a className="primary-btn" href={href} target="_blank" rel="noopener noreferrer">{label}<ArrowRight size={16}/></a>

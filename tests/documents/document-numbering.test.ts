@@ -11,7 +11,7 @@
 // Safety: probe bookings use fresh unique references and are deleted
 // with their documents in a `finally` block. Sequence counter rows are
 // infrastructure (global per-year counters) and are deliberately left
-// in place — advancing them is harmless and never duplicates numbers.
+// in place  -  advancing them is harmless and never duplicates numbers.
 // The suite skips cleanly when the database is unreachable.
 
 import { describe, it, expect, afterAll } from 'vitest'

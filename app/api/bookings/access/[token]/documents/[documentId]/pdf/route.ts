@@ -9,7 +9,7 @@ import {
 } from '@/lib/server/booking-access';
 import { buildBookingDocumentPdf, documentPdfResponse, publicBaseUrl } from '@/lib/server/document-pdf';
 
-// Private document bytes — evaluated per request, never cached.
+// Private document bytes  -  evaluated per request, never cached.
 export const dynamic = 'force-dynamic';
 
 function clientIp(request: Request): string {
@@ -20,7 +20,7 @@ function clientIp(request: Request): string {
 /**
  * Guest PDF download through the opaque booking-access token (the same
  * credential that guards the guest booking view). The token stays in
- * the path — never a query string — and is bound by the Phase-A gate
+ * the path  -  never a query string  -  and is bound by the Phase-A gate
  * to THIS booking: a token for another booking gets the same 404 as a
  * wrong or expired token. Failed lookups share the guest-access rate
  * limit; downloading never issues a document.

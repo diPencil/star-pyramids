@@ -1,4 +1,4 @@
-# STAR PYRAMIDS — Backend Setup (Phase 1A)
+# STAR PYRAMIDS  -  Backend Setup (Phase 1A)
 
 P0 foundation: Next.js Node runtime + MySQL (Prisma) + opaque-session auth.
 Frontend prototype stores are untouched and remain the display layer until
@@ -22,7 +22,7 @@ later migration phases.
 ## 3. Environment
 
 `.env` is gitignored (a local dev file exists for XAMPP defaults).
-`.env.example` documents the shape — placeholders only:
+`.env.example` documents the shape  -  placeholders only:
 
 ```text
 DATABASE_URL="mysql://USER:PASSWORD@HOST:PORT/DATABASE"
@@ -52,7 +52,7 @@ corepack pnpm db:seed
 corepack pnpm db:bootstrap --email owner@example.com
 ```
 
-(The older `pnpm db:bootstrap -- --email …` form also works — a bare
+(The older `pnpm db:bootstrap -- --email …` form also works  -  a bare
 `--` forwarded by pnpm is ignored by the argument parser.)
 
 - Email via `--email` or `BOOTSTRAP_ADMIN_EMAIL`; password via `--password`,
@@ -69,7 +69,7 @@ corepack pnpm db:bootstrap --email owner@example.com
 - Cookie `sp_session`: HttpOnly, `SameSite=Lax`, `Secure` in production,
   30-day rolling expiry. Logout deletes the row immediately.
 - Passwords: bcrypt cost 12 (bcryptjs, no native deps). Argon2id deferred
-  until the production runtime is fixed — see `lib/server/password.ts`.
+  until the production runtime is fixed  -  see `lib/server/password.ts`.
 - Mutations additionally require a same-origin `Origin`/`Referer`
   (`lib/server/csrf.ts`). Nothing auth-related lives in localStorage.
 - Endpoints: `POST /api/auth/login`, `POST /api/auth/logout`,
@@ -88,7 +88,7 @@ scripts (`scripts/`, `prisma/`). `lib/server/*` adds the Next.js-bound
 pieces (`db`, `session`, `auth`, `users`, `settings`, `fx`, `csrf`) and
 enforces `server-only`, so client components can never import Prisma,
 sessions, or hashing. `lib/core` must likewise never be imported from
-`components/` or `app/` pages — code review must reject it.
+`components/` or `app/` pages  -  code review must reject it.
 
 ## 8. Run / build
 
@@ -110,19 +110,19 @@ rate limiting, email sending, permission matrix, dashboard metrics.
   in `FxRate` (USD anchor, manual source).
 - Endpoint `GET|PATCH /api/admin/settings`: staff-readable, writable only
   by `SUPER_ADMIN`/`ADMIN` (STAFF is read-only), same-origin guarded, every
-  write recorded in `staff_action_audit` (key names only — never values).
+  write recorded in `staff_action_audit` (key names only  -  never values).
 - GET returns public values plus `{ configured: boolean }` for secrets;
   stored secret values never leave the server. Empty secret input keeps the
   stored value. No migration was needed (`site_settings` is key-value).
 - The admin UI (`app/admin/settings/page.tsx`) loads/saves through this
   endpoint, uses `SharedSelect` for every dropdown, and marks provider
-  connectivity (WhatsApp/Maps/SMTP/OAuth) honestly as not verified —
+  connectivity (WhatsApp/Maps/SMTP/OAuth) honestly as not verified  -
   "configuration saved" is never presented as "connection verified".
 - Public storefront readers (`localStorage` brand/social/currency/l10n)
   are kept as a compatibility mirror written on successful admin save;
   MySQL is the source of truth. Full storefront migration is a later phase.
 
-## 11. Phase 2B — trip requests (Make Your Trip end-to-end)
+## 11. Phase 2B  -  trip requests (Make Your Trip end-to-end)
 
 - Model: `TripRequest` (`reference` unique `SP-TR-XXXXXX`, nullable `userId`
   → registered CUSTOMER or guest `NULL`, contact snapshot frozen at
@@ -149,13 +149,13 @@ rate limiting, email sending, permission matrix, dashboard metrics.
 - Still TODO: quotation/proposal documents, booking+payment conversion,
   email/WhatsApp notifications, retroactive guest→account linking.
 
-## 12. P0 Fix 03 — server-side media storage (real uploaded files)
+## 12. P0 Fix 03  -  server-side media storage (real uploaded files)
 
 Uploads are stored as files on disk and referenced by URL. Base64 data
 URLs are no longer produced by any upload flow.
 
 - **Registry**: `MediaAsset` (`prisma/migrations/20261010120000_media_assets`).
-  Additive `CREATE TABLE` only — no column was altered, dropped or
+  Additive `CREATE TABLE` only  -  no column was altered, dropped or
   backfilled, so no existing image or record was touched. Existing
   `data:` URLs and `https://` URLs keep working untouched.
 - **Storage**: `lib/server/media.ts` (disk I/O) + `lib/core/media-signature.ts`
@@ -173,7 +173,7 @@ URLs are no longer produced by any upload flow.
 - **Serving**: `GET /media/[...path]` streams the file with the MIME type
   recorded at upload, `X-Content-Type-Options: nosniff`, a stable `ETag` and
   `Cache-Control: public, max-age=31536000, immutable` (safe because keys are
-  never reused — replacing an image stores a new file).
+  never reused  -  replacing an image stores a new file).
 - **Upload**: `POST /api/media` (authenticated, same-origin, per-scope
   permissions, 120 uploads/hour per user) and `POST /api/avatar`
   (multipart, sets the caller's own avatar).
@@ -215,17 +215,17 @@ so a delayed response cannot restore previously visible records after a save.
   ceiling (default 5 MB). Admin image fields additionally cap at 1.5 MB and
   avatars at 2 MB in the UI.
 
-## 13. P0 Fix 04 — guest booking access
+## 13. P0 Fix 04  -  guest booking access
 
 Guests who check out without an account can read their own booking
 confirmation and details without registering. The booking reference alone is
 **not** a credential and never grants access.
 
 - **Model**: `BookingAccessToken` + `BookingAccessAttempt`
-  (`prisma/migrations/20261010150000_guest_booking_access`). Additive only —
+  (`prisma/migrations/20261010150000_guest_booking_access`). Additive only  -
   no booking row, column, or value was altered.
 - **Tokens**: `lib/server/booking-access.ts`. 256 bits of CSPRNG entropy
-  (`lib/core/tokens.ts`), base64url. Only the SHA-256 hash is persisted — the
+  (`lib/core/tokens.ts`), base64url. Only the SHA-256 hash is persisted  -  the
   same contract as `sessions` and `account_setup_tokens`.
 - **Scope**: tokens are issued for guest bookings only (`userId` NULL).
   Account bookings keep the existing session-owned flow unchanged, so no
@@ -242,7 +242,7 @@ confirmation and details without registering. The booking reference alone is
 - **Brute-force budget**: failed lookups are counted per IP (30/hour). The
   token's entropy is the primary control; this is defence in depth.
 - **Rotation**: each guest email mints a fresh token and revokes the previous
-  one, so exactly one link is live — the newest email wins (same model as
+  one, so exactly one link is live  -  the newest email wins (same model as
   password reset).
 - **UI**: `GET /booking/[token]` renders a read-only confirmation reusing the
   account booking presentation. `noindex`/`nocache` metadata; the token is read

@@ -315,7 +315,7 @@ describe.runIf(reachable)('POST issuance success and idempotency (real database)
       expect(retryBody.document.id).toBe(firstBody.document.id)
       expect(retryBody.document.number).toBe(firstBody.document.number)
 
-      // Two documents total — the retry minted nothing.
+      // Two documents total  -  the retry minted nothing.
       expect(await db.bookingDocument.count({ where: { bookingId: booking.id } })).toBe(2)
 
       // One audit row per creation; retries are not re-audited.

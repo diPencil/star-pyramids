@@ -87,7 +87,7 @@ async function fetchThread(): Promise<void> {
  * Single shared cache across the account shell badge and the messages
  * page: one fetch per mount burst, server-authoritative messages, and
  * a window event to keep mounted instances synchronized. No polling,
- * no localStorage mirror — the database is the source of truth.
+ * no localStorage mirror  -  the database is the source of truth.
  */
 export function useSupportChat() {
   const [thread, setThread] = useState(() => cache)
@@ -164,7 +164,7 @@ export function useSupportChat() {
       await fetchThread()
       const confirmed = data.message
       // fetchThread no-ops while settled cache is fresh from another
-      // tab state — merge the confirmed message directly instead.
+      // tab state  -  merge the confirmed message directly instead.
       if (cache) {
         if (!cache.messages.some((m) => m.id === confirmed.id)) {
           cache = { ...cache, messages: [...cache.messages, confirmed] }
@@ -193,7 +193,7 @@ export function useSupportChat() {
       if (!res.ok) return false
       const data = (await res.json()) as { unreadCount?: unknown }
       if (typeof data.unreadCount === 'number') unreadCache = data.unreadCount
-      // The server also resolved matching support notifications —
+      // The server also resolved matching support notifications  -
       // revalidate the notification bell cache immediately.
       invalidateNotifications()
       if (cache) {

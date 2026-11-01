@@ -1,4 +1,4 @@
-// Phase B: typed content model for issued booking documents. Pure data —
+// Phase B: typed content model for issued booking documents. Pure data  -
 // no database access, no rendering. Tests assert on this model directly,
 // which is what guarantees financial accuracy independently of drawing.
 //
@@ -46,7 +46,7 @@ export interface PdfBookingSummary {
   /** Live sums across the booking's payments. */
   paidToDateCents: number;
   refundedToDateCents: number;
-  /** max(totalAtIssueCents - paidToDateCents, 0) — keeps the shown rows
+  /** max(totalAtIssueCents - paidToDateCents, 0)  -  keeps the shown rows
    * internally consistent with the snapshot total. */
   remainingCents: number;
   hasPayments: boolean;
@@ -168,7 +168,7 @@ export interface PdfDocumentModel {
     contactPhone: string;
     notes: string | null;
     lines: PdfLineItem[];
-    /** Null for receipts — receipts are payment-scoped, not booking-priced. */
+    /** Null for receipts  -  receipts are payment-scoped, not booking-priced. */
     summary: PdfBookingSummary | null;
   };
   /** Set only for PAYMENT_RECEIPT. */

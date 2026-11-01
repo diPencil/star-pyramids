@@ -1,6 +1,6 @@
-// Backend core — environment-neutral (Next.js server runtime AND trusted
+// Backend core  -  environment-neutral (Next.js server runtime AND trusted
 // Node CLI scripts). Pure functions only: no Node.js APIs, no Next.js
-// imports, no Prisma. Same boundary rules as lib/core/validation.ts —
+// imports, no Prisma. Same boundary rules as lib/core/validation.ts  -
 // server/CLI only, never client components.
 //
 // The browser-reported `File.type` is attacker-controlled: any extension
@@ -95,7 +95,7 @@ const startsWith = (
 
 /**
  * Identify an image format from its leading bytes. Returns null for every
- * unsupported or malformed payload — callers must treat null as a hard
+ * unsupported or malformed payload  -  callers must treat null as a hard
  * rejection and never fall back to the declared MIME type or extension.
  */
 export function detectImageFormat(bytes: Uint8Array): SupportedImageFormat | null {

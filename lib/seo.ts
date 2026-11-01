@@ -1,5 +1,5 @@
 /**
- * Shared SEO utilities — single source for site URL, canonicals, hreflang.
+ * Shared SEO utilities  -  single source for site URL, canonicals, hreflang.
  */
 
 export function resolveSiteUrl(): string {
@@ -33,7 +33,7 @@ export async function getCanonicalUrl(path: string): Promise<string> {
 }
 
 /**
- * Hreflang configuration — only includes languages with real, accessible URLs.
+ * Hreflang configuration  -  only includes languages with real, accessible URLs.
  * Currently only English has a dedicated crawlable URL (single-URL architecture).
  * Returns hreflang entries for the current page path.
  * When locale-specific routes are implemented, add them here.

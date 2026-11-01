@@ -1,7 +1,7 @@
 // Support-chat domain service (Phase 2I). Server owns conversation
 // lifecycle, ownership, message validation, sender identity, and read
 // state. The browser supplies message BODIES ONLY (and an optional
-// subject on creation) — never sender IDs, roles, references,
+// subject on creation)  -  never sender IDs, roles, references,
 // ownership, status, assignment, or read markers.
 //
 // Thread model: one thread per customer need. The customer UX centers
@@ -198,7 +198,7 @@ export async function countCustomerUnread(customerId: string): Promise<number> {
 /**
  * Customer send: appends to the latest OPEN thread, or opens a fresh
  * thread when none is open (closed threads stay read-only history).
- * Notifies ACTIVE staff best-effort — never the sender, never twice
+ * Notifies ACTIVE staff best-effort  -  never the sender, never twice
  * for one message, never breaking message creation.
  */
 export async function sendCustomerMessage(
@@ -258,7 +258,7 @@ export async function sendCustomerMessage(
     message: `New customer message in conversation ${reference}.`,
     href: adminSupportHref(reference),
   });
-  // Staff email alert (best-effort — never breaks message creation).
+  // Staff email alert (best-effort  -  never breaks message creation).
   // Idempotency key uses the message id so each message alerts once.
   try {
     const sender = await db.user.findUnique({
@@ -352,7 +352,7 @@ function assertValidReference(reference: string): void {
 
 /**
  * Server-side diagnostic log for support-chat failures. Logs the action,
- * conversation reference, and error class/message only — never message
+ * conversation reference, and error class/message only  -  never message
  * bodies or user content. Logging itself never breaks the request.
  */
 export function logSupportError(action: string, reference: string, error: unknown): void {
@@ -398,8 +398,8 @@ export async function markStaffThreadRead(reference: string): Promise<number> {
 
 /**
  * Staff reply: OPEN threads only (replying to a closed thread is
- * rejected — reopen it first). Notifies the owning customer
- * best-effort — never the sender, never breaking the reply.
+ * rejected  -  reopen it first). Notifies the owning customer
+ * best-effort  -  never the sender, never breaking the reply.
  */
 export async function sendStaffMessage(
   reference: string,
@@ -436,7 +436,7 @@ export async function sendStaffMessage(
     message: 'Our travel team replied to your message. Read it here.',
     href: customerSupportHref(reference),
   });
-  // Customer email receipt (best-effort — never breaks the reply).
+  // Customer email receipt (best-effort  -  never breaks the reply).
   // Goes to the owning customer's account email only. Idempotency
   // key uses the message id so each reply emails once.
   try {

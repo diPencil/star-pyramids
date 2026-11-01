@@ -42,7 +42,7 @@ temp/
 *.tmp
 *.temp
 
-# Uploaded media files (runtime data — never committed; the MediaAsset
+# Uploaded media files (runtime data  -  never committed; the MediaAsset
 # table holds the references and MEDIA_STORAGE_DIR holds the bytes)
 storage/
 

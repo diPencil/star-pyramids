@@ -16,7 +16,7 @@ export type DirectoryUser = {
 };
 
 export type UsersDirectoryStatus = {
-  /** DB staff list or null while loading/failed — never mock rows. */
+  /** DB staff list or null while loading/failed  -  never mock rows. */
   data: DirectoryUser[] | null;
   viewerPublicId: string | null;
   viewerRoles: string[];

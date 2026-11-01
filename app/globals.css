@@ -1314,7 +1314,7 @@ html[dir='rtl'] .events-page-hero-shade{background:linear-gradient(270deg,rgba(7
 .country-flag-unknown{display:inline-flex;flex:none;align-self:center;border-radius:50%;align-items:center;justify-content:center;font-weight:600;background-color:#eef1f6;color:#8a94a6}
 .cselect-positioner{z-index:80;height:auto!important;max-height:min(264px,var(--available-height,calc(100dvh - 16px)))!important}
 /* Popup sizing system. Default `content`: compact floating menu sized to its
-content — never a giant full-field panel. `trigger` matches the field width
+content  -  never a giant full-field panel. `trigger` matches the field width
 for genuinely long option content. Base UI exposes `--available-height` as a
 collision limit; the 322/320px design caps keep it from becoming the desired
 height while still allowing the positioner to flip when space is genuinely

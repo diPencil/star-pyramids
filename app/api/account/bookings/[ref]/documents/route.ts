@@ -9,8 +9,8 @@ import { getAccountReadUser } from '@/lib/server/staff-preview';
  *
  * Same ownership rule as the booking detail and the owner PDF download:
  * the booking's registered customer, matched by session user id. Any
- * other caller — including a signed-in user who does not own this
- * booking — gets the uniform 404. Read-only; customers never issue.
+ * other caller  -  including a signed-in user who does not own this
+ * booking  -  gets the uniform 404. Read-only; customers never issue.
  */
 export async function GET(
   _request: Request,

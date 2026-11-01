@@ -4,7 +4,7 @@
 
 import type { PaymentProviderKey, PaymentHandoff, ProviderCallbackOutcome } from '@/lib/payment'
 
-/** Extended provider capabilities — providers declare what they support */
+/** Extended provider capabilities  -  providers declare what they support */
 export interface ProviderCapabilities {
   /** Supports immediate payment capture (vs authorize+capture) */
   immediateCapture: boolean
@@ -59,7 +59,7 @@ export interface ProviderMetadata {
  * Implementations MUST provide all required methods and metadata
  */
 export interface ExtendedPaymentProviderAdapter {
-  /** Provider key — must match registration key */
+  /** Provider key  -  must match registration key */
   readonly key: PaymentProviderKey
   /** Provider metadata for registration */
   readonly metadata: ProviderMetadata

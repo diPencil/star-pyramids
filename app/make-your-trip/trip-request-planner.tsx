@@ -206,7 +206,7 @@ function PlannerInner() {
 
   // Entry modes: `?edit=SP-TR-…` loads the signed-in owner's record for
   // editing; a trip query signal prefills a fresh form; otherwise the form
-  // starts blank with contact details prefilled as editable copies — from
+  // starts blank with contact details prefilled as editable copies  -  from
   // the signed-in account first, else the browser-local customer profile
   // (never written back automatically). Malformed data is ignored.
   useEffect(() => {

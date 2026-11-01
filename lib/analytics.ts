@@ -3,7 +3,7 @@
 // Financial rules enforced by every consumer:
 // - Revenue means successfully collected payments ONLY (PAID,
 //   PARTIALLY_REFUNDED net of refunds, REFUNDED contributes net zero).
-//   Booking totals are reported separately as volume — never as revenue.
+//   Booking totals are reported separately as volume  -  never as revenue.
 // - PENDING, PROCESSING, FAILED and CANCELLED payments are excluded
 //   from collected figures. Outstanding balances cover PENDING /
 //   PROCESSING payments on non-cancelled bookings only.
@@ -48,7 +48,7 @@ export interface AnalyticsKpis {
   tripsSold: number;
   /**
    * Percent change vs the previous equal-length period.
-   * `null` means "New" — the previous period was empty while the
+   * `null` means "New"  -  the previous period was empty while the
    * current period is not, so no meaningful percentage exists.
    * `0` is kept only when both periods are zero.
    */
@@ -79,7 +79,7 @@ export interface AnalyticsResponse {
    * True when the caller holds `payments.view` and financial figures
    * (collected revenue, refunds, outstanding balances, revenue trend)
    * are included. Otherwise those fields are empty/zero and the
-   * dashboard must render a restricted state — never zeros as fact.
+   * dashboard must render a restricted state  -  never zeros as fact.
    */
   financial: boolean;
   /** Year of the first collected payment (history start for trend). */

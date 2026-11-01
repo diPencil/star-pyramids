@@ -32,7 +32,7 @@ describe('real published marketing source projection', () => {
     const rows = buildMarketingFeed([offer()], [tour()], now)
     expect(rows.map(row => row.href)).toEqual(['/special-offers/oasis-offer', '/egypt-tours/published-tour'])
     expect(rows[0].createdAt).toBe('2026-10-27T12:00:00.000Z')
-    expect(rows[1].title).toBe('15% — Published tour')
+    expect(rows[1].title).toBe('15%  -  Published tour')
     expect(rows[0].expiresAt).toBe('2099-12-31T23:59:59.999Z')
   })
   it.each([{ isPublished: false }, { startsAt: new Date('2099-01-01') }, { deadline: '2026-10-27' }, { deadline: 'bad' }, { deadline: '2026-02-31' }])('excludes draft/future/expired/invalid offers %j', extra => {

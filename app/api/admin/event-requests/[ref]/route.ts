@@ -33,7 +33,7 @@ export async function GET(
 /**
  * Staff mutation: lifecycle transition (validated against the shared
  * transition map) and/or a staff-only internal note. Browser ownership
- * fields are never read — the reference comes from the route and the
+ * fields are never read  -  the reference comes from the route and the
  * actor from the session.
  */
 export async function PATCH(

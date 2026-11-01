@@ -1,4 +1,4 @@
-# Saved branding on refresh — 2026-10-28
+# Saved branding on refresh  -  2026-10-28
 
 ## Verified causes
 

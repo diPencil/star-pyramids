@@ -24,7 +24,7 @@ export function planPromoBarBackfill(input: {
   const skipped: { slug: string; reason: 'exists' | 'completed' }[] = []
   const toCreate: PromoBarSeed[] = []
   for (const seed of PROMO_BAR_SEEDS) {
-    // Completion only suppresses CREATEs — it never touches existing rows,
+    // Completion only suppresses CREATEs  -  it never touches existing rows,
     // so admin edits and intentional deletions are always preserved.
     if (input.completed) skipped.push({ slug: seed.slug, reason: 'completed' })
     else if (existing.has(seed.slug)) skipped.push({ slug: seed.slug, reason: 'exists' })
@@ -33,7 +33,7 @@ export function planPromoBarBackfill(input: {
   return { toCreate, skipped, alreadyInitialized: input.completed }
 }
 
-/** Content payload for one record — identical for planning and execution. */
+/** Content payload for one record  -  identical for planning and execution. */
 export function promoBarSeedPayload(seed: PromoBarSeed, accessOverride?: { visible: boolean; note: string; ctaLabel: string; ctaHref: string } | null) {
   // A previously customized accessibility notice keeps its stored copy/CTA
   // instead of the original defaults; an untouched notice uses the defaults.

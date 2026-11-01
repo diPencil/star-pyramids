@@ -108,7 +108,7 @@ export async function POST(request: Request) {
       ipAddress: ipAddress !== 'unknown' ? ipAddress : undefined,
       userAgent: request.headers.get('user-agent') ?? undefined,
     });
-    // Welcome email (best-effort — never breaks registration). The
+    // Welcome email (best-effort  -  never breaks registration). The
     // idempotency key guarantees one welcome per account even if the
     // client retries the request.
     await sendCustomerEmailSafe('welcome', email, {

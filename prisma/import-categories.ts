@@ -1,4 +1,4 @@
-// Deterministic bootstrap importer — authoritative source is the runtime
+// Deterministic bootstrap importer  -  authoritative source is the runtime
 // `multiDayCategories` export from data/tours.ts. No text scraping, no
 // fabricated records. Upsert by slug; reruns are idempotent.
 import { PrismaClient } from "@prisma/client";

@@ -363,7 +363,7 @@ export function formatQuoteAmount(cents: number, currency: string, locale: Local
 
 /**
  * Strict vehicle-capacity parser for `Car.seats` display strings.
- * Returns the seat count ONLY for unambiguous values — a whole number,
+ * Returns the seat count ONLY for unambiguous values  -  a whole number,
  * optionally suffixed with "seat"/"seats" ("4", "4 seats", "14 Seats").
  * Ambiguous or descriptive values ("2-4 seats", "Up to 8", "", prose)
  * return null so callers can reject confirmation instead of guessing.
@@ -378,7 +378,7 @@ export function parseVehicleCapacity(seats: string): number | null {
 /**
  * Canonical fleet display title for a vehicle slug. Source of truth is the
  * caller's fleet list (base catalogue plus admin overrides); an unknown or
- * removed slug falls back to the stored slug verbatim — never a fabricated
+ * removed slug falls back to the stored slug verbatim  -  never a fabricated
  * capitalization.
  */
 export function fleetVehicleTitle(fleet: { slug: string; title: string }[], slug: string): string {

@@ -63,7 +63,7 @@ const FAILURE_MESSAGE: Record<IssueBookingDocumentFailure, string> = {
  * Staff document list for one booking (Phase C, extended in Phase D).
  *
  * Same audiences as the Phase B staff PDF download: `bookings.view` or
- * `payments.view`. Read-only — listing never issues anything. The admin
+ * `payments.view`. Read-only  -  listing never issues anything. The admin
  * booking page also uses `verifiedPayments` (exact verified payment for
  * receipts) and `refundEvents` (completed refunds eligible for notes);
  * the issuance service revalidates every chosen reference regardless.
@@ -101,7 +101,7 @@ export async function GET(
 /**
  * Explicit staff document issuance (Phase C).
  *
- * Gated by `bookings.edit` — viewing documents is not enough to create
+ * Gated by `bookings.edit`  -  viewing documents is not enough to create
  * them. Every success is audited; retries with the same idempotency key
  * return the original document (200, created:false) instead of minting
  * a duplicate. Nothing here runs automatically: no page load, checkout,

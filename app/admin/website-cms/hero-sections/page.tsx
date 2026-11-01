@@ -36,10 +36,10 @@ export default function HeroSectionsPage() {
           const publication = hero.id === 'homepage' ? state : isShowcaseHeroId(hero.id) ? showcaseStates[hero.id] : editorialStates[hero.id]
           const thumbnail = hero.id === 'homepage' ? state?.published?.mediaType === 'image' ? state.published.mediaUrl : state?.published?.poster || '/egypt-hero.png' : isEditorialHeroId(hero.id) ? editorialStates[hero.id]?.published?.image || originalEditorialHero(hero.id).image : isShowcaseHeroId(hero.id) ? showcaseStates[hero.id]?.published?.image : null
           return <tr key={hero.id}>
-          <td>{thumbnail ? <img src={thumbnail} alt="" width={64} height={42} style={{ objectFit: 'cover', borderRadius: 6 }} /> : '—'}</td>
+          <td>{thumbnail ? <img src={thumbnail} alt="" width={64} height={42} style={{ objectFit: 'cover', borderRadius: 6 }} /> : ' - '}</td>
           <td>{hero.name}</td><td>{hero.route}</td><td>{hero.type}</td><td>{'cms' in hero ? 'Website CMS' : 'editor' in hero ? 'Existing content editor' : 'Source-managed / pending'}</td>
           <td>{'cms' in hero ? publication ? publication.mode === 'original' ? 'Original defaults' : publication.mode : 'Loading…' : 'Source-managed'}</td>
-          <td>{publication?.updatedAt ? new Date(publication.updatedAt).toLocaleString() : '—'}</td>
+          <td>{publication?.updatedAt ? new Date(publication.updatedAt).toLocaleString() : ' - '}</td>
           <td><AdminTableActions>{'editor' in hero && <AdminIconAction icon={Pencil} label={'cms' in hero ? 'Edit hero' : 'Open source editor'} href={hero.editor} />}{!hero.route.includes('[') && <AdminIconAction icon={Eye} label="View public page" href={hero.route} />}</AdminTableActions></td>
         </tr>})}
       </tbody></table></AdminTableWrap>

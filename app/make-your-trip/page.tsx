@@ -10,7 +10,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     title: 'Plan Your Egypt Trip',
-    description: 'Use the STAR PYRAMIDS trip planner to design your perfect Egypt journey. Choose destinations, dates, and travelers — we handle the rest.',
+    description: 'Use the STAR PYRAMIDS trip planner to design your perfect Egypt journey. Choose destinations, dates, and travelers  -  we handle the rest.',
     alternates: { canonical: `${siteUrl}/make-your-trip`, languages: hreflang },
     ...(await pageContentMetadata('planner')),
   }

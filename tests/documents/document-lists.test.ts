@@ -291,7 +291,7 @@ describe.runIf(reachable)('guest document list (real database)', () => {
       // The credential never appears in the payload.
       expect(raw).not.toContain(minted.token)
       const body = JSON.parse(raw) as { documents: Array<{ id: string; type: string }> }
-      // Exactly this booking's documents — nothing from the other booking.
+      // Exactly this booking's documents  -  nothing from the other booking.
       expect(body.documents).toHaveLength(1)
       expect(body.documents[0].id).toBe(issued.document.id)
       expect(body.documents[0].type).toBe('BOOKING_CONFIRMATION')

@@ -14,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     title: 'Egypt Destinations',
-    description: 'Explore Egypt destinations — Cairo, Luxor, Aswan, Hurghada, Sharm El Sheikh, and more. Discover tours, travel tips, and local insights.',
+    description: 'Explore Egypt destinations  -  Cairo, Luxor, Aswan, Hurghada, Sharm El Sheikh, and more. Discover tours, travel tips, and local insights.',
     alternates: { canonical: `${siteUrl}/destinations`, languages: hreflang },
     ...(await pageContentMetadata('destinations')),
   }

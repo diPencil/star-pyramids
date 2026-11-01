@@ -5,7 +5,7 @@ import type { Locale } from './locale-config'
  * records. This module is the single source of truth for their exact
  * original copy/CTA/context so the one-time backfill, the admin form and the
  * public renderer all stay consistent. The announcements are no longer
- * rendered from here — they are stored in the database.
+ * rendered from here  -  they are stored in the database.
  */
 
 export const TOP_BAR_PACKAGES_SLUG = 'promo-bar-free-tour-experience'

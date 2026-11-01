@@ -12,7 +12,7 @@ import {
  * Owner-only payment-proof submission (reference-only, offline review).
  *
  * The customer submits a bank/cash reference for staff review. The
- * submission is stored on the booking activity timeline — it NEVER
+ * submission is stored on the booking activity timeline  -  it NEVER
  * creates or settles a Payment row, and no file upload is accepted
  * (the media architecture serves public files only, so proofs must
  * never carry files or public URLs).

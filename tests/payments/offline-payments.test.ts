@@ -1,5 +1,5 @@
 // Offline (manual) payment tests: staff-recorded cash/bank receipts.
-// All DB/mail boundaries mocked — no production records touched.
+// All DB/mail boundaries mocked  -  no production records touched.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 

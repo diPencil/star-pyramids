@@ -1,4 +1,4 @@
-// DEPRECATED — faulty Phase 3A scraper retired.
+// DEPRECATED  -  faulty Phase 3A scraper retired.
 // This file previously scraped `slug:` via regex and fabricated placeholder
 // Tour rows, which produced catalogue integrity violations (MultiDayCategory
 // and cruise-type slugs imported as Tour rows).

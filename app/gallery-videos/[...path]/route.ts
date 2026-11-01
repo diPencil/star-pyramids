@@ -8,7 +8,7 @@ import { getVideoAsset, resolveVideoPath, statVideoFile } from '@/lib/server/jou
 // so the Node.js runtime is required (never the Edge runtime).
 export const runtime = 'nodejs';
 // Asset URLs are unique per upload, so nothing here may be prerendered or
-// cached at the framework layer — the response is cached by the browser.
+// cached at the framework layer  -  the response is cached by the browser.
 export const dynamic = 'force-dynamic';
 
 const CHUNK_SIZE = 2 * 1024 * 1024;
@@ -42,7 +42,7 @@ function parseRange(header: string | null, size: number): { start: number; end: 
  * - The requested segments are joined back into a storage key and matched
  *   against an anchored video-only pattern before any filesystem access,
  *   so traversal attempts never reach the disk (image keys are rejected
- *   here — they are served by `/media/...` only).
+ *   here  -  they are served by `/media/...` only).
  * - The MIME type comes from the MediaAsset row (recorded from magic
  *   bytes at upload time), never from the request, and
  *   `X-Content-Type-Options: nosniff` prevents content sniffing.

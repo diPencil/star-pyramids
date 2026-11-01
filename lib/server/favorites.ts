@@ -1,7 +1,7 @@
 // Favorites domain service (Phase 2G). Server owns the saved-trip
 // set: listing, membership checks, adds, and removals for the
 // authenticated customer. The browser supplies a catalogue key ONLY
-// (item type + slug) — never titles, images, prices, ownership, or
+// (item type + slug)  -  never titles, images, prices, ownership, or
 // display data. Saved rows resolve live against the catalogue, so
 // catalogue copy or price changes never stale the saved set.
 import 'server-only';
@@ -24,7 +24,7 @@ export interface ValidatedFavorite {
 
 /**
  * Strict server validation of favorite input. Unknown catalogue keys
- * and unsupported types are rejected — never persisted. Existence is
+ * and unsupported types are rejected  -  never persisted. Existence is
  * checked against the DB-authoritative catalogue (aliases included).
  */
 export async function validateFavorite(input: unknown): Promise<ValidatedFavorite> {
@@ -88,7 +88,7 @@ export async function addFavorite(
       if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002')) {
         throw error;
       }
-      // Unique-race: another request won — fall through to the list.
+      // Unique-race: another request won  -  fall through to the list.
     }
   }
   return listFavoriteSlugs(userId);
@@ -96,7 +96,7 @@ export async function addFavorite(
 
 /**
  * Remove one saved item. Removing a non-saved item succeeds with the
- * current list — removal is idempotent by design.
+ * current list  -  removal is idempotent by design.
  */
 export async function removeFavorite(
   userId: string,

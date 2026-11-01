@@ -42,9 +42,9 @@ export function buildMarketingFeed(offers: readonly OfferSource[], tours: readon
     const localized: MarketingNotification['localized'] = {}
     for (const locale of ['es', 'it'] as const) {
       const text = readJsonObject(texts[locale])
-      localized[locale] = { title: `${deal.percent}% — ${typeof text.title === 'string' && text.title || tour.title}`, message: typeof text.summary === 'string' && text.summary || tour.summary }
+      localized[locale] = { title: `${deal.percent}%  -  ${typeof text.title === 'string' && text.title || tour.title}`, message: typeof text.summary === 'string' && text.summary || tour.summary }
     }
-    const item = { type: 'tour_offer_available' as const, title: `${deal.percent}% — ${tour.title}`, message: tour.summary, href: `/egypt-tours/${tour.slug}`, createdAt: date(tour.updatedAt),
+    const item = { type: 'tour_offer_available' as const, title: `${deal.percent}%  -  ${tour.title}`, message: tour.summary, href: `/egypt-tours/${tour.slug}`, createdAt: date(tour.updatedAt),
       expiresAt: deadline ? new Date(offerDeadline(deadline)).toISOString() : null, localized, readAt: null }
     result.push({ ...item, id: `marketing:tour:${digest([tour.id, item.title, item.message, item.href, item.expiresAt, localized])}` })
   }

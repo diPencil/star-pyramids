@@ -1,4 +1,4 @@
-# STAR PYRAMIDS — Phase 2F-B Finalization Report
+# STAR PYRAMIDS  -  Phase 2F-B Finalization Report
 
 **Date:** 2026-10-09
 **Project:** E:\star-pyramids-nodejs\web-source

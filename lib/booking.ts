@@ -17,10 +17,10 @@ import type { BookingPaymentSummary } from '@/lib/payment'
  * This module is intentionally neutral (no React, no storage): the client
  * UI and the server service share the lifecycle, labels, and
  * frontend-estimate helpers. The browser cart (localStorage `sp-cart`)
- * remains valid pre-checkout state but is UNTRUSTED input — never a
+ * remains valid pre-checkout state but is UNTRUSTED input  -  never a
  * price authority. MySQL is the only booking store.
  *
- * A booking is a trip reservation request pending staff review — never a
+ * A booking is a trip reservation request pending staff review  -  never a
  * ticket, and never paid until a real gateway event (Phase 2F). New
  * bookings are always `paymentStatus: 'pending'` (unpaid).
  */
@@ -111,7 +111,7 @@ export type BookingAccount = {
 /**
  * Customer payment-proof submission (Phase 3: offline payments, no
  * gateway). Reference-only: the customer submits a bank/cash reference
- * for staff review. A submission NEVER marks money paid — staff record
+ * for staff review. A submission NEVER marks money paid  -  staff record
  * actual receipts separately through the audited offline workflow.
  * Stored on the existing BookingActivity timeline (no new table, no
  * file uploads: the media architecture serves public URLs only, so
@@ -189,7 +189,7 @@ export type StaffBooking = Booking & {
 
 /**
  * Checkout draft: SELECTIONS ONLY. No prices, totals, statuses,
- * references, user linkage, or payment state — the server owns all of
+ * references, user linkage, or payment state  -  the server owns all of
  * those and rejects them when present.
  */
 export type BookingCheckoutLine = {
@@ -233,7 +233,7 @@ export const BOOKING_FINANCIAL_REVIEW_CODE = 'BOOKING_FINANCIAL_REVIEW'
  * Financial exposure of a booking at cancellation time, computed from
  * its payment rows (integer cents, server-side):
  * - 'captured': settled money not yet returned (paid − refunded > 0).
- *   Cancellation MUST be blocked for review — never auto-refunded.
+ *   Cancellation MUST be blocked for review  -  never auto-refunded.
  * - 'inflight': pending/processing attempts only. Safe to cancel once
  *   the attempts themselves are voided in the same transaction.
  * - 'none': no payments, failed/cancelled attempts only, or fully
@@ -364,7 +364,7 @@ function addonCatalog(tour: Tour): readonly { title: string; price?: number }[] 
 /**
  * Revalidate one persisted cart line against canonical tour data.
  * Uses the single pricing engine (`getBookingTotal`); never parses price
- * strings or invents rates. Display estimate only — the backend
+ * strings or invents rates. Display estimate only  -  the backend
  * recalculates authoritatively at checkout.
  */
 export function resolveCartLine(item: CartItem): ResolvedCartLine {

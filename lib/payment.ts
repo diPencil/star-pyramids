@@ -16,7 +16,7 @@ import { localeFromAr, pickLocaleText, type Locale } from '@/lib/locale-config'
  *
  * No gateway is integrated in Phase 2F-A. Initiation creates a
  * legitimate PENDING payment (intent placeholder) awaiting provider
- * handoff — never a paid record, never a success screen.
+ * handoff  -  never a paid record, never a success screen.
  */
 
 export type PaymentStatus =
@@ -79,7 +79,7 @@ export type StaffPayment = Payment & {
 
 /**
  * Derived booking payment summary computed from real Payment rows.
- * Bookings with no Payment record are `unpaid` — never fabricated.
+ * Bookings with no Payment record are `unpaid`  -  never fabricated.
  */
 export type BookingPaymentSummary = {
   state: 'unpaid' | 'pending' | 'processing' | 'paid' | 'failed' | 'refunded' | 'partially_refunded'
@@ -98,7 +98,7 @@ export type BookingPaymentSummary = {
  * Valid server-side payment transitions. Terminal states
  * (paid/refunded/cancelled) never leave except paid -> refunded /
  * partially_refunded via an audited refund workflow (Phase 2F-B).
- * NOTHING in Phase 2F-A performs these transitions — the map exists
+ * NOTHING in Phase 2F-A performs these transitions  -  the map exists
  * so future provider webhooks and offline workflows share one rule.
  */
 const PAYMENT_TRANSITIONS: Record<PaymentStatus, PaymentStatus[]> = {
@@ -126,7 +126,7 @@ export function remainingBookingBalance(total: number, paid: number, refunded: n
  * Maps a verified provider callback outcome to an internal payment
  * status. Only explicitly recognized outcomes produce a status:
  * anything else is 'unknown' and MUST be acknowledged without
- * mutation — never interpreted as cancellation.
+ * mutation  -  never interpreted as cancellation.
  *
  * Refunds split on the settled amount: a refund covering the full
  * payment amount is 'refunded', anything less is
@@ -158,11 +158,11 @@ export type WebhookMoneyCheck = { ok: true } | { ok: false; reason: string }
 /**
  * Fail-closed money validation for money-moving webhook outcomes.
  * Every comparison runs in integer minor units against the
- * authoritative STORED payment — never client-displayed totals:
+ * authoritative STORED payment  -  never client-displayed totals:
  * - 'paid' requires the exact settled amount when `requireExactAmount`
  *   is on (under/over-payments are rejected, never marked PAID);
  * - 'refunded' requires a present, well-formed refund amount when
- *   `requireExactAmount` is on — any non-negative value is accepted
+ *   `requireExactAmount` is on  -  any non-negative value is accepted
  *   here so legitimate partial refunds pass (the transition guard
  *   separately enforces refunded ≤ paid);
  * - 'failed' moves no money and carries no amount requirement;
@@ -239,7 +239,7 @@ export const ACTIVE_PAYMENT_STATUSES: readonly PaymentStatus[] = ['pending', 'pr
  * Customer-facing offline payment state for one booking (Phase 3: no
  * gateway, money moves only through staff-verified offline receipts).
  *
- * This is DISPLAY mapping over server-calculated amounts only — never
+ * This is DISPLAY mapping over server-calculated amounts only  -  never
  * financial truth from client input. Booking lifecycle state (request
  * received / confirmed / completed / cancelled) stays separate in
  * `bookingStatusLabel`; the two are never mixed. A payment is labelled

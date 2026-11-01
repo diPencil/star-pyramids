@@ -3,7 +3,7 @@
 --
 -- ADDITIVE AND NON-DESTRUCTIVE: creates two new tables only. Existing
 -- tables, tour `journeyVideos` JSON, homepage content and media rows are
--- untouched. DO NOT APPLY without explicit authorization — run
+-- untouched. DO NOT APPLY without explicit authorization  -  run
 -- `prisma migrate deploy` only when approved, then run
 -- `scripts/import-journey-gallery.ts` (idempotent) to seed legacy photos.
 

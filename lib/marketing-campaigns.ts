@@ -14,7 +14,7 @@ export type CampaignContent = {
   terms: string
   ctaLabel: string
   ctaHref: string
-  /** Optional linked tour for the CTA button (slug only — the URL is always resolved live). */
+  /** Optional linked tour for the CTA button (slug only  -  the URL is always resolved live). */
   ctaTourSlug: string
   /** Ordered promotional-bar icon identifiers (allowlisted, never raw markup). */
   icons: string[]
@@ -57,7 +57,7 @@ export function validateCampaign(value: unknown): CampaignContent {
     if (typeof source[key] !== 'string' || (source[key] as string).length > max) throw new Error(`Invalid campaign ${key}.`)
   }
   if (source.ctaHref && !safeCampaignHref(source.ctaHref as string)) throw new Error('Use a website path or a valid HTTPS link for the campaign button.')
-  // Legacy records predate the tour link and omit the key — only a present,
+  // Legacy records predate the tour link and omit the key  -  only a present,
   // malformed value is rejected.
   const tourSlug = source.ctaTourSlug ?? ''
   if (typeof tourSlug !== 'string' || (tourSlug !== '' && !TOUR_SLUG_PATTERN.test(tourSlug))) throw new Error('Invalid campaign tour link.')
@@ -93,7 +93,7 @@ export type CtaTour = { slug: string; status?: string | null }
 
 /**
  * Resolves the CTA tour link against live tour data. Returns the tour
- * detail URL (via the shared `offerHref` routing convention — never a
+ * detail URL (via the shared `offerHref` routing convention  -  never a
  * hardcoded pattern) only while the tour exists and is published; any
  * other case returns null so callers fall back to a safe destination
  * instead of generating a broken link.
@@ -109,7 +109,7 @@ export function resolveTourCtaHref(ctaTourSlug: string, tours: readonly CtaTour[
 /**
  * Shared CTA resolution for promotional content: a linked tour resolves to
  * its live detail URL while published, otherwise the saved custom URL, then
- * the offer page — so a dead tour or unsafe URL never yields a broken link.
+ * the offer page  -  so a dead tour or unsafe URL never yields a broken link.
  */
 export function campaignCtaHref(
   item: { slug: string; tourSlug?: string | null; campaign?: CampaignContent },
@@ -124,11 +124,11 @@ export function campaignCtaHref(
  * Pure slide builder for the header promotional bar. Only published,
  * scheduled and ordered `top-bar` campaigns are returned (via
  * `placedOffers`). A linked tour resolves to its live detail URL while it
- * stays published — otherwise the offer page is used so a dead tour never
+ * stays published  -  otherwise the offer page is used so a dead tour never
  * produces a broken link (a stale saved URL is skipped on purpose). Without
  * a linked tour the saved custom URL is used, then the offer page. An empty
  * CTA label falls back to the caller-provided default at render time.
- * Linked-tour offers never appear here — they keep their existing
+ * Linked-tour offers never appear here  -  they keep their existing
  * `offers`/`home` behavior.
  */
 export function toTopBarSlides(offers: readonly Offer[], tours?: readonly CtaTour[]): TopBarSlide[] {

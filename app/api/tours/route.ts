@@ -118,7 +118,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Missing required fields: title, slug, category, price.' }, { status: 400 });
   }
 
-  // Unique slug check (canonical slugs and aliases share one route space —
+  // Unique slug check (canonical slugs and aliases share one route space  -
   // a new slug colliding with another tour's alias would fork its URL).
   const existing = await db.tour.findUnique({ where: { slug: data.slug } });
   if (existing) {

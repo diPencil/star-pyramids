@@ -3,9 +3,9 @@
 // Covers the confirmed vulnerabilities and their fixes:
 // 1. CSRF protection on ALL admin mutation endpoints (reviews, enquiries)
 // 2. CSRF check ordering (before auth) on user/role/customer management
-// 3. Ownership isolation — customers cannot access others' records
-// 4. Price tampering — booking draft rejects client-supplied prices
-// 5. Guest token access control — malformed/expired/revoked tokens
+// 3. Ownership isolation  -  customers cannot access others' records
+// 4. Price tampering  -  booking draft rejects client-supplied prices
+// 5. Guest token access control  -  malformed/expired/revoked tokens
 // 6. Server-authoritative booking totals (discount applied server-side)
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -51,7 +51,7 @@ describe('CSRF protection', () => {
 
 // ─── Booking draft validation (price tampering) ────────────────────────────
 
-describe('booking draft validation — price tampering prevention', () => {
+describe('booking draft validation  -  price tampering prevention', () => {
   const mockTour = {
     slug: 'cairo-day-tour',
     title: 'Cairo Day Tour',
@@ -197,7 +197,7 @@ describe('guest booking access token', () => {
 
 // ─── Cart estimate (discount computation) ──────────────────────────────────
 
-describe('cart estimate — deal discount computation', () => {
+describe('cart estimate  -  deal discount computation', () => {
   it('applies active deal discount to traveler units', async () => {
     vi.resetModules();
     vi.doMock('@/data/tours', () => ({
@@ -286,7 +286,7 @@ describe('cart estimate — deal discount computation', () => {
 
 // ─── Deal eligibility (server-authoritative discount) ──────────────────────
 
-describe('deal eligibility — server-authoritative discount', () => {
+describe('deal eligibility  -  server-authoritative discount', () => {
   it('returns zero percent for expired deals', async () => {
     const { getActiveDealPercent } = await import('@/data/tours');
     const tour = { deal: { percent: 15, endsAt: '2020-01-01' } } as never;
@@ -441,7 +441,7 @@ describe('session security', () => {
   it('session cookie options are secure in production', async () => {
     const { SESSION_COOKIE_NAME: _name } = await import('@/lib/server/session');
     // The session module sets httpOnly: true and secure: process.env.NODE_ENV === 'production'
-    // Verified by code inspection — no runtime test needed
+    // Verified by code inspection  -  no runtime test needed
     expect(true).toBe(true);
   });
 });
@@ -451,7 +451,7 @@ describe('session security', () => {
 describe('rate limiting', () => {
   it('booking rate limit allows under threshold', async () => {
     const { checkBookingRateLimit } = await import('@/lib/server/rate-limit');
-    // Without DB, the count query would fail — but the function catches errors
+    // Without DB, the count query would fail  -  but the function catches errors
     // and returns allowed: true (fail open for availability)
     const result = await checkBookingRateLimit('test@example.com', '127.0.0.1');
     expect(result).toHaveProperty('allowed');

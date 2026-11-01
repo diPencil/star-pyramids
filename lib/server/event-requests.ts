@@ -102,7 +102,7 @@ function text(value: unknown): string | null {
 /**
  * Strict server validation mirroring the product contract. Unknown keys are
  * rejected (no mass assignment); ownership/status/reference fields are never
- * read from the body — the signature takes no such input.
+ * read from the body  -  the signature takes no such input.
  */
 export function validateEventDraft(input: unknown): ValidatedEventDraft {
   if (typeof input !== 'object' || input === null) throw new EventRequestInputError('Invalid request.');
@@ -277,7 +277,7 @@ export async function createEventRequestRecord(
       });
       const created = toCustomerView(row);
       // Submission receipt for signed-in customers. Guests (userId
-      // NULL) are skipped — no account to notify. Staff are always
+      // NULL) are skipped  -  no account to notify. Staff are always
       // notified (guests included): a new request needs review.
       await notifyUser(userId, {
         type: 'event_request_submitted',

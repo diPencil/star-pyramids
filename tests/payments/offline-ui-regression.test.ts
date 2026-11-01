@@ -5,7 +5,7 @@
 // both halves of that decision:
 //
 // 1. REMOVED: no customer-facing online-payment initiation path may be
-//    reintroduced in the account portal (static source guard — it fails
+//    reintroduced in the account portal (static source guard  -  it fails
 //    if a "Pay now" CTA or an initiation call comes back).
 // 2. PRESERVED: the initiation API, the service, and all stored payment
 //    history stay intact (behavioral assertions below).

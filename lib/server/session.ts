@@ -63,7 +63,7 @@ export async function getSession(): Promise<SessionRecord | null> {
     where: { tokenHash: hashToken(token) },
     select: { id: true, userId: true, expiresAt: true },
   });
-  // Revoked (missing) rows stay invalid — renewal never resurrects them.
+  // Revoked (missing) rows stay invalid  -  renewal never resurrects them.
   if (!row) return null;
   if (row.expiresAt.getTime() <= Date.now()) {
     await db.session.delete({ where: { id: row.id } }).catch(() => undefined);

@@ -9,7 +9,7 @@ import { useAdminLocale } from './admin-locale'
  * Single design-system pattern for every nested admin page:
  * compact icon button (sp-icon-btn) with Lucide ArrowLeft,
  * placed beside/before the page title via PageHead `backHref`.
- * Always points at an explicit parent route — never browser history.
+ * Always points at an explicit parent route  -  never browser history.
  */
 export function AdminBackButton({
   href,

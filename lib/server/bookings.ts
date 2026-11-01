@@ -1,7 +1,7 @@
 // Booking domain service (Phase 2E). Server owns validation,
 // reference issuance, ownership, pricing, status lifecycle, and
 // response shaping. The browser supplies SELECTIONS ONLY (slugs,
-// dates, headcounts, add-on titles, contact) — never prices, totals,
+// dates, headcounts, add-on titles, contact)  -  never prices, totals,
 // statuses, references, user linkage, or payment state.
 import 'server-only';
 
@@ -82,7 +82,7 @@ function isRecordConflict(error: unknown): boolean {
  * Financial safeguard shared by customer and staff cancellation. MUST
  * run inside the booking-cancel transaction (same `tx` handle):
  * - payment rows are locked and re-read (FOR UPDATE: current committed
- *   state, never a stale snapshot) — same booking→payments lock order
+ *   state, never a stale snapshot)  -  same booking→payments lock order
  *   as the settlement path, so the two can never deadlock;
  * - captured money (paid − refunded > 0) → throws, rolling the whole
  *   cancellation back so status and payment history stay untouched;
@@ -147,7 +147,7 @@ const GUEST_ACCESS_NOTE =
  * guest bookings, the account detail page for account bookings.
  *
  * `rotate` revokes any previously issued guest link before minting a new
- * one, so exactly one guest link is ever live (the newest email wins) —
+ * one, so exactly one guest link is ever live (the newest email wins)  -
  * the same "latest link is authoritative" model as password reset.
  */
 async function ownerBookingLink(
@@ -204,7 +204,7 @@ const EMAIL_MAX = 120;
 const PHONE_MAX = 32;
 
 /** Integer-cents helpers: every persisted commercial amount is computed
- *  in cents and stored as DECIMAL — never float arithmetic. */
+ *  in cents and stored as DECIMAL  -  never float arithmetic. */
 function toCents(usd: number): number {
   if (!Number.isFinite(usd) || usd < 0) return 0;
   return Math.round(usd * 100);
@@ -332,7 +332,7 @@ async function resolveLine(raw: unknown): Promise<ValidatedBookingLine> {
   // The active deal (percent + date window, resolved from the DB tour row)
   // is the ONLY discount source: it is applied here, once, to traveler
   // units. Add-ons are never discounted. The browser can neither inject
-  // nor suppress it — selections only, prices never read from the body.
+  // nor suppress it  -  selections only, prices never read from the body.
   const list = getTravelerUnitPrices(tour, Math.max(1, adults + children + infants));
   const originalTravelerCents =
     adults * toCents(list.adult) + children * toCents(list.child) + infants * toCents(list.infant);
@@ -667,7 +667,7 @@ export async function createBookingRecord(
       const { detailUrl, accessNote } = await ownerBookingLink(reference, userId === null, true);
       // Receipt for the new booking. Idempotent replays return early
       // above with created:false, so a retried key never notifies twice.
-      // Guests (userId NULL) are skipped — no account to notify.
+      // Guests (userId NULL) are skipped  -  no account to notify.
       await notifyUser(userId, {
         type: 'booking_created',
         title: 'Booking received',
@@ -682,7 +682,7 @@ export async function createBookingRecord(
         message: `Booking ${reference} needs review.`,
         href: `/admin/bookings/${encodeURIComponent(reference)}`,
       });
-      // Email receipts (best-effort — never break booking creation).
+      // Email receipts (best-effort  -  never break booking creation).
       // Customer copy goes to the address given at checkout (guests
       // included); staff copy goes to the configured operational
       // recipient. Idempotency key matches the booking reference so a
@@ -713,7 +713,7 @@ export async function createBookingRecord(
       };
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        // Idempotency-key race: another request won — return the winner.
+        // Idempotency-key race: another request won  -  return the winner.
         const target = (error.meta?.target as string[] | undefined) ?? [];
         if (target.includes('idempotencyKey')) {
           const winner = await db.booking.findUnique({
@@ -762,7 +762,7 @@ export async function getCustomerBooking(
  * Guest booking read, authorised ONLY by a valid access token.
  *
  * The reference is derived from the token server-side; it is never accepted
- * from the caller. Read-only on purpose — a guest link never cancels, pays,
+ * from the caller. Read-only on purpose  -  a guest link never cancels, pays,
  * or mutates anything, so a leaked link cannot cost a traveller money.
  * Returns the same customer-safe projection as the authenticated flow.
  */

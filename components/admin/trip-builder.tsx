@@ -606,7 +606,7 @@ export function TripBuilder({ initialSlug, previewAppearance }: { initialSlug?: 
 
   return <>
     <PageHead eyebrow="Trip Builder" title="Trip Builder" titleAr="منشئ الرحلات" sub="Edit the complete tour experience from one structured workflow" subAr="عدّل تجربة الرحلة كاملة من مسار عمل منظم" backHref="/admin/trips" actions={isLastStep ? (
-      // Final step: navigation only — never advances the builder, never saves.
+      // Final step: navigation only  -  never advances the builder, never saves.
       editingSlug ? <a className="sp-btn dark" href={`/egypt-tours/${encodeURIComponent(editingSlug)}`} target="_blank" rel="noopener noreferrer"><ExternalLink size={16} /> <AdminText en="View Tour" ar="عرض الرحلة" /></a> : null
     ) : (
       <button type="button" className="sp-btn dark" onClick={next} disabled={saving || visBusy || mediaUploads > 0}><ArrowRight size={16} /> <AdminText en="Continue" ar="متابعة" /></button>

@@ -1,6 +1,6 @@
 import { CarInputError } from '@/lib/rent-car-errors';
 // Rent Cars pricing (Phase 2): pure helpers shared by server services and
-// future UI. All financial amounts travel as integer minor units (cents) —
+// future UI. All financial amounts travel as integer minor units (cents)  -
 // floating-point arithmetic is never used for money. The multiplier is also
 // integer-scaled (basis points, hundredths: 200 = ×2.00) so every quote is
 // computed with exact integer math and deterministic half-up rounding.
@@ -66,7 +66,7 @@ const DECIMAL_PATTERN = /^\d{1,9}(?:\.\d{1,2})?$/;
  * Parse a decimal amount ("49.50", "12", 49.5) into integer cents with exact
  * string-based math. Rejects negative values, more than two fraction digits,
  * more than nine integer digits, and any non-finite numeric input. Returns
- * null for anything unparseable — callers decide how to surface it.
+ * null for anything unparseable  -  callers decide how to surface it.
  */
 export function parseMoneyToCents(value: unknown): number | null {
   let text: string;

@@ -3,7 +3,7 @@
 -- No existing booking, payment, or financial column is altered, renamed,
 -- backfilled, or removed. Booking references (SP-BK-*) and payment
 -- references (SP-PAY-*) are untouched; document numbers live in their
--- own namespace. No rows are seeded — nothing issues documents until
+-- own namespace. No rows are seeded  -  nothing issues documents until
 -- explicit service calls exist, and no invoice, voucher, tax, or legal
 -- data is invented here.
 

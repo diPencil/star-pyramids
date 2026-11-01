@@ -1,4 +1,4 @@
-# Destinations Phase 5 — implementation and verification
+# Destinations Phase 5  -  implementation and verification
 
 Local development only. No browser testing, staging, commits, pushes, deployment, migrations, environment changes, or business-data writes were performed for this phase.
 
@@ -160,7 +160,7 @@ No known uncovered in-scope code requirement remains. This is implementation/cod
 10. After the local Prisma DLL is released, rerun pnpm build. No commit/push/deploy is part of this phase.
 
 
-## Follow-up — destination visual alignment and full directory
+## Follow-up  -  destination visual alignment and full directory
 
 The subsequent user request supersedes the directory listing rule above: `/destinations` now displays every published destination, including records with showInDestinations=false. The flag and database records remain unchanged; curated/homepage surfaces retain their flag filtering. Admin field descriptions clarify that distinction.
 

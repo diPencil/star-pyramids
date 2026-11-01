@@ -1,5 +1,5 @@
 // Customer offline payment-proof tests (Phase 3: reference-only review).
-// All DB/mail boundaries mocked — no production records touched.
+// All DB/mail boundaries mocked  -  no production records touched.
 //
 // A proof submission appends ONE harmless BookingActivity row for staff
 // review. It NEVER creates or settles a Payment row, accepts no files,
@@ -82,7 +82,7 @@ const shared = vi.hoisted(() => {
       updateMany: vi.fn(async () => ({ count: 0 })),
     },
     // Interactive transactions run against the same in-memory store
-    // (single-threaded: no real lock contention under mocks — the
+    // (single-threaded: no real lock contention under mocks  -  the
     // serialized-race path is covered against the real database in
     // payment-proofs-concurrency.test.ts).
     $queryRaw: async () => [],

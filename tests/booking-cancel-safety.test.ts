@@ -1,7 +1,7 @@
 // Cancellation financial-safety tests: paid bookings can never be
 // cancelled without a verified refund; in-flight attempts are voided
 // atomically; duplicates resolve to the settled view. DB and mail
-// boundaries are fully mocked — no production records touched.
+// boundaries are fully mocked  -  no production records touched.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {

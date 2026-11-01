@@ -3,7 +3,7 @@
 // This module owns database-backed document numbering and explicit,
 // idempotent document issuance for future booking documents. It is a
 // FOUNDATION: nothing in the application calls `issueBookingDocument`
-// automatically — no checkout, payment transition, webhook, email, or
+// automatically  -  no checkout, payment transition, webhook, email, or
 // notification path issues a document. Booking requests, confirmations
 // and receipts on the existing print view keep working exactly as
 // before; that print-only component is untouched by this phase.
@@ -70,7 +70,7 @@ const TYPE_PREFIX: Record<BookingDocumentType, string> = {
  * Types the service will issue. Phase D completed the set: commercial
  * invoices, booking vouchers and refund notes joined the original three
  * under the same numbering, idempotency and snapshot rules. Nothing is
- * ever issued automatically — every type requires an explicit,
+ * ever issued automatically  -  every type requires an explicit,
  * permission-gated staff call.
  */
 export const ISSUABLE_DOCUMENT_TYPES = [
@@ -308,7 +308,7 @@ async function loadDocumentView(
  * Phase D columns are invisible to the running Prisma Client build
  * (generated before the migration), so they travel through fully
  * parameterized raw SQL until the client is regenerated. Table and
- * column names are fixed identifiers — no user input ever reaches
+ * column names are fixed identifiers  -  no user input ever reaches
  * them; every value is bound.
  */
 interface DocumentExtensionRow {
@@ -398,7 +398,7 @@ async function ensureSequenceRow(type: BookingDocumentType, year: number): Promi
  * inside the issuing transaction. The atomic `lastValue + 1` UPDATE
  * takes the row lock for the rest of the transaction, so concurrent
  * issuances serialize and each caller reads back its own distinct
- * value. Gaps are possible when a losing transaction aborts — numbers
+ * value. Gaps are possible when a losing transaction aborts  -  numbers
  * are consumed, never duplicated.
  */
 async function allocateSequence(
@@ -535,7 +535,7 @@ export async function issueBookingDocument(
   };
 
   // Idempotent fast path: an existing document for this key is returned
-  // as-is, with its original number — never renumbered or recreated.
+  // as-is, with its original number  -  never renumbered or recreated.
   const existing = await db.bookingDocument.findUnique({
     where: { idempotencyKey },
     select: DOCUMENT_VIEW_SELECT,
@@ -585,7 +585,7 @@ export async function issueBookingDocument(
     paymentId = payment.id;
   } else if (type === 'REFUND_NOTE') {
     // A refund note anchors to exactly one persisted completed-refund
-    // event — never to an aggregate refunded total. The event's own
+    // event  -  never to an aggregate refunded total. The event's own
     // per-refund evidence (amount, method, external reference) becomes
     // the frozen snapshot; historical events without that evidence are
     // refused instead of reinterpreted.
@@ -702,7 +702,7 @@ export async function issueBookingDocument(
       verificationToken = generateOpaqueToken();
     }
     // Snapshot of the server-computed booking total at issuance. For
-    // vouchers this is reference context only — money never appears on
+    // vouchers this is reference context only  -  money never appears on
     // the voucher, and issuance is never proof of payment.
     amountCents = decimalToCents(booking.total);
   }
@@ -836,7 +836,7 @@ const LEGAL_SETTING_KEYS = {
   taxNumber: 'company.taxNumber',
 } as const;
 
-/** Empty or missing becomes `null` — documents omit unconfigured fields. */
+/** Empty or missing becomes `null`  -  documents omit unconfigured fields. */
 function orNull(value: string | null): string | null {
   const trimmed = typeof value === 'string' ? value.trim() : '';
   return trimmed ? trimmed : null;
@@ -859,7 +859,7 @@ export interface DocumentIssuerInfo {
  * settings (same source as the storefront) with the established static
  * company constants as fallbacks for contact fields. Legal fields have
  * NO fallback: `null` means "not provided" and must stay off documents.
- * There is deliberately no VAT rate, tax id, or bank-details field —
+ * There is deliberately no VAT rate, tax id, or bank-details field  -
  * none is configured anywhere in the product.
  */
 export async function getDocumentIssuer(): Promise<DocumentIssuerInfo> {
@@ -911,7 +911,7 @@ export type DocumentAccessActor =
  * - guest: a valid, unexpired, unrevoked booking-access token for THIS
  *   booking's reference. All token failures collapse to `null` so a
  *   probe cannot distinguish malformed from expired.
- * Everything else — including unknown document ids — returns `null`;
+ * Everything else  -  including unknown document ids  -  returns `null`;
  * routes map that to a uniform 404. No public URL exists for documents.
  */
 export async function getBookingDocumentForActor(
@@ -957,7 +957,7 @@ export async function getBookingDocumentForActor(
   return loadDocumentView(db, document.id);
 }
 
-/** base64url of 32 bytes — the same shape as guest booking tokens. */
+/** base64url of 32 bytes  -  the same shape as guest booking tokens. */
 const VOUCHER_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
 export interface VoucherVerifiedService {
@@ -973,7 +973,7 @@ export interface VoucherVerification {
   voucherNumber: string | null;
   issuedAt: string | null;
   services: VoucherVerifiedService[];
-  /** Derived from stored service dates only — display aid, not a promise. */
+  /** Derived from stored service dates only  -  display aid, not a promise. */
   serviceStatus: 'upcoming' | 'completed' | 'open-date';
 }
 
@@ -991,7 +991,7 @@ function deriveVoucherServiceStatus(dates: string[]): VoucherVerification['servi
  * plus non-sensitive service identity (titles and stored dates) so an
  * operator can match the presented voucher. Customer identity, contact
  * details, financial amounts, booking references and private booking
- * data are never included. Cancelled bookings verify as invalid — live,
+ * data are never included. Cancelled bookings verify as invalid  -  live,
  * at verification time, regardless of when the voucher was issued.
  */
 export async function verifyVoucherToken(rawToken: string): Promise<VoucherVerification> {
@@ -1079,7 +1079,7 @@ export function toDocumentListItem(view: BookingDocumentView): DocumentListItem 
 }
 
 /**
- * Refund-completion events on one booking, newest first — the option
+ * Refund-completion events on one booking, newest first  -  the option
  * list for the admin refund-note dialog. Each entry anchors to one
  * persisted event; `tracked` tells whether the event carries the
  * per-refund evidence (amount, method, external reference) that a
@@ -1142,7 +1142,7 @@ export async function listBookingRefundEvents(bookingId: string): Promise<Refund
 /**
  * Slim option for the admin receipt dialog: payments on this booking
  * that carry verified money (`amountPaid > 0`), newest first. The list
- * only ADVISES the operator which exact payment to receipt — the
+ * only ADVISES the operator which exact payment to receipt  -  the
  * issuance service revalidates the chosen reference (same booking,
  * USD, verified money) before anything is created.
  */

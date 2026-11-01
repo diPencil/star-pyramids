@@ -1,4 +1,4 @@
-// Shared server-only MultiDayCategory repository — DB-authoritative catalogue.
+// Shared server-only MultiDayCategory repository  -  DB-authoritative catalogue.
 // `data/tours.ts` remains the preserved bootstrap/reference source; all
 // runtime reads in Server Components and API routes go through this
 // repository (Prisma `multi_day_categories` table). Membership continues

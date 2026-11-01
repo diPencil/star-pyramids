@@ -312,7 +312,7 @@ export function validateSettingsPatch(input: {
       case 'company.registrationNumber':
       case 'company.taxNumber':
         // Optional issuer/legal fields for future documents. An empty
-        // value is stored as-is and means "not provided" — it is never
+        // value is stored as-is and means "not provided"  -  it is never
         // replaced with a default, and no tax rate or VAT rule is
         // represented anywhere in settings.
         if (value.length > 160 || hasControlChars(value)) {
@@ -608,7 +608,7 @@ async function readRates(): Promise<{ eur: string; egp: string }> {
 
 /**
  * Staff-facing snapshot. Public values are returned verbatim; secrets are
- * returned as configured-flags only — stored values never leave the server.
+ * returned as configured-flags only  -  stored values never leave the server.
  */
 export async function getAdminSettings(): Promise<AdminSettingsSnapshot> {
   const rows = await db.siteSetting.findMany({
@@ -642,7 +642,7 @@ export interface SettingsWriteResult {
 /**
  * Applies one validated admin patch. Secrets with an empty value keep the
  * stored value; currency rates are written to FxRate (manual source).
- * Callers must audit the key list themselves — secret values are never
+ * Callers must audit the key list themselves  -  secret values are never
  * included in any return value.
  */
 export async function applyAdminSettings(input: {
@@ -805,7 +805,7 @@ const nonEmpty = (value: unknown): string =>
 
 /**
  * Public storefront snapshot. Only non-secret configuration leaves the
- * server — keys, tokens, hosts and credentials are never included.
+ * server  -  keys, tokens, hosts and credentials are never included.
  * Missing rows yield empty strings; the frontend falls back to its
  * built-in defaults, so an unconfigured shop still renders.
  */

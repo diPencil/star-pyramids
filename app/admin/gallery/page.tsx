@@ -35,7 +35,7 @@ function payloadOf(item: GalleryItem) {
   }
 }
 
-/** Compact second line for the title cell: caption, platform, or file name — never a raw long URL. */
+/** Compact second line for the title cell: caption, platform, or file name  -  never a raw long URL. */
 function itemSubtitle(item: GalleryItem): string {
   if (item.caption?.trim()) return item.caption.trim().slice(0, 80)
   if (item.mediaType === 'VIDEO' && item.platform) return galleryPlatformLabel(item.platform)

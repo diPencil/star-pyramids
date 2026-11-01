@@ -1,5 +1,5 @@
 // Customer service boundary (Phase 4B). All admin customer reads and
-// status writes go through here — never raw Prisma calls from routes.
+// status writes go through here  -  never raw Prisma calls from routes.
 // Customers are CUSTOMER-role users; staff accounts are managed under
 // Users & Roles, never here. No secrets are ever selected: no password
 // hashes, no session tokens, no internal ids leave this module.
@@ -223,7 +223,7 @@ export interface UpdateCustomerProfileInput {
 
 /**
  * Edit an existing customer's own profile fields. Only identity/contact data
- * is writable here — never the password, never roles, never account status.
+ * is writable here  -  never the password, never roles, never account status.
  */
 export async function updateCustomerProfile(
   targetPublicId: string,
@@ -380,9 +380,9 @@ export async function listCustomers(): Promise<CustomerListItem[]> {
   }));
 }
 
-/** Full customer aggregate. Relations come only from existing FK links — never fabricated. */
+/** Full customer aggregate. Relations come only from existing FK links  -  never fabricated. */
 
-/** Full customer aggregate. Relations come only from existing FK links — never fabricated. */
+/** Full customer aggregate. Relations come only from existing FK links  -  never fabricated. */
 export async function getCustomerDetail(publicId: string): Promise<CustomerDetail> {
   const user = await db.user.findUnique({
     where: { publicId },

@@ -14,6 +14,6 @@ export function SustainabilityBadge({ image, first, second, caption }: { image?:
     <span className="sus-ring" aria-hidden="true" style={showImage ? { visibility: 'hidden' } : undefined} />
     <b aria-hidden={showImage || undefined} style={showImage ? { visibility: 'hidden' } : undefined}>{first}<br /><strong>{second}</strong></b>
     <small aria-hidden={showImage || undefined} style={showImage ? { visibility: 'hidden' } : undefined}>{caption}</small>
-    {showImage && <img src={src} alt={[first, second, caption].filter(Boolean).join(' — ') || 'Travel with purpose'} loading="lazy" decoding="async" onError={() => setFailed(src)} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }} />}
+    {showImage && <img src={src} alt={[first, second, caption].filter(Boolean).join('  -  ') || 'Travel with purpose'} loading="lazy" decoding="async" onError={() => setFailed(src)} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }} />}
   </div>
 }

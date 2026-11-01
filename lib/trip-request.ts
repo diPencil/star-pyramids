@@ -37,7 +37,7 @@ export type TripTimeMode = 'exact' | 'approx' | 'unsure'
  * Only allowlisted types are ever persisted. `blog_vip_trip` marks a
  * request started from a Blog editorial VIP CTA; `blogSlug` is the
  * originating story. The human-readable `blogTitle` snapshot is resolved
- * server-side from the blogs catalogue at submit time — the browser only
+ * server-side from the blogs catalogue at submit time  -  the browser only
  * ever sends the slug. Null means a direct website request.
  */
 export const TRIP_SOURCE_BLOG_VIP = 'blog_vip_trip' as const
@@ -83,7 +83,7 @@ export type MakeYourTripRequestDraft = {
   adults: number
   children: number
   infants: number
-  /** Customer's preferred budget range — never a quote or confirmed price. */
+  /** Customer's preferred budget range  -  never a quote or confirmed price. */
   budgetMin: number
   budgetMax: number
   currency: Currency

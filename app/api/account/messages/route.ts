@@ -18,7 +18,7 @@ import {
 /**
  * Owner-only support thread (latest conversation with chronological
  * messages) plus the unread staff-message count. Returns a null
- * conversation when the customer never wrote — the welcome state.
+ * conversation when the customer never wrote  -  the welcome state.
  */
 export async function GET() {
   const current = await getAccountReadUser();
@@ -31,7 +31,7 @@ export async function GET() {
  * Owner-only send + read marking. Send appends to the latest OPEN
  * thread or opens a fresh one when none is open (closed threads stay
  * read-only history). Sender identity always comes from the server
- * session — the body carries text (and an optional subject) only.
+ * session  -  the body carries text (and an optional subject) only.
  */
 export async function POST(request: Request) {
   if (!isSameOriginRequest(request)) {
@@ -79,7 +79,7 @@ export async function PATCH(request: Request) {
   await markCustomerThreadRead(current.id);
   // Read-sync: the matching support notifications (exact conversation
   // hrefs plus the legacy generic href) resolve alongside the messages.
-  // Best-effort — a sync failure must never break reading.
+  // Best-effort  -  a sync failure must never break reading.
   try {
     const refs = await listCustomerThreadReferences(current.id);
     await markNotificationsReadByHref(current.id, 'support_message_received', [

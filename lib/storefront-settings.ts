@@ -10,7 +10,7 @@ import type { SocialLink } from './admin-store';
  * truth; values live only in memory (never in localStorage) and every
  * consumer keeps its server-rendered branding seed until fresh values arrive.
  * Domain hooks keep their existing event subscriptions (`sp-brand`,
- * `sp-social`, `sp-currency`, `sp-l10n`) — this module re-emits those
+ * `sp-social`, `sp-currency`, `sp-l10n`)  -  this module re-emits those
  * events when DB values land so every consumer refreshes.
  */
 

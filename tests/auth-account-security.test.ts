@@ -1,7 +1,7 @@
 // Customer account security regressions: avatar allowlist, 6-64
 // passwords (old hashes keep working), generic login failures,
 // rolling session renewal without resurrecting revoked sessions.
-// DB/cookie boundaries are mocked — no production data touched.
+// DB/cookie boundaries are mocked  -  no production data touched.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {

@@ -1,4 +1,4 @@
-// STAR PYRAMIDS — Unified Journey Gallery regression suite.
+// STAR PYRAMIDS  -  Unified Journey Gallery regression suite.
 //
 // Database-independent: pure domain logic (lib/journey-gallery.ts,
 // lib/core/video-signature.ts) plus source-level guards pinning the
@@ -294,7 +294,7 @@ describe('preserved animation and carousel behavior (source guards)', () => {
   });
 });
 
-describe('fully dynamic content — no placeholders (source guards)', () => {
+describe('fully dynamic content  -  no placeholders (source guards)', () => {
   it('drives the homepage photo row only from the admin database', () => {
     const homepage = read('components/homepage.tsx');
     // No hardcoded photo array anywhere in the storefront component.
@@ -304,7 +304,7 @@ describe('fully dynamic content — no placeholders (source guards)', () => {
     expect(homepage).toMatch(/useHomepageGallery/);
   });
 
-  it('renders the tour section only for real videos — no mock reels', () => {
+  it('renders the tour section only for real videos  -  no mock reels', () => {
     const tourGallery = read('components/tour-video-gallery.tsx');
     expect(tourGallery).not.toMatch(/previewPosters/);
     expect(tourGallery).not.toMatch(/tour-video-dashboard-note/);
@@ -319,7 +319,7 @@ describe('fully dynamic content — no placeholders (source guards)', () => {
     expect(tourGallery).toMatch(/لا توجد فيديوهات حالياً/);
     expect(tourGallery).not.toMatch(/from the dashboard/);
     // Visitor-facing copy never uses em/en dashes.
-    expect(tourGallery).not.toMatch(/—/);
+    expect(tourGallery).not.toMatch(/\u2014/);
     expect(tourGallery).not.toMatch(/–/);
   });
 

@@ -1,5 +1,5 @@
 // Phase 4G: dashboard analytics service. All figures derive from real
-// database records via aggregation-friendly queries — no mocks, no
+// database records via aggregation-friendly queries  -  no mocks, no
 // samples. See lib/analytics.ts for the shared financial rules.
 import 'server-only';
 
@@ -54,7 +54,7 @@ function groupCents(rows: Array<{ currency: string; cents: number }>): MoneyByCu
 }
 
 /** Percent change vs a previous equal-length window. Returns null
- *  ("New") when the previous window is empty but the current is not —
+ *  ("New") when the previous window is empty but the current is not  -
  *  no meaningful percentage exists. Returns 0 only when both are zero. */
 function pctChange(current: number, previous: number): number | null {
   if (previous === 0) return current > 0 ? null : 0;
@@ -64,7 +64,7 @@ function pctChange(current: number, previous: number): number | null {
 /**
  * Dominant currency for single-number revenue deltas: USD when present
  * in either window, else the currency with the highest current net.
- * Per-currency nets are always reported in full — the delta currency is
+ * Per-currency nets are always reported in full  -  the delta currency is
  * a display convenience only, never a conversion.
  */
 function deltaCurrency(current: MoneyByCurrency[], previous: MoneyByCurrency[]): string {
@@ -127,7 +127,7 @@ export interface AnalyticsOptions {
   /**
    * Include restricted financial figures (collected revenue, refunds,
    * outstanding balances, revenue trend). False for callers without
-   * `payments.view` — financial fields come back empty/zero with
+   * `payments.view`  -  financial fields come back empty/zero with
    * `financial: false` so the UI renders "Restricted", never fake zeros.
    */
   includeFinancial?: boolean;
@@ -173,7 +173,7 @@ export async function getAnalytics(
       select: { status: true, currency: true, total: true },
     }),
     // Financial reads are skipped entirely for callers without
-    // `payments.view` — restricted figures must never leave the server.
+    // `payments.view`  -  restricted figures must never leave the server.
     includeFinancial
       ? db.payment.findMany({
           // Collected set for the current + previous windows (collection

@@ -33,7 +33,7 @@ import {
 /**
  * Shared STAR PYRAMIDS date field.
  *
- * Custom calendar popover — no native `type="date"` UI, no `showPicker()`.
+ * Custom calendar popover  -  no native `type="date"` UI, no `showPicker()`.
  * The visible control stays a read-only text input (so every existing `input`
  * selector in the design system keeps matching and wrapping `<label>` elements
  * keep naming the field), while the FORM VALUE contract is unchanged:
@@ -408,7 +408,7 @@ export const DateInput = forwardRef<HTMLInputElement, DateInputProps>(function D
                     // Select the current local date: update the input value
                     // (via the same `onChange` contract as day cells so all
                     // dependent filters/forms react), sync the calendar view,
-                    // and close — exactly like picking the day in the grid.
+                    // and close  -  exactly like picking the day in the grid.
                     // Respects min/max: disabled when today is out of range.
                     if (isDisabledDay(todayKey)) {
                       setView(clampViewMonth({ y: todayPart.y, m: todayPart.m }, minPart, maxPart))

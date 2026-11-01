@@ -158,7 +158,7 @@ function count(value: unknown): number | null {
 /**
  * Strict server validation mirroring the product contract. Unknown keys are
  * rejected (no mass assignment); ownership/status/reference fields are never
- * read from the body — the signature takes no such input.
+ * read from the body  -  the signature takes no such input.
  */
 export async function validateTripDraft(input: unknown, opts?: { isShore?: boolean }): Promise<ValidatedTripDraft> {
   if (typeof input !== 'object' || input === null) throw new Error('Invalid request.');
@@ -268,7 +268,7 @@ export async function validateTripDraft(input: unknown, opts?: { isShore?: boole
 
   // Lead-source context (optional). Only the allowlisted blog VIP source
   // is accepted, and only for a blog slug that exists in the DB catalogue.
-  // The display title is resolved server-side — never trusted from input.
+  // The display title is resolved server-side  -  never trusted from input.
   // Absent/invalid input stays a direct request only when the key itself
   // is missing or null; a malformed source object is rejected.
   const sourceRaw = body.source;
@@ -475,7 +475,7 @@ export async function createTripRequestRecord(
       });
       const created = toCustomerView(row);
       // Submission receipt for signed-in customers. Guests (userId
-      // NULL) are skipped — no account to notify. Staff are always
+      // NULL) are skipped  -  no account to notify. Staff are always
       // notified (guests included): a new request needs review.
       await notifyUser(userId, {
         type: 'trip_request_submitted',
@@ -690,7 +690,7 @@ export async function transitionStaffTripRequest(
   }
   // Status-change email (Phase 2J): every real customer-visible
   // status change emails exactly once via the trip-request update
-  // template — including `reviewing`, which the in-app notification
+  // template  -  including `reviewing`, which the in-app notification
   // gate above intentionally excludes. The email gate is decoupled
   // from the notification gate: notifications stay exactly as
   // approved, while the customer still gets the status email.

@@ -57,7 +57,7 @@ function roleLabel(role: DirectoryRole | undefined, key: string, ar: boolean): s
 
 // Short human labels for the permission actions that actually exist in
 // the database (view/create/edit/delete/manage/moderate). Unknown future
-// actions fall back to a capitalized key — never invented wording.
+// actions fall back to a capitalized key  -  never invented wording.
 //
 // ACTION_ORDER is the canonical display order used by every matrix row:
 // View, Create, Edit, Delete, Manage, Moderate. Only actions defined for
@@ -97,13 +97,13 @@ export default function UsersPage() {
   const [query, setQuery] = useState('')
   const [role, setRole] = useState('all')
   // DB-authoritative directory with no static fallback: while the API is
-  // loading or failing, the screen shows loading/error — never mock rows
+  // loading or failing, the screen shows loading/error  -  never mock rows
   // masquerading as database records.
   const { data, viewerPublicId, viewerRoles, grantableRoles, loading, error, retry, refresh } = useDbUsersStatus()
   const { roles: roleRows, catalog, canManageRoles, restrictedPermissions, loading: rolesLoading, error: rolesError, retry: retryRoles, refresh: refreshRoles } = useDbRolesStatus()
   // SUPER_ADMIN-only capabilities (users.manage, roles.manage): legacy
   // grant rows may still exist, but they confer no power and render as
-  // locked on every non-SUPER_ADMIN role — matching API enforcement.
+  // locked on every non-SUPER_ADMIN role  -  matching API enforcement.
   const restricted = useMemo(() => new Set(restrictedPermissions), [restrictedPermissions])
   const effectiveCount = (item: DirectoryRole) => item.key === 'SUPER_ADMIN'
     ? item.permissions.length
@@ -441,7 +441,7 @@ export default function UsersPage() {
         <tbody>{matrixSort.sortedRows.map((row, index) => <tr key={row.module}><td className="sp-row-number">{index + 1}</td><td><strong style={{ textTransform: 'capitalize' }}>{row.module}</strong></td>{superAdminRole ? <td key={superAdminRole.key}><span className="sp-mx-covered"><ShieldCheck size={14} aria-hidden="true" /></span></td> : null}{matrixRoles.map((item) => <td key={item.key}><span className="sp-mx-pills">{row.actions.map((perm) => {
           const granted = (row.grants[item.key] ?? []).includes(perm.action)
           // Policy overlay: SUPER_ADMIN-only capabilities render as locked
-          // on every other role — even when a legacy grant row exists —
+          // on every other role  -  even when a legacy grant row exists  -
           // because the APIs never honor them. Never toggleable.
           const reserved = restricted.has(perm.key)
           const label = reserved
@@ -540,14 +540,14 @@ export default function UsersPage() {
       open={reviewTarget !== null}
       onClose={() => setReviewTarget(null)}
       onConfirm={() => setReviewTarget(null)}
-      title={reviewTarget ? <AdminText en={`Role Permissions — ${reviewTarget.displayName}`} ar={`صلاحيات الدور — ${reviewTarget.displayName}`} /> : ''}
+      title={reviewTarget ? <AdminText en={`Role Permissions  -  ${reviewTarget.displayName}`} ar={`صلاحيات الدور  -  ${reviewTarget.displayName}`} /> : ''}
       description={reviewTarget ? <AdminText en={`Effective permissions for the ${roleLabel(roleByKey.get(reviewRoleKey!), reviewRoleKey!, false)} role`} ar={`الصلاحيات الفعلية لدور ${roleLabel(roleByKey.get(reviewRoleKey!), reviewRoleKey!, true)}`} /> : undefined}
       confirmLabel={<AdminText en="Close" ar="إغلاق" />}
       cancelLabel={<AdminText en="Close" ar="إغلاق" />}
       canConfirm={false}
       hideConfirm
     >
-      {reviewRoleKey === 'SUPER_ADMIN' ? <p style={{ margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 8, color: 'var(--sp-blue-deep)', fontWeight: 700 }}><ShieldCheck size={16} /><AdminText en="Full Access — unrestricted access to every module, including settings, email and team management." ar="وصول كامل — وصول غير مقيد إلى كل الوحدات بما فيها الإعدادات والبريد وإدارة الفريق." /></p> : null}
+      {reviewRoleKey === 'SUPER_ADMIN' ? <p style={{ margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 8, color: 'var(--sp-blue-deep)', fontWeight: 700 }}><ShieldCheck size={16} /><AdminText en="Full Access  -  unrestricted access to every module, including settings, email and team management." ar="وصول كامل  -  وصول غير مقيد إلى كل الوحدات بما فيها الإعدادات والبريد وإدارة الفريق." /></p> : null}
       {reviewCaps
         ? <ul style={{ margin: '0 0 4px', paddingInlineStart: 18, display: 'grid', gap: 8 }}>{(ar ? reviewCaps.ar : reviewCaps.en).map((line) => <li key={line}>{line}</li>)}</ul>
         : <ul style={{ margin: '0 0 4px', paddingInlineStart: 18, display: 'grid', gap: 8 }}>{reviewGranted.map((line) => <li key={line}>{line}</li>)}</ul>}

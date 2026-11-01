@@ -26,7 +26,7 @@ export default function CustomersPage() {
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<'all' | DirectoryCustomer['status']>('all')
   // DB-authoritative directory with no static fallback: while the API is
-  // loading or failing, the screen shows loading/error — never mock rows
+  // loading or failing, the screen shows loading/error  -  never mock rows
   // masquerading as database records.
   const { data, viewerPermissions, loading, error, retry, refresh } = useDbCustomersStatus()
   const liveCustomers = data ?? []

@@ -1,4 +1,4 @@
-// Journey Gallery legacy import — EXPLICIT, IDEMPOTENT, NON-DESTRUCTIVE.
+// Journey Gallery legacy import  -  EXPLICIT, IDEMPOTENT, NON-DESTRUCTIVE.
 //
 // Seeds the five long-standing homepage gallery photos (the exact
 // `galItems` the homepage rendered before the gallery became
@@ -51,7 +51,7 @@ async function main(): Promise<void> {
     if (photo.mediaUrl) return photo;
     const resolved = index === 0 ? images[1] : index === 1 ? images[2] : index === 2 ? images[3] : desert;
     if (typeof resolved !== 'string' || !resolved) {
-      throw new Error(`Legacy photo #${index + 1} resolved to an empty path — refusing to seed placeholders.`);
+      throw new Error(`Legacy photo #${index + 1} resolved to an empty path  -  refusing to seed placeholders.`);
     }
     return { ...photo, mediaUrl: resolved };
   });

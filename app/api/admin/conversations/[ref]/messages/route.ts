@@ -21,7 +21,7 @@ interface RouteContext {
  * existed, so every reply fell through to the framework's HTML 404
  * before any handler ran. Guards and rules are identical to the
  * thread-level POST (same-origin, staff session, body-only payload,
- * OPEN threads only) — both URLs resolve to one send path. Failures
+ * OPEN threads only)  -  both URLs resolve to one send path. Failures
  * log the exact reason server-side; message bodies are never logged.
  */
 export async function POST(request: Request, context: RouteContext) {

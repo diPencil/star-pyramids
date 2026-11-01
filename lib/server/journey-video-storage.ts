@@ -106,7 +106,7 @@ function buildVideoStorageKey(extension: string): string {
 /**
  * Validate, persist and register one uploaded journey video.
  *
- * Strict 5 MB ceiling enforced on the decoded buffer (the authority —
+ * Strict 5 MB ceiling enforced on the decoded buffer (the authority  -
  * `File.size` is advisory). Only browser-playable MP4/WebM containers.
  */
 export async function storeUploadedVideo(input: {

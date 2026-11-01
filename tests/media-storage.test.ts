@@ -1,4 +1,4 @@
-// P0 Fix 03 — server-side media storage service.
+// P0 Fix 03  -  server-side media storage service.
 //
 // Exercises the real filesystem (a temp storage root) and the real
 // validation pipeline: magic-byte format detection, size limits,
@@ -95,7 +95,7 @@ async function stubMediaAssetCreate() {
   return create;
 }
 
-describe('storeUploadedImage — accepted uploads', () => {
+describe('storeUploadedImage  -  accepted uploads', () => {
   it('stores a real PNG and returns a public /media URL', async () => {
     const { storeUploadedImage } = await loadMedia();
     const create = await stubMediaAssetCreate();
@@ -155,7 +155,7 @@ describe('storeUploadedImage — accepted uploads', () => {
   });
 });
 
-describe('storeUploadedImage — rejected uploads', () => {
+describe('storeUploadedImage  -  rejected uploads', () => {
   it('rejects a non-image payload regardless of its declared type', async () => {
     const { MediaUploadError, storeUploadedImage } = await loadMedia();
     const create = await stubMediaAssetCreate();
@@ -239,7 +239,7 @@ describe('storeUploadedImage — rejected uploads', () => {
   });
 });
 
-describe('storeUploadedImage — storage integrity', () => {
+describe('storeUploadedImage  -  storage integrity', () => {
   it('removes the file when the database write fails', async () => {
     const { storeUploadedImage } = await loadMedia();
     await stubMediaAssetCreate();

@@ -176,7 +176,7 @@ const COMPANY_LABELS: Record<string, string> = {
 }
 
 /**
- * Shared navigation configuration — single source of truth for both
+ * Shared navigation configuration  -  single source of truth for both
  * the normal header and the compact sticky header.
  * Order: Home, Egypt Tours, Rent Car, Events, About Company, Blogs, Special Offer, Make Your Trip.
  * About Us / Contact Us live ONLY inside the About Company dropdown.
@@ -216,7 +216,7 @@ export function getEgyptTourNavLinks(t: Record<string, string>, ex: Record<strin
 }
 
 /**
- * Shared navigation links component — used by both normal and sticky headers.
+ * Shared navigation links component  -  used by both normal and sticky headers.
  * Single source for order, routes, labels, dropdown definitions, and active state.
  * Renders: Home, Egypt Tours (+dropdown), Rent Car, Events, About Company (+dropdown), Blogs, Special Offer.
  */
@@ -468,7 +468,7 @@ export function Header() {
 
 export function SupportWidgets(){const [active,setActive]=useState<'live'|'wa'|null>(null); return <div className="support-widgets"><LiveChatWidget open={active==='live'} onOpen={()=>setActive('live')} onClose={()=>setActive((a)=>a==='live'?null:a)}/><WhatsAppWidget open={active==='wa'} onOpen={()=>setActive('wa')} onClose={()=>setActive((a)=>a==='wa'?null:a)}/></div>}
 
-// Commercial footer promotional bar — database records are the single source
+// Commercial footer promotional bar  -  database records are the single source
 // of truth (placement `footer-promo`). The original accessibility notice is
 // itself a managed record, so no separate static strip is rendered here.
 function FooterPromoStrip(){
@@ -1115,7 +1115,7 @@ function MultiDayCategoryContent({ categorySlug }: { categorySlug: string }) {
         <div className="results-bar"><strong role="status">{tx(locale, { en: `${sorted.length} tour${sorted.length === 1 ? '' : 's'} found`, es: `${sorted.length} recorridos disponibles`, it: `${sorted.length} tour disponibili`, ar: `${sorted.length} رحلات متاحة` })}</strong><SharedSelect value={query.sort} onChange={(o) => go({ ...query, sort: o as TourListingQuery['sort'], page: 1 })} locale={locale} label={tx(locale, { en: 'Sort by', es: 'Ordenar por', it: 'Ordina per', ar: 'ترتيب حسب' })} options={tourListingSorts.map((o) => ({ value: o, label: sortLabel(o) }))} /></div>
         {paged.length ? <div className="listing-grid">{paged.map(t => <TourCard key={t.slug} tour={t} variant={variant}/>)}</div> : <div className="account-empty"><h3>{tx(locale, { en: 'No tours match your filters.', es: 'Ningún viaje coincide con tus filtros.', it: 'Nessun viaggio corrisponde ai tuoi filtri.', ar: 'لا توجد رحلات تطابق الفلاتر.' })}</h3><p>{tx(locale, { en: 'Try a different destination or reset the filters to see everything.', es: 'Prueba otro destino o restablece los filtros para verlo todo.', it: 'Prova un’altra destinazione o reimposta i filtri per vedere tutto.', ar: 'جرّب وجهة مختلفة أو أعد ضبط الفلاتر لرؤية كل شيء.' })}</p><button type="button" className="primary-btn" onClick={resetFilters}>{tx(locale, { en: 'Reset Filters', es: 'Borrar filtros', it: 'Cancella i filtri', ar: 'إعادة ضبط الفلاتر' })}</button></div>}
         <nav className="pagination" aria-label={tx(locale, { en: 'Tour listing pages', es: 'Páginas de viajes', it: 'Pagine dei viaggi', ar: 'صفحات الرحلات' })}><button type="button" onClick={() => go({ ...query, page: Math.max(1, safePage - 1) })} aria-label={tx(locale, { en: 'Previous page', es: 'Página anterior', it: 'Pagina precedente', ar: 'الصفحة السابقة' })} disabled={safePage <= 1} style={safePage <= 1 ? { opacity: .5 } : undefined}>{tx(locale, { en: '‹ Back', es: '‹ Atrás', it: '‹ Indietro', ar: '‹ السابق' })}</button>{Array.from({ length: totalPages }, (_, i) => safePage === i + 1 ? <b key={i + 1} aria-current="page">{i + 1}</b> : <button key={i + 1} type="button" aria-label={tx(locale, { en: `Go to page ${i + 1}`, es: `Ve a la página ${i + 1}`, it: `Vai alla pagina ${i + 1}`, ar: `انتقل إلى الصفحة ${i + 1}` })} onClick={() => go({ ...query, page: i + 1 })}>{i + 1}</button>)}<button type="button" onClick={() => go({ ...query, page: Math.min(totalPages, safePage + 1) })} aria-label={tx(locale, { en: 'Next page', es: 'Página siguiente', it: 'Pagina successiva', ar: 'الصفحة التالية' })} disabled={safePage >= totalPages} style={safePage >= totalPages ? { opacity: .5 } : undefined}>{tx(locale, { en: 'Next ›', es: 'Siguiente ›', it: 'Avanti ›', ar: 'التالي ›' })}</button></nav>
-      </> : <div className="account-empty"><h3>{tx(locale, { en: 'No journeys in this category yet.', es: 'Aún no hay viajes en esta categoría.', it: 'Non ci sono ancora viaggi in questa categoria.', ar: 'لا توجد رحلات في هذه الفئة بعد.' })}</h3><p>{tx(locale, { en: 'New journeys are added regularly — check back soon.', es: 'Añadimos viajes nuevos con frecuencia; vuelve pronto.', it: 'Aggiungiamo regolarmente nuovi viaggi; torna presto.', ar: 'نضيف رحلات جديدة باستمرار — عاود الزيارة قريباً.' })}</p></div>}
+      </> : <div className="account-empty"><h3>{tx(locale, { en: 'No journeys in this category yet.', es: 'Aún no hay viajes en esta categoría.', it: 'Non ci sono ancora viaggi in questa categoria.', ar: 'لا توجد رحلات في هذه الفئة بعد.' })}</h3><p>{tx(locale, { en: 'New journeys are added regularly  -  check back soon.', es: 'Añadimos viajes nuevos con frecuencia; vuelve pronto.', it: 'Aggiungiamo regolarmente nuovi viaggi; torna presto.', ar: 'نضيف رحلات جديدة باستمرار  -  عاود الزيارة قريباً.' })}</p></div>}
       <HelpCTA/>
     </main>
   </>

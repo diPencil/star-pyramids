@@ -1,6 +1,6 @@
 /**
  * Approved icon registry for promotional bars. Identifiers are stable
- * lucide-react export names — never raw SVG/HTML — so records stay safe,
+ * lucide-react export names  -  never raw SVG/HTML  -  so records stay safe,
  * searchable, and renderable in both LTR and RTL layouts. Every entry was
  * verified against the installed lucide-react package.
  */

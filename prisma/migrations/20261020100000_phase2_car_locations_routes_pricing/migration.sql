@@ -1,6 +1,6 @@
 -- Phase 2 (Rent Cars): locations, directional routes, vehicle-specific route pricing.
 -- Additive only: new tables + enums; no ALTER/DROP on cars or car_requests.
--- Money is stored as integer minor units (cents) — DECIMAL-free and float-free.
+-- Money is stored as integer minor units (cents)  -  DECIMAL-free and float-free.
 
 -- CreateTable
 CREATE TABLE `car_locations` (

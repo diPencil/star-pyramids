@@ -108,7 +108,7 @@ export function getBotReply(text: string, lang: Locale, priceStr: string): { tex
 }
 
 function cleanText(s: string): string {
-  return s.replace(/[—–…“”‘’·]/g, (ch) => (ch === '·' ? ',' : ch === '…' ? '...' : ch === '“' || ch === '”' ? '"' : ch === '‘' || ch === '’' ? "'" : ch === '–' ? '-' : ' '))
+  return s.replace(/[\u2014–…“”‘’·]/g, (ch) => (ch === '·' ? ',' : ch === '…' ? '...' : ch === '“' || ch === '”' ? '"' : ch === '‘' || ch === '’' ? "'" : ch === '–' ? '-' : ' '))
 }
 
 function loadStored(): ChatMsg[] {

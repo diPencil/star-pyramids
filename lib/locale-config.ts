@@ -60,7 +60,7 @@ export function readLocalePreferenceCookie(cookie: string): EnabledLocale | null
 
 /**
  * Neutral localized-text picker (no React, safe for server + client).
- * Missing translations fall back to English — catalogue/editorial
+ * Missing translations fall back to English  -  catalogue/editorial
  * content without a real ES/IT source intentionally omits them.
  */
 export type LocaleText = { en: string; es?: string; it?: string; ar?: string };

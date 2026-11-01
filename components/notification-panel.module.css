@@ -1,8 +1,8 @@
 /* Shared STAR PYRAMIDS notification presentation. Rendered by the
-   customer account panel and the admin bell panel alike — values below
+   customer account panel and the admin bell panel alike  -  values below
    reproduce the ORIGINAL ADMIN dropdown geometry recovered from git
    history (HEAD:app/admin/admin.css): the panel anchors to the header
-   ACTION GROUP (its offset parent), not to the bell itself — top below
+   ACTION GROUP (its offset parent), not to the bell itself  -  top below
    the toolbar, edge flush with the toolbar edge. Admin tokens are
    literals so the customer context renders identically. The horizontal
    anchor is deliberately physical (right:0): the dropdown must stay in

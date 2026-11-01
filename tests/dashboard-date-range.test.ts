@@ -32,7 +32,7 @@ describe('dashboard date range', () => {
     expect(inWindow(range, Date.parse('2026-10-10T00:00:00.000Z'))).toBe(true)
     expect(inWindow(range, Date.parse('2026-10-10T12:00:00.000Z'))).toBe(true)
     expect(inWindow(range, Date.parse('2026-10-10T23:59:59.999Z'))).toBe(true)
-    // Adjacent days are out — no bleed into yesterday or tomorrow.
+    // Adjacent days are out  -  no bleed into yesterday or tomorrow.
     expect(inWindow(range, Date.parse('2026-10-09T23:59:59.999Z'))).toBe(false)
     expect(inWindow(range, Date.parse('2026-10-11T00:00:00.000Z'))).toBe(false)
   })

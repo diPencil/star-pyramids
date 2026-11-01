@@ -1205,7 +1205,7 @@ describe('rent-car catalog CRUD integrity (Stage 8)', () => {
     await expect(deleteCarRoute('route-unknown-000000')).rejects.toThrow()
   })
 
-  it('enforces one price per route Ã— vehicle with friendly conflicts', async () => {
+  it('enforces one price per route Ã -  vehicle with friendly conflicts', async () => {
     seedCar('toyota-corolla', '4 seats')
     seedLocation('cairo-airport', 'Cairo International Airport')
     seedLocation('giza-hotels', 'Giza Hotels')

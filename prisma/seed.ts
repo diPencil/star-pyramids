@@ -1,4 +1,4 @@
-// Prisma seed — SAFE SYSTEM DEFINITIONS ONLY.
+// Prisma seed  -  SAFE SYSTEM DEFINITIONS ONLY.
 // Seeds: role definitions + technical application defaults.
 // NEVER seed: users, demo customers/staff, bookings, requests, payments,
 // dashboard fixtures, reviews, or catalogue content.
@@ -33,7 +33,7 @@ const ROLES: Array<{ key: string; name: string; description: string; isSystem: b
   },
 ];
 
-// Technical defaults only — business identity/contact values are set by
+// Technical defaults only  -  business identity/contact values are set by
 // the owner later through admin/settings, never seeded as truth here.
 const SETTINGS: Array<{ key: string; value: string; description: string }> = [
   {

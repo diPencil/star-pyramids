@@ -1,7 +1,7 @@
 // Regression tests for the critical payment-webhook fix:
 // internal records resolve by providerPaymentId (never by reference),
 // unknown outcomes never cancel, duplicates never re-mutate.
-// All provider/DB boundaries are mocked — no production records touched.
+// All provider/DB boundaries are mocked  -  no production records touched.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mapProviderOutcomeToStatus } from '@/lib/payment'

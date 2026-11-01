@@ -280,7 +280,7 @@ function RoutesTab({ ar, list, locations }: { ar: boolean; list: ListState<Route
   return <Card
     title={<AdminText en="Routes" ar="الخطوط" />}
     sub={locations.data.length < 2
-      ? <AdminText en="Locked: a route needs an origin and a destination — add a second location first." ar="مقفل: الخط يحتاج انطلاقًا ووصولًا — أضف موقعًا ثانيًا أولًا." />
+      ? <AdminText en="Locked: a route needs an origin and a destination  -  add a second location first." ar="مقفل: الخط يحتاج انطلاقًا ووصولًا  -  أضف موقعًا ثانيًا أولًا." />
       : <AdminText en="A→B and B→A are priced separately" ar="أ→ب وب→أ يُسعّران بشكل منفصل" />}
     action={<button type="button" className="sp-btn primary" title={locations.data.length < 2 ? (ar ? 'أضف موقعًا ثانيًا لإنشاء خط' : 'Add a second location to create routes') : undefined} disabled={locations.data.length < 2} onClick={() => setDialog({ mode: 'create' })}><Plus size={16} /> <AdminText en="New route" ar="خط جديد" /></button>}
   >

@@ -872,7 +872,7 @@ export const findTour = (slug: string) => tourByRouteSlug.get(slug)
 
 export const getDealOriginalPrice = (tour: Tour, now?: Date | number | string): number | undefined => {
   // `tour.price` (and every tier rate) is the ORIGINAL list price. The
-  // strikethrough original is therefore the list price itself — never
+  // strikethrough original is therefore the list price itself  -  never
   // `price / (1 - p)`, which inflated a fake "was" price above list.
   return getActiveDealPercent(tour, now) > 0 ? tour.price : undefined
 }
@@ -882,7 +882,7 @@ export const getDealOriginalPrice = (tour: Tour, now?: Date | number | string): 
  *
  * A deal is a percentage off the ORIGINAL list prices (`tour.price` and
  * the traveler-tier rates). It is active only when the percent is sane
- * (0 < p < 100) and the end date — when present — has not passed. A
+ * (0 < p < 100) and the end date  -  when present  -  has not passed. A
  * date-only `endsAt` (YYYY-MM-DD, as produced by the admin date input)
  * stays valid through the end of that day (UTC).
  */

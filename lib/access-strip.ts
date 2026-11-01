@@ -2,7 +2,7 @@ import type { Locale } from './locale-config'
 import { safeCampaignHref } from './marketing-campaigns'
 
 /**
- * Footer accessibility strip (the dark notice above the footer) — a
+ * Footer accessibility strip (the dark notice above the footer)  -  a
  * permanent informational notice, NOT a commercial offer. Admins may
  * override its copy, CTA and visibility through the Website Settings
  * workflow (`site.accessStrip` JSON document); every field left empty
@@ -133,7 +133,7 @@ export function validateAccessStrip(value: unknown): AccessStripOverride {
 export type ResolvedAccessStrip = { visible: boolean; note: string; ctaLabel: string; ctaHref: string }
 
 /**
- * Resolves one locale view. Empty fields mean "no override" — the caller
+ * Resolves one locale view. Empty fields mean "no override"  -  the caller
  * renders the built-in defaults for those fields.
  */
 export function resolveAccessStrip(override: AccessStripOverride | null, locale: Locale): ResolvedAccessStrip {

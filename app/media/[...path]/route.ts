@@ -7,7 +7,7 @@ import { getMediaAsset, resolveMediaPath, statMediaFile } from '@/lib/server/med
 // Node.js runtime is required (never the Edge runtime).
 export const runtime = 'nodejs';
 // Asset URLs are unique per upload, so nothing here may be prerendered or
-// cached at the framework layer — the response is cached by the browser.
+// cached at the framework layer  -  the response is cached by the browser.
 export const dynamic = 'force-dynamic';
 
 function notFound(): Response {

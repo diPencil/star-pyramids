@@ -1,4 +1,4 @@
-// P0 Fix 03 — media signature validation.
+// P0 Fix 03  -  media signature validation.
 //
 // These tests pin the security contract of server-side media storage: the
 // format is decided from magic bytes, and unsupported or spoofed payloads

@@ -7,7 +7,7 @@ import { TranslatedInput, TranslatedTextarea } from './content-language-tabs'
 import { TourCtaPicker } from './tour-cta-picker'
 
 const arLabels: Record<CampaignPlacement, string> = { offers: 'صفحة العروض الخاصة', home: 'عروض الرئيسية', 'top-bar': 'الشريط الترويجي العلوي', 'footer-promo': 'الشريط الترويجي للفوتر', 'trips-sidebar': 'سايدبار فلاتر الرحلات', 'blog-sidebar': 'سايدبار دليل المدونة' }
-const labels: Record<CampaignPlacement, string> = { offers: 'Special Offers page', home: 'Homepage offers', 'top-bar': 'Top promotional bar', 'footer-promo': 'Footer promotional bar', 'trips-sidebar': 'Trips — Filters sidebar', 'blog-sidebar': 'Blog — In this guide sidebar' }
+const labels: Record<CampaignPlacement, string> = { offers: 'Special Offers page', home: 'Homepage offers', 'top-bar': 'Top promotional bar', 'footer-promo': 'Footer promotional bar', 'trips-sidebar': 'Trips  -  Filters sidebar', 'blog-sidebar': 'Blog  -  In this guide sidebar' }
 export function CampaignFields({ value, onChange, placements = marketingPlacements }: { value: CampaignContent; onChange(value: CampaignContent): void; placements?: readonly CampaignPlacement[] }) {
   const ar = useAdminLocale() === 'ar'
   const set = (key: keyof CampaignContent, text: string) => onChange({ ...value, [key]: text })
@@ -16,7 +16,7 @@ export function CampaignFields({ value, onChange, placements = marketingPlacemen
       onChange({ ...value, ctaTourSlug: '' })
       return
     }
-    // Store the slug only — the public URL is resolved live at render time,
+    // Store the slug only  -  the public URL is resolved live at render time,
     // while the saved URL below stays as a visible, editable reference.
     onChange({ ...value, ctaTourSlug: slug, ctaHref: offerHref({ slug, tourSlug: slug }) })
   }

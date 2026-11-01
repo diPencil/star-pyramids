@@ -42,7 +42,7 @@ The remaining scenarios below include stale-version conflict UI, restricted-role
 
 No commit or push. Phase 4G is outside this change.
 
-## Unsaved changes UX verification — 8 October 2026
+## Unsaved changes UX verification  -  8 October 2026
 
 The enquiry workflow now explicitly compares status, assigned staff public ID, and notes against the last successful server response. The neutral text with an orange dot appears only for different values; Save Updates is disabled otherwise. Success feedback expires after four seconds. Failed requests preserve the draft and permit retry.
 

@@ -1,4 +1,4 @@
-// P0 Fix 04 — guest booking email templates.
+// P0 Fix 04  -  guest booking email templates.
 //
 // The four customer booking emails must carry the private guest link and an
 // explanatory note for guests, while rendering byte-identically to before for
@@ -12,7 +12,7 @@ const { renderEmailTemplate } = await import('@/lib/server/email');
 const GUEST_NOTE =
   'You booked as a guest, so this private link is your access to the booking. ';
 
-describe('booking email templates — guest access note', () => {
+describe('booking email templates  -  guest access note', () => {
   const guestData = {
     name: 'Guest Tester',
     reference: 'SP-BK-ABC123',

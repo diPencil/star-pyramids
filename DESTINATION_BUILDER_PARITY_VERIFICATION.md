@@ -1,4 +1,4 @@
-# Destination Builder & Public Page Parity — Verification
+# Destination Builder & Public Page Parity  -  Verification
 
 ## 1. Actual public page section inventory
 
@@ -71,18 +71,18 @@ Read-only preview projects pending associations onto a copy of loaded tours, the
 
 ## 9. Files changed for this task
 
-- app/admin/destinations/new/page.tsx — same create/edit lifecycle, grouped editor, projection and preview integration.
-- components/admin/destination-sections-editor.tsx (new) — actual field/row/media controls.
-- components/admin/destination-builder-preview.tsx (new) — isolated unsaved public-style preview.
-- components/admin/destination-builder.css (new) — scoped admin controls/modal/frame styles.
-- lib/destination-builder.ts (new) — field inventory, aligned row operations and safe preview projection.
-- lib/catalogue-translations.ts — supported indexed audience text and orphan-index guard.
-- components/extended-pages.tsx — shared DestinationDetailView with unchanged public page body.
-- components/site.tsx — shared passive TourCardPresentation; active wrapper behavior retained.
-- components/public-appearance.tsx — read-only published-token context for preview, without private-page styling.
-- tests/destination-builder-parity.test.ts (new) — projection, parity, controls, locale, media and passive safety.
-- tests/destination-write-crud.test.ts — full builder save/reopen/reorder/remove regression through mocked real handlers.
-- DESTINATION_BUILDER_PARITY_VERIFICATION.md — this report.
+- app/admin/destinations/new/page.tsx  -  same create/edit lifecycle, grouped editor, projection and preview integration.
+- components/admin/destination-sections-editor.tsx (new)  -  actual field/row/media controls.
+- components/admin/destination-builder-preview.tsx (new)  -  isolated unsaved public-style preview.
+- components/admin/destination-builder.css (new)  -  scoped admin controls/modal/frame styles.
+- lib/destination-builder.ts (new)  -  field inventory, aligned row operations and safe preview projection.
+- lib/catalogue-translations.ts  -  supported indexed audience text and orphan-index guard.
+- components/extended-pages.tsx  -  shared DestinationDetailView with unchanged public page body.
+- components/site.tsx  -  shared passive TourCardPresentation; active wrapper behavior retained.
+- components/public-appearance.tsx  -  read-only published-token context for preview, without private-page styling.
+- tests/destination-builder-parity.test.ts (new)  -  projection, parity, controls, locale, media and passive safety.
+- tests/destination-write-crud.test.ts  -  full builder save/reopen/reorder/remove regression through mocked real handlers.
+- DESTINATION_BUILDER_PARITY_VERIFICATION.md  -  this report.
 
 Earlier uncommitted directory/hero/card follow-up changes and unrelated AGENTS/skill/scratch files were preserved. No staging, commit, push or cleanup occurred.
 

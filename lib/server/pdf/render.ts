@@ -2,7 +2,7 @@
 //
 // Server-side PDF rendering with pdfkit (no browser automation). The
 // renderer is a pure function of a PdfDocumentModel: it never touches
-// the database, never issues documents, and never invents data — every
+// the database, never issues documents, and never invents data  -  every
 // string and amount on the page comes from the model built in
 // lib/server/document-pdf.ts.
 //
@@ -117,7 +117,7 @@ function drawHeader(doc: Doc, model: PdfDocumentModel): number {
 
   // Brand block (left): logo stacked ABOVE the wordmark. The logo file
   // carries the brand artwork at an unpredictable aspect ratio, so it is
-  // proportionally fitted and the text always starts below it — never
+  // proportionally fitted and the text always starts below it  -  never
   // beside it, where a wide logo would overlap the text.
   let textY = y;
   if (model.issuer.logoData) {
@@ -201,7 +201,7 @@ function drawReceiptPanel(doc: Doc, y: number, model: PdfDocumentModel): number 
   const meta: Array<[string, string]> = [
     ['Payment reference', receipt.paymentReference],
     ['Method', cleanText(receipt.provider)],
-    ['Paid on', receipt.paidOn ? formatUtcDay(receipt.paidOn) : '—'],
+    ['Paid on', receipt.paidOn ? formatUtcDay(receipt.paidOn) : ' - '],
   ];
   let metaY = y + 12;
   for (const [label, value] of meta) {
@@ -472,7 +472,7 @@ function drawClosingBlock(doc: Doc, y: number, model: PdfDocumentModel): number 
 
   const legalRows: Array<[string, string]> = [];
   // Phase D documents never show registration/tax/legal rows, even when
-  // configured — commercial invoices are explicitly not tax invoices.
+  // configured  -  commercial invoices are explicitly not tax invoices.
   if (!model.hideLegalRows) {
     if (model.issuer.legalEntityName) legalRows.push(['Legal entity', model.issuer.legalEntityName]);
     if (model.issuer.registrationNumber) legalRows.push(['Registration number', model.issuer.registrationNumber]);

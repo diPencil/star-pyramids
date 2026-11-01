@@ -1,8 +1,8 @@
 // Dashboard analytics date-range parsing (framework-free).
 //
 // Extracted verbatim from `lib/server/analytics.ts` so the range-window
-// contract — inclusive YYYY-MM-DD days, full 00:00 → next-00:00 day
-// windows shared by every KPI and chart query — is unit-testable without
+// contract  -  inclusive YYYY-MM-DD days, full 00:00 → next-00:00 day
+// windows shared by every KPI and chart query  -  is unit-testable without
 // a database. The server module re-exports this; behavior is unchanged.
 
 import type { AnalyticsRange } from '@/lib/analytics';
@@ -34,7 +34,7 @@ function parseDay(value: string | null, name: string): Date {
  * `start` is 00:00:00.000Z and `endExclusive` is the next 00:00:00.000Z,
  * so every consumer filtering with `gte: start, lt: endExclusive`
  * (bookings, payments, customers, lines, requests, enquiries, reviews)
- * sees the whole day — 00:00 through end of day.
+ * sees the whole day  -  00:00 through end of day.
  */
 export function parseAnalyticsRange(search: URLSearchParams): AnalyticsRange & { start: Date; endExclusive: Date } {
   const today = new Date();

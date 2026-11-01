@@ -9,7 +9,7 @@ import styles from './notification-panel.module.css'
 /**
  * Shared structural notification item. Both the customer store
  * (`CustomerNotification`) and the admin store (`AdminNotification`)
- * are structurally identical, so their rows pass straight in — no
+ * are structurally identical, so their rows pass straight in  -  no
  * store or logic changes required.
  */
 export interface NotificationPanelItem {
@@ -54,7 +54,7 @@ interface NotificationPanelProps {
  * Single shared STAR PYRAMIDS notification presentation, used by the
  * customer account panel and the admin bell panel alike. All data,
  * auth, copy, icons, time formatting, and navigation stay in the
- * calling context — this component only renders the approved visual
+ * calling context  -  this component only renders the approved visual
  * structure so the two panels cannot drift apart again.
  */
 export function NotificationPanel({

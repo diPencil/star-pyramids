@@ -2,7 +2,7 @@
  * Pure calendar-date helpers for the shared DateInput.
  *
  * The form/storage contract is strict `YYYY-MM-DD`. All math here is
- * timezone-safe integer math on `{ y, m, d }` — `new Date('YYYY-MM-DD')`
+ * timezone-safe integer math on `{ y, m, d }`  -  `new Date('YYYY-MM-DD')`
  * (UTC-midnight parsing) is never used, so a selected `2026-10-03` can never
  * drift to `2026-10-02`/`2026-10-04`. `Date` objects appear only with
  * explicit local calendar fields, and only to read back locale display names
@@ -143,7 +143,7 @@ function withLocaleDigits(value: string, locale: DateLocale): string {
 
 /**
  * Closed-field display: strict `DD/MM/YYYY` (e.g. `01/10/2026`).
- * Display-only — the internal form/storage value always stays `YYYY-MM-DD`.
+ * Display-only  -  the internal form/storage value always stays `YYYY-MM-DD`.
  * Arabic keeps the same day/month/year visual structure with Arabic-Indic
  * digits (project numeral convention); pure digit/slash runs are bidi-stable
  * so RTL cannot visually reorder them into `YYYY/MM/DD`.

@@ -1,4 +1,4 @@
-# STAR PYRAMIDS — Payment Integration Readiness Audit
+# STAR PYRAMIDS  -  Payment Integration Readiness Audit
 
 **Project Root:** `E:\star-pyramids-nodejs\web-source`
 **Branch:** `main`
@@ -13,28 +13,28 @@
 
 ## 1. Executive Summary
 
-**Overall Readiness: 78% — Foundation Complete, Gateway Integration Required**
+**Overall Readiness: 78%  -  Foundation Complete, Gateway Integration Required**
 
 The STAR PYRAMIDS payment system has a **solid, production-grade foundation** for Phase 2F-A (payment core, no gateway). The architecture is deliberately provider-agnostic with server-owned pricing, strict RBAC, and immutable audit trails. All payment lifecycle logic lives server-side; the browser never touches amounts, statuses, or provider IDs.
 
 **Critical Blockers for Live Gateway:**
-1. **No payment gateway adapter implemented** — `PaymentProviderAdapter` interface exists but zero implementations
-2. **No webhook endpoint** — No `/api/payments/webhook/[provider]` route exists
-3. **No checkout session creation** — `PaymentProviderAdapter.initiate()` must be implemented per gateway
-4. **No webhook signature verification** — Raw body validation, timestamp/replay protection missing
-5. **Guest payments blocked** — `initiateCustomerPayment()` requires `userId` (CUSTOMER role)
-6. **No refund workflow** — `transitionPayment()` exists but no admin UI or customer flow
-6. **No reconciliation job** — Out-of-order webhooks, failed deliveries, manual reconciliation unsupported
+1. **No payment gateway adapter implemented**  -  `PaymentProviderAdapter` interface exists but zero implementations
+2. **No webhook endpoint**  -  No `/api/payments/webhook/[provider]` route exists
+3. **No checkout session creation**  -  `PaymentProviderAdapter.initiate()` must be implemented per gateway
+4. **No webhook signature verification**  -  Raw body validation, timestamp/replay protection missing
+5. **Guest payments blocked**  -  `initiateCustomerPayment()` requires `userId` (CUSTOMER role)
+6. **No refund workflow**  -  `transitionPayment()` exists but no admin UI or customer flow
+6. **No reconciliation job**  -  Out-of-order webhooks, failed deliveries, manual reconciliation unsupported
 
 **Reusable Assets (No Changes Needed):**
-- Payment/Booking models — complete, normalized, integer-cents storage
-- Payment status transition map (`canTransitionPayment`) — complete
-- Server-side `transitionPayment()` — atomic, idempotent, audited
-- Idempotency keys on payment initiation — client + server dedup
+- Payment/Booking models  -  complete, normalized, integer-cents storage
+- Payment status transition map (`canTransitionPayment`)  -  complete
+- Server-side `transitionPayment()`  -  atomic, idempotent, audited
+- Idempotency keys on payment initiation  -  client + server dedup
 - Customer/Admin APIs with strict ownership checks
 - Immutable `PaymentEvent` audit trail
-- Financial summaries (`deriveBookingPaymentSummary`) — net collected = paid - refunded
-- Admin dashboards — net collected, awaiting provider, records
+- Financial summaries (`deriveBookingPaymentSummary`)  -  net collected = paid - refunded
+- Admin dashboards  -  net collected, awaiting provider, records
 
 ---
 
@@ -79,7 +79,7 @@ model Payment {
 ```
 
 **Booking ↔ Payment Relationship:**
-- `Booking.paymentStatus` ∈ {PENDING, PAID, REFUNDED} — **derived** from Payment rows
+- `Booking.paymentStatus` ∈ {PENDING, PAID, REFUNDED}  -  **derived** from Payment rows
 - `Booking.total` frozen at checkout (USD, DECIMAL(10,2))
 - `Payment.amount` = `Booking.total` at initiation (frozen in cents)
 
@@ -98,20 +98,20 @@ const PAYMENT_TRANSITIONS: Record<PaymentStatus, PaymentStatus[]> = {
 }
 ```
 
-**Terminal states:** `cancelled`, `refunded` — never leave except `paid → refunded/partially_refunded`
+**Terminal states:** `cancelled`, `refunded`  -  never leave except `paid → refunded/partially_refunded`
 
 ### 2.3 Server-Side Services (lib/server/payments.ts)
 
 | Function | Purpose | Gateway Exposure |
 |----------|---------|------------------|
-| `validatePaymentInitiation()` | Strict input validation (bookingRef + idempotencyKey only) | — |
+| `validatePaymentInitiation()` | Strict input validation (bookingRef + idempotencyKey only) |  -  |
 | `initiateCustomerPayment()` | Creates PENDING payment, dedups active attempts | **Never marks PAID** |
-| `transitionPayment()` | **Single enforced applier** — atomic, validates amounts, emits events, emails | For webhooks/offline only |
+| `transitionPayment()` | **Single enforced applier**  -  atomic, validates amounts, emits events, emails | For webhooks/offline only |
 | `deriveBookingPaymentSummary()` | Net collected = paid - refunded | UI consumption |
 | `listStaffPayments()` / `getStaffPayment()` | Admin reads with filters | Admin UI |
 | `listCustomerPayments()` / `getCustomerPayment()` | Owner-only reads | Customer UI |
 
-**Not Exposed to Browser:** `transitionPayment()` — only for webhooks/offline workflows
+**Not Exposed to Browser:** `transitionPayment()`  -  only for webhooks/offline workflows
 
 ### 2.4 API Routes
 
@@ -123,12 +123,12 @@ const PAYMENT_TRANSITIONS: Record<PaymentStatus, PaymentStatus[]> = {
 | `/api/admin/payments` | GET | `payments.view` | Admin list with filters |
 | `/api/admin/payments/[ref]` | GET | `payments.view` | Admin detail |
 
-**No Mutation Routes Exist** — `transitionPayment()` not exposed
+**No Mutation Routes Exist**  -  `transitionPayment()` not exposed
 
 ### 2.5 Provider-Agnostic Contracts (lib/payment.ts)
 
 ```typescript
-// Phase 2F-B contract — MUST be implemented per gateway
+// Phase 2F-B contract  -  MUST be implemented per gateway
 export interface PaymentProviderAdapter {
   readonly key: PaymentProviderKey
   initiate(payment: { reference, amountCents, currency: 'USD', idempotencyKey: string | null }): Promise<PaymentHandoff>
@@ -196,20 +196,20 @@ export type ProviderCallbackOutcome =
 
 | Risk | Severity | Mitigation Status |
 |------|----------|-------------------|
-| **Browser controls payment amount** | CRITICAL | ✅ Mitigated — server computes from canonical tours |
-| **Browser controls payment status** | CRITICAL | ✅ Mitigated — only `transitionPayment()` (server) changes status |
-| **Unauthorized payment confirmation** | CRITICAL | ✅ Mitigated — `transitionPayment()` not exposed to browser |
-| **Double payment** | HIGH | ✅ Mitigated — idempotency keys + active attempt dedup |
-| **Amount tampering in webhook** | CRITICAL | ❌ **Blocker** — no signature verification implemented |
-| **Replay attacks on webhooks** | HIGH | ❌ **Blocker** — no timestamp/replay protection |
-| **Out-of-order webhook delivery** | HIGH | ⚠️ Partial — `transitionPayment()` validates but no queue |
-| **Guest payment enumeration** | MEDIUM | ⚠️ Partial — guest bookings exist but no payment flow |
-| **Refund exceeding paid amount** | HIGH | ✅ Mitigated — `amountRefunded ≤ amountPaid` enforced (line 463) |
-| **Double refund** | HIGH | ✅ Mitigated — `transitionPayment()` validates amounts |
-| **Unauthorized status change** | HIGH | ✅ Mitigated — `transitionPayment()` not exposed, `canTransitionPayment` enforced |
-| **Sensitive data in logs** | MEDIUM | ✅ Mitigated — `metadata` only, no card data stored |
-| **Currency mismatch** | MEDIUM | ⚠️ Partial — only USD supported, no conversion |
-| **Zero-decimal currency support** | LOW | ❌ Not supported — DECIMAL(10,2) assumes 2 decimals |
+| **Browser controls payment amount** | CRITICAL | ✅ Mitigated  -  server computes from canonical tours |
+| **Browser controls payment status** | CRITICAL | ✅ Mitigated  -  only `transitionPayment()` (server) changes status |
+| **Unauthorized payment confirmation** | CRITICAL | ✅ Mitigated  -  `transitionPayment()` not exposed to browser |
+| **Double payment** | HIGH | ✅ Mitigated  -  idempotency keys + active attempt dedup |
+| **Amount tampering in webhook** | CRITICAL | ❌ **Blocker**  -  no signature verification implemented |
+| **Replay attacks on webhooks** | HIGH | ❌ **Blocker**  -  no timestamp/replay protection |
+| **Out-of-order webhook delivery** | HIGH | ⚠️ Partial  -  `transitionPayment()` validates but no queue |
+| **Guest payment enumeration** | MEDIUM | ⚠️ Partial  -  guest bookings exist but no payment flow |
+| **Refund exceeding paid amount** | HIGH | ✅ Mitigated  -  `amountRefunded ≤ amountPaid` enforced (line 463) |
+| **Double refund** | HIGH | ✅ Mitigated  -  `transitionPayment()` validates amounts |
+| **Unauthorized status change** | HIGH | ✅ Mitigated  -  `transitionPayment()` not exposed, `canTransitionPayment` enforced |
+| **Sensitive data in logs** | MEDIUM | ✅ Mitigated  -  `metadata` only, no card data stored |
+| **Currency mismatch** | MEDIUM | ⚠️ Partial  -  only USD supported, no conversion |
+| **Zero-decimal currency support** | LOW | ❌ Not supported  -  DECIMAL(10,2) assumes 2 decimals |
 
 ---
 
@@ -339,7 +339,7 @@ export async function handleProviderWebhook(
 | Payment pending state | ✅ | Shows "Unpaid", amount awaiting |
 | Payment confirmation | ⚠️ | Only on `paid` status (webhook-driven) |
 | Failed payment retry | ✅ | Can re-initiate (dedups active) |
-| Guest payment link | ❌ | Blocked — requires token architecture |
+| Guest payment link | ❌ | Blocked  -  requires token architecture |
 | Refund status | ⚠️ | Shows in `paymentStatus` but no UI |
 | Payment history | ✅ | Full timeline with `PaymentEvent` |
 
@@ -372,9 +372,9 @@ export async function handleProviderWebhook(
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  Payment Core (lib/server/payments.ts) — PROVIDER AGNOSTIC  │
+│  Payment Core (lib/server/payments.ts)  -  PROVIDER AGNOSTIC  │
 │  - initiateCustomerPayment()                                │
-│  - transitionPayment() — single enforced applier            │
+│  - transitionPayment()  -  single enforced applier            │
 │  - deriveBookingPaymentSummary()                            │
 │  - canTransitionPayment() / PAYMENT_TRANSITIONS             │
 │  - Idempotency, dedup, audit trail                          │
@@ -437,16 +437,16 @@ export const PAYMENT_PROVIDERS = {
 
 | Change | Type | Required For | Existing Reusable |
 |--------|------|--------------|-------------------|
-| `GuestPaymentToken` table | **Required** | Guest payments | — |
+| `GuestPaymentToken` table | **Required** | Guest payments |  -  |
 | `Payment.providerPaymentId` index | Exists | Webhook dedup | ✅ |
 | `Payment.metadata` field | Exists | Provider payload | ✅ |
-| `CheckoutSession` table | Optional | Multi-step checkout | — |
-| `ReconciliationAttempt` table | Optional | Reconciliation job | — |
-| `ProviderConfig` table | Optional | Multi-gateway config | — |
-| `PaymentEvent.providerEventId` field | **Required** | Webhook dedup | — |
-| `Payment.providerEventId` unique index | **Required** | Duplicate prevention | — |
+| `CheckoutSession` table | Optional | Multi-step checkout |  -  |
+| `ReconciliationAttempt` table | Optional | Reconciliation job |  -  |
+| `ProviderConfig` table | Optional | Multi-gateway config |  -  |
+| `PaymentEvent.providerEventId` field | **Required** | Webhook dedup |  -  |
+| `Payment.providerEventId` unique index | **Required** | Duplicate prevention |  -  |
 
-**Migration Required (DO NOT RUN — Owner Approval):**
+**Migration Required (DO NOT RUN  -  Owner Approval):**
 ```sql
 -- Guest payments
 CREATE TABLE guest_payment_tokens (
@@ -468,10 +468,10 @@ CREATE UNIQUE INDEX uq_payment_provider_event ON payment_events(provider_event_i
 ```
 
 **Existing Reusable (No Migration):**
-- `Payment.providerPaymentId` — unique, for gateway reference
-- `Payment.idempotencyKey` — unique, for client dedup
-- `Payment.metadata` — JSON text for provider payload
-- `Booking.paymentStatus` — derived, no manual sync needed
+- `Payment.providerPaymentId`  -  unique, for gateway reference
+- `Payment.idempotencyKey`  -  unique, for client dedup
+- `Payment.metadata`  -  JSON text for provider payload
+- `Booking.paymentStatus`  -  derived, no manual sync needed
 
 ---
 
@@ -516,13 +516,13 @@ CREATE UNIQUE INDEX uq_payment_provider_event ON payment_events(provider_event_i
 
 | Decision | Options | Recommendation |
 |----------|---------|----------------|
-| **Primary gateway** | Stripe / PayPal / Adyen / Local | **Stripe** — best docs, webhooks, testing |
-| **Test vs Live separation** | Single env with flag / Separate projects | **Separate Stripe accounts** — avoids test/live collision |
-| **Guest payments** | Enable now / Phase 2 only | **Phase 2** — core integration first |
-| **Refund workflow** | Admin-only / Customer-initiated | **Admin-only** — matches Phase 2F-B design |
+| **Primary gateway** | Stripe / PayPal / Adyen / Local | **Stripe**  -  best docs, webhooks, testing |
+| **Test vs Live separation** | Single env with flag / Separate projects | **Separate Stripe accounts**  -  avoids test/live collision |
+| **Guest payments** | Enable now / Phase 2 only | **Phase 2**  -  core integration first |
+| **Refund workflow** | Admin-only / Customer-initiated | **Admin-only**  -  matches Phase 2F-B design |
 | **Reconciliation schedule** | Daily / Hourly / Manual | **Daily cron** + manual trigger |
 | **Currency support** | USD only / Multi-currency | **USD only** for Phase 2F-B |
-| **Zero-decimal currencies** | Support / Defer | **Defer** — not needed for USD/EGP |
+| **Zero-decimal currencies** | Support / Defer | **Defer**  -  not needed for USD/EGP |
 | **Webhook retry policy** | Exponential backoff / Dead letter queue | **Exponential (1m, 5m, 15m, 1h, 6h)** + alert |
 | **Test card handling** | Separate test mode / Always live | **Stripe test mode** with feature flag |
 
@@ -569,7 +569,7 @@ CREATE UNIQUE INDEX uq_payment_provider_event ON payment_events(provider_event_i
 | **HTTPS enforcement** | Required for webhook signature verification |
 | **Cron jobs** | Hostinger cron for daily reconciliation (`/api/admin/payments/reconcile`) |
 | **Logs** | Payment events + webhook errors to structured logging |
-| **Secrets** | Never in code — use Hostinger environment variables |
+| **Secrets** | Never in code  -  use Hostinger environment variables |
 | **SSL/TLS** | Must be valid for webhook domain verification |
 
 ---
@@ -596,9 +596,9 @@ CREATE UNIQUE INDEX uq_payment_provider_event ON payment_events(provider_event_i
 
 **The STAR PYRAMIDS payment core is production-ready for Phase 2F-A.** All financial logic, security controls, audit trails, and admin/customer UIs are complete and verified against real database records. The system correctly handles net collected calculations, partial refunds, idempotency, and ownership isolation.
 
-**The only missing piece for live payments is the provider adapter + webhook layer** — approximately 2-3 weeks of focused implementation for a single gateway (Stripe recommended). Guest payments require an additional 1-2 weeks for token architecture.
+**The only missing piece for live payments is the provider adapter + webhook layer**  -  approximately 2-3 weeks of focused implementation for a single gateway (Stripe recommended). Guest payments require an additional 1-2 weeks for token architecture.
 
-**No schema changes are required for the core gateway integration** — existing `Payment` model supports all needed fields. Only guest payments and webhook deduplication require migrations.
+**No schema changes are required for the core gateway integration**  -  existing `Payment` model supports all needed fields. Only guest payments and webhook deduplication require migrations.
 
 **All validation checks pass:**
 - `prisma validate` ✅

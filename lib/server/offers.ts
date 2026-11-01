@@ -1,6 +1,6 @@
 import { readCampaign } from '@/lib/marketing-campaigns'
 import { offerTourSelect, presentOffer } from './special-offers';
-// Shared server-only Offer repository — DB-authoritative catalogue.
+// Shared server-only Offer repository  -  DB-authoritative catalogue.
 // `data/content.ts` remains the preserved bootstrap/reference source; all
 // runtime reads in Server Components and API routes go through this
 // repository (Prisma `offers` table). Gallery, highlights and photo

@@ -27,7 +27,7 @@ function bodyEmail(body: unknown): string {
 /**
  * Public checkout submission (cart -> booking).
  * Guest checkout is preserved: contact details identify the booking.
- * An authenticated CUSTOMER session links the record to that user —
+ * An authenticated CUSTOMER session links the record to that user  -
  * ownership always comes from the server session, never the browser.
  * Pricing is recalculated server-side from the canonical catalogue;
  * any client-supplied price/total/status/payment field is rejected.

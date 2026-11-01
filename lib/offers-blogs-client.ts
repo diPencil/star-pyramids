@@ -59,7 +59,7 @@ function toBlog(row: Record<string, unknown>): Blog {
 type CacheEntry<T> = { list: T[] | null; inflight: Promise<T[] | null> | null; listeners: Set<() => void>; error: string | null };
 
 export type DbListStatus<T> = {
-  /** DB list only — null until the API resolves. Never bootstrap data. */
+  /** DB list only  -  null until the API resolves. Never bootstrap data. */
   data: T[] | null;
   loading: boolean;
   error: string | null;
@@ -217,7 +217,7 @@ export function useDbBlogs(base: readonly Blog[]): Blog[] {
 
 /**
  * Failure-aware offer list for ADMIN screens. `data` is the DB list or
- * null while loading/failed — bootstrap data is never substituted, so a
+ * null while loading/failed  -  bootstrap data is never substituted, so a
  * broken DB runtime renders loading/error instead of fake catalogue rows.
  */
 export function useDbOffersStatus(): DbListStatus<Offer> {

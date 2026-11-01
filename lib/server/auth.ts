@@ -1,5 +1,5 @@
 // Auth service: credential validation + current-user resolution.
-// Server-owned authority — frontend prototype auth state is display only
+// Server-owned authority  -  frontend prototype auth state is display only
 // and MUST NOT be treated as authenticated.
 import 'server-only';
 

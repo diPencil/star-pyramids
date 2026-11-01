@@ -190,7 +190,7 @@ export function parseLegacyEventRange(date: string): { start: Date | null; end: 
     const end = new Date(parts[1].year ?? fallbackYear, parts[1].month, parts[1].day)
     return { start, end: Number.isNaN(end.getTime()) ? start : end }
   }
-  const secondDay = (clean.match(/[–—-]\s*(\d{1,2})/) || [])[1]
+  const secondDay = (clean.match(/[–\u2014-]\s*(\d{1,2})/) || [])[1]
   if (!secondDay) return { start, end: start }
   const end = new Date(parts[0].year ?? fallbackYear, parts[0].month, Number(secondDay))
   return { start, end: Number.isNaN(end.getTime()) ? start : end }

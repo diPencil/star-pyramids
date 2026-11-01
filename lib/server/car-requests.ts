@@ -7,7 +7,7 @@ import { CarInputError } from '@/lib/rent-car-errors';
 // vehicleSlug and a staff assignment must resolve to a real, published
 // vehicle; legacy rows keep their stored slugs untouched. Confirmation
 // additionally requires an assigned vehicle and an unambiguous capacity
-// that covers the requested passenger count — no capacity is guessed.
+// that covers the requested passenger count  -  no capacity is guessed.
 import 'server-only';
 
 import { randomInt } from 'node:crypto';
@@ -91,7 +91,7 @@ async function findPublishedFleetVehicle(slug: string, client: Prisma.Transactio
 /**
  * Confirmation gate: the assigned vehicle must resolve to a real, published
  * vehicle whose unambiguous capacity covers the request's passengers.
- * No capacity is ever guessed — unclear seats strings block confirmation
+ * No capacity is ever guessed  -  unclear seats strings block confirmation
  * with actionable copy. `client` accepts the interactive transaction so the
  * check reads the freshest assignment.
  */
@@ -188,7 +188,7 @@ function text(value: unknown): string | null {
 /**
  * Strict server validation mirroring the product contract. Unknown keys are
  * rejected (no mass assignment); ownership/status/reference fields are never
- * read from the body — the signature takes no such input. `currency` is
+ * read from the body  -  the signature takes no such input. `currency` is
  * accepted (client locale echo) and ignored: car requests carry no prices.
  */
 export function validateCarDraft(input: unknown): ValidatedCarDraft {
@@ -363,7 +363,7 @@ async function buildCarRequestTransfer(
     routeId = route.id;
     // Authoritative re-quote at submission time. Price on Request (route
     // inactive/unconfigured, round-trip unconfigured, no active price row)
-    // keeps the monetary columns NULL — the request is still valid.
+    // keeps the monetary columns NULL  -  the request is still valid.
     const quote = await resolveCarRequestQuote({
       vehicle: draft.vehicleSlug,
       route: route.id,
@@ -518,7 +518,7 @@ export async function createCarRequestRecord(
   draft: ValidatedCarDraft,
 ): Promise<CarRequest> {
   // The requested vehicle is a preference only, but it must still point at
-  // a real, published fleet vehicle — fabricated or stale slugs are rejected
+  // a real, published fleet vehicle  -  fabricated or stale slugs are rejected
   // before any record is written.
   let lastError: unknown = null;
   for (let attempt = 0; attempt < REF_ATTEMPTS; attempt += 1) {
@@ -554,7 +554,7 @@ export async function createCarRequestRecord(
       });
       const created = toCustomerView(row);
       // Submission receipt for signed-in customers. Guests (userId
-      // NULL) are skipped — no account to notify. Staff are always
+      // NULL) are skipped  -  no account to notify. Staff are always
       // notified (guests included): a new request needs review.
       await notifyUser(userId, {
         type: 'car_request_submitted',
@@ -650,7 +650,7 @@ export async function updateCustomerCarRequest(
     (existing.pickupTime ?? '') === draft.pickupTime &&
     (existing.returnTime ?? '') === draft.returnTime;
   if (unchanged) return toCustomerView(existing);
-  // Edited drafts must still point at a real, published fleet vehicle —
+  // Edited drafts must still point at a real, published fleet vehicle  -
   // same rule as initial submission.
   // Quote/transfer snapshot is recomputed at edit time so a price change
   // between submission and editing never leaves stale money on the record.

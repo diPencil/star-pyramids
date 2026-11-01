@@ -56,7 +56,7 @@ function toCategory(row: Record<string, unknown>): MultiDayCategory {
 type CacheEntry<T> = { list: T[] | null; inflight: Promise<T[] | null> | null; listeners: Set<() => void>; error: string | null };
 
 export type DbListStatus<T> = {
-  /** DB list only — null until the API resolves. Never bootstrap data. */
+  /** DB list only  -  null until the API resolves. Never bootstrap data. */
   data: T[] | null;
   loading: boolean;
   error: string | null;
@@ -236,7 +236,7 @@ export function useDbCategories(base: readonly MultiDayCategory[]): MultiDayCate
 
 /**
  * Failure-aware destination list for ADMIN screens. `data` is the DB
- * list or null while loading/failed — bootstrap data is never
+ * list or null while loading/failed  -  bootstrap data is never
  * substituted, so a broken DB runtime cannot look healthy.
  */
 export function useDbDestinationsStatus(): DbListStatus<Destination> {

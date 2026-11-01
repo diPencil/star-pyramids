@@ -1,4 +1,4 @@
-// P0 Fix 04 — guest booking access tokens.
+// P0 Fix 04  -  guest booking access tokens.
 //
 // Pins the security contract: a booking reference must never be a
 // credential, raw tokens are never persisted, and every failure mode is

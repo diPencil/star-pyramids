@@ -36,7 +36,7 @@ function rotateCheckoutKey() {
 
 /**
  * Checkout (Phase 2E: real backend).
- * Sends SELECTIONS ONLY to `POST /api/bookings` — the server resolves
+ * Sends SELECTIONS ONLY to `POST /api/bookings`  -  the server resolves
  * canonical tours/prices, computes totals in integer cents, links
  * ownership from the session, and returns the official `SP-BK-…`
  * reference. A per-attempt idempotency key makes double clicks, slow
@@ -149,7 +149,7 @@ export function CheckoutPage() {
         </div>
         <PaymentInstructions layout="note" />
         <p>{placed.guestAccessUrl
-          ? tx(locale, { en: 'We rechecked your tour prices and confirmed the total. This private link is the only way to open this booking — we have emailed it to you too, and each new email replaces it.', es: 'Hemos revisado los precios de tus tours y confirmado el total. Este enlace privado es la única forma de abrir esta reserva: también te lo hemos enviado por correo y cada correo nuevo lo sustituye.', it: 'Abbiamo ricontrollato i prezzi dei tuoi tour e confermato il totale. Questo link privato è l’unico modo per aprire la prenotazione: te l’abbiamo inviato per email e ogni nuova email lo sostituisce.', ar: 'راجعنا أسعار رحلاتك وأكدنا الإجمالي. هذا الرابط الخاص هو الطريقة الوحيدة لفتح الحجز — وقد أرسلناه إليك بالبريد أيضًا، وكل رسالة جديدة تستبدله.' })
+          ? tx(locale, { en: 'We rechecked your tour prices and confirmed the total. This private link is the only way to open this booking  -  we have emailed it to you too, and each new email replaces it.', es: 'Hemos revisado los precios de tus tours y confirmado el total. Este enlace privado es la única forma de abrir esta reserva: también te lo hemos enviado por correo y cada correo nuevo lo sustituye.', it: 'Abbiamo ricontrollato i prezzi dei tuoi tour e confermato il totale. Questo link privato è l’unico modo per aprire la prenotazione: te l’abbiamo inviato per email e ogni nuova email lo sostituisce.', ar: 'راجعنا أسعار رحلاتك وأكدنا الإجمالي. هذا الرابط الخاص هو الطريقة الوحيدة لفتح الحجز  -  وقد أرسلناه إليك بالبريد أيضًا، وكل رسالة جديدة تستبدله.' })
           : placed.linked
           ? tx(locale, { en: 'We rechecked your tour prices and confirmed the total. Track your booking from your account.', es: 'Hemos revisado los precios de tus tours y confirmado el total. Sigue tu reserva desde tu cuenta.', it: 'Abbiamo ricontrollato i prezzi dei tuoi tour e confermato il totale. Segui la tua prenotazione dal tuo account.', ar: 'راجعنا أسعار رحلاتك وأكدنا الإجمالي. تابع حجزك من حسابك.' })
           : tx(locale, { en: 'We rechecked your tour prices and confirmed the total. Quote the reference when you contact our team.', es: 'Hemos revisado los precios de tus tours y confirmado el total. Menciona la referencia cuando contactes con nuestro equipo.', it: 'Abbiamo ricontrollato i prezzi dei tuoi tour e confermato il totale. Cita il riferimento quando contatti il nostro team.', ar: 'راجعنا أسعار رحلاتك وأكدنا الإجمالي. اذكر المرجع عند التواصل مع فريقنا.' })}</p>

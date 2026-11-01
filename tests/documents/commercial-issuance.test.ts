@@ -309,7 +309,7 @@ describe.runIf(reachable)('refund note issuance (real database)', () => {
       const legacyEventId = `c${mintSuffix()}${mintSuffix()}${mintSuffix()}${mintSuffix()}`.slice(0, 25);
       await db.$executeRaw`
         INSERT INTO payment_events (id, paymentId, actorRole, action, note, isInternal, providerEventId, amountCents, method, externalReference)
-        VALUES (${legacyEventId}, ${payment.id}, 'staff', 'Payment partially refunded', 'Offline Bank transfer refund LEGACY-1 — return confirmed by staff', 1, NULL, NULL, NULL, NULL)`;
+        VALUES (${legacyEventId}, ${payment.id}, 'staff', 'Payment partially refunded', 'Offline Bank transfer refund LEGACY-1  -  return confirmed by staff', 1, NULL, NULL, NULL, NULL)`;
       const legacy = await issueBookingDocument({
         type: 'REFUND_NOTE',
         bookingReference: booking.reference,

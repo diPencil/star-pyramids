@@ -1,4 +1,4 @@
-// Deterministic bootstrap importer — authoritative source is the runtime
+// Deterministic bootstrap importer  -  authoritative source is the runtime
 // `offers` export from data/content.ts. No text scraping, no
 // fabricated records. Upsert by slug; reruns are idempotent.
 import { PrismaClient } from "@prisma/client";

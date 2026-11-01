@@ -256,7 +256,7 @@ export async function handleProviderWebhook(
 
   // 7. Resolve the INTERNAL payment record by the verified provider
   // identifier (unique `providerPaymentId`). Our `reference` is never
-  // accepted from the provider — passing their id as our reference
+  // accepted from the provider  -  passing their id as our reference
   // can never match a record and silently drops every webhook.
   const providerPaymentId =
     typeof outcome.providerPaymentId === 'string' ? outcome.providerPaymentId.trim() : ''
@@ -285,7 +285,7 @@ export async function handleProviderWebhook(
   }
 
   // 8. Map to an internal status. Unrecognized outcome types are
-  // acknowledged WITHOUT mutation — never interpreted as cancellation.
+  // acknowledged WITHOUT mutation  -  never interpreted as cancellation.
   const refundedCents =
     outcome.type === 'refunded' ? outcome.amountRefundedCents : undefined
   const targetStatus = mapProviderOutcomeToStatus(outcome.type, refundedCents, internal.amountCents)
@@ -307,7 +307,7 @@ export async function handleProviderWebhook(
   }
 
   // 9. Money validation for money-moving outcomes. Comparisons run in
-  // integer minor units against the authoritative STORED payment —
+  // integer minor units against the authoritative STORED payment  -
   // never client-displayed totals. Fail closed: missing, malformed,
   // or mismatched amounts/currencies never mark anything PAID and
   // mutate nothing. 'failed' moves no money and carries no requirement.
@@ -341,7 +341,7 @@ export async function handleProviderWebhook(
     )
   }
 
-  // 10. Duplicate delivery: the record already carries this exact outcome —
+  // 10. Duplicate delivery: the record already carries this exact outcome  -
   // acknowledge without mutating (idempotent redelivery, no new event row).
   const incomingPaidCents =
     outcome.type === 'paid' ? (outcome.amountPaidCents ?? internal.amountPaidCents) : undefined
@@ -396,7 +396,7 @@ export async function handleProviderWebhook(
     }
   } catch (error) {
     // Concurrent redelivery already committed this exact event: resolve
-    // the settled record fresh and acknowledge idempotently — no second
+    // the settled record fresh and acknowledge idempotently  -  no second
     // transition, no second audit row.
     if (error instanceof DuplicateWebhookEvent) {
       const settled = await findPaymentByProviderId(providerPaymentId)

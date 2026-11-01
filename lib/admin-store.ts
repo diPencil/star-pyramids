@@ -199,7 +199,7 @@ export function saveAdminProfile(patch: Partial<AdminProfile>) {
  * and records the file; the browser never produces a data URL, so the
  * stored value survives refresh, re-login and shared links.
  *
- * `scope` selects the permission gate only — it never influences the path.
+ * `scope` selects the permission gate only  -  it never influences the path.
  */
 export type MediaScopeInput = 'avatar' | 'brand' | 'catalogue'
 

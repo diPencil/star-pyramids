@@ -10,7 +10,7 @@ import type { Booking } from '@/lib/booking'
  * Professional print-only booking document (Phase 2E micro-fix).
  *
  * Rendered from the SAME database-backed `Booking` view as the screen
- * detail — no duplicate data, no recalculation, no internal activity.
+ * detail  -  no duplicate data, no recalculation, no internal activity.
  * Visible ONLY in print (`booking-print-area` is `display:none` on
  * screen; `@media print` rules in `app/account/account.css` hide all
  * account chrome and screen sections).

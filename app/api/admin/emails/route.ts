@@ -31,7 +31,7 @@ export async function POST(request: Request) {
 
 /**
  * Staff-only email delivery history (Phase 2J). Real DB-backed
- * outbox records — never fabricated. Supports status/type/recipient/
+ * outbox records  -  never fabricated. Supports status/type/recipient/
  * reference filters with client-side pagination.
  */
 export async function GET(request: Request) {

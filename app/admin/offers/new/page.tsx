@@ -44,7 +44,7 @@ function OfferForm({ initial, editSlug }: { initial: Offer | null; editSlug: str
     else setBarFooter(on)
   }
   // Promo-bar records (bar placement, no linked tour) open the dedicated
-  // Promotional Bars form — never the Marketing Campaign form.
+  // Promotional Bars form  -  never the Marketing Campaign form.
   const editingBars = editing && initial !== null && isPromoBar(initial)
   const [tourSlug, setTourSlug] = useState(initial?.tourSlug ?? '')
   const [category, setCategory] = useState('all')

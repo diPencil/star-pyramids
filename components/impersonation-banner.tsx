@@ -11,7 +11,7 @@ import { useLocale, tx } from './locale'
  *
  * The counts and totals come from the customer's REAL bookings, loaded through
  * the permission-gated CRM API. When the record cannot be loaded, nothing is
- * guessed — the banner says so instead of showing a made-up figure.
+ * guessed  -  the banner says so instead of showing a made-up figure.
  */
 export function ImpersonationBanner() {
   const { locale } = useLocale()

@@ -29,7 +29,7 @@ type CustomerPatchBody = {
 };
 
 /**
- * Owner-only mutation. Only `cancel` (while new/reviewing) exists —
+ * Owner-only mutation. Only `cancel` (while new/reviewing) exists  -
  * requests are never customer-edited. Status, ownership, and references
  * are never accepted from the browser and are enforced in the service.
  */

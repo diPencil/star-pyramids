@@ -134,7 +134,7 @@ function isResolved(value: ResolvedSmtpConfig | { reason: string }): value is Re
  * DB-backed overrides for the fields editable in Admin Settings → Email.
  * Returns null when the database is unreachable or nothing is stored, in
  * which case the environment-only configuration applies. Never throws and
- * never returns a secret to any caller — values feed the transporter only.
+ * never returns a secret to any caller  -  values feed the transporter only.
  */
 async function readDbSmtpOverrides(): Promise<Record<string, string> | null> {
   // Unit tests assert the env-only contract; the database is unavailable
@@ -226,7 +226,7 @@ async function resolveEffectiveConfig(): Promise<ResolvedSmtpConfig | { reason: 
 
 /**
  * Safe configuration summary for admin diagnostics and startup logs.
- * Contains configuration PRESENCE only — never a host credential or password.
+ * Contains configuration PRESENCE only  -  never a host credential or password.
  */
 export function describeSmtpConfig(): SmtpConfigStatus {
   const resolved = resolveConfig();

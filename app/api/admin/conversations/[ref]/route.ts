@@ -15,7 +15,7 @@ import { adminSupportHref, markNotificationsReadByHref } from '@/lib/server/noti
 /**
  * Read-sync helper: after a staff user opens/reads a thread, resolve
  * that user's unread notifications for exactly this conversation.
- * Best-effort — never breaks the read.
+ * Best-effort  -  never breaks the read.
  */
 async function syncStaffNotificationsRead(userId: string, reference: string): Promise<void> {
   try {
@@ -56,7 +56,7 @@ export async function GET(_request: Request, context: RouteContext) {
 }
 
 /**
- * Staff-only reply. OPEN threads only — replying to a closed thread is
+ * Staff-only reply. OPEN threads only  -  replying to a closed thread is
  * rejected (reopen it first). Sender identity comes from the server
  * session; the body carries text only.
  */

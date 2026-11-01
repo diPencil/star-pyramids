@@ -160,7 +160,7 @@ describe('Promotional CTA destination', () => {
     expect(slides[0].href).toBe('/egypt-tours/cairo-and-giza-pyramids')
   })
 
-  it('falls back to the offer page — not a stale URL — when the tour dies', () => {
+  it('falls back to the offer page  -  not a stale URL  -  when the tour dies', () => {
     const rows = [
       offer({
         slug: 'gone-deal',

@@ -61,7 +61,7 @@ export const parseMakeTripQuery = (params: QueryReader): MakeTripQuery => {
   const tour = tourSlug ? findTour(tourSlug) : undefined
   // Explicit `destination` wins. Otherwise the linked tour's own configured
   // destination applies when it matches a real destination option exactly.
-  // Anything else stays empty for the customer — never guessed or inferred.
+  // Anything else stays empty for the customer  -  never guessed or inferred.
   const tourDestination = tour?.destinationSlug ?? ''
   const destination = explicitDestination !== '' ? explicitDestination : (tourDestination !== '' && destinations.some((item) => item.slug === tourDestination) ? tourDestination : '')
   const availableAddOns = tour?.category === 'one-day-tours' ? tour.dayDetail?.addOns ?? dayTourTerms.addOns : tour?.detail?.addOns ?? []
@@ -106,7 +106,7 @@ export const parseCarRequestQuery = (params: QueryReader): CarRequestQuery => {
   const rawTripType = readText(params, 'type', 20)
 
   return {
-    // Slug identity only — resolved against the DB fleet by the caller.
+    // Slug identity only  -  resolved against the DB fleet by the caller.
     vehicleSlug: /^[a-z0-9-]{1,80}$/.test(vehicleSlug) ? vehicleSlug : '',
     pickup: readText(params, 'pickup', 160),
     dropoff: readText(params, 'dropoff', 160),

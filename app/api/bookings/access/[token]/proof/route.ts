@@ -25,7 +25,7 @@ function clientIp(request: Request): string {
  * token (same bearer trust as the read-only guest endpoint).
  *
  * Reference-only: appends one harmless activity row for staff review.
- * A leaked link can never move money, change status, or upload files —
+ * A leaked link can never move money, change status, or upload files  -
  * the submission never creates or settles a Payment row. Every token
  * failure returns the same 404 body as the read endpoint, and failed
  * lookups count against the same per-IP brute-force budget.

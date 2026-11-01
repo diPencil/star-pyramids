@@ -90,7 +90,7 @@ export async function PUT(
  *
  * Deliberately narrow: only first name, last name, username, country code,
  * phone and avatar are writable. Password, roles and account status are NOT
- * accepted here — status goes through PUT, and credentials through the
+ * accepted here  -  status goes through PUT, and credentials through the
  * account password flows. Unknown keys are dropped, never merged.
  */
 export async function PATCH(
@@ -120,7 +120,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
   }
 
-  // Explicit allowlist — never spread the client payload into the update.
+  // Explicit allowlist  -  never spread the client payload into the update.
   const text = (value: unknown) => (typeof value === 'string' ? value : undefined);
   const patch = {
     firstName: text(body.firstName),

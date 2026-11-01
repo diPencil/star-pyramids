@@ -1,4 +1,4 @@
-// Journey Gallery — shared environment-neutral domain logic.
+// Journey Gallery  -  shared environment-neutral domain logic.
 //
 // Used by client components, admin screens, API routes and unit tests.
 // Pure functions only: no Node.js APIs, no Next.js imports, no Prisma,
@@ -123,7 +123,7 @@ export type ParsedSocialVideo = {
  * Validate + normalize a social video URL server-side and client-side.
  * Returns null for malicious schemes, unsupported domains, arbitrary
  * embed HTML, and invalid URL formats. Only public watch URLs are
- * accepted — never embed HTML, never remote file downloads.
+ * accepted  -  never embed HTML, never remote file downloads.
  */
 export function parseSocialVideoUrl(value: string): ParsedSocialVideo | null {
   const url = safeHttpsUrl(value);
@@ -204,7 +204,7 @@ export function parseSocialVideoUrl(value: string): ParsedSocialVideo | null {
     return null;
   }
 
-  // Vimeo: numeric video ids (legacy support — existing tour reels).
+  // Vimeo: numeric video ids (legacy support  -  existing tour reels).
   if (host === 'vimeo.com' || host === 'player.vimeo.com') {
     const id = parts.find((part) => /^\d+$/.test(part));
     if (id) {
@@ -285,7 +285,7 @@ export function selectHomepageVideos(items: readonly GalleryItem[]): GalleryItem
 
 /**
  * Published videos visible on one tour-detail page: global videos plus
- * videos explicitly assigned to this tour — combined without duplicates.
+ * videos explicitly assigned to this tour  -  combined without duplicates.
  */
 export function selectTourVideos(
   items: readonly GalleryItem[],

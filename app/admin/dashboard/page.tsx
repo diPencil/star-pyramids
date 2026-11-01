@@ -20,7 +20,7 @@ import { useAdminTableSort } from '@/components/admin/admin-table-sort'
 const DONUT_COLORS = ['#2b5ce6', '#f7951d', '#e11d48', '#cbd5e1']
 
 function defaultRange(): { from: string; to: string } {
-  // Local calendar dates — the same `todayYMD()` source the DateInput
+  // Local calendar dates  -  the same `todayYMD()` source the DateInput
   // "Today" button selects, so the default window and Today can never
   // disagree around UTC midnight (UTC slicing drifted a day for UTC+X).
   const today = todayYMD()

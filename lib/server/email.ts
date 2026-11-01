@@ -84,7 +84,7 @@ interface SenderConfig {
 }
 
 function getSenderConfig(): SenderConfig {
-  // Centralized sender configuration — never from client input.
+  // Centralized sender configuration  -  never from client input.
   // Defaults match the existing admin settings defaults.
   return {
     fromName: 'Star Pyramids Tours',
@@ -96,7 +96,7 @@ function getSenderConfig(): SenderConfig {
 /**
  * DB-backed sender identity. Admin Settings (mail.fromName / mail.fromEmail)
  * is the source of truth; hardcoded defaults render only until a value is
- * stored. Never throws — callers always get a usable sender.
+ * stored. Never throws  -  callers always get a usable sender.
  */
 async function getSenderConfigAsync(): Promise<SenderConfig> {
   const fallback = getSenderConfig();
@@ -335,13 +335,13 @@ const TEMPLATES: Record<EmailEventType, EmailTemplateDefinition> = {
   },
   payment_proof_received: {
     subject: 'Payment proof received - {{bookingReference}}',
-    bodyHtml: '<h2>Payment proof received</h2><p>Hi {{name}},</p><p>We received your payment reference <strong>{{proofReference}}</strong> for booking {{bookingReference}}. Our team will review it — this email does not confirm payment. We will notify you once our team verifies the receipt.</p><p><a href="{{detailUrl}}" class="btn">View booking</a></p>',
-    bodyText: 'Payment proof received\n\nHi {{name}},\n\nWe received your payment reference {{proofReference}} for booking {{bookingReference}}. Our team will review it — this email does not confirm payment. We will notify you once our team verifies the receipt.\n\nView booking: {{detailUrl}}',
+    bodyHtml: '<h2>Payment proof received</h2><p>Hi {{name}},</p><p>We received your payment reference <strong>{{proofReference}}</strong> for booking {{bookingReference}}. Our team will review it  -  this email does not confirm payment. We will notify you once our team verifies the receipt.</p><p><a href="{{detailUrl}}" class="btn">View booking</a></p>',
+    bodyText: 'Payment proof received\n\nHi {{name}},\n\nWe received your payment reference {{proofReference}} for booking {{bookingReference}}. Our team will review it  -  this email does not confirm payment. We will notify you once our team verifies the receipt.\n\nView booking: {{detailUrl}}',
   },
   admin_payment_proof_submitted: {
     subject: 'Payment proof submitted - {{bookingReference}}',
-    bodyHtml: '<h2>Payment proof submitted</h2><p>Booking <strong>{{bookingReference}}</strong> has a new payment reference <strong>{{proofReference}}</strong> awaiting review. Verify it, then record any actually received money as an offline receipt — the submission itself marks nothing paid.</p><p><a href="{{detailUrl}}" class="btn">Review booking</a></p>',
-    bodyText: 'Payment proof submitted\n\nBooking {{bookingReference}} has a new payment reference {{proofReference}} awaiting review. Verify it, then record any actually received money as an offline receipt — the submission itself marks nothing paid.\n\nReview booking: {{detailUrl}}',
+    bodyHtml: '<h2>Payment proof submitted</h2><p>Booking <strong>{{bookingReference}}</strong> has a new payment reference <strong>{{proofReference}}</strong> awaiting review. Verify it, then record any actually received money as an offline receipt  -  the submission itself marks nothing paid.</p><p><a href="{{detailUrl}}" class="btn">Review booking</a></p>',
+    bodyText: 'Payment proof submitted\n\nBooking {{bookingReference}} has a new payment reference {{proofReference}} awaiting review. Verify it, then record any actually received money as an offline receipt  -  the submission itself marks nothing paid.\n\nReview booking: {{detailUrl}}',
   },
   admin_support_message_received: {
     subject: 'New support message - {{reference}}',
@@ -387,7 +387,7 @@ export function renderEmailTemplate(
 
 /**
  * Send an email: render template, record delivery, attempt send.
- * Best-effort — never throws. Returns the delivery record.
+ * Best-effort  -  never throws. Returns the delivery record.
  */
 export async function sendTemplatedEmail(
   eventType: EmailEventType,
@@ -635,7 +635,7 @@ export async function getOperationalEmailRecipients(): Promise<string[]> {
 /**
  * Best-effort customer email: invalid recipients are skipped (recorded
  * as SKIPPED), send failures never throw. Never exposes another
- * customer's information — callers pass only the owning recipient
+ * customer's information  -  callers pass only the owning recipient
  * and that entity's data.
  */
 export async function sendCustomerEmailSafe(

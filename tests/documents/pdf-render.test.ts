@@ -3,7 +3,7 @@
 // Covers:
 // - integer-cent USD formatting;
 // - font embedding (Montserrat subsets, Identity-H) and real glyph
-//   coverage for Spanish/Italian/French sample text via fontkit —
+//   coverage for Spanish/Italian/French sample text via fontkit  -
 //   Arabic is intentionally unsupported and never claimed;
 // - structural validity of rendered PDFs for all three issuable types
 //   (header, EOF, page tree, embedded fonts, image when logo present);
@@ -40,7 +40,7 @@ const fontkit = requireCjs('fontkit') as {
 }
 
 const SAMPLE_MULTILINGUAL =
-  'Señor Muñoz — ¿Qué? señoría, Piñata, crème brûlée, über, à èìòù, á é í ó ú ñ ü Ç, €1.234,56'
+  'Señor Muñoz  -  ¿Qué? señoría, Piñata, crème brûlée, über, à èìòù, á é í ó ú ñ ü Ç, €1.234,56'
 
 function baseModel(overrides: Partial<PdfDocumentModel> = {}): PdfDocumentModel {
   return {
@@ -69,15 +69,15 @@ function baseModel(overrides: Partial<PdfDocumentModel> = {}): PdfDocumentModel 
       notes: 'Notas con acentos: señoría ¿Qué? über',
       lines: [
         {
-          title: 'Pyramids & Sphinx — tour privado',
+          title: 'Pyramids & Sphinx  -  tour privado',
           travelDate: '2026-12-05',
           adults: 2,
           children: 1,
           infants: 0,
-          addons: ['Almuerzo', 'Guía privada — ¿sí?'],
+          addons: ['Almuerzo', 'Guía privada  -  ¿sí?'],
         },
         {
-          title: 'Nile cruise — cabina superior',
+          title: 'Nile cruise  -  cabina superior',
           travelDate: null,
           adults: 2,
           children: 0,
@@ -156,7 +156,7 @@ describe('PDF rendering validity', () => {
     expect(rawLogo.startsWith('%PDF-')).toBe(true)
     expect(rawLogo).toMatch(/\/Subtype\s*\/Image/)
 
-    // Invalid image bytes must not break the document — wordmark fallback.
+    // Invalid image bytes must not break the document  -  wordmark fallback.
     const fallback = await renderBookingDocumentPdf(
       baseModel({ issuer: { ...baseModel().issuer, logoData: MONTSERRAT_REGULAR } }),
     )

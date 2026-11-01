@@ -137,7 +137,7 @@ export async function recordTestRefund(
 
 export async function cleanupProbe(bookingIds: string[], bookingRefs: string[], userIds: string[]) {
   // Extension columns live on the document rows themselves, so deleting
-  // the documents removes them — no separate cleanup needed.
+  // the documents removes them  -  no separate cleanup needed.
   await db.bookingDocument.deleteMany({ where: { bookingId: { in: bookingIds } } }).catch(() => undefined);
   await db.bookingAccessToken.deleteMany({ where: { bookingRef: { in: bookingRefs } } }).catch(() => undefined);
   await db.payment.deleteMany({ where: { bookingId: { in: bookingIds } } }).catch(() => undefined);

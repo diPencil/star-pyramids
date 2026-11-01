@@ -1,7 +1,7 @@
 // Customer in-app notification service (Phase 2H). Server owns the
 // notification set: domain services create rows for real customer-facing
 // events, and the customer reads/marks them through the account API.
-// The browser NEVER creates notifications — there is no client create
+// The browser NEVER creates notifications  -  there is no client create
 // endpoint. Only display data is stored (type + title + message +
 // optional relative target path); no sensitive payloads, no payment
 // secrets, no internal staff notes. `readAt` NULL means unread.
@@ -12,13 +12,13 @@ import { MARKETING_READ_TYPE } from '../marketing-notifications';
 
 /** Closed set of customer-facing notification types. Payment
  *  success/failure/refund types exist for forward compatibility with
- *  the future provider phase — no emitter marks them today, so payment
+ *  the future provider phase  -  no emitter marks them today, so payment
  *  success is never fabricated.
  *
  *  The `admin_*` types reuse the SAME notifications table for staff
  *  recipients: each staff user owns their own rows (userId = staff
  *  user), created server-side when a real customer event commits. No
- *  schema change is needed — the model is already recipient-generic. */
+ *  schema change is needed  -  the model is already recipient-generic. */
 const NOTIFICATION_TYPES = new Set([
   'booking_created',
   'booking_confirmed',
@@ -108,7 +108,7 @@ export interface CustomerNotification {
 
 /**
  * Server-side creation for one user. Called ONLY from trusted domain
- * services after a real event commits — never from client input.
+ * services after a real event commits  -  never from client input.
  */
 export async function createNotification(
   userId: string,
@@ -171,7 +171,7 @@ export async function markAllNotificationsRead(userId: string): Promise<number> 
 
 /** Exact href builders for support-chat notifications. The conversation
  *  reference is embedded so read-sync can scope to one thread with an
- *  exact href match — never substring matching. */
+ *  exact href match  -  never substring matching. */
 export function customerSupportHref(reference: string): string {
   return `/account/messages?conversation=${encodeURIComponent(reference)}`;
 }
@@ -199,7 +199,7 @@ export async function markNotificationsReadByHref(
 ): Promise<number> {
   if (!NOTIFICATION_TYPES.has(type)) return 0;
   // Fail closed: blank/whitespace/malformed hrefs must never widen the
-  // match — an empty `IN ()` set would otherwise risk broad updates.
+  // match  -  an empty `IN ()` set would otherwise risk broad updates.
   const exact = [...new Set(hrefs)].filter((href) => typeof href === 'string' && href.trim() !== '' && href.length <= HREF_MAX && isValidHref(href));
   if (exact.length === 0) return 0;
   const result = await db.notification.updateMany({
@@ -229,7 +229,7 @@ export async function notifyUser(
 /**
  * Staff roles eligible for admin operational notifications. Every
  * ACTIVE user holding one of these roles receives one recipient-owned
- * row per real customer event — no shared rows, no cross-recipient
+ * row per real customer event  -  no shared rows, no cross-recipient
  * reads (the list/mark APIs stay userId-scoped).
  */
 const STAFF_ROLE_KEYS = ['SUPER_ADMIN', 'ADMIN', 'STAFF'] as const;
@@ -249,7 +249,7 @@ export async function listActiveStaffUserIds(): Promise<string[]> {
 /**
  * Best-effort fan-out to all eligible staff users: one recipient-owned
  * notification per staff user for a real customer event. Called ONLY
- * from trusted domain services after the event commits — never from
+ * from trusted domain services after the event commits  -  never from
  * client input, never for reads/edits/notes/retries. Guest activity is
  * included (staff must see it); idempotent replays must call this only
  * on the `created:true` path so a retried key never notifies twice.

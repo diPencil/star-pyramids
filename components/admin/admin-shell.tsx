@@ -83,7 +83,7 @@ function iconForAdminNotification(type: string) {
  * Dashboard stays visible to every staff identity as the shell landing
  * page; every other section mirrors the `*.view` key its API enforces,
  * so a bookings-only user never sees Payments, Users or Settings links.
- * APIs remain the source of truth — this only keeps navigation honest.
+ * APIs remain the source of truth  -  this only keeps navigation honest.
  */
 const NAV_VIEW_PERMISSIONS: Record<string, string[]> = {
   '/admin/bookings': ['bookings.view'],
@@ -306,7 +306,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const sideSub = userName ? `@${userName}` : (user?.email ?? '')
   const shellAvatar = user?.avatar || adminAvatar || undefined
   // Until the session (roles + permissions) resolves, no real navigation
-  // item is rendered — only neutral placeholders. This guarantees an
+  // item is rendered  -  only neutral placeholders. This guarantees an
   // unauthorized link is never visible, even for a frame.
   const navReady = !sessionLoading && user !== null
   const visibleGroups = navReady

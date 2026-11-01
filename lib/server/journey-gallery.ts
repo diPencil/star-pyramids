@@ -1,4 +1,4 @@
-// Journey Gallery repository — server-owned persistence.
+// Journey Gallery repository  -  server-owned persistence.
 //
 // Single source of truth for gallery CRUD, public reads, and tour
 // visibility resolution. Validation lives in lib/journey-gallery.ts

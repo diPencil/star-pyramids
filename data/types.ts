@@ -152,7 +152,7 @@ export type Tour = {
   travelStyle?: string
   /** DB publish state (`status` column: `'published'` | other). `undefined`
    *  marks legacy/static catalogue entries, always treated as published.
-   *  Mapped from the API/DB row — never set on static entries. */
+   *  Mapped from the API/DB row  -  never set on static entries. */
   status?: string
   manualDeal?: TourDeal
   /** Derived read-only pricing provenance; not a stored tour field. */

@@ -117,7 +117,7 @@ function financialReviewMessage(locale: Locale): string {
 }
 
 /**
- * Guest booking read. The private access token IS the credential — no
+ * Guest booking read. The private access token IS the credential  -  no
  * session cookie is sent or required, and the server derives the booking
  * from the token rather than from anything the caller supplies.
  */
@@ -445,7 +445,7 @@ function displayPaymentMethod(booking: Booking, locale: Locale): string {
 
 /**
  * Honest offline payment state (Phase 3): derived from the
- * server-calculated payment summary — never from client input, never
+ * server-calculated payment summary  -  never from client input, never
  * from a customer proof submission. Booking lifecycle state stays in
  * `BookingStatus`; the two are never mixed.
  */
@@ -579,7 +579,7 @@ function MiniTour({ tour }: { tour: (typeof catalogTours)[number] }) {
  * Customer booking detail (Phase 2E). Database-backed record owned by
  * the signed-in customer: fetched from `/api/account/bookings/*`.
  * Cancel runs against the same API and is server-enforced. Staff-only
- * notes never reach this UI — the customer serializer excludes them.
+ * notes never reach this UI  -  the customer serializer excludes them.
  */
 /**
  * Issued-documents section shared by the customer booking page and the
@@ -587,7 +587,7 @@ function MiniTour({ tour }: { tour: (typeof catalogTours)[number] }) {
  *
  * Read-only: lists the booking's issued documents with per-document PDF
  * download links. The caller supplies the list endpoint and the PDF link
- * builder for its actor — the owner session route for customers, the
+ * builder for its actor  -  the owner session route for customers, the
  * token-protected route for guests. No issuance controls live here, and
  * the token itself never appears in document content, only in the guest
  * PDF URLs the browser requests (same pattern as the guest booking and
@@ -684,12 +684,12 @@ function BookingDetailSection({ reference, autoPrint = false }: { reference: str
   const linesTotal = booking.lines.reduce((sum, line) => sum + line.total, 0)
   const canCancel = !impersonated && (booking.status === 'pending' || booking.status === 'confirmed')
   // Offline-only payments (Phase 3.1): the legacy online initiation
-  // button is gone from customer UI — it implied a gateway that does
+  // button is gone from customer UI  -  it implied a gateway that does
   // not exist. Customers pay offline (see the instructions below)
   // and optionally submit a reference for staff review. The initiation
   // API and all stored payment history are preserved untouched.
   // Offline proof submission: offered while the booking can still take
-  // money and a balance remains. Reference-only — never a file, never
+  // money and a balance remains. Reference-only  -  never a file, never
   // a payment record.
   const { remaining } = bookingMoney(booking)
   const canSubmitProof = !impersonated && (booking.status === 'pending' || booking.status === 'confirmed') && remaining > 0
@@ -815,8 +815,8 @@ export function BookingDetailPage({ reference, autoPrint = false }: { reference:
  * Guest booking access (P0 Fix 04).
  *
  * Read-only view for a guest who booked without an account. The private
- * access token in the URL is the only credential — there is no session and
- * no reference lookup — so this screen deliberately exposes NO mutation:
+ * access token in the URL is the only credential  -  there is no session and
+ * no reference lookup  -  so this screen deliberately exposes NO mutation:
  * no cancel, no payment, no messaging draft. A leaked link therefore
  * reveals a booking and nothing more.
  *
@@ -881,7 +881,7 @@ function GuestBookingSection({ token, autoPrint = false }: { token: string; auto
   const linesTotal = booking.lines.reduce((sum, line) => sum + line.total, 0)
   const createdOn = displayBookingDate(booking, locale)
   // Offline proof submission (Phase 3): token-authorized, reference-only
-  // — the token never gains cancel/pay powers; this appends one
+  //  -  the token never gains cancel/pay powers; this appends one
   // harmless activity row for staff review, never money.
   const { remaining } = bookingMoney(booking)
   const canSubmitProof = (booking.status === 'pending' || booking.status === 'confirmed') && remaining > 0
@@ -994,7 +994,7 @@ function BookingTableRow({ booking, index }: { booking: Booking; index: number }
 /**
  * Customer bookings (Phase 2E). Database-backed records owned by the
  * signed-in customer, loaded from `/api/account/bookings`. Staff-only
- * notes never reach this UI — the customer serializer excludes them.
+ * notes never reach this UI  -  the customer serializer excludes them.
  */
 function BookingsSection() {
   const { locale } = useLocale()
@@ -1017,7 +1017,7 @@ function BookingsSection() {
  * Customer car requests (Phase 2C). Database-backed records owned by the
  * signed-in customer: list, detail, edit (via /rent-car/request?edit=…),
  * and cancel run against `/api/account/car-requests/*`. Staff-only notes
- * never reach this UI — the customer serializer excludes them entirely.
+ * never reach this UI  -  the customer serializer excludes them entirely.
  */
 function carRequestVehicleTitle(liveCars: { slug: string; title: string }[], slug: string): string {
   return liveCars.find((car) => car.slug === slug)?.title ?? slug
@@ -1445,7 +1445,7 @@ async function apiPaymentList(): Promise<Payment[]> {
 
 /**
  * Customer payments (Phase 3.1: offline only). Real database-backed
- * payment records from `/api/account/payments` — never booking-derived
+ * payment records from `/api/account/payments`  -  never booking-derived
  * previews. Only verified money appears here: pending rows are legacy
  * online-intent placeholders, never charges. Customers pay offline via
  * their booking's payment instructions; this screen never initiates.
@@ -1512,7 +1512,7 @@ async function apiPaymentDetail(reference: string): Promise<Payment> {
  * by the signed-in customer, fetched from `/api/account/payments/*`.
  * Shows the real payment lifecycle state honestly: a pending payment
  * means nothing has been charged and no provider is connected yet.
- * Internal payment events never reach this UI — the customer
+ * Internal payment events never reach this UI  -  the customer
  * serializer excludes them.
  */
 function PaymentDetailSection({ reference }: { reference: string }) {
@@ -1564,7 +1564,7 @@ function PaymentDetailSection({ reference }: { reference: string }) {
         {payment.refundedAt && <div><small>{tx(locale, { en: 'Refunded on', es: 'Reembolsado el', it: 'Rimborsato il', ar: 'تاريخ الاسترداد' })}</small><strong>{fmtDateTime(payment.refundedAt)}</strong></div>}
         <div><small>{tx(locale, { en: 'Payment provider', es: 'Proveedor de pago', it: 'Fornitore di pagamento', ar: 'مزود الدفع' })}</small><strong>{payment.provider === 'offline' ? (tx(locale, { en: 'Offline (bank transfer or cash)', es: 'Offline (transferencia o efectivo)', it: 'Offline (bonifico o contanti)', ar: 'مباشر (تحويل بنكي أو نقدي)' })) : payment.provider === 'pending' ? (tx(locale, { en: 'No payment made yet', es: 'Aún no se ha realizado ningún pago', it: 'Nessun pagamento ancora effettuato', ar: 'لم يتم أي دفع بعد' })) : payment.provider}{payment.providerPaymentId ? ` · ${payment.providerPaymentId}` : ''}</strong></div>
       </div>
-      {isPending && <p role="status" className="form-note">{tx(locale, { en: `This record is pending: ${formatCurrency(payment.amount, payment.currency, locale)} is awaiting offline payment. Nothing has been charged online — pay by bank transfer or cash following your booking's payment instructions.`, es: `Este registro está pendiente: ${formatCurrency(payment.amount, payment.currency, locale)} aguarda el pago offline. No se ha cobrado nada en línea: paga por transferencia o en efectivo siguiendo las instrucciones de pago de tu reserva.`, it: `Questa registrazione è in sospeso: ${formatCurrency(payment.amount, payment.currency, locale)} è in attesa del pagamento offline. Nessun addebito online: paga con bonifico o contanti seguendo le istruzioni di pagamento della prenotazione.`, ar: `هذا السجل معلق: مبلغ ${formatCurrency(payment.amount, payment.currency, locale)} بانتظار الدفع المباشر. لم يتم خصم أي مبلغ عبر الإنترنت — ادفع بتحويل بنكي أو نقدًا وفق تعليمات الدفع في حجزك.` })}</p>}
+      {isPending && <p role="status" className="form-note">{tx(locale, { en: `This record is pending: ${formatCurrency(payment.amount, payment.currency, locale)} is awaiting offline payment. Nothing has been charged online  -  pay by bank transfer or cash following your booking's payment instructions.`, es: `Este registro está pendiente: ${formatCurrency(payment.amount, payment.currency, locale)} aguarda el pago offline. No se ha cobrado nada en línea: paga por transferencia o en efectivo siguiendo las instrucciones de pago de tu reserva.`, it: `Questa registrazione è in sospeso: ${formatCurrency(payment.amount, payment.currency, locale)} è in attesa del pagamento offline. Nessun addebito online: paga con bonifico o contanti seguendo le istruzioni di pagamento della prenotazione.`, ar: `هذا السجل معلق: مبلغ ${formatCurrency(payment.amount, payment.currency, locale)} بانتظار الدفع المباشر. لم يتم خصم أي مبلغ عبر الإنترنت  -  ادفع بتحويل بنكي أو نقدًا وفق تعليمات الدفع في حجزك.` })}</p>}
       <div className="customer-detail-actions">
         <Link href={'/account/bookings/detail?ref=' + encodeURIComponent(payment.bookingReference)} className="account-icon-action"><Eye size={16} />{tx(locale, { en: 'View related booking', es: 'Ver la reserva relacionada', it: 'Vedi la prenotazione collegata', ar: 'عرض الحجز المرتبط' })}</Link>
         <Link href="/account/payments" className="account-icon-action"><ArrowLeft size={16} />{tx(locale, { en: 'Back to payments', es: 'Volver a los pagos', it: 'Torna ai pagamenti', ar: 'عودة للمدفوعات' })}</Link>

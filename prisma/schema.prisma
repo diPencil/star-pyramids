@@ -80,7 +80,7 @@ model UserRole {
 ///  * Canonical permission catalog (Phase 4A configurable RBAC).
 ///  * `key` is `<module>.<action>` (e.g. `tours.edit`, `users.manage`).
 ///  * Grants live on RolePermission; SUPER_ADMIN bypasses checks in code and
-///  * always holds the full set. CUSTOMER intentionally holds zero grants —
+///  * always holds the full set. CUSTOMER intentionally holds zero grants  -
 ///  * storefront access stays role-based under Customers.
 model Permission {
   id        String           @id
@@ -165,7 +165,7 @@ model FxRate {
   @@map("fx_rates")
 }
 
-/// P0 Fix 03 — server-side media storage registry.
+/// P0 Fix 03  -  server-side media storage registry.
 /// One row per stored image file. `storageKey` is the relative on-disk
 /// path (`<yyyy>/<mm>/<32 hex>.<ext>`) and the only value the media route
 /// accepts; `url` is its public same-origin form (`/media/<storageKey>`)
@@ -410,7 +410,7 @@ model CarRequestAttempt {
 /// session; guest submissions keep `userId` NULL and are identified solely
 /// by their contact snapshot. `eventSlug` is the requested event; the
 /// title/date/location columns are the snapshot taken at submit time.
-/// Customer requests are never edited after submission — customers may only
+/// Customer requests are never edited after submission  -  customers may only
 /// cancel while new/reviewing. Staff-only discussion lives in internal
 /// EventRequestActivity rows and in NO customer-facing field.
 model EventRequest {
@@ -511,7 +511,7 @@ model Booking {
   @@map("bookings")
 }
 
-/// P0 Fix 04 — guest booking access.
+/// P0 Fix 04  -  guest booking access.
 ///
 /// A booking reference is a human-facing reference, not a credential, so it
 /// never grants access by itself. Guests who check out without an account
@@ -542,7 +542,7 @@ model BookingAccessToken {
 
 /// Abuse protection for the public guest-booking lookup. Only FAILED token
 /// lookups are recorded, so this table is a brute-force signal rather than a
-/// traffic counter. Per-IP because the token itself is the secret here —
+/// traffic counter. Per-IP because the token itself is the secret here  -
 /// there is no account bucket to attach.
 model BookingAccessAttempt {
   id        String   @id @default(cuid())
@@ -627,7 +627,7 @@ model PasswordResetAttempt {
 /// Phase 2F-A: provider-agnostic payment record for one booking.
 /// `amount` is the server-authoritative amount due, frozen from the
 /// booking total at initiation (integer cents in, DECIMAL stored).
-/// `amountPaid`/`amountRefunded` accumulate settled money only — they
+/// `amountPaid`/`amountRefunded` accumulate settled money only  -  they
 /// are written by server-side transitions (future provider webhooks
 /// or audited offline workflows), never by browser input.
 model Payment {
@@ -712,7 +712,7 @@ model PaymentEvent {
   /// Webhook deduplication identity (Phase 2F-B race safety). Set only
   /// on provider-driven transitions; NULL everywhere else. MySQL unique
   /// indexes admit multiple NULLs, so existing rows (all NULL) and
-  /// offline/manual transitions never conflict — only a redelivered
+  /// offline/manual transitions never conflict  -  only a redelivered
   /// provider event collides, which is exactly the duplicate to absorb.
   providerEventId String? @db.VarChar(128)
 
@@ -745,12 +745,12 @@ model PaymentAttempt {
 }
 
 /// Phase A: booking documents foundation. One row per ISSUED document
-/// with a globally unique number living in its own namespace — booking
+/// with a globally unique number living in its own namespace  -  booking
 /// references (`SP-BK-*`) and payment references (`SP-PAY-*`) are never
 /// renumbered or reused here. `number` format: `<PREFIX>-<year>-<seq>`
 /// (e.g. `SP-RCPT-2026-000001`), allocated by transactional increments
 /// of `document_sequences`. `type` is the honest document kind; the
-/// print-only BookingPrintDocument is NOT a row — this table exists for
+/// print-only BookingPrintDocument is NOT a row  -  this table exists for
 /// future numbered issuance only, and nothing issues rows automatically
 /// (no webhook, email, or transition path calls it yet).
 ///
@@ -762,7 +762,7 @@ model PaymentAttempt {
 /// Payment row; booking-level documents leave it NULL. Proof
 /// submissions are activities, never payments, and never grant a
 /// receipt. `idempotencyKey` is caller-supplied per logical document
-/// (e.g. `receipt:SP-PAY-ABC123`) — a retry returns the original row
+/// (e.g. `receipt:SP-PAY-ABC123`)  -  a retry returns the original row
 /// with its original number instead of minting a second document.
 model BookingDocument {
   id             String              @id @default(cuid())
@@ -810,7 +810,7 @@ model BookingDocument {
 /// `<TYPE>:<year>` key; issuance does `UPDATE lastValue = lastValue + 1`
 /// inside the issuing transaction (the UPDATE takes the row lock, so
 /// concurrent issuances serialize) and formats the bumped value into the
-/// document number. Counters are infrastructure, never money — no
+/// document number. Counters are infrastructure, never money  -  no
 /// booking or payment row is ever rewritten by them.
 model DocumentSequence {
   key       String   @id @db.VarChar(64)
@@ -821,7 +821,7 @@ model DocumentSequence {
 }
 
 /// Phase 2G: customer saved trips (favorites). One row per saved
-/// catalogue item per customer — never a copy of the tour itself.
+/// catalogue item per customer  -  never a copy of the tour itself.
 /// Only the stable catalogue key is stored (`itemType` + `itemSlug`);
 /// titles, images, and prices always resolve live from the catalogue,
 /// so saved rows stay readable if catalogue copy changes. The
@@ -840,11 +840,11 @@ model FavoriteItem {
 }
 
 /// Phase 2H: customer in-app notifications. One row per customer-facing
-/// domain event, owned by exactly one user — never shared, never
+/// domain event, owned by exactly one user  -  never shared, never
 /// client-created. Only display data is stored (type + title + message
 /// + optional relative target path); no sensitive payloads, no payment
 /// secrets, no internal staff notes. `readAt` (nullable) is the read
-/// marker: NULL means unread. New events from this phase onward only —
+/// marker: NULL means unread. New events from this phase onward only  -
 /// historical records are never backfilled.
 model Notification {
   id        String    @id @default(cuid())
@@ -884,7 +884,7 @@ model SupportConversation {
 }
 
 /// Phase 2I: plain-text support messages. `senderRole` is stamped
-/// server-side from the authenticated session ('customer' | 'staff') —
+/// server-side from the authenticated session ('customer' | 'staff')  -
 /// the browser never declares who sends. `body` is validated plain
 /// text (1–2000 chars, no control characters); rendering must treat it
 /// as text, never HTML. `readAt` is the recipient-side read marker:
@@ -1053,7 +1053,7 @@ model Car {
 }
 
 /// Phase 2 (Rent Cars): reusable structured pickup/drop-off location.
-/// Additive to the legacy workflow — existing CarRequest rows keep their
+/// Additive to the legacy workflow  -  existing CarRequest rows keep their
 /// free-text pickup/dropoff columns untouched; these rows back structured
 /// location selection and directional route pricing. Row visibility to the
 /// public matches `isActive=false` hiding (same idea as Car.isPublished).
@@ -1104,7 +1104,7 @@ model CarRoute {
 }
 
 /// Vehicle-specific rate for one route. All money is stored as integer minor
-/// units (`oneWayCents`, `roundTripCents`) — no floating-point arithmetic for
+/// units (`oneWayCents`, `roundTripCents`)  -  no floating-point arithmetic for
 /// financial amounts. Round-trip mode:
 ///   MANUAL    → `roundTripCents` holds the staff-approved round-trip price.
 ///   AUTOMATIC → the return leg is priced from the actual reverse-route rate
@@ -1260,7 +1260,7 @@ model ReviewAttempt {
   @@map("review_attempts")
 }
 
-/// Website enquiry — public contact/lead form submissions.
+/// Website enquiry  -  public contact/lead form submissions.
 /// No account required. Server-only RBAC for admin access.
 model WebsiteEnquiry {
   id            String           @id @default(cuid())
@@ -1343,7 +1343,7 @@ enum EventRequestStatus {
   CANCELLED
 }
 
-/// Phase 4F: website enquiries — public contact/lead form submissions.
+/// Phase 4F: website enquiries  -  public contact/lead form submissions.
 /// No account required. Server-only RBAC for admin access.
 enum EnquiryStatus {
   NEW
@@ -1370,11 +1370,11 @@ enum BookingPaymentStatus {
 
 /// Phase 2F-A payment lifecycle. A Payment is the money record for one
 /// booking; the booking lifecycle (PENDING/CONFIRMED/...) and the
-/// payment lifecycle evolve independently — a confirmed booking is NOT
+/// payment lifecycle evolve independently  -  a confirmed booking is NOT
 /// automatically paid. `provider` is the gateway key that settled (or
 /// will settle) the payment; `pending` means created locally and
 /// awaiting provider handoff in Phase 2F-B. No card numbers, CVV, raw
-/// card details, or gateway credentials are ever stored here —
+/// card details, or gateway credentials are ever stored here  -
 /// `metadata` holds non-sensitive provider payload only.
 enum PaymentStatus {
   PENDING
@@ -1390,7 +1390,7 @@ enum PaymentStatus {
 /// today through the documents service; INVOICE, REFUND_NOTE and
 /// BOOKING_VOUCHER exist as named types only and stay blocked until
 /// their business rules and legal configuration are defined. Documents
-/// are issued explicitly — never automatically by booking, payment, or
+/// are issued explicitly  -  never automatically by booking, payment, or
 /// webhook transitions.
 enum BookingDocumentType {
   BOOKING_REQUEST
@@ -1408,7 +1408,7 @@ enum BookingDocumentType {
 /// session, never browser input). `assignedStaffId` is the staff owner
 /// (nullable, staff-set only). `subject` is an optional short context
 /// label (e.g. a booking reference the question relates to). `status`
-/// is OPEN or CLOSED; closed threads are read-only history — new
+/// is OPEN or CLOSED; closed threads are read-only history  -  new
 /// customer messages open a fresh thread. `lastMessageAt` orders the
 /// staff inbox. External/WhatsApp channels are NOT modeled here.
 enum SupportConversationStatus {
@@ -1416,7 +1416,7 @@ enum SupportConversationStatus {
   CLOSED
 }
 
-/// Phase 2J: email delivery outbox. One row per email attempt — the
+/// Phase 2J: email delivery outbox. One row per email attempt  -  the
 /// authoritative record of what was sent, to whom, and with what result.
 /// `status` is PENDING (queued), SENT (provider accepted), FAILED
 /// (permanent failure), or SKIPPED (suppressed by dedup/idempotency).
@@ -1441,7 +1441,7 @@ enum ReviewStatus {
   REJECTED
 }
 
-/// Journey Gallery — one centralized record serves BOTH the homepage rows
+/// Journey Gallery  -  one centralized record serves BOTH the homepage rows
 /// (photo row for IMAGE, video row for VIDEO) and the tour-detail video
 /// carousel (VIDEO with showOnTours). A video is never duplicated per
 /// tour: multi-tour assignment lives in `journey_gallery_tours` rows.

@@ -1,4 +1,4 @@
-# Journey Gallery — Phase 7 local verification
+# Journey Gallery  -  Phase 7 local verification
 
 Date: 2026-10-27. Local implementation only. No browser testing, production access, database mutations, migrations, record deletion, commit, push or deployment. Phase 8 was not started. Existing Rent Cars, Reviews and Destinations implementation changes were preserved.
 
@@ -50,7 +50,7 @@ Date: 2026-10-27. Local implementation only. No browser testing, production acce
 
 ## Files changed
 
-- `components/homepage.tsx` — Gallery section only and its imports.
+- `components/homepage.tsx`  -  Gallery section only and its imports.
 - `components/gallery-lightbox.tsx` (new)
 - `components/gallery-lightbox.css` (new)
 - `lib/gallery-lightbox.ts` (new)
@@ -59,12 +59,12 @@ Date: 2026-10-27. Local implementation only. No browser testing, production acce
 - `lib/server/journey-gallery.ts`
 - `app/api/journey-gallery/route.ts`
 - `app/api/journey-gallery/[id]/route.ts`
-- `app/api/media/route.ts` — gallery permission additions only.
+- `app/api/media/route.ts`  -  gallery permission additions only.
 - `app/admin/gallery/page.tsx`
 - `app/admin/gallery/new/page.tsx`
 - `components/admin/gallery-form.tsx`
 - `components/admin/gallery-text.tsx` (new)
-- `components/admin/image-field.tsx` — optional Gallery locale/upload-state support and safe error handling; existing defaults retained.
+- `components/admin/image-field.tsx`  -  optional Gallery locale/upload-state support and safe error handling; existing defaults retained.
 - `tests/journey-gallery.test.ts`
 - `tests/gallery-lightbox.test.ts` (new)
 - `tests/gallery-lightbox-render.test.ts` (new)

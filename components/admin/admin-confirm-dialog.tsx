@@ -43,7 +43,7 @@ export function AdminConfirmDialog({
   children?: React.ReactNode
   demoNote?: React.ReactNode
   /** Read-only dialogs (e.g. role permissions) render only the neutral
-   * footer action — never a second, disabled confirm button. */
+   * footer action  -  never a second, disabled confirm button. */
   hideConfirm?: boolean
 }) {
   const ar = useAdminLocale() === 'ar'

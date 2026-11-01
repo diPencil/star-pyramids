@@ -82,7 +82,7 @@ export function PromotionCard({
   const { currency, locale } = useLocale()
   const countdown = usePromotionCountdown(deadline)
   const hasCommercialMeta = duration || typeof rating === 'number'
-  // Genuinely imageless offers keep a branded panel with their own title —
+  // Genuinely imageless offers keep a branded panel with their own title  -
   // never a blank 190px box, never invented imagery.
   const safeImages = images.filter((source): source is string => typeof source === 'string' && source.length > 0)
 

@@ -36,7 +36,7 @@ export async function GET(
 /**
  * Staff mutation: lifecycle transition (validated against the shared
  * transition map) and/or a staff-only internal note. Browser ownership
- * fields are never read — the reference comes from the route and the
+ * fields are never read  -  the reference comes from the route and the
  * actor from the session.
  */
 export async function PATCH(
@@ -76,7 +76,7 @@ export async function PATCH(
 
   try {
     // Staff acknowledgement of a customer payment-proof submission.
-    // Appends a review marker only — never money, never status. Real
+    // Appends a review marker only  -  never money, never status. Real
     // receipts stay on the separate audited offline-payment action.
     if (typeof body.proofReference === 'string') {
       const reviewed = await acknowledgePaymentProof(reference, body.proofReference);

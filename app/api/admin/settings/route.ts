@@ -60,7 +60,7 @@ export async function PATCH(request: Request) {
     if (result.updatedKeys.some((key) => key.startsWith('tracking.'))) {
       revalidatePath('/', 'layout');
     }
-    // Audit the key list only — secret VALUES must never enter audit rows.
+    // Audit the key list only  -  secret VALUES must never enter audit rows.
     await db.staffActionAudit
       .create({
         data: {

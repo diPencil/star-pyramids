@@ -1,4 +1,4 @@
-# STAR PYRAMIDS — Payment Gateway Foundation (Phase 2F-B)
+# STAR PYRAMIDS  -  Payment Gateway Foundation (Phase 2F-B)
 
 **Project Root:** `E:\star-pyramids-nodejs\web-source`
 **Branch:** `main`
@@ -11,10 +11,10 @@
 
 The payment gateway foundation implements a **provider-neutral layer** between the payment core (`lib/server/payments.ts`) and external payment gateways (Stripe, PayPal, etc.). The design follows these principles:
 
-- **Provider-agnostic core** — Booking/payment logic knows nothing about specific gateways
-- **Explicit opt-in** — No provider enabled by default; all require `PROVIDER_<KEY>_ENABLED=true`
-- **Security first** — Raw body parsing, signature verification, timestamp/replay protection built-in
-- **Fail-closed** — Unverified webhooks are rejected; unsigned requests never processed
+- **Provider-agnostic core**  -  Booking/payment logic knows nothing about specific gateways
+- **Explicit opt-in**  -  No provider enabled by default; all require `PROVIDER_<KEY>_ENABLED=true`
+- **Security first**  -  Raw body parsing, signature verification, timestamp/replay protection built-in
+- **Fail-closed**  -  Unverified webhooks are rejected; unsigned requests never processed
 
 ---
 
@@ -211,13 +211,13 @@ const result = await createCheckoutSession({
 ```
 
 ### Flow
-1. **Validate provider enabled** — Throws `ConfigurationError` if none
-2. **Validate input** — Booking ref format, idempotency key format
-3. **Get default provider** — First enabled provider
-4. **Get provider adapter** — Throws if not registered
-5. **Core initiation** — Calls `initiateCustomerPayment()` (validates booking, creates PENDING payment, handles idempotency)
-6. **Provider checkout** — Calls `adapter.initiate()` with payment details
-4. **Returns redirect URL** — Customer redirected to provider-hosted checkout
+1. **Validate provider enabled**  -  Throws `ConfigurationError` if none
+2. **Validate input**  -  Booking ref format, idempotency key format
+3. **Get default provider**  -  First enabled provider
+4. **Get provider adapter**  -  Throws if not registered
+5. **Core initiation**  -  Calls `initiateCustomerPayment()` (validates booking, creates PENDING payment, handles idempotency)
+6. **Provider checkout**  -  Calls `adapter.initiate()` with payment details
+4. **Returns redirect URL**  -  Customer redirected to provider-hosted checkout
 
 ### Error Handling
 ```typescript
@@ -242,12 +242,12 @@ try {
 ## 6. Webhook Security Layer (`lib/server/webhooks/handler.ts`)
 
 ### Security Guarantees
-- **Raw body access** — `bodyParser: false` + `request.text()`
-- **Signature verification** — Delegated to provider adapter's `verifyWebhook()`
-- **Timestamp validation** — ±5 min tolerance (configurable)
-- **Replay protection** — Provider event ID tracking (requires `providerEventId` migration)
-- **Fail-closed** — Unverified webhooks return 401/400
-- **Atomic transitions** — Uses `transitionPayment()` in transaction
+- **Raw body access**  -  `bodyParser: false` + `request.text()`
+- **Signature verification**  -  Delegated to provider adapter's `verifyWebhook()`
+- **Timestamp validation**  -  ±5 min tolerance (configurable)
+- **Replay protection**  -  Provider event ID tracking (requires `providerEventId` migration)
+- **Fail-closed**  -  Unverified webhooks return 401/400
+- **Atomic transitions**  -  Uses `transitionPayment()` in transaction
 
 ### Usage
 ```typescript
@@ -292,9 +292,9 @@ export const config = {
 ```
 
 ### Supported Providers
-- `stripe` — `/api/payments/webhook/stripe`
-- `paypal` — `/api/payments/webhook/paypal`
-- `adyen` — `/api/payments/webhook/adyen`
+- `stripe`  -  `/api/payments/webhook/stripe`
+- `paypal`  -  `/api/payments/webhook/paypal`
+- `adyen`  -  `/api/payments/webhook/adyen`
 
 ### Request Handling
 ```typescript
@@ -303,11 +303,11 @@ export const config = {
 ```
 
 ### Security
-- **Raw body parsing** — `request.text()` with `bodyParser: false`
-- **Signature verification** — Delegated to provider adapter
-- **Timestamp validation** — ±5 min default
-- **Replay protection** — Provider event ID (requires `providerEventId` migration)
-- **Audit logging** — All webhooks logged with duration, success/failure
+- **Raw body parsing**  -  `request.text()` with `bodyParser: false`
+- **Signature verification**  -  Delegated to provider adapter
+- **Timestamp validation**  -  ±5 min default
+- **Replay protection**  -  Provider event ID (requires `providerEventId` migration)
+- **Audit logging**  -  All webhooks logged with duration, success/failure
 
 ---
 
@@ -408,10 +408,10 @@ CREATE UNIQUE INDEX uq_payment_provider_event ON payment_events(provider_event_i
 ```
 
 **Existing Reusable (No Migration):**
-- `Payment.providerPaymentId` — unique, for gateway reference
-- `Payment.idempotencyKey` — unique, for client dedup
-- `Payment.metadata` — JSON text for provider payload
-- `Booking.paymentStatus` — derived, no manual sync needed
+- `Payment.providerPaymentId`  -  unique, for gateway reference
+- `Payment.idempotencyKey`  -  unique, for client dedup
+- `Payment.metadata`  -  JSON text for provider payload
+- `Booking.paymentStatus`  -  derived, no manual sync needed
 
 ---
 
@@ -544,9 +544,9 @@ PROVIDER_STRIPE_PUBLISHABLE_KEY=pk_live_...
 ## 15. Test Coverage
 
 ### Unit Tests (`tests/payments/`)
-- `adapter.test.ts` — Adapter contract validation, metadata
-- `webhook-handler.test.ts` — Timestamp validation, header normalization, URL parsing
-- `checkout.test.ts` — Checkout flow, error cases, provider integration
+- `adapter.test.ts`  -  Adapter contract validation, metadata
+- `webhook-handler.test.ts`  -  Timestamp validation, header normalization, URL parsing
+- `checkout.test.ts`  -  Checkout flow, error cases, provider integration
 
 ### Run Tests
 ```bash

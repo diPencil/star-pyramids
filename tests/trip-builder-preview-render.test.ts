@@ -50,7 +50,7 @@ it('formats the real traveler group total and labels unit prices and non-authori
 it('retains unsaved date-tier values and shows missing amounts without turning them into zero', () => {
   const draft = editor(); draft.priceRows = [{ id: 'row', category: 'Current period', price: '', startDate: '', endDate: '', note: 'Current note', prefix: '', tiers: [{ id: 'tier', label: 'Current tier', price: '', suffix: 'per person' }] }]
   const html = renderToStaticMarkup(createElement(PreviewDatePrices, { preview: buildTripPreview(base, draft, 'en') }))
-  expect(html).toContain('price-season-card'); expect(html).toContain('Current tier'); expect(html).toContain('—'); expect(html).not.toContain('$0.00')
+  expect(html).toContain('price-season-card'); expect(html).toContain('Current tier'); expect(html).toContain(' - '); expect(html).not.toContain('$0.00')
 })
 it('keeps the preview closed by default, language choices enabled-only and every button non-submitting', () => {
   const html = renderToStaticMarkup(createElement(TripBuilderPreview, { source: base, draft: editor(), clearedTranslations: new Set<string>(), counts: { adult: 2, child: 0, infant: 0 }, onCount: () => {} }))

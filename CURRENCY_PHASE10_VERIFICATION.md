@@ -1,4 +1,4 @@
-# Phase 10 — Centralized currency system
+# Phase 10  -  Centralized currency system
 
 ## Findings and implementation
 Currency lists/types/selector options were duplicated between locale, admin, customer, Settings and Rent Cars. Events accepted arbitrary strings and their public labels defaulted unspecified historical denominations to USD while discarding cents. Native accounting DTOs substituted USD for stored currencies; payment creation and balance aggregation lacked complete stored-currency checks. Currency settings/client display used hardcoded fallback exchange rates.

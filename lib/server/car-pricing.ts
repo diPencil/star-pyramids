@@ -87,7 +87,7 @@ function validSortOrder(value: unknown): number | null {
 
 /**
  * Strict location validation. Unknown/controlled keys only; localized names
- * follow the project EN/ES/IT/AR conventions — EN is required.
+ * follow the project EN/ES/IT/AR conventions  -  EN is required.
  */
 export function validateCarLocationDraft(input: unknown): CarLocationDraft {
   if (typeof input !== 'object' || input === null) throw new CarInputError('Invalid request.');
@@ -267,7 +267,7 @@ export interface CarRouteDraft {
  * Route creation: origin and destination must be distinct, existing, ACTIVE
  * locations (a route cannot be offered through a hidden location). Duplicate
  * prevention is enforced by the directional unique index and surfaced as a
- * friendly conflict — directionality is identity, so A→B and B→A coexist.
+ * friendly conflict  -  directionality is identity, so A→B and B→A coexist.
  */
 export async function createCarRoute(input: unknown): Promise<CarRouteDraft & { id: string }> {
   if (typeof input !== 'object' || input === null) throw new CarInputError('Invalid request.');
@@ -317,7 +317,7 @@ export interface CarRoutePatch {
   sortOrder?: number;
 }
 
-/** Route updates are operational (active/sortOrder) — the location pair is identity. */
+/** Route updates are operational (active/sortOrder)  -  the location pair is identity. */
 export async function updateCarRoute(id: string, input: unknown): Promise<CarRoutePatch | null> {
   if (!/^[a-z0-9]{20,40}$/i.test(id)) return null;
   const body = (typeof input === 'object' && input !== null ? input : {}) as Record<string, unknown>;
@@ -605,7 +605,7 @@ async function updateLegacyPrice(db: Prisma.TransactionClient, id: string, input
         ? null
         : body.roundTripMultiplier;
     // No input keeps the existing AUTOMATIC multiplier (or the default when
-    // the row just switched from MANUAL) — never re-parses a stored bp value.
+    // the row just switched from MANUAL)  -  never re-parses a stored bp value.
     const roundTripMultiplierBp = multiplierInput === null
       ? (existing.roundTripMode === DbRoundTripMode.AUTOMATIC ? existing.roundTripMultiplierBp : DEFAULT_ROUND_TRIP_MULTIPLIER_BP)
       : parseRoundTripMultiplier(multiplierInput);
@@ -746,7 +746,7 @@ export interface CarRouteQuoteResolved {
  *  1. bad input / auth-free validation errors → thrown (400 at the route);
  *  2. vehicle unknown/hidden, unclear or insufficient capacity → thrown;
  *  3. route or price missing/inactive, unconfigured manual round-trip →
- *     `price_on_request` with a machine-readable reason (200 at the route) —
+ *     `price_on_request` with a machine-readable reason (200 at the route)  -
  *     no silent default prices, ever.
  */
 export type CarRouteQuoteResult =

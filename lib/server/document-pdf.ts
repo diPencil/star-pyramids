@@ -24,7 +24,7 @@
 // - No tax, VAT, registration or tax numbers appear on any Phase D
 //   document, even when company settings exist.
 // - The voucher QR encodes only the absolute verification URL carrying
-//   the purpose-specific opaque token — never a guest booking token,
+//   the purpose-specific opaque token  -  never a guest booking token,
 //   never personal or financial data.
 // - Responses are `Cache-Control: private, no-store` with an
 //   attachment disposition and a sanitized filename. Guest access
@@ -134,7 +134,7 @@ async function renderVerificationQr(url: string): Promise<Buffer | null> {
 
 /**
  * Loads the immutable content model for one issued document, or null
- * when the actor may not access it (uniform denial — the caller must
+ * when the actor may not access it (uniform denial  -  the caller must
  * map null to the same 404 as an unknown id).
  */
 export async function loadBookingDocumentPdfModel(
@@ -242,7 +242,7 @@ export async function loadBookingDocumentPdfModel(
       paymentReference: payment.reference,
       provider: payment.provider,
       paidOn: payment.paidAt ? payment.paidAt.toISOString() : null,
-      // Frozen snapshot from the issued document row — never the live payment.
+      // Frozen snapshot from the issued document row  -  never the live payment.
       amountReceivedCents: view.amountCents,
       refundedToDateCents: decimalToCents(payment.amountRefunded),
     };
@@ -303,7 +303,7 @@ export async function loadBookingDocumentPdfModel(
 
   let voucher: PdfDocumentModel['voucher'] = null;
   if (view.type === 'BOOKING_VOUCHER') {
-    // No money on a voucher — services plus the verification QR only.
+    // No money on a voucher  -  services plus the verification QR only.
     // The QR encodes the absolute verification URL carrying the
     // purpose-specific opaque token; PDFs stay verifiable at any later
     // download because the token is stored on the document row.
@@ -385,7 +385,7 @@ export async function loadBookingDocumentPdfModel(
   };
 }
 
-/** `SP-RCPT-2026-000001.pdf` — ASCII-safe by construction, sanitized anyway. */
+/** `SP-RCPT-2026-000001.pdf`  -  ASCII-safe by construction, sanitized anyway. */
 export function documentPdfFilename(number: string): string {
   const safe = DOCUMENT_NUMBER_PATTERN.test(number)
     ? number

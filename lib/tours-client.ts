@@ -164,7 +164,7 @@ export type DbToursOptions = {
 
 /**
  * Pure merge: every base slug resolves only to its published DB record, DB rows with an explicit non-published
- * status are dropped, and — with `includeNew` — published DB tours absent
+ * status are dropped, and  -  with `includeNew`  -  published DB tours absent
  * from `base` are appended. Unit-tested without a database.
  */
 export function resolveTours(

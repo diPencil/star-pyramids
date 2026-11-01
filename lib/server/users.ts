@@ -1,4 +1,4 @@
-// User + role service boundary. All user writes go through here —
+// User + role service boundary. All user writes go through here  -
 // never raw Prisma calls from routes, never role claims from the client.
 import 'server-only';
 
@@ -220,7 +220,7 @@ export type AdminProfileInput = {
 
 /**
  * Self-service update for the currently authenticated staff/admin user.
- * Identity-only: role, status and id are never accepted from the caller —
+ * Identity-only: role, status and id are never accepted from the caller  -
  * the route passes only the session user id. Password is optional.
  */
 export async function updateAdminProfile(
@@ -297,7 +297,7 @@ export async function markLoggedIn(userId: string): Promise<void> {
 // ---------------------------------------------------------------------------
 // Staff / user-management boundary (Phase 4A).
 // Every admin user-management write goes through these functions. Role and
-// status authority lives here — never in client payloads, which only carry
+// status authority lives here  -  never in client payloads, which only carry
 // the requested values for server-side authorization and validation.
 // ---------------------------------------------------------------------------
 
@@ -421,7 +421,7 @@ export interface ActorRef {
  * Capabilities reserved to SUPER_ADMIN by code (see requireSuperAdmin).
  * Legacy grant rows for these keys may still exist on ADMIN/STAFF/custom
  * roles, but they confer no mutation power. They must be displayed as
- * locked — never granted — until separate owner approval rewrites them.
+ * locked  -  never granted  -  until separate owner approval rewrites them.
  */
 export const SUPER_ADMIN_ONLY_PERMISSIONS: readonly string[] = [
   'users.manage',
@@ -442,7 +442,7 @@ export function effectiveRolePermissions(roleKey: string, granted: readonly stri
  * Owner-approved access policy: ONLY SUPER_ADMIN may mutate user
  * identities, roles or permission grants (invite/edit/suspend staff,
  * create/edit roles, edit the permission matrix). Legacy `users.manage` /
- * `roles.manage` permission records are intentionally NOT consulted here —
+ * `roles.manage` permission records are intentionally NOT consulted here  -
  * ADMIN and STAFF must not manage identities even if those rows still
  * grant the keys. Read-only directory access stays permission-based
  * (`users.view` / `roles.view`) at the API routes.
@@ -678,7 +678,7 @@ export async function updateStaffUser(
       }
     }
 
-    // Apply role replacement (all non-customer assignments — CUSTOMER on
+    // Apply role replacement (all non-customer assignments  -  CUSTOMER on
     // the same person, if any, is left untouched).
     if (roleKey !== undefined) {
       await tx.userRole.deleteMany({

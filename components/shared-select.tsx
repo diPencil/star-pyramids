@@ -53,7 +53,7 @@ type SharedSelectProps = {
 /**
  * Generic dropdown for non-country selects (status filters, rows-per-page,
  * destinations, tours, …). Same Base UI architecture, popup sizing, and
- * `.cselect-*` design language as CountrySelect — one visual system across
+ * `.cselect-*` design language as CountrySelect  -  one visual system across
  * Public / Account / Admin. Controlled string value; numeric callers convert
  * in `onChange`, exactly like the native selects this replaces.
  */
@@ -158,7 +158,7 @@ export function SharedSelect({
               the dropdown prefers below, flips above only when necessary, stays
               compact, and never slides underneath the header. `sticky` clamps
               the final placement into the safe viewport on both axes.
-              Available height remains a maximum collision limit — short lists
+              Available height remains a maximum collision limit  -  short lists
               keep natural height, long lists cap at the CSS 320px viewport with
               internal scroll. */}
           <Select.Positioner

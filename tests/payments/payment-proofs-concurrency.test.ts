@@ -10,7 +10,7 @@
 //   mailboxes are touched). The database handle is real.
 // - Every run uses a freshly created booking with a unique reference;
 //   the test deletes its own activities, tokens, and booking in a
-//   `finally` block — nothing else is read or written.
+//   `finally` block  -  nothing else is read or written.
 // - The suite skips cleanly when the database is unreachable.
 // - No migration, no reset, no schema change: the production code
 //   serializes per booking (`SELECT ... FOR UPDATE` + in-transaction

@@ -1,4 +1,4 @@
-# Reviews Phase 6 — implementation and verification
+# Reviews Phase 6  -  implementation and verification
 
 2026-10-27. Local only. No browser testing, production access, database writes, migrations, commit, push or deployment. Rent Cars, Destinations and Gallery implementation files were not changed in this phase.
 
@@ -94,7 +94,7 @@ All pre-existing unrelated dirty/untracked work was preserved.
 
 Stop at Phase 6. No release or later phase has been started.
 
-## Homepage review interaction follow-up — 2026-10-28
+## Homepage review interaction follow-up  -  2026-10-28
 
 - Confirmed deterministic defects in code: the modal focus lifecycle depended on an inline parent close callback, so a parent refresh could reset field focus; short reviews silently disabled the submit action; the marquee repeated sparse feeds to fill at least six positions (one review looked like many).
 - Modal initialization now focuses the textarea once per opening, retains the latest close callback via a ref, and traps Tab among actually tabbable controls, including the pending/no-tabbable-controls case.

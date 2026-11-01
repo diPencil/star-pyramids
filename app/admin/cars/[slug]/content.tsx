@@ -14,7 +14,7 @@ import type { StaffCarRequest } from '@/lib/car-request'
  * Fleet vehicle detail. Only honest/computable data: overview, website
  * visibility (never called availability), and related database-backed
  * requests matched by requested or assigned vehicle slug. No availability,
- * rentals, revenue, maintenance, or ratings — those belong to a later
+ * rentals, revenue, maintenance, or ratings  -  those belong to a later
  * backend phase.
  */
 export function VehicleDetailContent({ vehicleSlug }: { vehicleSlug: string }) {

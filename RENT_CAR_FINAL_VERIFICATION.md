@@ -1,4 +1,4 @@
-# Rent Cars — Phase 4 and final local verification
+# Rent Cars  -  Phase 4 and final local verification
 
 Date: 2026-10-27. Local implementation only. No browser navigation, browser tests, production access, commits, pushes, deployments, environment changes, seeds, or business-data writes were performed in this phase.
 

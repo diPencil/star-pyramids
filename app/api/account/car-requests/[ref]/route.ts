@@ -36,7 +36,7 @@ type CustomerPatchBody = {
 
 /**
  * Owner-only mutation. Only `update` (while new/reviewing) and `cancel`
- * exist — status, ownership, and references are never accepted from the
+ * exist  -  status, ownership, and references are never accepted from the
  * browser and are enforced inside the service instead.
  */
 export async function PATCH(

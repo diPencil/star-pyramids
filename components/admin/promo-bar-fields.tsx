@@ -12,7 +12,7 @@ import type { CampaignContent } from '@/lib/marketing-campaigns'
 
 /**
  * Dedicated Promotional Bars form (Top Bar / Footer Bar). Binds to the same
- * Offer + campaign records as every other workflow — only the placement
+ * Offer + campaign records as every other workflow  -  only the placement
  * checkboxes are bar-specific, so catalogue fields and translations are
  * preserved exactly.
  */

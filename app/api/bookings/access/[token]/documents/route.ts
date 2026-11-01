@@ -21,8 +21,8 @@ function clientIp(request: Request): string {
  * Guest document list for the token's own booking (Phase C).
  *
  * Read-only companion to the guest booking view and the token-protected
- * PDF download. The payload carries document metadata only — ids,
- * numbers, types, amounts, issue dates — and NEVER the token itself:
+ * PDF download. The payload carries document metadata only  -  ids,
+ * numbers, types, amounts, issue dates  -  and NEVER the token itself:
  * the client already holds the token and builds each PDF link from it.
  * Every token failure returns the same uniform 404 as the booking view.
  */

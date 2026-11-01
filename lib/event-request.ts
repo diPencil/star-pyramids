@@ -17,7 +17,7 @@ import { localeFromAr, pickLocaleText, type Locale } from '@/lib/locale-config'
  * event requests; MySQL is the only store.
  *
  * An event request is a preliminary attendance request pending staff
- * review — never a confirmed ticket, booking, or payment. Customers cannot
+ * review  -  never a confirmed ticket, booking, or payment. Customers cannot
  * edit submitted requests; they may only cancel while new/reviewing.
  */
 
@@ -168,7 +168,7 @@ export function isEventReference(value: string): boolean {
 /**
  * Canonical event display title for a request. Source of truth is the
  * static catalogue; an unknown or removed slug falls back to the stored
- * snapshot verbatim — never a fabricated title.
+ * snapshot verbatim  -  never a fabricated title.
  */
 export function eventDisplayTitle(slug: string, fallback: string): string {
   return findEvent(slug)?.title ?? fallback

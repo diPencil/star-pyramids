@@ -23,13 +23,13 @@ export function safePreviewMedia(value: string | undefined) {
 const copy = (locale: EnabledLocale) => (en: string, es: string, it: string) => pickLocaleText(locale, { en, es, it })
 export function PreviewDatePrices({ preview }: { preview: TripPreview }) {
   const rows = (preview.tour.detail ?? preview.tour.dayDetail)?.priceRows ?? [], t = copy(preview.locale)
-  const money = (amount: number) => Number.isFinite(amount) && amount >= 0 ? formatPrice(amount, 'USD', preview.locale) : '—'
+  const money = (amount: number) => Number.isFinite(amount) && amount >= 0 ? formatPrice(amount, 'USD', preview.locale) : ' - '
   if (!rows.length) return null
   return <section className="tour-price-breakdown"><h2>{t('Tour Prices', 'Precios del viaje', 'Prezzi del viaggio')}</h2><p>{t('USD travel-date information; separate from booking traveler rates.', 'Precios de fechas en USD, separados de las tarifas de reserva.', 'Prezzi per le date in USD, separati dalle tariffe di prenotazione.')}</p><div className="price-cards-grid">{rows.map((row,index) => <div className="price-season-card" key={index}><header className="price-season-header"><div><b>{row.category}</b>{(row.startDate || row.endDate) && <small>{formatTourDateRange(row.startDate,row.endDate,preview.locale)}</small>}</div></header><div className="price-season-body">{row.tiers?.length ? row.tiers.map((tier,i) => <div className="price-tier" key={i}><span>{tier.label}</span><strong>{row.prefix}{money(tier.price)} {tier.suffix}</strong></div>) : <div className="price-tier"><span>{row.note}</span><strong>{row.prefix}{money(row.price)}</strong></div>}</div>{row.note && <p>{row.note}</p>}</div>)}</div></section>
 }
 export function PreviewPricing({ preview, counts, onCount }: { preview: TripPreview; counts: PreviewTravelers; onCount?: (type: keyof PreviewTravelers, count: number) => void }) {
   const id = useId(), t = copy(preview.locale), quote = quoteTripPreview(preview, counts)
-  const money = (amount: number) => Number.isFinite(amount) && amount >= 0 ? formatPrice(amount, 'USD', preview.locale) : '—'
+  const money = (amount: number) => Number.isFinite(amount) && amount >= 0 ? formatPrice(amount, 'USD', preview.locale) : ' - '
   return <section className="sp-trip-preview-pricing" aria-label={t('Booking pricing preview', 'Vista previa del precio', 'Anteprima prezzo prenotazione')}>
     <h3>{t('Booking pricing', 'Precio de la reserva', 'Prezzo prenotazione')}</h3>
     <p>{t('Stored pricing currency: USD. No display conversion applied.', 'Moneda del precio: USD. Sin conversión de moneda.', 'Valuta del prezzo: USD. Nessuna conversione applicata.')}</p>
@@ -46,7 +46,7 @@ export function TripPreviewContent({ preview, counts, onCount, appearance }: { p
   const detail = tour.detail ?? tour.dayDetail
   const itinerary = tour.detail?.itinerary ?? tour.dayDetail?.stops ?? []
   const highlights = tour.detail?.highlights ?? tour.dayDetail?.highlightGroups ?? []
-  const money = (amount: number | undefined) => amount !== undefined && Number.isFinite(amount) && amount >= 0 ? formatPrice(amount, 'USD', locale) : '—'
+  const money = (amount: number | undefined) => amount !== undefined && Number.isFinite(amount) && amount >= 0 ? formatPrice(amount, 'USD', locale) : ' - '
   const photos = (tour.gallery ?? []).map((src,index) => ({ src: safePreviewMedia(src), alt: tour.galleryCaptions?.[index]?.en ?? '' })).filter(row => row.src)
   const [selected, setSelected] = useState(0)
   const selectedIndex = Math.min(selected, Math.max(0, photos.length-1))

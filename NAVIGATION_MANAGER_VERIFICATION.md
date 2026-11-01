@@ -1,4 +1,4 @@
-# Navigation Manager — verification report
+# Navigation Manager  -  verification report
 
 ## 1. Existing architecture
 

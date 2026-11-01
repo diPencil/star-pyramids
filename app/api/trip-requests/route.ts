@@ -34,7 +34,7 @@ function bodyTourSlug(body: unknown): string {
 /**
  * Public trip-request submission (Make Your Trip + account planner).
  * Guest submissions are preserved: contact details identify the request.
- * An authenticated CUSTOMER session links the record to that user —
+ * An authenticated CUSTOMER session links the record to that user  -
  * ownership always comes from the server session, never the browser.
  */
 export async function POST(request: Request) {

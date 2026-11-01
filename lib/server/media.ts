@@ -1,4 +1,4 @@
-// Authoritative server-side media storage (P0 Fix 03 — real media files).
+// Authoritative server-side media storage (P0 Fix 03  -  real media files).
 //
 // Every image upload in the product (avatars, Trip Builder galleries,
 // tours, offers, destinations, blogs, vehicles, events, brand logo and
@@ -7,7 +7,7 @@
 // is decided from magic bytes, the filename is generated server-side, and
 // the public URL is always a same-origin absolute path.
 //
-// Storage layout (disk-backed, zero new dependencies — this project already
+// Storage layout (disk-backed, zero new dependencies  -  this project already
 // runs on the Node.js server runtime with Prisma/MySQL):
 //
 //   <MEDIA_STORAGE_DIR>/<yyyy>/<mm>/<32 hex>.<ext>   → the stored file
@@ -39,7 +39,7 @@ import {
 
 /**
  * Where uploads are classified. Only affects the stored audit label and the
- * permission gate applied by the route — the storage mechanics are shared.
+ * permission gate applied by the route  -  the storage mechanics are shared.
  */
 export type MediaScope = 'avatar' | 'brand' | 'catalogue' | 'gallery-video';
 
@@ -164,7 +164,7 @@ function buildStorageKey(extension: string): string {
  * Order matters: content is validated in full before a single byte is
  * written, the file is written atomically (temp file + rename) so a
  * crashed request never leaves a truncated image readable, and the
- * database row is written last — if it fails, the orphaned file is
+ * database row is written last  -  if it fails, the orphaned file is
  * removed so the store never accumulates unreferenced media.
  */
 export async function storeUploadedImage(input: {

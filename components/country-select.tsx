@@ -13,7 +13,7 @@ export type CountrySelectVariant = 'country' | 'phone'
 /**
  * Popup sizing strategy (see the dropdown design system in globals.css):
  * - `content` (default): compact floating menu sized to its content, capped
- *   well below wide triggers — never a giant full-field panel.
+ *   well below wide triggers  -  never a giant full-field panel.
  * - `trigger`: popup matches the trigger width for genuinely long content.
  */
 export type CountryPopupWidth = 'content' | 'trigger'
@@ -52,7 +52,7 @@ type CountrySelectProps = {
  * primitive (already a dependency, already used by `components/ui`):
  * anchored popup, sensible max-height with internal scroll, typeahead,
  * full keyboard support, Escape/outside-press close, and ARIA listbox
- * semantics — without adding any dependency or touching country data.
+ * semantics  -  without adding any dependency or touching country data.
  */
 export function CountrySelect({
   value,

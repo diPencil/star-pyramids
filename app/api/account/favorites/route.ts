@@ -18,7 +18,7 @@ export async function GET() {
 }
 
 /**
- * Owner-only save. The body carries a catalogue key ONLY — titles,
+ * Owner-only save. The body carries a catalogue key ONLY  -  titles,
  * images, and prices always resolve live from the catalogue, never
  * from the browser. Re-saving is idempotent (no duplicates).
  */
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
 
 /**
  * Owner-only removal. Removing a non-saved item succeeds with the
- * current list — removal is idempotent by design.
+ * current list  -  removal is idempotent by design.
  */
 export async function DELETE(request: Request) {
   if (!isSameOriginRequest(request)) {

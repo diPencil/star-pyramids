@@ -1,6 +1,6 @@
 // Payment domain service (Phase 2F-A). Server owns initiation,
 // reference issuance, ownership, amounts, status lifecycle, and
-// response shaping. The browser supplies a booking reference ONLY —
+// response shaping. The browser supplies a booking reference ONLY  -
 // never amounts, statuses, provider IDs, references, or ownership.
 //
 // Phase 2F-A integrates NO gateway: initiation creates a legitimate
@@ -66,7 +66,7 @@ const REF_PATTERN = /^SP-PAY-[A-Z0-9]{6}$/;
 export const BOOKING_REF_PATTERN = /^(SP-BK-[A-Z0-9]{6}|SP-[A-Z0-9]{10})$/;
 
 /** Integer-cents helpers: persisted money is computed in cents and
- *  stored as DECIMAL — never float arithmetic. */
+ *  stored as DECIMAL  -  never float arithmetic. */
 function decimalToCents(value: Prisma.Decimal | number | string): number {
   return Math.round(Number(value.toString()) * 100);
 }
@@ -165,7 +165,7 @@ export function toStaffPaymentView(row: PaymentRow): StaffPayment {
 
 /**
  * Derived booking payment summary from real Payment rows. Bookings
- * with no payment record are `unpaid` — nothing is fabricated.
+ * with no payment record are `unpaid`  -  nothing is fabricated.
  * `bookingTotalCents` is the server-side booking total.
  */
 export function deriveBookingPaymentSummary(
@@ -232,7 +232,7 @@ export interface ValidatedPaymentInitiation {
 
 /**
  * Strict server validation of the initiation body. Only the booking
- * reference and an optional client idempotency key are accepted —
+ * reference and an optional client idempotency key are accepted  -
  * amounts, statuses, providers, and ownership are never read.
  */
 export function validatePaymentInitiation(input: unknown): ValidatedPaymentInitiation {
@@ -252,7 +252,7 @@ export function validatePaymentInitiation(input: unknown): ValidatedPaymentIniti
  * Initiate exactly one active payment attempt for an eligible booking
  * owned by the customer. A repeated initiation while an active
  * (pending/processing) attempt exists returns the original payment
- * instead of creating a duplicate. The record is always PENDING —
+ * instead of creating a duplicate. The record is always PENDING  -
  * initiation never marks money as paid.
  */
 export async function initiateCustomerPayment(
@@ -343,7 +343,7 @@ export async function initiateCustomerPayment(
       // Initiation receipt only, on first creation. Idempotent replays
       // and active-attempt dedup return early with created:false, so a
       // retried initiation never notifies twice. Copy stays truthful:
-      // nothing has been charged — no provider is connected yet.
+      // nothing has been charged  -  no provider is connected yet.
       await notifyUser(userId, {
         type: 'payment_initiated',
         title: 'Payment initiated',
@@ -359,7 +359,7 @@ export async function initiateCustomerPayment(
         message: `Payment ${reference} for booking ${input.bookingReference} is pending. No charge completed.`,
         href: `/admin/payments/${encodeURIComponent(reference)}`,
       });
-      // Email receipts (best-effort — never break initiation).
+      // Email receipts (best-effort  -  never break initiation).
       // Customer copy to the payer's account email; staff copy to
       // the configured operational recipient.
       try {
@@ -387,7 +387,7 @@ export async function initiateCustomerPayment(
       return { payment: toCustomerPaymentView(row), created: true };
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        // Idempotency-key race: another request won — return the winner.
+        // Idempotency-key race: another request won  -  return the winner.
         const target = (error.meta?.target as string[] | undefined) ?? [];
         if (target.includes('idempotencyKey') && input.idempotencyKey !== '') {
           const winner = await db.payment.findUnique({
@@ -410,7 +410,7 @@ export async function initiateCustomerPayment(
 
 /**
  * Offline receipt methods a staff member may record. Closed allowlist:
- * anything else is rejected — never stored, never converted.
+ * anything else is rejected  -  never stored, never converted.
  */
 export const OFFLINE_PAYMENT_METHODS = ['bank_transfer', 'cash'] as const;
 export type OfflinePaymentMethod = (typeof OFFLINE_PAYMENT_METHODS)[number];
@@ -461,7 +461,7 @@ async function paymentDetailUrlForCustomer(booking: { reference: string; userId:
 
 /**
  * Records an offline receipt (cash/bank transfer) as PAID by explicit,
- * authorized staff confirmation — no gateway involved. Each receipt is
+ * authorized staff confirmation  -  no gateway involved. Each receipt is
  * its own Payment row (`provider: 'offline'`), so partial payments
  * accumulate honestly in the booking summary and a partial receipt
  * never fakes a full payment. Returns null for an unknown booking
@@ -563,7 +563,7 @@ export async function recordOfflinePayment(
         const recordedNote =
           `Offline ${OFFLINE_METHOD_LABELS[method]} receipt` +
           (referenceNote ? `: ${referenceNote}` : '');
-        const receiptNote = `${recordedNote} — recorded by staff`;
+        const receiptNote = `${recordedNote}  -  recorded by staff`;
         const row = await tx.payment.create({
           data: {
             reference,
@@ -601,7 +601,7 @@ export async function recordOfflinePayment(
       break;
     } catch (error) {
       // Duck-typed P2002 (same convention as booking idempotency):
-      // a key race means another request won — return the winner.
+      // a key race means another request won  -  return the winner.
       const code =
         typeof error === 'object' && error !== null
           ? (error as { code?: unknown }).code
@@ -664,7 +664,7 @@ export interface RecordOfflineRefundInput {
 
 /**
  * Records an ACTUALLY COMPLETED offline refund against captured money.
- * No transfer is initiated here — the money must already have been
+ * No transfer is initiated here  -  the money must already have been
  * returned outside the website; this only records the fact, audited,
  * by explicit staff confirmation. Partial refunds accumulate: each
  * call adds to `amountRefunded`, and only a zero net balance makes a
@@ -722,8 +722,8 @@ export async function recordOfflineRefund(
   // always differ in amount or reference.
   const receiptNote =
     `Offline ${OFFLINE_METHOD_LABELS[method]} refund ${externalReference}` +
-    (note ? ` — ${note}` : '') +
-    ' — return confirmed by staff';
+    (note ? `  -  ${note}` : '') +
+    '  -  return confirmed by staff';
   const duplicate = existing.events.some(
     (event) =>
       (event.action === 'Payment refunded' || event.action === 'Payment partially refunded') &&
@@ -862,7 +862,7 @@ export type PaymentMoneySnapshot = {
 /**
  * Resolves the internal payment record for a verified provider
  * identifier. Provider webhooks reference OUR record by THEIR id
- * (`providerPaymentId`, unique) — never by our `reference` — so the
+ * (`providerPaymentId`, unique)  -  never by our `reference`  -  so the
  * handler must resolve through this lookup before transitioning.
  * Returns null when no record carries the identifier (unknown payment).
  */
@@ -950,7 +950,7 @@ class DuplicateOfflineRefund extends Error {
  *   so concurrent transitions serialize instead of overwriting;
  * - a `providerEventId` (webhooks) is claimed atomically with the
  *   transition via its unique index: a redelivery collides (P2002)
- *   and surfaces as DuplicateWebhookEvent — the claim row and the
+ *   and surfaces as DuplicateWebhookEvent  -  the claim row and the
  *   money move commit together, never separately;
  * - settling PAID on a cancelled booking is refused outright.
  */
@@ -1062,7 +1062,7 @@ async function transitionPayment(
       // ever bypassed, a concurrently moved row matches zero rows
       // instead of being overwritten. The audit event is a separate
       // create in the same transaction so the money move and its
-      // evidence commit atomically — including the unique
+      // evidence commit atomically  -  including the unique
       // providerEventId claim that absorbs redeliveries.
       const claimed = await tx.payment.updateMany({
         where: { id: currentRow.id, status: currentRow.status as DbStatus },
@@ -1086,7 +1086,7 @@ async function transitionPayment(
       // providerEventId commits atomically with the money move, so a
       // redelivered event collides (P2002 → DuplicateWebhookEvent)
       // instead of double-applying. Parameterized raw SQL is
-      // deliberate — fully bound values, no string interpolation.
+      // deliberate  -  fully bound values, no string interpolation.
       await tx.$executeRaw`
         INSERT INTO payment_events
           (id, paymentId, actorRole, action, note, isInternal, providerEventId, amountCents, method, externalReference)
@@ -1121,7 +1121,7 @@ async function transitionPayment(
   if (!row) return null;
   // Customer email on meaningful money outcomes only (paid / failed /
   // refunded / partially refunded). Processing/cancelled/pending are
-  // internal handoff states and never email. Best-effort — never
+  // internal handoff states and never email. Best-effort  -  never
   // breaks the transition.
   if (appliedTo === 'paid' || appliedTo === 'failed' || appliedTo === 'refunded' || appliedTo === 'partially_refunded') {
     try {

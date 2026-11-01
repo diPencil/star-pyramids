@@ -1,4 +1,4 @@
-// Shared server-only Event repository — DB-authoritative catalogue.
+// Shared server-only Event repository  -  DB-authoritative catalogue.
 // `data/content.ts` remains the preserved bootstrap/reference source; all
 // runtime reads in Server Components and API routes go through this
 // repository (Prisma `events` table). Nested editorial content (gallery,

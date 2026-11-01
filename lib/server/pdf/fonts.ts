@@ -2,7 +2,7 @@
 //
 // The documents embed Montserrat (the brand heading font of the website,
 // see app/layout.tsx) as TrueType subsets with full Latin Extended
-// coverage — verified in tests against Spanish/Italian/French sample
+// coverage  -  verified in tests against Spanish/Italian/French sample
 // text via fontkit glyph inspection. Arabic is deliberately NOT
 // supported: no RTL shaping is performed or claimed, and PDF copy is
 // English-only.

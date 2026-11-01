@@ -1,6 +1,6 @@
-// Backend core — environment-neutral (Next.js server runtime AND trusted
+// Backend core  -  environment-neutral (Next.js server runtime AND trusted
 // Node CLI scripts). Pure functions only: no browser APIs, no Next.js
-// imports, no Prisma. Same boundary rules as lib/core/password.ts —
+// imports, no Prisma. Same boundary rules as lib/core/password.ts  -
 // server/CLI only, never client components.
 //
 // The server MUST never trust localStorage, query strings, form payloads,
@@ -53,7 +53,7 @@ export function isValidUsername(username: string): boolean {
 /**
  * Server-side avatar allowlist (mirrors POST /api/avatar): empty
  * (clearing), https/http URLs, stored /media paths, or legacy
- * data:image payloads — each capped so oversized values can never
+ * data:image payloads  -  each capped so oversized values can never
  * reach the 500-char column. Anything else (javascript:, data:text,
  * ftp:, bare paths) is rejected. Renderers only ever place avatars
  * in <img src>, but untrusted schemes are refused at the trust

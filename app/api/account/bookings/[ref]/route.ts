@@ -23,7 +23,7 @@ export async function GET(
 
 /**
  * Owner-only cancel. Only pending/confirmed bookings can be cancelled;
- * the server enforces the transition — the browser sends no status.
+ * the server enforces the transition  -  the browser sends no status.
  */
 export async function PATCH(
   request: Request,

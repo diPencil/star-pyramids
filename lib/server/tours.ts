@@ -1,5 +1,5 @@
 import { applyLinkedOfferDeals } from './special-offers';
-// Shared server-only Tour repository/service — DB-authoritative catalogue.
+// Shared server-only Tour repository/service  -  DB-authoritative catalogue.
 // `data/tours.ts` remains the preserved source/reference and deterministic
 // bootstrap source; all runtime reads in Server Components and API routes
 // go through this repository (Prisma `tours` table). Alias resolution is

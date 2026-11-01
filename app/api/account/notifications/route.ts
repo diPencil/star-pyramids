@@ -26,7 +26,7 @@ export async function GET() {
 }
 
 /**
- * Owner-only read marking. No creation endpoint exists by design —
+ * Owner-only read marking. No creation endpoint exists by design  -
  * personal events retain their original behavior; active offers use owner-scoped read receipts.
  * Both actions are idempotent: re-marking succeeds without writing.
  */

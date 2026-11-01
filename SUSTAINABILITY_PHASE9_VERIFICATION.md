@@ -1,4 +1,4 @@
-# Phase 9 — Travel With Purpose CMS media
+# Phase 9  -  Travel With Purpose CMS media
 
 ## Integration and files
 - `lib/page-sections.ts`: HOME_SECTIONS.sustainability registers optional `media.badgeImage`. Existing missing/null media is accepted without losing text, items, CTA, visibility or ordering; unknown fields and unsafe URLs are rejected. Other sections retain their existing media requirements.

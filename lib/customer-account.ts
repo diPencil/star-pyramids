@@ -6,7 +6,7 @@ import type { EnabledLocale } from '@/lib/locale-config'
 /**
  * Customer account browser state (Phase 2E).
  *
- * Bookings are database-backed (`/api/account/bookings/*`) — this module
+ * Bookings are database-backed (`/api/account/bookings/*`)  -  this module
  * no longer stores, seeds, or mutates booking records. What remains here
  * is genuine browser state: saved-trip favorites, the local profile
  * draft, and the cross-page message draft.
@@ -119,7 +119,7 @@ function getFavoritesSnapshot() {
  * role and only then loads `/api/account/favorites`. Staff-only and
  * guest sessions never request the customer-only endpoint (which would
  * 401 for staff despite a 200 session) and fall back to the legacy
- * browser-local set — guest/staff hearts stay temporary and are never
+ * browser-local set  -  guest/staff hearts stay temporary and are never
  * written to the server. The local key is left untouched so existing
  * guest data is never deleted by development.
  */
@@ -142,7 +142,7 @@ const SERVER_CACHE_TTL_MS = 30 * 1000
  * unconditional favorites fetch turns every admin page view into a
  * spurious customer-only 401. Check the DB-backed session first and
  * skip the favorites request entirely for guests and staff-only
- * sessions — both stay on the temporary browser-local set.
+ * sessions  -  both stay on the temporary browser-local set.
  */
 let authEligibleCache: boolean | null = null
 let authEligibleSettledAt = 0
@@ -259,7 +259,7 @@ export function useCustomerFavorites() {
         setLoading(false)
       }).catch(() => {
         // Any unexpected failure (e.g. unparsable response) must
-        // still settle loading — fall back to the guest-local set
+        // still settle loading  -  fall back to the guest-local set
         // instead of hanging on the loading state.
         if (cancelled) return
         serverMode = false

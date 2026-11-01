@@ -1,4 +1,4 @@
-# STAR PYRAMIDS — Revenue Trend Chart Date Dropdown Fix Report
+# STAR PYRAMIDS  -  Revenue Trend Chart Date Dropdown Fix Report
 
 **Date:** 2026-10-09
 **Project:** E:\star-pyramids-nodejs\web-source

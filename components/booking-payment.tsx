@@ -83,7 +83,7 @@ type SubmittedProofResponse = {
 
 /**
  * Reference-only proof submission form. Sends the bank/cash reference
- * for staff review — never a file (no private upload infrastructure),
+ * for staff review  -  never a file (no private upload infrastructure),
  * never money. The confirmation states receipt, never verification.
  */
 export function PaymentProofForm({ bookingReference, guestToken, onSubmitted }: {
@@ -124,8 +124,8 @@ export function PaymentProofForm({ bookingReference, guestToken, onSubmitted }: 
         setReference('')
         setMethod('')
         setNotice(data.proof?.duplicate
-          ? tx(locale, { en: 'We already received this reference — our team will review it. No payment is confirmed yet.', es: 'Ya recibimos esta referencia — nuestro equipo la revisará. Aún no hay ningún pago confirmado.', it: 'Abbiamo già ricevuto questo riferimento — il nostro team lo verificherà. Nessun pagamento è ancora confermato.', ar: 'استلمنا هذا المرجع من قبل — سيراجعه فريقنا. لم يتم تأكيد أي دفع بعد.' })
-          : tx(locale, { en: 'Reference received — our team will review it. This does not confirm payment yet.', es: 'Referencia recibida — nuestro equipo la revisará. Esto aún no confirma el pago.', it: 'Riferimento ricevuto — il nostro team lo verificherà. Questo non conferma ancora il pagamento.', ar: 'تم استلام المرجع — سيراجعه فريقنا. هذا لا يؤكد الدفع بعد.' }))
+          ? tx(locale, { en: 'We already received this reference  -  our team will review it. No payment is confirmed yet.', es: 'Ya recibimos esta referencia  -  nuestro equipo la revisará. Aún no hay ningún pago confirmado.', it: 'Abbiamo già ricevuto questo riferimento  -  il nostro team lo verificherà. Nessun pagamento è ancora confermato.', ar: 'استلمنا هذا المرجع من قبل  -  سيراجعه فريقنا. لم يتم تأكيد أي دفع بعد.' })
+          : tx(locale, { en: 'Reference received  -  our team will review it. This does not confirm payment yet.', es: 'Referencia recibida  -  nuestro equipo la revisará. Esto aún no confirma el pago.', it: 'Riferimento ricevuto  -  il nostro team lo verificherà. Questo non conferma ancora il pagamento.', ar: 'تم استلام المرجع  -  سيراجعه فريقنا. هذا لا يؤكد الدفع بعد.' }))
         onSubmitted?.()
       })
       .catch((err: unknown) => {
@@ -189,7 +189,7 @@ export function BookingPaymentPanel({ booking }: { booking: Booking }) {
       <ul className="customer-timeline">
         {proofs.map((proof) => <li key={proof.reference} className={proof.reviewed ? 'done' : ''}><span /><div><strong dir="ltr">{proof.reference}</strong><small>{methodLabel(proof.method, locale)} · {dateFor(proof.submittedAt)} · {proof.reviewed
           ? tx(locale, { en: 'Reviewed by our team', es: 'Revisada por nuestro equipo', it: 'Verificata dal nostro team', ar: 'راجعها فريقنا' })
-          : tx(locale, { en: 'Awaiting review — not confirmed', es: 'En revisión — sin confirmar', it: 'In revisione — non confermato', ar: 'بانتظار المراجعة — غير مؤكد' })}</small></div></li>)}
+          : tx(locale, { en: 'Awaiting review  -  not confirmed', es: 'En revisión  -  sin confirmar', it: 'In revisione  -  non confermato', ar: 'بانتظار المراجعة  -  غير مؤكد' })}</small></div></li>)}
       </ul>
     </div>}
   </section>

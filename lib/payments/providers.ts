@@ -4,9 +4,9 @@
 
 import type { PaymentProviderKey } from '@/lib/payment'
 
-/** Runtime provider configuration — all values from environment */
+/** Runtime provider configuration  -  all values from environment */
 export interface ProviderConfig {
-  /** Provider key — matches PaymentProviderAdapter.key */
+  /** Provider key  -  matches PaymentProviderAdapter.key */
   key: PaymentProviderKey
   /** Human-readable provider name */
   name: string
@@ -18,7 +18,7 @@ export interface ProviderConfig {
   config: Record<string, string>
 }
 
-/** Supported provider keys — extend when adding new gateways */
+/** Supported provider keys  -  extend when adding new gateways */
 export const SUPPORTED_PROVIDER_KEYS = [
   'stripe',
   'paypal',
@@ -34,7 +34,7 @@ export function isSupportedProvider(key: string): key is SupportedProviderKey {
 
 /**
  * Builds provider configuration from environment variables.
- * No provider is enabled by default — all require explicit opt-in.
+ * No provider is enabled by default  -  all require explicit opt-in.
  * Format: PROVIDER_<KEY>_ENABLED, PROVIDER_<KEY>_TEST_MODE, PROVIDER_<KEY>_<SETTING>
  */
 export function getProviderConfig(key: SupportedProviderKey): ProviderConfig {

@@ -2,7 +2,7 @@
 //
 // Guests and account holders pay offline (bank transfer / cash) and submit
 // a payment REFERENCE for staff review. Submissions are stored as plain
-// BookingActivity rows on the existing timeline — no new table, no
+// BookingActivity rows on the existing timeline  -  no new table, no
 // migration, no file upload:
 //
 // - The media architecture serves PUBLIC files only (`GET /media/...`
@@ -70,7 +70,7 @@ export interface ValidatedProofInput {
 
 /**
  * Strict server validation of the proof body. Only a payment reference
- * and an optional offline method are accepted — amounts, statuses,
+ * and an optional offline method are accepted  -  amounts, statuses,
  * files, URLs, and ownership are never read from the body.
  */
 export function validateProofInput(input: unknown): ValidatedProofInput {
@@ -188,7 +188,7 @@ async function findDuplicate(
  * the resolved booking plus where to link the customer back:
  * - `userId`: account owner id, or null for guests (no in-app notify).
  * - `detailUrl`: account detail path, or the guest's own private link
- *   (never mints/rotates tokens — the link they arrived on stays valid).
+ *   (never mints/rotates tokens  -  the link they arrived on stays valid).
  */
 async function writeProofSubmission(input: {
   booking: BookingRef;
@@ -207,7 +207,7 @@ async function writeProofSubmission(input: {
   // (`FOR UPDATE`), so simultaneous submits for one booking serialize
   // instead of racing: the loser blocks until the winner commits, then
   // re-reads INSIDE the same transaction and resolves to the winner's
-  // row as a duplicate — one activity row, one notification fan-out.
+  // row as a duplicate  -  one activity row, one notification fan-out.
   // Lock order (booking row, then its activity writes) matches the
   // cancellation path, so the two can never deadlock. Deliberately no
   // schema migration: a unique index would need a client regen plus a
@@ -240,21 +240,21 @@ async function writeProofSubmission(input: {
   });
 
   // Duplicates (including the serialized-race loser) return here with
-  // no new row and no notification — the single fan-out belongs to the
+  // no new row and no notification  -  the single fan-out belongs to the
   // original submission only.
   if (!submitted.created) return submitted;
 
-  // Receipt confirmation only — never a payment verification. Runs only
+  // Receipt confirmation only  -  never a payment verification. Runs only
   // on the created path, so retried/duplicate submissions never notify
   // twice. Emails carry their own idempotency keys as a second layer.
   const proofKey = sanitizeIdempotency(proof.reference) || 'proof';
   const emailKey = `payment_proof:${sanitizeIdempotency(bookingReference)}:${proofKey}`;
-  // Guests (userId null) are skipped — no account to notify; the email
+  // Guests (userId null) are skipped  -  no account to notify; the email
   // below still confirms receipt to their checkout address.
   await notifyUser(userId, {
     type: 'payment_proof_submitted',
     title: 'Payment proof received',
-    message: `We received your payment reference for booking ${bookingReference}. Our team will review it — this does not confirm payment yet.`,
+    message: `We received your payment reference for booking ${bookingReference}. Our team will review it  -  this does not confirm payment yet.`,
     href: detailUrl,
   });
   await notifyStaff({
@@ -279,7 +279,7 @@ async function writeProofSubmission(input: {
 
 /**
  * Owner-only submission (authenticated CUSTOMER). Returns null when the
- * booking does not belong to the caller — the route maps that to 404
+ * booking does not belong to the caller  -  the route maps that to 404
  * without revealing ownership.
  */
 export async function submitCustomerPaymentProof(
@@ -325,7 +325,7 @@ export async function submitGuestPaymentProof(
 /**
  * Staff acknowledgement of one pending proof submission. Appends a
  * customer-visible `Payment proof reviewed` activity row carrying the
- * customer's own reference — never money, never a status change, never
+ * customer's own reference  -  never money, never a status change, never
  * an internal note leak. Actual receipts stay on the separate audited
  * `recordOfflinePayment` path. Returns null for an unknown booking;
  * throws for an unknown reference; an already-reviewed proof returns
@@ -345,7 +345,7 @@ export async function acknowledgePaymentProof(
   // is locked first so simultaneous acknowledgements serialize, and
   // the re-read inside the transaction decides. A repeat
   // acknowledgement of an already-reviewed proof returns it as-is with
-  // no new row — idempotent, history-preserving, still never money.
+  // no new row  -  idempotent, history-preserving, still never money.
   return db.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM bookings WHERE id = ${booking.id} FOR UPDATE`;
     const rows = await tx.bookingActivity.findMany({

@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser, hasPermission } from '@/lib/server/auth';
 import { buildBookingDocumentPdf, documentPdfResponse, publicBaseUrl } from '@/lib/server/document-pdf';
 
-// Private document bytes — evaluated per request, never cached.
+// Private document bytes  -  evaluated per request, never cached.
 export const dynamic = 'force-dynamic';
 
 /**

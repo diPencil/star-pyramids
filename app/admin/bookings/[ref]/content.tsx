@@ -71,39 +71,39 @@ function issueFailureMessage(code: string | undefined, serverMessage: string, ar
   switch (code) {
     case 'status-mismatch':
       return ar
-        ? 'تأكيد الحجز يتطلب حجزًا مؤكدًا — أكّد الحجز أولًا ثم أصدر المستند.'
-        : 'Booking confirmations need a confirmed booking — confirm it first, then issue.'
+        ? 'تأكيد الحجز يتطلب حجزًا مؤكدًا  -  أكّد الحجز أولًا ثم أصدر المستند.'
+        : 'Booking confirmations need a confirmed booking  -  confirm it first, then issue.'
     case 'payment-not-on-booking':
       return ar
-        ? 'هذه الدفعة تخص حجزًا آخر — اختر دفعة من هذا الحجز.'
-        : 'That payment belongs to a different booking — pick a payment from this booking.'
+        ? 'هذه الدفعة تخص حجزًا آخر  -  اختر دفعة من هذا الحجز.'
+        : 'That payment belongs to a different booking  -  pick a payment from this booking.'
     case 'no-verified-money':
       return ar
-        ? 'لا توجد مبالغ محصلة على هذه الدفعة بعد — سجّل الدفعة أولًا.'
-        : 'That payment has no verified money yet — record the payment first.'
+        ? 'لا توجد مبالغ محصلة على هذه الدفعة بعد  -  سجّل الدفعة أولًا.'
+        : 'That payment has no verified money yet  -  record the payment first.'
     case 'unknown-payment':
       return ar
-        ? 'الدفعة غير موجودة — أعد التحميل واختر دفعة من القائمة.'
-        : 'Payment not found — reload and pick a payment from the list.'
+        ? 'الدفعة غير موجودة  -  أعد التحميل واختر دفعة من القائمة.'
+        : 'Payment not found  -  reload and pick a payment from the list.'
     case 'not-issuable-yet':
       return ar
         ? 'هذا النوع من المستندات غير متاح بعد.'
         : 'This document type is not available yet.'
     case 'voucher-not-eligible':
       return ar
-        ? 'القسائم تتطلب حجزًا مؤكدًا — أكّد الحجز أولًا ثم أصدر.'
-        : 'Vouchers need a confirmed booking — confirm it first, then issue.'
+        ? 'القسائم تتطلب حجزًا مؤكدًا  -  أكّد الحجز أولًا ثم أصدر.'
+        : 'Vouchers need a confirmed booking  -  confirm it first, then issue.'
     case 'unknown-refund-event':
       return ar
-        ? 'حدث الاسترداد غير موجود — أعد التحميل واختر حدثًا من القائمة.'
-        : 'Refund event not found — reload and pick an event from the list.'
+        ? 'حدث الاسترداد غير موجود  -  أعد التحميل واختر حدثًا من القائمة.'
+        : 'Refund event not found  -  reload and pick an event from the list.'
     case 'refund-not-on-booking':
       return ar
-        ? 'هذا الاسترداد يخص حجزًا آخر — اختر استردادًا من هذا الحجز.'
-        : 'That refund belongs to a different booking — pick a refund from this booking.'
+        ? 'هذا الاسترداد يخص حجزًا آخر  -  اختر استردادًا من هذا الحجز.'
+        : 'That refund belongs to a different booking  -  pick a refund from this booking.'
     case 'refund-not-tracked':
       return ar
-        ? 'سُجّل هذا الاسترداد قبل تتبع الاستردادات لكل حدث — لا يمكن إصدار إشعار له.'
+        ? 'سُجّل هذا الاسترداد قبل تتبع الاستردادات لكل حدث  -  لا يمكن إصدار إشعار له.'
         : 'That refund was recorded before per-refund tracking and cannot be noted.'
     case 'duplicate-refund-note':
       return ar
@@ -119,8 +119,8 @@ function issueFailureMessage(code: string | undefined, serverMessage: string, ar
         : 'A voucher was already issued for this booking.'
     case 'invoice-not-eligible':
       return ar
-        ? 'لا يمكن إصدار فاتورة جديدة لحجوزات ملغاة — الفواتير الصادرة قبل الإلغاء محفوظة.'
-        : 'Invoices cannot be issued for cancelled bookings — invoices issued before cancellation stay on record.'
+        ? 'لا يمكن إصدار فاتورة جديدة لحجوزات ملغاة  -  الفواتير الصادرة قبل الإلغاء محفوظة.'
+        : 'Invoices cannot be issued for cancelled bookings  -  invoices issued before cancellation stay on record.'
     default:
       return serverMessage
   }
@@ -129,8 +129,8 @@ function issueFailureMessage(code: string | undefined, serverMessage: string, ar
 /** Localized explanation for a financial-review cancellation block. */
 function financialReviewBlockMessage(ar: boolean): string {
   return ar
-    ? 'هذا الحجز مرتبط بمدفوعات محصلة أو معلقة. سوّ الاسترداد أولاً — تم حظر الإلغاء التلقائي لحماية سجل المدفوعات.'
-    : 'This booking has captured or in-flight payments. Settle the refund first — automatic cancellation is blocked to protect the payment history.'
+    ? 'هذا الحجز مرتبط بمدفوعات محصلة أو معلقة. سوّ الاسترداد أولاً  -  تم حظر الإلغاء التلقائي لحماية سجل المدفوعات.'
+    : 'This booking has captured or in-flight payments. Settle the refund first  -  automatic cancellation is blocked to protect the payment history.'
 }
 
 export function BookingDetailContent({ reference }: { reference: string }) {
@@ -360,7 +360,7 @@ export function BookingDetailContent({ reference }: { reference: string }) {
   }
 
   // Proof-review acknowledgement: marks the submission reviewed only.
-  // Actual money is recorded separately with “Record payment” — this
+  // Actual money is recorded separately with “Record payment”  -  this
   // action never settles anything.
   const reviewProof = (proofReference: string) => {
     if (!item || reviewing) return
@@ -448,8 +448,8 @@ export function BookingDetailContent({ reference }: { reference: string }) {
                   {pendingProofs.length > 0 && (
                     <p className="evr-manage-hint" role="status">
                       <AdminText
-                        en={`${pendingProofs.length} reference${pendingProofs.length === 1 ? '' : 's'} awaiting review. Verify first, then record actually received money with “Record payment” — a submission never marks anything paid.`}
-                        ar={`${pendingProofs.length} ${pendingProofs.length === 1 ? 'مرجع بانتظار' : 'مراجع بانتظار'} المراجعة. تحقق أولًا ثم سجّل المبالغ المستلمة فعلًا عبر «تسجيل دفعة» — فالإرسال لا يعلّم أي مبلغ كمدفوع.`}
+                        en={`${pendingProofs.length} reference${pendingProofs.length === 1 ? '' : 's'} awaiting review. Verify first, then record actually received money with “Record payment”  -  a submission never marks anything paid.`}
+                        ar={`${pendingProofs.length} ${pendingProofs.length === 1 ? 'مرجع بانتظار' : 'مراجع بانتظار'} المراجعة. تحقق أولًا ثم سجّل المبالغ المستلمة فعلًا عبر «تسجيل دفعة»  -  فالإرسال لا يعلّم أي مبلغ كمدفوع.`}
                       />
                     </p>
                   )}
@@ -497,7 +497,7 @@ export function BookingDetailContent({ reference }: { reference: string }) {
           </Card>
           <Card title={<AdminText en="Documents" ar="المستندات" />}>
             <div className="evr-manage">
-              <p className="evr-manage-hint"><AdminText en="Issued documents with PDF download. Issuance is explicit and audited — nothing is created automatically." ar="المستندات الصادرة مع تنزيل PDF. الإصدار يدوي وموثق — لا يُنشأ شيء تلقائيًا." /></p>
+              <p className="evr-manage-hint"><AdminText en="Issued documents with PDF download. Issuance is explicit and audited  -  nothing is created automatically." ar="المستندات الصادرة مع تنزيل PDF. الإصدار يدوي وموثق  -  لا يُنشأ شيء تلقائيًا." /></p>
               {docsLoading && <p className="evr-manage-hint"><AdminText en="Loading documents…" ar="جارٍ تحميل المستندات…" /></p>}
               {docsError && <p className="evr-manage-hint" role="alert">{docsError}</p>}
               {docs !== null && docs.length === 0 && !docsLoading && !docsError && (
@@ -607,8 +607,8 @@ export function BookingDetailContent({ reference }: { reference: string }) {
         onConfirm={submitIssue}
         title={<AdminText en="Issue document" ar="إصدار مستند" />}
         description={<AdminText
-          en={`Creates an official document for ${item.reference} with a frozen financial snapshot. Audited; safe to retry — the same request never issues twice.`}
-          ar={`ينشئ مستندًا رسميًا لـ ${item.reference} مع لقطة مالية ثابتة. موثق وآمن لإعادة المحاولة — نفس الطلب لا يُصدر مرتين.`}
+          en={`Creates an official document for ${item.reference} with a frozen financial snapshot. Audited; safe to retry  -  the same request never issues twice.`}
+          ar={`ينشئ مستندًا رسميًا لـ ${item.reference} مع لقطة مالية ثابتة. موثق وآمن لإعادة المحاولة  -  نفس الطلب لا يُصدر مرتين.`}
         />}
         confirmLabel={<AdminText en={issueSaving ? 'Issuing…' : 'Issue document'} ar={issueSaving ? 'جارٍ الإصدار…' : 'إصدار المستند'} />}
         cancelLabel={<AdminText en="Cancel" ar="إلغاء" />}
@@ -636,24 +636,24 @@ export function BookingDetailContent({ reference }: { reference: string }) {
               label={ar ? 'الدفعة المراد توثيقها' : 'Payment to receipt'}
               options={verifiedPayments.map((p) => ({
                 value: p.reference,
-                label: `${p.reference} — ${formatUsd(p.amountPaidCents / 100)}${p.paidAt ? ` · ${formatDocumentIssuedAt(p.paidAt, ar ? 'ar' : 'en')}` : ''}`,
+                label: `${p.reference}  -  ${formatUsd(p.amountPaidCents / 100)}${p.paidAt ? ` · ${formatDocumentIssuedAt(p.paidAt, ar ? 'ar' : 'en')}` : ''}`,
               }))}
             /></label>
           ) : (
-            <p className="evr-manage-hint" role="status"><AdminText en="No verified payments on this booking yet — record a payment first." ar="لا توجد مدفوعات محصلة على هذا الحجز بعد — سجّل دفعة أولًا." /></p>
+            <p className="evr-manage-hint" role="status"><AdminText en="No verified payments on this booking yet  -  record a payment first." ar="لا توجد مدفوعات محصلة على هذا الحجز بعد  -  سجّل دفعة أولًا." /></p>
           ))}
           {issueType === 'BOOKING_CONFIRMATION' && item.status !== 'confirmed' && item.status !== 'completed' && (
-            <p className="evr-manage-hint" role="status"><AdminText en="Confirmations need a confirmed booking — confirm it first, then issue." ar="التأكيد يتطلب حجزًا مؤكدًا — أكّد الحجز أولًا ثم أصدر." /></p>
+            <p className="evr-manage-hint" role="status"><AdminText en="Confirmations need a confirmed booking  -  confirm it first, then issue." ar="التأكيد يتطلب حجزًا مؤكدًا  -  أكّد الحجز أولًا ثم أصدر." /></p>
           )}
           {issueType === 'INVOICE' && (item.status === 'cancelled' ? (
-            <p className="evr-manage-hint" role="status"><AdminText en="Invoices cannot be issued for cancelled bookings — invoices issued before cancellation stay on record." ar="لا يمكن إصدار فاتورة جديدة لحجوزات ملغاة — الفواتير الصادرة قبل الإلغاء محفوظة." /></p>
+            <p className="evr-manage-hint" role="status"><AdminText en="Invoices cannot be issued for cancelled bookings  -  invoices issued before cancellation stay on record." ar="لا يمكن إصدار فاتورة جديدة لحجوزات ملغاة  -  الفواتير الصادرة قبل الإلغاء محفوظة." /></p>
           ) : (
             <p className="evr-manage-hint" role="status"><AdminText en="Commercial invoice for the frozen booking total. May be issued before any payment; the balance updates as money is recorded. One invoice per booking." ar="فاتورة تجارية بإجمالي الحجز الثابت. يمكن إصدارها قبل أي دفعة؛ ويتحدث الرصيد مع تسجيل المدفوعات. فاتورة واحدة لكل حجز." /></p>
           ))}
           {issueType === 'BOOKING_VOUCHER' && (item.status === 'confirmed' || item.status === 'completed' ? (
             <p className="evr-manage-hint" role="status"><AdminText en="Premium travel voucher with a verification QR. Carries no prices and never proves payment. One voucher per booking." ar="قسيمة سفر مميزة برمز تحقق. لا تحمل أسعارًا ولا تثبت الدفع أبدًا. قسيمة واحدة لكل حجز." /></p>
           ) : (
-            <p className="evr-manage-hint" role="status"><AdminText en="Vouchers need a confirmed booking — confirm it first, then issue." ar="القسائم تتطلب حجزًا مؤكدًا — أكّد الحجز أولًا ثم أصدر." /></p>
+            <p className="evr-manage-hint" role="status"><AdminText en="Vouchers need a confirmed booking  -  confirm it first, then issue." ar="القسائم تتطلب حجزًا مؤكدًا  -  أكّد الحجز أولًا ثم أصدر." /></p>
           ))}
           {issueType === 'REFUND_NOTE' && (refundEvents.length > 0 ? (
             <>
@@ -663,16 +663,16 @@ export function BookingDetailContent({ reference }: { reference: string }) {
                 options={refundEvents.map((e) => ({
                   value: e.id,
                   label: e.tracked
-                    ? `${e.paymentReference} — ${formatUsd((e.amountCents ?? 0) / 100)} · ${e.scope === 'full' ? (ar ? 'كامل' : 'full') : (ar ? 'جزئي' : 'partial')} · ${formatDocumentIssuedAt(e.createdAt, ar ? 'ar' : 'en')}`
-                    : `${e.paymentReference} — ${ar ? 'غير مؤهل (سُجّل قبل التتبع)' : 'not eligible (recorded before tracking)'} · ${formatDocumentIssuedAt(e.createdAt, ar ? 'ar' : 'en')}`,
+                    ? `${e.paymentReference}  -  ${formatUsd((e.amountCents ?? 0) / 100)} · ${e.scope === 'full' ? (ar ? 'كامل' : 'full') : (ar ? 'جزئي' : 'partial')} · ${formatDocumentIssuedAt(e.createdAt, ar ? 'ar' : 'en')}`
+                    : `${e.paymentReference}  -  ${ar ? 'غير مؤهل (سُجّل قبل التتبع)' : 'not eligible (recorded before tracking)'} · ${formatDocumentIssuedAt(e.createdAt, ar ? 'ar' : 'en')}`,
                 }))}
               /></label>
               {selectedRefundEvent && !selectedRefundEvent.tracked && (
-                <p className="evr-manage-hint" role="status"><AdminText en="That refund was recorded before per-refund tracking and cannot be noted." ar="سُجّل هذا الاسترداد قبل تتبع الاستردادات لكل حدث — لا يمكن إصدار إشعار له." /></p>
+                <p className="evr-manage-hint" role="status"><AdminText en="That refund was recorded before per-refund tracking and cannot be noted." ar="سُجّل هذا الاسترداد قبل تتبع الاستردادات لكل حدث  -  لا يمكن إصدار إشعار له." /></p>
               )}
             </>
           ) : (
-            <p className="evr-manage-hint" role="status"><AdminText en="No completed refunds on this booking yet — record a refund first." ar="لا توجد استردادات مكتملة على هذا الحجز بعد — سجّل استردادًا أولًا." /></p>
+            <p className="evr-manage-hint" role="status"><AdminText en="No completed refunds on this booking yet  -  record a refund first." ar="لا توجد استردادات مكتملة على هذا الحجز بعد  -  سجّل استردادًا أولًا." /></p>
           ))}
           {issueError && <p className="evr-manage-hint" role="alert">{issueError}</p>}
         </div>

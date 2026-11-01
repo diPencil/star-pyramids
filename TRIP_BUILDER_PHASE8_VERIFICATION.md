@@ -1,4 +1,4 @@
-# Trip Builder live preview — Phase 8
+# Trip Builder live preview  -  Phase 8
 
 2026-10-27. Local only. No browser testing, production operations, commits, pushes, deployment, migrations, seeds, resets or business-data writes. Rent Cars, Reviews, Journey Gallery and Destinations implementation files were preserved. Phases 9/10 were not started.
 

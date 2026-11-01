@@ -33,7 +33,7 @@ function text(value: unknown): string {
 
 /**
  * Self-service profile for the currently authenticated staff/admin user.
- * Updates identity fields of the session user ONLY — no user id is accepted
+ * Updates identity fields of the session user ONLY  -  no user id is accepted
  * from the browser, and role/status can never be changed here.
  */
 export async function PATCH(request: Request) {

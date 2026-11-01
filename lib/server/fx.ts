@@ -1,6 +1,6 @@
 // Authoritative FX service. Rates are DECIMAL(18,8) per currency pair;
 // the backend converts, the browser never supplies rates. No external
-// FX integration in Phase 1A — rates are manual/system-seeded only.
+// FX integration in Phase 1A  -  rates are manual/system-seeded only.
 import 'server-only';
 
 import { Prisma } from '@prisma/client';

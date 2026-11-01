@@ -41,7 +41,7 @@ export type CustomerDetail = DirectoryCustomer & {
 };
 
 export type CustomersDirectoryStatus = {
-  /** DB customer list or null while loading/failed — never mock rows. */
+  /** DB customer list or null while loading/failed  -  never mock rows. */
   data: DirectoryCustomer[] | null;
   viewerPermissions: string[];
   loading: boolean;

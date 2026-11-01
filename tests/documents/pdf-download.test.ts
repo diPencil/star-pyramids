@@ -110,7 +110,7 @@ async function createProbeBooking(opts: {
       items: {
         create: {
           tourSlug: 'pyramids-sphinx',
-          tourTitle: 'Pyramids & Sphinx — tour privado',
+          tourTitle: 'Pyramids & Sphinx  -  tour privado',
           travelDate: '2026-12-05',
           adults: 2,
           children: 1,
@@ -283,7 +283,7 @@ describe.runIf(reachable)('PDF download access matrix (real database)', () => {
       expect(cross.status).toBe(404)
       expect(await cross.json()).toEqual({ error: 'Document not found.' })
 
-      // Malformed token — same refusal as the guest booking view.
+      // Malformed token  -  same refusal as the guest booking view.
       const malformed = await call(
         guestPdf,
         `http://localhost/api/bookings/access/bad-token/documents/${issuedB.document.id}/pdf`,
