@@ -11,6 +11,8 @@ type HorizontalSliderProps = {
   nextLabel: string
   autoAdvanceMs?: number
   rotationLabels?: { pause: string; play: string }
+  arrowsOnly?: boolean
+  footerAction?: ReactNode
 }
 
 export function HorizontalSlider({
@@ -21,6 +23,8 @@ export function HorizontalSlider({
   nextLabel,
   autoAdvanceMs = 4200,
   rotationLabels,
+  arrowsOnly = false,
+  footerAction,
 }: HorizontalSliderProps) {
   const items = Children.toArray(children)
   const trackRef = useRef<HTMLDivElement>(null)
@@ -91,6 +95,18 @@ export function HorizontalSlider({
 
   if (!items.length) return null
 
+  const navigation = positions.length > 1 && <div className="horizontal-slider-nav">
+    <button type="button" onClick={() => goTo(indexRef.current - 1)} aria-label={previousLabel}><ArrowLeft size={18}/></button>
+    {!arrowsOnly && (rotationLabels ? <span className="horizontal-slider-count" aria-hidden="true">{activeIndex + 1} / {positions.length}</span> : <div className="horizontal-slider-dots" aria-hidden="true">
+      {positions.map((position, index) => <span key={position} className={activeIndex === index ? "active" : ""}/>)}
+    </div>)}
+    <button type="button" onClick={() => goTo(indexRef.current + 1)} aria-label={nextLabel}><ArrowRight size={18}/></button>
+    {!arrowsOnly && rotationLabels && <button type="button" aria-label={stopped ? rotationLabels.play : rotationLabels.pause} onClick={() => {
+      setStopped(!stopped)
+      if (stopped) interaction.current = { hovered: false, focused: false, touching: false, last: 0 }
+    }}>{stopped ? <Play size={16}/> : <Pause size={16}/>}</button>}
+  </div>
+
   return <div
     className="horizontal-slider"
     onMouseEnter={() => { interaction.current.hovered = true }}
@@ -109,16 +125,6 @@ export function HorizontalSlider({
       interaction.current.last = Date.now()
       goTo(event.key === 'Home' ? 0 : event.key === 'End' ? positions.length - 1 : indexRef.current + (event.key === 'ArrowLeft' ? -1 : 1))
     }}>{items}</div>
-    {positions.length > 1 && <div className="horizontal-slider-nav">
-      <button type="button" onClick={() => goTo(activeIndex - 1)} aria-label={previousLabel}><ArrowLeft size={18}/></button>
-      {rotationLabels ? <span className="horizontal-slider-count" aria-hidden="true">{activeIndex + 1} / {positions.length}</span> : <div className="horizontal-slider-dots" aria-hidden="true">
-        {positions.map((position, index) => <span key={position} className={activeIndex === index ? "active" : ""}/>) }
-      </div>}
-      <button type="button" onClick={() => goTo(activeIndex + 1)} aria-label={nextLabel}><ArrowRight size={18}/></button>
-      {rotationLabels && <button type="button" aria-label={stopped ? rotationLabels.play : rotationLabels.pause} onClick={() => {
-        setStopped(!stopped)
-        if (stopped) interaction.current = { hovered: false, focused: false, touching: false, last: 0 }
-      }}>{stopped ? <Play size={16}/> : <Pause size={16}/>}</button>}
-    </div>}
+    {footerAction ? <div className="horizontal-slider-footer">{navigation}<div className="horizontal-slider-action">{footerAction}</div></div> : navigation}
   </div>
 }

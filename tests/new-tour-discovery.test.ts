@@ -26,20 +26,22 @@ describe('published admin-created tours in actual discovery components', () => {
   it.each(['one-day-tours', 'multi-days-tours', 'nile-cruises', 'shore-excursions'] as const)('includes new published %s records in the automatic Top Tours section', category => {
     state.rows = [row('new-featured-tour', category), row('hidden-featured-draft', category, 'draft')]
     const html = render(h(RebuiltHomePage))
-    const featured = html.split('class="compact-tour-grid"')[1].split('class="center-cta"')[0]
+    const featured = html.split('class="featured-tours-slider"')[1].split('</section>')[0]
     expect(featured).toContain('href="/egypt-tours/new-featured-tour"')
     expect(featured).not.toContain('hidden-featured-draft')
   })
-  it('keeps the Top Tours manual selection and CMS limit', () => {
-    state.rows = [row('picked-featured', 'one-day-tours'), row('not-picked-featured', 'one-day-tours')]
+  it('includes all 26 published Top Tours across categories despite a legacy CMS limit of seven', () => {
+    const types = ['one-day-tours', 'multi-days-tours', 'nile-cruises', 'shore-excursions'] as const
+    state.rows = Array.from({ length: 26 }, (_, index) => row('featured-' + index, types[index % 4]))
+    state.rows.push(row('draft-featured', 'one-day-tours', 'draft'))
     const content = originalPageContent()
     const featured = content.sections.find(section => section.id === 'featured')!
-    featured.selectionMode = 'selected'; featured.selection = ['picked-featured']; featured.limit = 1
+    featured.selectionMode = 'selected'; featured.selection = ['featured-0']; featured.limit = 7
     const html = render(h(RebuiltHomePage, { pageContent: { content } }))
-    const grid = html.split('class="compact-tour-grid"')[1].split('class="center-cta"')[0]
-    expect(grid).toContain('href="/egypt-tours/picked-featured"')
-    expect(grid).not.toContain('not-picked-featured')
-    expect(grid.match(/<article\b/g)).toHaveLength(1)
+    const grid = html.split('class="featured-tours-slider"')[1].split('</section>')[0]
+    expect(grid).toContain('href="/egypt-tours/featured-25"')
+    expect(grid).not.toContain('draft-featured')
+    expect(grid.match(/<article\b/g)).toHaveLength(26)
   })
   it('renders exactly eight Recommended cards across the published pool', () => {
     const types = ['one-day-tours', 'multi-days-tours', 'nile-cruises', 'shore-excursions'] as const

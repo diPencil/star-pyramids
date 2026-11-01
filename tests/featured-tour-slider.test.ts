@@ -13,19 +13,34 @@ vi.mock('@/lib/tours-client', () => ({ useDbTours: () => Array.from({ length: 9 
 vi.mock('@/lib/catalogue-client', () => ({ useDbDestinations: () => [], useDbCategories: () => [] }))
 
 describe('homepage featured tour carousel', () => {
-  it.each(['en', 'es', 'it'] as const)('retains every selected card in one labeled carousel in %s', locale => {
+  it.each(['en', 'es', 'it'] as const)('includes every published card despite old CMS selection or limits in %s', locale => {
     const content = originalPageContent()
     const featured = content.sections.find(section => section.id === 'featured')!
-    featured.selectionMode = 'selected'; featured.selection = ['published-2', 'published-6']; featured.limit = 0
+    featured.selectionMode = 'selected'; featured.selection = ['published-2', 'published-6']; featured.limit = 7
     const html = renderToStaticMarkup(h(InitialLocaleProvider, { locale, preview: true, children: h(LocaleProvider, { children: h(RebuiltHomePage, { pageContent: { content } }) }) }))
-    const section = html.split('class="featured-tours-slider"')[1].split('class="center-cta"')[0]
+    const section = html.split('class="featured-tours-slider"')[1].split('</section>')[0]
     expect(section).toContain('role="region"')
     expect(section).toContain('tabindex="0"')
     expect(section).toContain(`aria-label="${featured.text[locale].xmasT.replaceAll("'", '&#x27;')}"`)
-    expect(section.match(/<article\b/g)).toHaveLength(2)
-    expect(section.indexOf('/egypt-tours/published-2')).toBeLessThan(section.indexOf('/egypt-tours/published-6'))
-    expect(section).not.toContain('/egypt-tours/published-0')
+    expect(section.match(/<article\b/g)).toHaveLength(9)
+    expect(section.indexOf('/egypt-tours/published-0')).toBeLessThan(section.indexOf('/egypt-tours/published-8'))
+    expect(section).toContain('class="horizontal-slider-footer"')
+    expect(section).toContain('class="horizontal-slider-action"')
+    expect(section).toContain('href="/egypt-tours/multi-days-tours"')
+    expect(section).not.toContain('class="center-cta"')
     expect(html).toContain('class="compact-tour-grid popular-grid"')
+  })
+  it('aligns the arrows left and action right on one responsive footer row', () => {
+    const root = postcss.parse(readFileSync('components/featured-tour-slider.css', 'utf8'))
+    const rules = new Map<string, Record<string, string>>()
+    root.walkRules(rule => {
+      const values: Record<string, string> = {}
+      rule.walkDecls(declaration => { values[declaration.prop] = declaration.value })
+      rules.set(rule.selector, values)
+    })
+    expect(rules.get('.featured-tours-slider .horizontal-slider-footer')).toMatchObject({ display: 'flex', 'align-items': 'center', 'justify-content': 'space-between' })
+    expect(rules.get('.featured-tours-slider .horizontal-slider-nav')).toMatchObject({ 'margin-top': '0', 'justify-content': 'flex-start', flex: 'none' })
+    expect(rules.get('.featured-tours-slider .horizontal-slider-action')).toMatchObject({ 'margin-left': 'auto', 'min-width': '0' })
   })
   it.each([320, 375, 430, 760, 761, 1024, 1440, 1920])('keeps an overflow row at width %i without changing other section grids', width => {
     const root = postcss.parse(readFileSync('components/featured-tour-slider.css', 'utf8'))

@@ -1,11 +1,11 @@
 # Homepage catalogue data
 
-- **Explore Egypt's Top Tours** uses the published database catalogue, including new slugs of every tour type. The original seasonal references can retain their relative priority, but no longer exclude newly created records. Manual CMS selections and section limits still apply. Cards use canonical slug keys, independent of title changes or duplicate titles.
+- **Explore Egypt's Top Tours** uses the full published database catalogue, including new slugs of every tour type, without the legacy seasonal list, featured selection or card limit (owner revision, 2 November). Cards use canonical slug keys, independent of title changes or duplicate titles.
 - **Special offers for you** uses offer records, not an automatic offer for every new tour. Publication, validity dates, homepage placement and linked-tour publication rules remain unchanged. Its existing default is four cards unless configured otherwise.
 - **Highlights of Egypt** uses published destination records eligible for directory display. Creating a tour does not create or publish a destination.
 - **Our Travel Blogs** uses published blog records. The homepage no longer substitutes bootstrap articles while the database response is unavailable. Creating a tour does not create a blog post.
 
-All four sections preserve their CMS manual/automatic modes, visibility, limits and localization owners. Top Tours now uses the owner's [horizontal slider layout](homepage-top-tours-slider.md) with the existing cards; other section layouts remain unchanged. No schema, database, pricing, booking, publication or offer-placement writes are involved.
+Top Tours preserves its CMS title, subtitle, visibility and action link while including all published tours. Other sections preserve their CMS selection modes and limits. Top Tours uses the owner's [horizontal slider layout](homepage-top-tours-slider.md) with the existing cards; other section layouts remain unchanged. No schema, database, pricing, booking, publication or offer-placement writes are involved.
 
 ## Cache freshness
 
@@ -13,4 +13,4 @@ Public offers, blogs, destinations and category lists revalidate on window focus
 
 Generation guards discard pre-invalidation responses so a late response cannot resurrect unpublished/deleted data. Initial private data requests remain isolated from public caches. Admin editor snapshots do not receive automatic focus/age refreshes; explicit save/invalidation/retry/refresh behavior remains available. A background public request finishing after navigation into an editor is discarded rather than replacing the editor's snapshot.
 
-Regression tests render the real homepage Top Tours with newly published slugs across all four categories and with manual CMS selection. Cache lifecycle tests cover all three affected content domains, foreground refresh, request deduplication, stale mounting, failed refreshes, stale-response races, and editor protection. Tests use mocked responses and no browser or database. Actual browser rendering was not tested, per project rules.
+Regression tests render the real homepage Top Tours with newly published slugs across all four categories and confirm that legacy featured selections/limits no longer truncate it. Cache lifecycle tests cover all three affected content domains, foreground refresh, request deduplication, stale mounting, failed refreshes, stale-response races, and editor protection. Tests use mocked responses and no browser or database. Actual browser rendering was not tested, per project rules.

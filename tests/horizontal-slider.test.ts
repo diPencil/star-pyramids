@@ -35,7 +35,7 @@ function find(node: ReactNode, predicate: (node: ReactElement<Record<string, unk
 }
 const fire = (node: ReactElement<Record<string, unknown>>, handler: string, event?: unknown) => (node.props[handler] as (event: unknown) => void)(event)
 
-function fixture(count = 6, width = 400) {
+function fixture(count = 6, width = 400, options: Partial<Parameters<typeof HorizontalSlider>[0]> = {}) {
   const motion = { matches: false }
   const doc = { visibilityState: 'visible' }
   const win = Object.assign(new EventTarget(), { matchMedia: () => motion, setInterval, clearInterval, innerHeight: 800 })
@@ -48,7 +48,7 @@ function fixture(count = 6, width = 400) {
   let root: ReturnType<typeof HorizontalSlider>
   const render = () => {
     hooks.cursor = 0
-    root = HorizontalSlider({ className: 'test-track', ariaLabel: 'Top tours', previousLabel: 'Previous', nextLabel: 'Next', rotationLabels: { pause: 'Pause', play: 'Play' }, autoAdvanceMs: 5000, children: Array.from({ length: count }, (_, i) => createElement('article', { key: i }, 'Tour ' + i)) })
+    root = HorizontalSlider({ className: 'test-track', ariaLabel: 'Top tours', previousLabel: 'Previous', nextLabel: 'Next', rotationLabels: { pause: 'Pause', play: 'Play' }, autoAdvanceMs: 5000, ...options, children: Array.from({ length: count }, (_, i) => createElement('article', { key: i }, 'Tour ' + i)) })
     const region = find(root, element => element.props.role === 'region')
     if (region) (region.props.ref as { current: unknown }).current = track
     const pending = hooks.pending.splice(0); pending.forEach(effect => effect())
@@ -65,6 +65,22 @@ afterEach(() => {
 })
 
 describe('horizontal tour slider interaction', () => {
+  it('groups arrows and the action into one footer with no counter, dots or playback button', () => {
+    const f = fixture(11, 800, { arrowsOnly: true, footerAction: createElement('a', { href: '/trips' }, 'View All') })
+    const footer = find(f.root, node => node.props.className === 'horizontal-slider-footer')!
+    expect(find(footer, node => node.props.className === 'horizontal-slider-nav')).toBeDefined()
+    expect(find(footer, node => node.props.className === 'horizontal-slider-action')).toBeDefined()
+    expect(Children.toArray(find(footer, node => node.props.className === 'horizontal-slider-nav')!.props.children as ReactNode).filter(isValidElement)).toHaveLength(2)
+    expect(f.button('Pause')).toBeUndefined()
+    expect(find(f.root, node => ['horizontal-slider-count', 'horizontal-slider-dots'].includes(String(node.props.className)))).toBeUndefined()
+    vi.advanceTimersByTime(5000); expect(f.track.scrollLeft).toBe(200)
+    fire(f.button('Next'), 'onClick'); expect(f.track.scrollLeft).toBe(400)
+  })
+  it('retains the footer action even when no arrows are needed', () => {
+    const f = fixture(1, 800, { arrowsOnly: true, footerAction: createElement('a', { href: '/trips' }, 'View All') })
+    expect(f.button('Next')).toBeUndefined()
+    expect(find(f.root, node => node.props.href === '/trips')).toBeDefined()
+  })
   it('advances, loops, pauses and resumes without duplicating cards', () => {
     const f = fixture()
     vi.advanceTimersByTime(5000); expect(f.track.scrollLeft).toBe(200)
