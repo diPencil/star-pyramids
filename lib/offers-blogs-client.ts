@@ -71,14 +71,20 @@ export type DbListStatus<T> = {
 
 function createCache<T>(url: string, key: string, map: (row: Record<string, unknown>) => T | null, label: string): CacheEntry<T> & { load(): void; invalidate(): void; use(base: readonly T[]): T[]; useStatus(): DbListStatus<T> } {
   const entry: CacheEntry<T> = { list: null, inflight: null, listeners: new Set(), error: null };
-  const load = () => {
-    if (entry.list || entry.inflight) return;
+  let generation = 0;
+  let loadedAt = 0;
+  // Editors keep their current snapshot until an explicit save/retry/refresh.
+  const canAutoRefresh = () => !url.includes('admin=1') && !(typeof window !== 'undefined' && window.location?.pathname?.startsWith('/admin'));
+  const load = (force = false) => {
+    if (entry.inflight || (entry.list && !force && (!canAutoRefresh() || Date.now() - loadedAt < 30_000))) return;
+    const current = generation;
+    const background = entry.list !== null;
     entry.error = null;
     entry.inflight = (async () => {
       try {
-        const res = await fetch(url, { credentials: 'same-origin' });
+        const res = await fetch(url, { credentials: 'same-origin', cache: 'no-store' });
         if (!res.ok) {
-          entry.error = `Request failed (${res.status}).`;
+          if (current === generation) entry.error = `Request failed (${res.status}).`;
           return null;
         }
         const data = (await res.json()) as Record<string, unknown>;
@@ -96,38 +102,60 @@ function createCache<T>(url: string, key: string, map: (row: Record<string, unkn
         // An empty table is a truthful empty list, not a failure.
         return mapped;
       } catch {
-        entry.error = `Could not reach the database (${label}).`;
+        if (current === generation) entry.error = `Could not reach the database (${label}).`;
         return null;
       } finally {
-        entry.inflight = null;
+        if (current === generation) entry.inflight = null;
       }
     })();
     void entry.inflight.then((list) => {
+      if (current !== generation || (background && !canAutoRefresh())) return;
       if (list) {
         entry.list = list;
+        loadedAt = Date.now();
       }
       entry.listeners.forEach((notify) => notify());
     });
+  };
+  const foreground = () => {
+    if (!canAutoRefresh()) return;
+    if (typeof document === 'undefined' || document.visibilityState !== 'hidden') load(true);
+  };
+  const subscribe = (notify: () => void) => {
+    entry.listeners.add(notify);
+    const win = typeof window !== 'undefined' && typeof window.addEventListener === 'function' ? window : null;
+    const doc = typeof document !== 'undefined' ? document : null;
+    if (entry.listeners.size === 1 && win && doc) {
+      win.addEventListener('focus', foreground);
+      doc.addEventListener('visibilitychange', foreground);
+    }
+    return () => {
+      entry.listeners.delete(notify);
+      if (!entry.listeners.size && win && doc) {
+        win.removeEventListener('focus', foreground);
+        doc.removeEventListener('visibilitychange', foreground);
+      }
+    };
   };
   return {
     ...entry,
     load,
     invalidate() {
+      generation++;
       entry.list = null;
       entry.inflight = null;
       entry.error = null;
+      entry.listeners.forEach((notify) => notify());
+      if (entry.listeners.size) load();
     },
     use(base: readonly T[]): T[] {
       // Bumped when the shared DB cache resolves so the memo below recomputes.
       const [version, setVersion] = useState(0);
       useEffect(() => {
-        if (entry.list) return;
         const notify = () => setVersion((n) => n + 1);
-        entry.listeners.add(notify);
+        const unsubscribe = subscribe(notify);
         load();
-        return () => {
-          entry.listeners.delete(notify);
-        };
+        return unsubscribe;
       }, []);
       // Referentially stable: identical `base` yields an identical result,
       // so consumers can safely depend on it in effects without render
@@ -140,11 +168,9 @@ function createCache<T>(url: string, key: string, map: (row: Record<string, unkn
       const [version, setVersion] = useState(0);
       useEffect(() => {
         const notify = () => setVersion((n) => n + 1);
-        entry.listeners.add(notify);
+        const unsubscribe = subscribe(notify);
         load();
-        return () => {
-          entry.listeners.delete(notify);
-        };
+        return unsubscribe;
       }, []);
       return useMemo(
         () => ({
@@ -154,12 +180,14 @@ function createCache<T>(url: string, key: string, map: (row: Record<string, unkn
           loading: entry.list === null && entry.error === null,
           error: entry.list === null ? entry.error : null,
           retry: () => {
+            generation++;
             entry.error = null;
             entry.inflight = null;
             setVersion((n) => n + 1);
             load();
           },
           refresh: () => {
+            generation++;
             entry.list = null;
             entry.error = null;
             entry.inflight = null;

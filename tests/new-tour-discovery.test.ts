@@ -18,11 +18,29 @@ vi.mock('@/lib/catalogue-client', () => ({
   useDbDestinations: () => [{ slug: 'cairo', title: 'Cairo', copy: 'Cairo experiences', isPublished: true, showInOneDayTours: true }],
   useDbCategories: (base: unknown[]) => base,
 }))
-const row = (slug: string, category: Tour['category'], status = 'published'): Tour => ({ slug, title: slug, category, status, destinationSlug: 'cairo', location: 'Cairo', duration: '1 day', price: 1, image: '', summary: 'Source-supported description' }) as Tour
+const row = (slug: string, category: Tour['category'], status = 'published'): Tour => ({ slug, title: slug, category, status, destinationSlug: 'cairo', location: 'Cairo', duration: '1 day', price: 1, image: '/fixture.jpg', summary: 'Source-supported description' }) as Tour
 const render = (child: React.ReactNode) => renderToStaticMarkup(h(InitialLocaleProvider, { locale: 'en', preview: true, children: h(LocaleProvider, { children: child }) }))
 
 describe('published admin-created tours in actual discovery components', () => {
   beforeEach(() => { state.rows = []; state.page = '' })
+  it.each(['one-day-tours', 'multi-days-tours', 'nile-cruises', 'shore-excursions'] as const)('includes new published %s records in the automatic Top Tours section', category => {
+    state.rows = [row('new-featured-tour', category), row('hidden-featured-draft', category, 'draft')]
+    const html = render(h(RebuiltHomePage))
+    const featured = html.split('class="compact-tour-grid"')[1].split('class="center-cta"')[0]
+    expect(featured).toContain('href="/egypt-tours/new-featured-tour"')
+    expect(featured).not.toContain('hidden-featured-draft')
+  })
+  it('keeps the Top Tours manual selection and CMS limit', () => {
+    state.rows = [row('picked-featured', 'one-day-tours'), row('not-picked-featured', 'one-day-tours')]
+    const content = originalPageContent()
+    const featured = content.sections.find(section => section.id === 'featured')!
+    featured.selectionMode = 'selected'; featured.selection = ['picked-featured']; featured.limit = 1
+    const html = render(h(RebuiltHomePage, { pageContent: { content } }))
+    const grid = html.split('class="compact-tour-grid"')[1].split('class="center-cta"')[0]
+    expect(grid).toContain('href="/egypt-tours/picked-featured"')
+    expect(grid).not.toContain('not-picked-featured')
+    expect(grid.match(/<article\b/g)).toHaveLength(1)
+  })
   it('renders exactly eight Recommended cards across the published pool', () => {
     const types = ['one-day-tours', 'multi-days-tours', 'nile-cruises', 'shore-excursions'] as const
     state.rows = Array.from({ length: 10 }, (_, index) => row(`published-${index}`, types[index % 4]))
@@ -46,8 +64,9 @@ describe('published admin-created tours in actual discovery components', () => {
     popular.selectionMode = 'selected'
     popular.selection = ['chosen-homepage-tour']
     const html = render(h(RebuiltHomePage, { pageContent: { content } }))
-    expect(html).toContain('href="/egypt-tours/chosen-homepage-tour"')
-    expect(html).not.toContain('href="/egypt-tours/not-selected-tour"')
+    const popularGrid = html.split('class="compact-tour-grid popular-grid"')[1].split('class="center-cta"')[0]
+    expect(popularGrid).toContain('href="/egypt-tours/chosen-homepage-tour"')
+    expect(popularGrid).not.toContain('href="/egypt-tours/not-selected-tour"')
   })
   it('includes a new day-tour slug in destination sections and excludes drafts and other categories', () => {
     state.rows = [row('new-cairo-day', 'one-day-tours'), row('hidden-draft', 'one-day-tours', 'draft'), row('other-category', 'nile-cruises')]
