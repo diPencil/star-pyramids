@@ -183,13 +183,24 @@
    the virtual keyboard changes its height or pans the layout viewport. */
 @media screen and (max-width:1024px){
   body .support-chat-screen:is(.livechat-panel,.wa-panel){position:fixed;inset:auto;top:var(--support-chat-top,0px);left:var(--support-chat-left,0px);right:auto;bottom:auto;width:var(--support-chat-width,100%);max-width:none;height:var(--support-chat-height,100dvh);max-height:none;min-height:0;margin:0;border:0;border-radius:0;box-shadow:none;z-index:1000;animation:none;transform:none;overscroll-behavior:none}
-  .support-chat-screen :is(.livechat-head,.wa-head){order:0;flex:none;padding-top:max(14px,env(safe-area-inset-top));padding-inline:max(12px,env(safe-area-inset-left)) max(12px,env(safe-area-inset-right))}
+  .support-chat-screen :is(.livechat-head,.wa-head){order:0;flex:none;gap:6px;padding-top:max(4px,env(safe-area-inset-top));padding-bottom:4px;padding-inline:max(8px,env(safe-area-inset-left)) max(8px,env(safe-area-inset-right))}
+  .support-chat-screen :is(.livechat-avatar,.wa-avatar){width:28px;height:28px}
+  .support-chat-screen :is(.livechat-head,.wa-head) strong{font-size:13px;line-height:1.2}
+  .support-chat-screen :is(.livechat-online,.wa-online){gap:4px;font-size:10.5px;line-height:1.3}
+  .support-chat-screen :is(.livechat-online,.wa-online) i{width:6px;height:6px;box-shadow:none}
   .support-chat-screen :is(.livechat-close,.wa-close){order:-1;width:44px;height:44px;min-height:44px;border-radius:0;background:transparent}
-  .support-chat-screen :is(.livechat-body,.wa-body){order:1;flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+  .support-chat-screen :is(.livechat-close,.wa-close) svg{width:18px;height:18px}
+  .support-chat-screen :is(.livechat-body,.wa-body){order:1;flex:1;min-height:0;gap:6px;padding:12px 10px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+  .support-chat-screen :is(.livechat-row,.wa-row){max-width:88%}
+  .support-chat-screen :is(.livechat-bubble,.wa-bubble){padding:8px 10px;font-size:13px;line-height:1.45;overflow-wrap:anywhere}
+  .support-chat-screen :is(.livechat-time,.wa-meta){font-size:10px;line-height:1.3}
+  .support-chat-screen :is(.livechat-typing,.wa-typing){padding:8px 10px}
+  .support-chat-screen :is(.livechat-typing,.wa-typing) i{width:5px;height:5px}
   .support-chat-screen .livechat-chips{order:2;max-height:24dvh;min-height:0;overflow-y:auto;overscroll-behavior:contain}
-  .support-chat-screen .wa-hint{order:2;flex:none;margin:0;padding-block:8px}
-  .support-chat-screen :is(.livechat-form,.wa-form){order:3;flex:none;padding-bottom:max(12px,env(safe-area-inset-bottom));padding-inline:max(12px,env(safe-area-inset-left)) max(12px,env(safe-area-inset-right))}
-  .support-chat-screen :is(.livechat-form,.wa-form) input{font-size:16px;min-height:46px}
+  .support-chat-screen .wa-hint{order:2;flex:none;margin:0;padding-block:6px;font-size:10.5px;line-height:1.3}
+  .support-chat-screen :is(.livechat-form,.wa-form){order:3;flex:none;padding-top:8px;padding-bottom:max(8px,env(safe-area-inset-bottom));padding-inline:max(8px,env(safe-area-inset-left)) max(8px,env(safe-area-inset-right))}
+  .support-chat-screen :is(.livechat-form,.wa-form) input{font-size:16px;min-height:44px}
+  .support-chat-screen :is(.livechat-send,.wa-send){width:44px;height:44px;min-height:44px}
   body[data-support-chat-open] :is(.mobile-bottom-nav,.support-widgets,.mobile-booking-shortcut,.scroll-top){visibility:hidden;pointer-events:none}
 }
 
