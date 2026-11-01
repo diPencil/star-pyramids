@@ -259,6 +259,18 @@
         "One dropdown level; accessible move controls alongside drag and drop",
         "EN/ES/IT only; no browser testing or new UI dependencies"
       ]
+    },
+    {
+      "area": "homepage-mobile-hero",
+      "direction": "Square media with centered CMS heading, search below",
+      "summary": "At widths up to 760px, show homepage media in a separate preferred 1:1 frame with centered heading and eyebrow. Keep the three search tabs and their existing engine underneath in normal document flow.",
+      "constraints": [
+        "Retain Hero Settings image/video, optional mobile media, poster, crop position, overlay and EN/ES/IT text",
+        "Keep the same HomepageHero in the CMS preview and public homepage",
+        "Preserve desktop/tablet flow and all search state, handlers and booking logic",
+        "Allow oversized text to grow rather than introducing text truncation",
+        "No browser automation, database changes, dependency installation or deployment"
+      ]
     }
   ]
 }

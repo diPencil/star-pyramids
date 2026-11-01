@@ -36,7 +36,8 @@ export function HomepageHero({ state, heading, eyebrow, children }: { state?: Pu
   }, [videoUrl])
   const showHero = !state?.hidden && !state?.unavailable
   return <section ref={panelRef} className="home-hero">
-    {showHero && <>
+    {showHero && <div className="home-hero-visual">
+      <div className="home-hero-media">
       {!content ? <Image src="/egypt-hero.png" alt="Egyptian temple columns in warm desert light at sunset" fill priority sizes="100vw" className="home-hero-img" /> : <>
         <picture style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
           {content.mediaType === 'image' && content.mobileUrl && <source media="(max-width: 760px)" srcSet={content.mobileUrl} />}
@@ -45,8 +46,9 @@ export function HomepageHero({ state, heading, eyebrow, children }: { state?: Pu
         {videoUrl && <video key={videoUrl} ref={videoRef} src={videoUrl} poster={content.poster} autoPlay muted loop playsInline preload="metadata" aria-hidden="true" tabIndex={-1} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: content.position, pointerEvents: 'none' }} />}
       </>}
       <div className="home-hero-shade" style={content?.overlay !== null && content?.overlay !== undefined ? { background: `rgba(10,32,76,${content.overlay})` } : undefined} />
+      </div>
       <div className="home-hero-copy" style={content ? { maxWidth: '100%', minWidth: 0, overflowWrap: 'anywhere' } : undefined}><span>{copy?.eyebrow ?? eyebrow}</span><h1>{copy?.heading ?? heading}</h1></div>
-    </>}
+    </div>}
     {children}
   </section>
 }

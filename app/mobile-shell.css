@@ -155,6 +155,16 @@
   .mobile-nav :focus-visible,.mobile-bottom-nav :focus-visible{outline:2px solid var(--primary);outline-offset:2px}
 }
 
+/* Phone hero: bounded media and centered CMS copy, then the unchanged engine. */
+@media screen and (max-width:760px){
+  .home-hero{gap:16px;background:var(--surface)}
+  .home-hero .home-hero-visual{position:relative;isolation:isolate;display:grid;grid-template-columns:minmax(0,1fr);place-items:center;width:100%;aspect-ratio:1 / 1;min-block-size:min-content;flex:none;overflow:hidden;background:var(--blue)}
+  .home-hero .home-hero-visual .home-hero-copy{align-self:center;justify-self:center;min-width:0;width:100%;margin:0;padding:24px 20px;text-align:center;overflow-wrap:anywhere}
+  .home-hero .home-hero-visual .home-hero-copy span{font-size:clamp(14px,3.8vw,18px);line-height:1.5}
+  .home-hero .home-hero-visual .home-hero-copy h1{max-width:100%;margin:12px auto 0;font-size:clamp(24px,7vw,36px);line-height:1.15;overflow-wrap:anywhere}
+  .home-hero .home-hero-visual .home-hero-img{display:block}
+}
+
 @media screen and (max-width:360px){
   .site-header .header-top{gap:2px}
   .site-header .header-top .brand-img{max-width:104px;height:32px}
