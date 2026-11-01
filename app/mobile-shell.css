@@ -158,7 +158,7 @@
 /* Phone hero: bounded media and centered CMS copy, then the unchanged engine. */
 @media screen and (max-width:760px){
   .home-hero{gap:16px;background:var(--surface)}
-  .home-hero .home-hero-visual{position:relative;isolation:isolate;display:grid;grid-template-columns:minmax(0,1fr);place-items:center;width:100%;aspect-ratio:1 / 1;min-block-size:min-content;flex:none;overflow:hidden;background:var(--blue)}
+  .home-hero .home-hero-visual{position:relative;isolation:isolate;display:grid;grid-template-columns:minmax(0,1fr);place-items:center;width:100%;aspect-ratio:8 / 5;min-block-size:min-content;flex:none;overflow:hidden;background:var(--blue)}
   .home-hero .home-hero-visual .home-hero-copy{align-self:center;justify-self:center;min-width:0;width:100%;margin:0;padding:24px 20px;text-align:center;overflow-wrap:anywhere}
   .home-hero .home-hero-visual .home-hero-copy span{font-size:clamp(14px,3.8vw,18px);line-height:1.5}
   .home-hero .home-hero-visual .home-hero-copy h1{max-width:100%;margin:12px auto 0;font-size:clamp(24px,7vw,36px);line-height:1.15;overflow-wrap:anywhere}

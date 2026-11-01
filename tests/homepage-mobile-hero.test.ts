@@ -63,7 +63,7 @@ describe('mobile CMS hero frame with unchanged engine',()=>{
   expect(source).toContain('autoPlay muted loop playsInline')
   expect(source.match(/<video /g)).toHaveLength(1)
  })
- it.each([{hidden:true,content:null},{hidden:false,content:null,unavailable:true}])('leaves the engine accessible without a blank square for hidden/unavailable state',state=>{
+ it.each([{hidden:true,content:null},{hidden:false,content:null,unavailable:true}])('leaves the engine accessible without a blank media frame for hidden/unavailable state',state=>{
   const markup=render(state)
   expect(markup).toContain('data-unchanged-engine')
   expect(markup).not.toContain('home-hero-visual')
@@ -89,8 +89,8 @@ describe('mobile CMS hero frame with unchanged engine',()=>{
   expect(markup).toContain('overflow-wrap:anywhere')
   expect(frameStyle(320)['min-block-size']).toBe('min-content')
  })
- it.each([320,375,390,430,760])('scopes square media and centered copy to phone width %i',width=>{
-  expect(frameStyle(width)).toMatchObject({display:'grid',position:'relative','aspect-ratio':'1 / 1','place-items':'center',width:'100%'})
+ it.each([320,375,390,430,760])('scopes shorter landscape media and centered copy to phone width %i',width=>{
+  expect(frameStyle(width)).toMatchObject({display:'grid',position:'relative','aspect-ratio':'8 / 5','place-items':'center',width:'100%'})
  })
  it.each([761,1024,1440])('retains existing flattened desktop/tablet hero layout at width %i',width=>{
   expect(frameStyle(width)).toEqual({display:'contents'})

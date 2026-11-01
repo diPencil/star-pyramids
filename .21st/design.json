@@ -262,8 +262,8 @@
     },
     {
       "area": "homepage-mobile-hero",
-      "direction": "Square media with centered CMS heading, search below",
-      "summary": "At widths up to 760px, show homepage media in a separate preferred 1:1 frame with centered heading and eyebrow. Keep the three search tabs and their existing engine underneath in normal document flow.",
+      "direction": "Shorter landscape media with centered CMS heading, search below",
+      "summary": "At widths up to 760px, show homepage media in a separate preferred 8:5 frame (width 4, height 2.5) with centered heading and eyebrow. The owner refined the initial square to reduce vertical space. Keep the three search tabs and their existing engine underneath in normal document flow.",
       "constraints": [
         "Retain Hero Settings image/video, optional mobile media, poster, crop position, overlay and EN/ES/IT text",
         "Keep the same HomepageHero in the CMS preview and public homepage",
