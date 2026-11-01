@@ -50,18 +50,39 @@ function toTour(row: Record<string, unknown>): Tour {
 /**
  * DB-backed tour list for client components.
  *
- * Fetches the authoritative catalogue (`GET /api/tours?full=1`) once and
- * shares it across mounts. The returned list preserves the `base`
+ * Shares the authoritative catalogue (`GET /api/tours?full=1`) across mounts,
+ * revalidating on foreground/focus and on stale mounts. The list preserves `base`
  * selection: every base slug resolves to its current DB record (omitting records while loading, offline, or when a slug no
  * longer exists). Curated subsets (seasonal, popular, category lists)
  * therefore keep their shape while always showing saved DB data.
  * No browser storage is consulted.
  */
 let cachedBySlug: Map<string, Tour> | null = null;
+let cachedAt = 0;
+const CATALOGUE_MAX_AGE_MS = 30_000;
 let inflight: Promise<Map<string, Tour> | null> | null = null;
 let toursError: string | null = null;
 let generation = 0;
 const listeners = new Set<() => void>();
+
+function refreshVisibleCatalogue() {
+  if (document.visibilityState !== 'hidden') void fetchDbTours({ force: true });
+}
+
+function subscribeTours(notify: () => void) {
+  listeners.add(notify);
+  if (listeners.size === 1) {
+    window.addEventListener('focus', refreshVisibleCatalogue);
+    document.addEventListener('visibilitychange', refreshVisibleCatalogue);
+  }
+  return () => {
+    listeners.delete(notify);
+    if (!listeners.size) {
+      window.removeEventListener('focus', refreshVisibleCatalogue);
+      document.removeEventListener('visibilitychange', refreshVisibleCatalogue);
+    }
+  };
+}
 
 export type DbToursStatus = {
   /** DB-resolved list or null until the API resolves. Never silent fallback. */
@@ -71,14 +92,14 @@ export type DbToursStatus = {
   retry(): void;
 };
 
-export async function fetchDbTours(): Promise<Map<string, Tour> | null> {
-  if (cachedBySlug) return cachedBySlug;
+export async function fetchDbTours({ force = false }: { force?: boolean } = {}): Promise<Map<string, Tour> | null> {
+  if (cachedBySlug && !force && Date.now() - cachedAt < CATALOGUE_MAX_AGE_MS) return cachedBySlug;
   const current = generation;
   if (!inflight) {
     toursError = null;
     inflight = (async () => {
       try {
-        const res = await fetch('/api/tours?full=1', { credentials: 'same-origin' });
+        const res = await fetch('/api/tours?full=1', { credentials: 'same-origin', cache: 'no-store' });
         if (!res.ok) {
           if (current === generation) toursError = `Request failed (${res.status}).`;
           return null;
@@ -112,6 +133,7 @@ export async function fetchDbTours(): Promise<Map<string, Tour> | null> {
   if (current !== generation) return null;
   if (map) {
     cachedBySlug = map;
+    cachedAt = Date.now();
   }
   listeners.forEach((notify) => notify());
   return map;
@@ -131,8 +153,9 @@ export type DbToursOptions = {
   /**
    * Append published DB tours absent from `base` (admin-created tours with
    * new slugs), preserving base order first and title order for extras.
-   * Curated surfaces (homepage seasonal/popular) keep the default `false`;
-   * catalogue/listing/search/resolution surfaces pass `true`.
+   * Fixed editorial subsets (such as homepage seasonal tours) keep `false`;
+   * automatic homepage discovery and catalogue/listing/search surfaces pass
+   * `true`. Explicit CMS selections still filter those results separately.
    */
   includeNew?: boolean;
   /** When set, only appended extras of this category are included. */
@@ -179,11 +202,9 @@ export function useDbTours(base: readonly Tour[], options?: DbToursOptions): Tou
   const [version, setVersion] = useState(0);
   useEffect(() => {
     const notify = () => setVersion((n) => n + 1);
-    listeners.add(notify);
-    if (!cachedBySlug) void fetchDbTours();
-    return () => {
-      listeners.delete(notify);
-    };
+    const unsubscribe = subscribeTours(notify);
+    void fetchDbTours();
+    return unsubscribe;
   }, []);
   // Referentially stable: identical `base` yields an identical result, so
   // consumers can safely depend on it in effects without render loops.
@@ -200,11 +221,9 @@ export function useDbToursStatus(base: readonly Tour[], options?: DbToursOptions
   const [version, setVersion] = useState(0);
   useEffect(() => {
     const notify = () => setVersion((n) => n + 1);
-    listeners.add(notify);
-    if (!cachedBySlug) void fetchDbTours();
-    return () => {
-      listeners.delete(notify);
-    };
+    const unsubscribe = subscribeTours(notify);
+    void fetchDbTours();
+    return unsubscribe;
   }, []);
   return useMemo(
     () => ({

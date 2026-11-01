@@ -11,6 +11,21 @@ import { originalShowcaseHero, type PublicShowcaseHero } from '@/lib/showcase-he
 const props = { image: '/egypt-hero.png', eyebrow: 'Source eyebrow', title: 'Source title', intro: 'Source description', primaryLabel: 'Browse', primaryHref: '#fleet', secondaryLabel: 'Featured', secondaryHref: '/rent-car/request?vehicle=source-id', railLabel: 'Featured vehicle', railTitle: 'Source record title', railHref: '/rent-car/request?vehicle=source-id', railMeta: [{ Icon: Clock3, label: 'Source duration' }], statsLabel: 'Source summary', stats: [{ value: 42, label: 'Source count' }] }
 const render = (state?: PublicShowcaseHero) => renderToStaticMarkup(createElement(InitialLocaleProvider, { locale: 'es', preview: true, children: createElement(LocaleProvider, { children: state ? createElement(ShowcaseHeroProvider, { state, children: createElement(PageShowcaseHero, props) }) : createElement(PageShowcaseHero, props) }) }))
 describe('actual showcase renderer without database access', () => {
+  it('trims only the shipped letterboxed fallback, using the effective mobile source', () => {
+    expect(render()).toContain('data-mobile-letterbox="true"')
+    const content = originalShowcaseHero('cars')
+    content.image = '/media/custom-desktop.jpg'
+    expect(render({ hidden: false, content })).not.toContain('data-mobile-letterbox')
+    content.mobileImage = '/egypt-hero.png'
+    expect(render({ hidden: false, content })).toContain('data-mobile-letterbox="true"')
+    content.image = '/egypt-hero.png'
+    content.mobileImage = '/media/custom-mobile.jpg'
+    content.position = 'top'
+    const html = render({ hidden: false, content })
+    expect(html).not.toContain('data-mobile-letterbox')
+    expect(html).toContain('object-position:top')
+    expect(html).toContain('/media/custom-mobile.jpg')
+  })
   it('keeps the offers hero with no tours and respects published content and explicit hiding', () => {
     const content = originalShowcaseHero('offers')
     content.text.es.title = 'Ofertas personalizadas'

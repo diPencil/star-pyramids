@@ -155,6 +155,20 @@
   .mobile-nav :focus-visible,.mobile-bottom-nav :focus-visible{outline:2px solid var(--primary);outline-offset:2px}
 }
 
+/* Shared catalogue heroes: content determines height even without a featured
+   record. Only the known letterboxed fallback needs extra media cropping. */
+@media screen and (max-width:760px){
+  .tour-category-page-hero{min-height:0;align-items:stretch}
+  .tour-category-page-hero .events-page-hero-content{grid-template-columns:minmax(0,1fr);gap:24px;min-width:0;padding-block:70px 28px}
+  .tour-category-page-hero .events-page-hero-copy{max-width:100%;min-width:0;padding-bottom:0}
+  .tour-category-page-hero .events-page-hero-copy h1{max-width:100%;font-size:clamp(32px,9vw,40px);line-height:1.12;overflow-wrap:anywhere}
+  .tour-category-page-hero .events-page-hero-copy>p{font-size:16px;line-height:1.65;overflow-wrap:anywhere}
+  .tour-category-page-hero .events-page-hero-actions{min-width:0;align-items:stretch;flex-direction:column;gap:12px}
+  .tour-category-page-hero .events-page-hero-actions :is(.primary-btn,.events-hero-link){min-width:0;max-width:100%;height:auto;min-height:48px;padding-block:12px;white-space:normal;overflow-wrap:anywhere;text-align:center;justify-content:center}
+  .tour-category-page-hero .events-hero-rail{min-width:0}
+  .tour-category-page-hero .hero-bg-img[data-mobile-letterbox]{transform:scale(1.52);transform-origin:center}
+}
+
 /* Phone hero: bounded media and centered CMS copy, then the unchanged engine. */
 @media screen and (max-width:760px){
   .home-hero{gap:16px;background:var(--surface)}
@@ -163,6 +177,20 @@
   .home-hero .home-hero-visual .home-hero-copy span{font-size:clamp(14px,3.8vw,18px);line-height:1.5}
   .home-hero .home-hero-visual .home-hero-copy h1{max-width:100%;margin:12px auto 0;font-size:clamp(24px,7vw,36px);line-height:1.15;overflow-wrap:anywhere}
   .home-hero .home-hero-visual .home-hero-img{display:block}
+}
+
+/* Support conversations occupy the visible mobile viewport, including when
+   the virtual keyboard changes its height or pans the layout viewport. */
+@media screen and (max-width:1024px){
+  body .support-chat-screen:is(.livechat-panel,.wa-panel){position:fixed;inset:auto;top:var(--support-chat-top,0px);left:var(--support-chat-left,0px);right:auto;bottom:auto;width:var(--support-chat-width,100%);max-width:none;height:var(--support-chat-height,100dvh);max-height:none;min-height:0;margin:0;border:0;border-radius:0;box-shadow:none;z-index:1000;animation:none;transform:none;overscroll-behavior:none}
+  .support-chat-screen :is(.livechat-head,.wa-head){order:0;flex:none;padding-top:max(14px,env(safe-area-inset-top));padding-inline:max(12px,env(safe-area-inset-left)) max(12px,env(safe-area-inset-right))}
+  .support-chat-screen :is(.livechat-close,.wa-close){order:-1;width:44px;height:44px;min-height:44px;border-radius:0;background:transparent}
+  .support-chat-screen :is(.livechat-body,.wa-body){order:1;flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+  .support-chat-screen .livechat-chips{order:2;max-height:24dvh;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+  .support-chat-screen .wa-hint{order:2;flex:none;margin:0;padding-block:8px}
+  .support-chat-screen :is(.livechat-form,.wa-form){order:3;flex:none;padding-bottom:max(12px,env(safe-area-inset-bottom));padding-inline:max(12px,env(safe-area-inset-left)) max(12px,env(safe-area-inset-right))}
+  .support-chat-screen :is(.livechat-form,.wa-form) input{font-size:16px;min-height:46px}
+  body[data-support-chat-open] :is(.mobile-bottom-nav,.support-widgets,.mobile-booking-shortcut,.scroll-top){visibility:hidden;pointer-events:none}
 }
 
 @media screen and (max-width:360px){

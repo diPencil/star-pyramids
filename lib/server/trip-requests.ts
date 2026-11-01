@@ -35,6 +35,7 @@ import {
 import { findBlogBySlug } from './blogs';
 import { findDestinationBySlug } from './destinations';
 import { findTourBySlug } from './tours';
+import { isTourPublished } from '@/lib/tour-publish';
 import { notifyUser, notifyStaff } from './notifications';
 import { sendCustomerEmailSafe, sendStaffEmailSafe } from './email';
 
@@ -177,7 +178,7 @@ export async function validateTripDraft(input: unknown, opts?: { isShore?: boole
   const tourSlug = text(body.tourSlug)?.trim() ?? '';
   // DB-authoritative catalogue: unknown slugs are rejected.
   const tour = tourSlug === '' ? null : await findTourBySlug(tourSlug);
-  if (tourSlug !== '' && !tour) fail('Choose a valid tour.');
+  if (tourSlug !== '' && (!tour || !isTourPublished(tour))) fail('Choose a valid tour.');
   const customTitle = text(body.customTitle)?.trim() ?? '';
   if (customTitle !== '' && (customTitle.length > 120 || hasControlChars(customTitle))) {
     fail('Trip name is too long.');

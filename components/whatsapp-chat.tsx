@@ -3,10 +3,11 @@ import { BrandMark } from '@/components/brand-mark'
 
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { CheckCheck, Send, X } from 'lucide-react'
+import { ArrowLeft, CheckCheck, Send, X } from 'lucide-react'
 import { useLocale, tx } from './locale'
 import { whatsappNumber } from '@/data/company'
 import { useBrandSettings } from '@/lib/admin-store'
+import { SupportChatPanel } from './support-chat-panel'
 
 const OPENED_KEY = 'sp-wa-opened'
 
@@ -65,14 +66,6 @@ export function WhatsAppWidget({ open, onOpen, onClose }: { open: boolean; onOpe
   useEffect(() => {
     bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages, typing, open])
-  useEffect(() => {
-    if (open) {
-      inputRef.current?.focus()
-      const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-      window.addEventListener('keydown', onKey)
-      return () => window.removeEventListener('keydown', onKey)
-    }
-  }, [open, onClose])
   useEffect(() => () => { if (timerRef.current) window.clearTimeout(timerRef.current) }, [])
 
   const openPanel = () => {
@@ -102,11 +95,11 @@ export function WhatsAppWidget({ open, onOpen, onClose }: { open: boolean; onOpe
 
   return <div className="wa-wrap">
     {mobileTarget && createPortal(<button type="button" className="mobile-support-trigger" onClick={() => (open ? onClose() : openPanel())} aria-expanded={open} aria-label={open ? t.closeLabel : t.openLabel}><span className="mobile-whatsapp-circle"><WhatsAppGlyph size={26}/></span><span>WhatsApp</span>{!open && unread > 0 && <b>{unread}</b>}</button>, mobileTarget)}
-    {open && <section className="wa-panel" role="dialog" aria-label={t.name} aria-modal="false">
+    {open && <SupportChatPanel className="wa-panel" label={t.name} onClose={onClose}>{mobile => <>
       <header className="wa-head">
         <span className="wa-avatar" aria-hidden="true"><BrandMark alt="" /></span>
         <div><strong>{t.name}</strong><span className="wa-online"><i aria-hidden="true" />{t.online}</span></div>
-        <button type="button" className="wa-close" onClick={onClose} aria-label={t.closeLabel}><X size={17} /></button>
+        <button type="button" className="wa-close" onClick={onClose} aria-label={mobile ? tx(locale,{en:'Back to page',es:'Volver a la página',it:'Torna alla pagina'}) : t.closeLabel}>{mobile ? <ArrowLeft size={22} /> : <X size={17} />}</button>
       </header>
       <div className="wa-body" ref={bodyRef} aria-live="polite">
         {messages.map((m) => <div key={m.id} className={`wa-row ${m.from}`}>
@@ -121,7 +114,7 @@ export function WhatsAppWidget({ open, onOpen, onClose }: { open: boolean; onOpe
         <button type="submit" className="wa-send" aria-label={t.sendLabel}><Send size={17} /></button>
       </form>
       <small className="wa-hint"><WhatsAppGlyph size={12} />{t.hint}</small>
-    </section>}
+    </>}</SupportChatPanel>}
     <button type="button" className="wa-fab" onClick={() => (open ? onClose() : openPanel())} aria-expanded={open} aria-label={open ? t.closeLabel : t.openLabel}>
       {open ? <X size={26} /> : <WhatsAppGlyph size={30} />}
       {!open && unread > 0 && <b>{unread}</b>}

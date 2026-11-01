@@ -4,12 +4,13 @@ import { BrandMark } from '@/components/brand-mark'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
-import { Headset, Send, X } from 'lucide-react'
+import { ArrowLeft, Headset, Send, X } from 'lucide-react'
 import { getToursByCategory } from '@/data/tours'
 import { useDbTours } from '@/lib/tours-client'
 import { whatsappHref } from '@/data/company'
 import { useBrandSettings } from '@/lib/admin-store'
-import { formatPrice, useLocale, type Locale } from './locale'
+import { formatPrice, tx, useLocale, type Locale } from './locale'
+import { SupportChatPanel } from './support-chat-panel'
 
 type ChatMsg = { id: number; from: 'agent' | 'user'; text: string; time: string }
 type ChipId = 'prices' | 'agent' | 'booking' | 'browse' | 'trips' | 'plan' | 'contact' | 'wa'
@@ -162,14 +163,6 @@ export function LiveChatWidget({ open, onOpen, onClose }: { open: boolean; onOpe
   useEffect(() => {
     bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages, typing, open])
-  useEffect(() => {
-    if (open) {
-      inputRef.current?.focus()
-      const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-      window.addEventListener('keydown', onKey)
-      return () => window.removeEventListener('keydown', onKey)
-    }
-  }, [open, onClose])
   useEffect(() => () => { if (timerRef.current) window.clearTimeout(timerRef.current) }, [])
 
   const openPanel = () => {
@@ -209,11 +202,11 @@ export function LiveChatWidget({ open, onOpen, onClose }: { open: boolean; onOpe
   return <div className="livechat-wrap">
     {mobileTarget && createPortal(<button type="button" className="mobile-support-trigger" onClick={() => (open ? onClose() : openPanel())} aria-expanded={open} aria-label={open ? t.closeLabel : t.openLabel}><Headset size={21} aria-hidden="true"/><span>{({ en: 'Live Chat', es: 'Chat en vivo', it: 'Chat dal vivo', ar: 'دردشة مباشرة' })[locale]}</span>{!open && unread > 0 && <b>{unread}</b>}</button>, mobileTarget)}
     {teaser && !open && <button type="button" className="livechat-teaser" onClick={openPanel}>{t.teaser}</button>}
-    {open && <section className="livechat-panel" role="dialog" aria-label={t.name} aria-modal="false">
+    {open && <SupportChatPanel className="livechat-panel" label={t.name} onClose={onClose}>{mobile => <>
       <header className="livechat-head">
         <span className="livechat-avatar" aria-hidden="true"><BrandMark alt="" /></span>
         <div><strong>{t.name}</strong><span className="livechat-online"><i aria-hidden="true" />{t.online}</span></div>
-        <button type="button" className="livechat-close" onClick={onClose} aria-label={t.closeLabel}><X size={17} /></button>
+        <button type="button" className="livechat-close" onClick={onClose} aria-label={mobile ? tx(locale,{en:'Back to page',es:'Volver a la página',it:'Torna alla pagina'}) : t.closeLabel}>{mobile ? <ArrowLeft size={22} /> : <X size={17} />}</button>
       </header>
       <div className="livechat-body" ref={bodyRef} aria-live="polite">
         {messages.map((m) => <div key={m.id} className={`livechat-row ${m.from}`}>
@@ -229,7 +222,7 @@ export function LiveChatWidget({ open, onOpen, onClose }: { open: boolean; onOpe
           return href
             ? (href.startsWith('http')
               ? <a key={id} href={href} target="_blank" rel="noreferrer">{label}</a>
-              : <Link key={id} href={href}>{label}</Link>)
+              : <Link key={id} href={href} onClick={mobile ? onClose : undefined}>{label}</Link>)
             : <button key={id} type="button" onClick={() => send(label)}>{label}</button>
         })}
       </div>}
@@ -237,7 +230,7 @@ export function LiveChatWidget({ open, onOpen, onClose }: { open: boolean; onOpe
         <input ref={inputRef} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={t.inputPh} aria-label={t.inputPh} maxLength={500} autoComplete="off" />
         <button type="submit" className="livechat-send" aria-label={t.sendLabel}><Send size={17} /></button>
       </form>
-    </section>}
+    </>}</SupportChatPanel>}
     <button type="button" className="livechat-fab" onClick={() => (open ? onClose() : openPanel())} aria-expanded={open} aria-label={open ? t.closeLabel : t.openLabel}>
       {open ? <X size={24} /> : <Headset size={26} />}
       {!open && unread > 0 && <b>{unread}</b>}

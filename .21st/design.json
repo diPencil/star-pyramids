@@ -271,6 +271,29 @@
         "Allow oversized text to grow rather than introducing text truncation",
         "No browser automation, database changes, dependency installation or deployment"
       ]
+    },
+    {
+      "area": "mobile-support-chat",
+      "direction": "Full-screen conversation on the visible mobile viewport",
+      "summary": "Live Chat and the WhatsApp handoff widget use a full-screen conversation with Back, scrolling messages and a composer above the virtual keyboard at widths up to 1024px. Reuse the existing public appearance and conversation components; keep desktop floating panels.",
+      "constraints": [
+        "Track VisualViewport height and pan offsets, including safe-area padding",
+        "Preserve messaging, WhatsApp handoff, translations and conversation state",
+        "Restore page scroll, background interactivity and opener focus on close",
+        "Use the visible Back control without creating a new route or history entry",
+        "No browser automation, database changes, dependencies or deployment"
+      ]
+    },
+    {
+      "area": "mobile-catalogue-heroes",
+      "direction": "Content-driven shared hero matching Events spacing",
+      "summary": "At up to 760px, shared catalogue heroes use the existing Events spacing, fluid typography and wrapping actions, with no tall empty frame when featured content is absent. Overscan only the known letterboxed fallback image.",
+      "constraints": [
+        "Preserve desktop, homepage, Events composition and CMS media/localization owners",
+        "Keep uploaded desktop/mobile images and configured crop unchanged",
+        "Do not fabricate featured records, statistics or published content",
+        "No media edits, browser automation, database writes or deployment"
+      ]
     }
   ]
 }

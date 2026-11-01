@@ -131,6 +131,12 @@ export default function TripsPage() {
   }, 'tour', 'asc')
   const paging = usePagination(tripSort.sortedRows)
 
+  // Counts describe the complete loaded catalogue, independent of table filters.
+  const categoryCount = (category: string) => {
+    const items = tours.filter(tour => tour.category === category)
+    return <>{items.length} <span style={{ fontSize: 14, fontWeight: 600 }}>/ {items.filter(isTourPublished).length} published</span></>
+  }
+
   return (
     <>
       <PageHead
@@ -142,10 +148,10 @@ export default function TripsPage() {
         actions={<Link className="sp-btn primary" href="/admin/trips/builder"><Plus size={17} /> <AdminText en="Trip Builder" ar="منشئ الرحلات" /></Link>}
       />
       <AdminStats items={[
-        { label: <AdminText en="One-day tours" ar="رحلات اليوم الواحد" />, value: tours.filter((tour) => tour.category === 'one-day-tours').length, note: <AdminText en="Focused daily experiences" ar="تجارب يومية مركزة" />, icon: MapPinned, tone: 'orange' },
-        { label: <AdminText en="Multi-day packages" ar="باقات متعددة الأيام" />, value: tours.filter((tour) => tour.category === 'multi-days-tours').length, note: <AdminText en="Complete itineraries" ar="برامج متكاملة" />, icon: Layers3, tone: 'green' },
-        { label: <AdminText en="Nile cruises" ar="رحلات النيل" />, value: tours.filter((tour) => tour.category === 'nile-cruises').length, note: <AdminText en="River journeys" ar="رحلات نيلية" />, icon: ShipWheel, tone: 'blue' },
-        { label: <AdminText en="Shore excursions" ar="رحلات الشواطئ" />, value: tours.filter((tour) => tour.category === 'shore-excursions').length, note: <AdminText en="Port day trips" ar="رحلات الموانئ" />, icon: Anchor, tone: 'violet' },
+        { label: <AdminText en="One-day tours" ar="رحلات اليوم الواحد" />, value: categoryCount('one-day-tours'), note: <AdminText en="Focused daily experiences" ar="تجارب يومية مركزة" />, icon: MapPinned, tone: 'orange' },
+        { label: <AdminText en="Multi-day packages" ar="باقات متعددة الأيام" />, value: categoryCount('multi-days-tours'), note: <AdminText en="Complete itineraries" ar="برامج متكاملة" />, icon: Layers3, tone: 'green' },
+        { label: <AdminText en="Nile cruises" ar="رحلات النيل" />, value: categoryCount('nile-cruises'), note: <AdminText en="River journeys" ar="رحلات نيلية" />, icon: ShipWheel, tone: 'blue' },
+        { label: <AdminText en="Shore excursions" ar="رحلات الشواطئ" />, value: categoryCount('shore-excursions'), note: <AdminText en="Port day trips" ar="رحلات الموانئ" />, icon: Anchor, tone: 'violet' },
       ]} />
       <Card title={<AdminText en="All trips" ar="كل الرحلات" />} sub={<AdminText en={`${rows.length} records match the current view`} ar={`${rows.length} سجل يطابق العرض الحالي`} />}>
         <AdminTableTools query={q} onQueryChange={setQ} placeholder={ar ? 'ابحث بعنوان الرحلة أو الموقع...' : 'Search trip title or location...'}>

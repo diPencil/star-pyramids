@@ -12,6 +12,24 @@ const newControls = new Set([
 ])
 
 describe('mobile presentation safety', () => {
+  it('lets catalogue copy determine mobile hero height and keeps long translated actions within its column', () => {
+    const css = postcss.parse(readFileSync(resolve('app/mobile-shell.css'), 'utf8'))
+    const rules = new Map<string, Record<string, string>>()
+    css.walkRules(rule => {
+      if (!rule.selector.startsWith('.tour-category-page-hero')) return
+      expect((rule.parent as AtRule).params).toBe('screen and (max-width:760px)')
+      const values: Record<string, string> = {}
+      rule.walkDecls(decl => { values[decl.prop] = decl.value })
+      rules.set(rule.selector, values)
+    })
+    expect(rules.get('.tour-category-page-hero')).toMatchObject({ 'min-height': '0', 'align-items': 'stretch' })
+    expect(rules.get('.tour-category-page-hero .events-page-hero-content')).toMatchObject({ 'grid-template-columns': 'minmax(0,1fr)', 'padding-block': '70px 28px' })
+    expect(rules.get('.tour-category-page-hero .events-page-hero-actions :is(.primary-btn,.events-hero-link)')).toMatchObject({ 'white-space': 'normal', 'height': 'auto', 'min-height': '48px', 'max-width': '100%' })
+    // The shipped square image has roughly 17% white above/below its photo.
+    // This overscan removes those bands even in a tall portrait hero.
+    const scale = Number(rules.get('.tour-category-page-hero .hero-bg-img[data-mobile-letterbox]')?.transform.match(/scale\(([^)]+)\)/)?.[1])
+    expect((1 - 1 / scale) / 2).toBeGreaterThan(0.17)
+  })
   it('keeps changes to existing UI inside responsive or reduced-motion rules', () => {
     for (const file of files) {
       const css = postcss.parse(readFileSync(resolve(file), 'utf8'), { from: file })
