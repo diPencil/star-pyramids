@@ -23,6 +23,16 @@ const render = (child: React.ReactNode) => renderToStaticMarkup(h(InitialLocaleP
 
 describe('published admin-created tours in actual discovery components', () => {
   beforeEach(() => { state.rows = []; state.page = '' })
+  it('renders exactly six Recommended cards across the published pool', () => {
+    const types = ['one-day-tours', 'multi-days-tours', 'nile-cruises', 'shore-excursions'] as const
+    state.rows = Array.from({ length: 10 }, (_, index) => row(`published-${index}`, types[index % 4]))
+    state.rows.push(row('hidden-new-draft', 'shore-excursions', 'draft'))
+    const html = render(h(RebuiltHomePage))
+    const grid = html.split('class="compact-tour-grid popular-grid"')[1].split('class="center-cta"')[0]
+    expect(grid.match(/<article\b/g)).toHaveLength(6)
+    expect(new Set([...grid.matchAll(/href="\/egypt-tours\/(published-\d+)"/g)].map(match => match[1])).size).toBe(6)
+    expect(grid).not.toContain('hidden-new-draft')
+  })
   it('shows newly published records in the automatic homepage selection, without drafts', () => {
     state.rows = [row('new-homepage-tour', 'one-day-tours'), row('hidden-homepage-draft', 'one-day-tours', 'draft')]
     const html = render(h(RebuiltHomePage))
