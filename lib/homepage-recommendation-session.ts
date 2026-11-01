@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 export type RecommendationSession = { seed: number; slugs: string[] }
 export const RECOMMENDATION_SESSION_KEY = 'star-pyramids:recommended:v1'
+export const RECOMMENDED_CARD_LIMIT = 8
 type SessionStorage = Pick<Storage, 'getItem' | 'setItem'>
 let memorySession: RecommendationSession | null = null
 
@@ -11,7 +12,7 @@ export function readRecommendationSession(storage: SessionStorage | undefined, s
   try {
     const raw = storage?.getItem(RECOMMENDATION_SESSION_KEY)
     const saved = raw ? JSON.parse(raw) : null
-    if (saved && Number.isInteger(saved.seed) && saved.seed >= 0 && saved.seed <= 0xffffffff && Array.isArray(saved.slugs) && saved.slugs.length <= 6 && saved.slugs.every((slug: unknown) => typeof slug === 'string' && slug.length > 0 && slug.length <= 160) && new Set(saved.slugs).size === saved.slugs.length) return { seed: saved.seed, slugs: [...saved.slugs] }
+    if (saved && Number.isInteger(saved.seed) && saved.seed >= 0 && saved.seed <= 0xffffffff && Array.isArray(saved.slugs) && saved.slugs.length <= RECOMMENDED_CARD_LIMIT && saved.slugs.every((slug: unknown) => typeof slug === 'string' && slug.length > 0 && slug.length <= 160) && new Set(saved.slugs).size === saved.slugs.length) return { seed: saved.seed, slugs: [...saved.slugs] }
   } catch { /* Invalid or blocked storage falls back to a fresh session. */ }
   return { seed: seed() >>> 0, slugs: [] }
 }
