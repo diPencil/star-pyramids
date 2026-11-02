@@ -211,11 +211,11 @@ export function ReviewWriteModal({
 
   const modal = (
     <div className="rev-modal" onClick={() => { if (!pending.current) onClose() }}>
-      <div ref={dialog} className="rev-modal-card" tabIndex={-1} role="dialog" aria-modal="true" aria-label={copy.heading} onClick={(e) => e.stopPropagation()}>
+      <div ref={dialog} className={`rev-modal-card${chooseTour ? ' rev-modal-card-trip' : ''}`} tabIndex={-1} role="dialog" aria-modal="true" aria-label={copy.heading} onClick={(e) => e.stopPropagation()}>
         <h3>{copy.heading}</h3>
         {copy.context && <p className="rev-modal-context">{copy.context}</p>}
         <form className="rev-form" onSubmit={event => { event.preventDefault(); void handleSubmit() }}>
-          {chooseTour && <div>
+          {chooseTour && <div className="rev-trip-column">
             <ReviewTripPicker tours={tours} value={selectedTour} locale={locale} loading={toursLoading} disabled={submitting} onChange={slug => { setSelectedTour(slug); setError(''); setNeedsSignIn(false) }}/>
             {toursLoading && <p role="status">{tx(locale, { en: 'Loading published trips…', es: 'Cargando viajes publicados…', it: 'Caricamento dei viaggi pubblicati…' })}</p>}
             {toursError && <div role="alert"><p>{tx(locale, { en: 'Unable to load trips. Your review text is preserved.', es: 'No se pudieron cargar los viajes. El texto de tu reseña se conserva.', it: 'Impossibile caricare i viaggi. Il testo della recensione è conservato.' })}</p><button type="button" className="outline-btn" onClick={() => setTourRetry(value => value + 1)}>{tx(locale, { en: 'Retry', es: 'Reintentar', it: 'Riprova' })}</button></div>}

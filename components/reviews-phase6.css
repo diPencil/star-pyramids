@@ -62,3 +62,14 @@
   .rev-modal .rev-modal-card{padding:14px}
   .rev-modal .rev-modal-card .rev-trip-types{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
+
+/* Give trip selection and review writing their own columns on wider screens. */
+@media(min-width:760px){
+  .rev-modal .rev-modal-card-trip{width:min(840px,calc(100vw - 48px));padding:22px}
+  .rev-modal .rev-modal-card-trip .rev-form{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px 24px;align-items:start}
+  .rev-modal .rev-modal-card-trip .rev-trip-column{grid-column:1;grid-row:1 / span 3;min-width:0}
+  .rev-modal .rev-modal-card-trip .rev-form>label{grid-column:2;min-width:0}
+  .rev-modal .rev-modal-card-trip .rev-form>:is(.rev-error,a,.rev-form-actions){grid-column:1 / -1;min-width:0}
+  .rev-modal .rev-modal-card-trip .rev-trip-types{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .rev-modal .rev-modal-card-trip .rev-trip-results{max-height:min(240px,32dvh)}
+}
