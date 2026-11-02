@@ -27,6 +27,36 @@ import { PUT, GET } from '@/app/api/tours/[slug]/route'
 const context = { params: Promise.resolve({ slug: 'audit-trip' }) }
 const request = (method: string, data: unknown) => new Request('https://example.test/api/tours', { method, body: JSON.stringify(data) })
 const initial = () => ({ ...blankTour(), slug: 'audit-trip', title: 'Audit trip', price: 120.25, image: '/egypt-hero.png', duration: '1 day', location: 'Cairo', destinationSlug: 'cairo', titleAr: 'Legacy title', groupSize: '10', travelStyle: 'Private', deal: { percent: 10, endsAt: '2099-01-01' }, dayDetail: { overview: ['Overview'], stops: [], travelerPrices: [{ travelers: 1, adultPrice: 120.25, childPrice: 60, infantPrice: 0 }], addOns: [] } })
+
+it('normalizes rich content through actual handlers and preserves it on draft reopen and partial edits', async () => {
+  const data = { ...initial(), detail: null, status: 'draft', dayDetail: { ...initial().dayDetail,
+    overview: ['<h3>Route</h3><p class="sp-rich-align-center" style="color:red"><b>Visit</b> Cairo.</p>'],
+    contentFormats: { overview: { en: 'html-v1', es: 'html-v1' } },
+    translations: { es: { overview: '<p><u>Visita</u> El Cairo.</p>' } },
+  } }
+  const created = await POST(request('POST', data))
+  expect(created.status).toBe(201)
+  const stored = JSON.parse(memory.rows.get('audit-trip').dayDetail)
+  expect(stored.overview[0]).toContain('<strong>Visit</strong>')
+  expect(stored.overview[0]).not.toContain('style=')
+  expect(stored.translations.es.overview).toContain('<u>Visita</u>')
+  const reopened = (await (await GET(new Request('https://example.test'), context)).json()).tour
+  expect(editorData(reopened).form.contentFormats?.overview?.es).toBe('html-v1')
+  expect((await PUT(request('PUT', { summary: 'Only a plain summary edit', expectedUpdatedAt: reopened.updatedAt }), context)).status).toBe(200)
+  expect(JSON.parse(memory.rows.get('audit-trip').dayDetail)).toEqual(stored)
+})
+
+it('rejects malicious marked HTML before persistence and blocks publishing externally corrupted content', async () => {
+  const corrupt = { ...initial(), dayDetail: { ...initial().dayDetail, overview: ['<p><a href="javascript:bad()">x</a></p>'], contentFormats: { overview: { en: 'html-v1' } } } }
+  expect((await POST(request('POST', { ...corrupt, status: 'draft' }))).status).toBe(400)
+  expect(memory.rows.size).toBe(0)
+  await POST(request('POST', { ...initial(), status: 'draft' }))
+  memory.rows.get('audit-trip').dayDetail = JSON.stringify(corrupt.dayDetail)
+  memory.trace = []
+  expect((await PUT(request('PUT', { status: 'published' }), context)).status).toBe(400)
+  expect(memory.trace).toEqual([])
+  expect(memory.rows.get('audit-trip').status).toBe('draft')
+})
 beforeEach(() => { memory.rows.clear(); memory.destinations.clear(); memory.destinations.add('cairo'); memory.trace = []; memory.beforeLock = undefined; memory.allowed = true; memory.authenticated = true; memory.origin = true; memory.conflict = false; memory.now = 0 })
 describe('real Tour handlers with isolated in-memory persistence', () => {
   it('holds the destination parent lock inside create/edit transactions without testing listing visibility', async () => {

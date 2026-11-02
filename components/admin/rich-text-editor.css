@@ -1,0 +1,14 @@
+.sp-rich-editor{display:grid;gap:6px;min-width:0}
+.sp-rich-label{font-size:13px;font-weight:600}
+.sp-rich-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:4px;border:1px solid var(--border);border-radius:12px;padding:6px;background:var(--soft)}
+.sp-rich-toolbar button{display:grid;place-items:center;min-width:36px;min-height:36px;padding:6px;border:1px solid transparent;border-radius:7px;background:transparent;color:inherit;cursor:pointer}
+.sp-rich-toolbar select{max-width:150px;min-height:36px;font:inherit;font-size:12px;border:1px solid var(--border);border-radius:7px;background:var(--surface,#fff);color:inherit}
+.sp-rich-toolbar button[aria-pressed=true]{color:var(--blue);background:var(--surface,#fff);border-color:var(--blue)}
+.sp-rich-toolbar button:disabled{opacity:.4;cursor:default}
+.sp-rich-editor :is(button,input,select,.tiptap):focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.sp-rich-canvas .tiptap{min-height:150px;max-height:420px;overflow:auto;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--surface,#fff);font-size:16px;box-sizing:border-box}
+.sp-rich-canvas .tiptap[contenteditable=false]{opacity:.7}
+.sp-rich-editor .sp-rich-error{min-height:0;margin:0;font-size:12px;color:var(--danger,#b42318)}
+.sp-rich-link{display:flex;gap:6px;align-items:center;min-width:0}
+.sp-rich-link input{min-width:0;flex:1}
+@media(max-width:600px){.sp-rich-toolbar button{min-width:44px;min-height:44px}.sp-rich-link{flex-wrap:wrap}.sp-rich-canvas .tiptap{min-height:130px}}

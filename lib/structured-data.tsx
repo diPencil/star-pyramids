@@ -1,3 +1,4 @@
+import { richFormat, richTextPlain } from './tour-rich-text'
 import type { Tour, Blog } from '@/data/types'
 import { COMPANY_EMAIL, COMPANY_PHONE_E164, COMPANY_MAP_URL } from '@/data/company'
 import { resolveSiteUrl } from '@/lib/seo'
@@ -92,6 +93,7 @@ export function generateTouristTripJsonLd(tour: Tour, locale: 'en' | 'es' | 'it'
   const tourUrl = `${SITE_URL}/egypt-tours/${tour.slug}`
   const title = locale === 'ar' && tour.titleAr ? tour.titleAr : tour.title
   const description = tour.summary
+  const itinerary = tour.detail?.itinerary ?? tour.dayDetail?.stops ?? []
 
   // Only include price if it's a valid positive number
   const hasValidPrice = typeof tour.price === 'number' && Number.isFinite(tour.price) && tour.price > 0
@@ -114,12 +116,12 @@ export function generateTouristTripJsonLd(tour: Tour, locale: 'en' | 'es' | 'it'
     },
     itinerary: {
       '@type': 'ItemList',
-      numberOfItems: tour.detail?.itinerary?.length ?? 0,
-      itemListElement: tour.detail?.itinerary?.map((day, index) => ({
+      numberOfItems: itinerary.length,
+      itemListElement: itinerary.map((day, index) => ({
         '@type': 'ListItem',
         position: index + 1,
         name: day.title,
-        description: day.description,
+        description: richTextPlain(day.description, richFormat(day, 'description')),
       })) ?? [],
     },
   }

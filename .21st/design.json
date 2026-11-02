@@ -2,6 +2,16 @@
   "version": 1,
   "decisions": [
     {
+      "area": "trip-builder-rich-text",
+      "direction": "Restricted narrative editor within the existing eleven-step builder",
+      "summary": "Use one lazy-loaded Tiptap toolbar and the existing admin tokens for Overview, itinerary descriptions and Itinerary Note. Reuse public typography in preview and display; preserve language tabs, repeatable rows and all non-narrative fields.",
+      "constraints": [
+        "EN/ES/IT isolation with explicit HTML-v1 format metadata and escaped legacy plain text",
+        "No arbitrary CSS, embeds, editor runtime on public pages or changes to pricing/SEO ownership",
+        "Reader-first release; no database writes, browser automation or deployment during local implementation"
+      ]
+    },
+    {
       "area": "public-search",
       "direction": "Live page suggestions",
       "summary": "Keep the existing desktop/mobile search field; show named, typed page links beneath it while typing, with bounded thumbnails and readable text-led full results.",

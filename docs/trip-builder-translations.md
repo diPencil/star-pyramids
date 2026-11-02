@@ -23,10 +23,13 @@ without canonical English are rejected before saving instead of being silently
 filtered out. Saving requires an explicit owner action; implementation QA does
 not write to owner records.
 
-This change covers translation entry and reopening within the builder.
-Storefront consumers still use their existing locale/fallback behavior; they
-have not been changed to render the new manual ES/IT maps. This is not automatic
-translation.
+The builder and public detail pages use the saved manual ES/IT maps, with
+English fallback for missing public translations. This is not automatic
+translation. Overview, itinerary description and itinerary note additionally
+support explicitly marked HTML-v1 content; the resolved language and format
+must always travel together. Other fields retain their existing plain formats.
+See `trip-builder-rich-text.md` for the security, serialization and rollout
+contract. Arabic remains disabled.
 
 Verification: `tests/tour-translations.test.ts` covers language isolation,
 JSON round trips, reverting changes and repeatable item ordering. Browser QA

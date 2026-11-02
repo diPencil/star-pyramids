@@ -7,6 +7,7 @@ import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
 import { getCurrentUser, hasPermission } from '@/lib/server/auth';
 import { readJsonText } from '@/lib/json-text';
+import { normalizeTourRichText, readTourWriteRequest } from '@/lib/tour-rich-text';
 import { isTourPublished } from '@/lib/tour-publish';
 import { findTourDeletionBlockers, type TourDeletionBlocker } from '@/lib/server/tours';
 
@@ -133,7 +134,7 @@ export async function PUT(
 
   let data: Record<string, any>;
   try {
-    data = await request.json();
+    data = await readTourWriteRequest(request);
     validateTourWrite(data, false);
   } catch (error) {
     return NextResponse.json({ error: error instanceof SyntaxError ? 'Invalid tour JSON.' : error instanceof Error ? error.message : 'Invalid tour data.' }, { status: 400 });
@@ -153,6 +154,16 @@ export async function PUT(
   if ((data.status ?? existing.status) === 'published') {
     try { validateTourPublication({ ...decodeTourJson(existing), price: Number(existing.price), ...data }); }
     catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'Incomplete trip.' }, { status: 400 }); }
+  }
+
+  // Even a partial draft edit must not preserve unsafe marked HTML from an external import.
+  // Validate the merged document without copying reserved SEO back through the public decoder.
+  try {
+    const merged = normalizeTourRichText({ ...decodeTourJson(existing), ...data });
+    if (data.detail !== undefined) data.detail = merged.detail;
+    if (data.dayDetail !== undefined) data.dayDetail = merged.dayDetail;
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Invalid tour content.' }, { status: 400 });
   }
 
   // Unique slug check if slug is being changed (canonical slugs and

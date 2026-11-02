@@ -1,5 +1,7 @@
 'use client'
 
+import dynamic from 'next/dynamic'
+import { hasNarrative, overviewFromEditor, overviewToEditor, richFormat, writeNarrative, normalizeTourRichText, type RichField, type RichOwner } from '@/lib/tour-rich-text'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, ExternalLink, Eye, EyeOff, ImagePlus, MapPin, Plus, Save, Trash2, Upload } from 'lucide-react'
 import { PageHead } from './admin-shell'
@@ -22,6 +24,8 @@ import { DateInput } from '@/components/date-input'
 import { Tabs } from '@base-ui/react/tabs'
 import { ENABLED_LOCALES, LOCALE_LABELS, type EnabledLocale } from '@/lib/locale-config'
 import { readTourText, writeTourText, type Translatable, type TourTranslations } from '@/lib/tour-translations'
+
+const RichTextEditor = dynamic(() => import('./rich-text-editor').then(module => module.RichTextEditor), { ssr: false, loading: () => <p role="status">Loading editor…</p> })
 
 const steps = [
   { en: 'Basic', ar: 'الأساسية' },
@@ -72,6 +76,7 @@ export function editorData(tour: Tour) {
   return {
     form: {
       ...((tour.category === 'one-day-tours' ? dayDetail : detail)?.translations ? { translations: (tour.category === 'one-day-tours' ? dayDetail : detail)?.translations } : {}),
+      contentFormats: (dayDetail ?? detail)?.contentFormats,
       title: tour.title,
       titleAr: tour.titleAr ?? '',
       category: tour.category,
@@ -86,7 +91,7 @@ export function editorData(tour: Tour) {
       groupSize: tour.groupSize ?? '',
       travelStyle: tour.travelStyle ?? '',
       summary: tour.summary,
-      overview: overview.join('\n'),
+      overview: overviewToEditor(overview, dayDetail ?? detail ?? {}),
       itineraryNote: detail?.itineraryNote ?? dayDetail?.itineraryNote ?? '',
       included: (detail?.included ?? dayDetail?.included ?? []).join('\n'),
       excluded: (detail?.excluded ?? dayDetail?.excluded ?? []).join('\n'),
@@ -95,7 +100,7 @@ export function editorData(tour: Tour) {
     categorySlugs: [...(tour.categorySlugs ?? [])],
     highlightImage: detail?.highlightImage ?? dayDetail?.highlightImage ?? gallerySource[0] ?? tour.image,
     highlights: highlightsSource.map((group) => ({ id: id('highlight'), translations: group.translations, title: group.title, items: group.items.join('\n') })),
-    itinerary: itinerarySource.map((item, index) => ({ id: id('day'), translations: item.translations, day: item.day, title: item.title, description: item.description, meals: item.meals ?? '', image: item.image ?? detail?.itineraryImages?.[index] ?? '' })),
+    itinerary: itinerarySource.map((item, index) => ({ id: id('day'), contentFormats: item.contentFormats, translations: item.translations, day: item.day, title: item.title, description: item.description, meals: item.meals ?? '', image: item.image ?? detail?.itineraryImages?.[index] ?? '' })),
     travelerPrices: {
       adult: travelerSource.map((item) => ({ id: id('adult-price'), travelers: String(item.travelers), price: String(item.adultPrice ?? item.price ?? fallbackPrice) })),
       child: travelerSource.map((item) => ({ id: id('child-price'), travelers: String(item.travelers), price: String(item.childPrice ?? item.adultPrice ?? item.price ?? fallbackPrice) })),
@@ -185,7 +190,9 @@ export function TripBuilder({ initialSlug, previewAppearance }: { initialSlug?: 
       setVisBusy(false)
     }
   }
-  const [activeStep, setActiveStep] = useState(0)
+  const [activeStep, updateActiveStep] = useState(0)
+  const narrativeComposing = useRef(false)
+  const setActiveStep = (next: number | ((current: number) => number)) => { if (!narrativeComposing.current) updateActiveStep(next) }
   // Step 11 (index steps.length - 1) is the maximum valid builder step.
   // All navigation paths clamp here; nothing may advance beyond it.
   const isLastStep = activeStep >= steps.length - 1
@@ -199,6 +206,12 @@ export function TripBuilder({ initialSlug, previewAppearance }: { initialSlug?: 
     else clearedPreviewTranslations.current.delete(marker)
     return writeTourText(row, key, value, contentLocale)
   }
+  const narrativeEditor = <T extends RichOwner,>(row: T, field: RichField & keyof T, label: string, update: (html: string) => void) => <RichTextEditor key={`${sourceTour.slug}:${previewTextKey(row, field, contentLocale)}`} value={localText(row, field)} format={richFormat(row, field, contentLocale)} locale={contentLocale} label={label} disabled={saving || visBusy} onComposing={active => { narrativeComposing.current = active }} onChange={html => {
+    const marker = previewTextKey(row, field, contentLocale)
+    if (contentLocale !== 'en' && !hasNarrative(html, { contentFormats: { [field]: { [contentLocale]: 'html-v1' } } }, field, contentLocale)) clearedPreviewTranslations.current.add(marker)
+    else clearedPreviewTranslations.current.delete(marker)
+    update(html)
+  }}/>
   const [done, setDone] = useState<number[]>([])
   const [form, setForm] = useState<BasicForm>(initial.form)
   const [catSlugs, setCatSlugs] = useState<string[]>(initial.categorySlugs)
@@ -355,10 +368,11 @@ export function TripBuilder({ initialSlug, previewAppearance }: { initialSlug?: 
 
   const publish = async (targetStatus: 'draft' | 'published' = 'published') => {
     setError('')
+    if (narrativeComposing.current) return
     if (mediaUploadCount.current > 0) { setError('Wait for image uploads to finish before saving.'); return }
     if (saving || visBusy) return
     const missingEnglish = addOns.some((row) => row.translations && !row.title.trim())
-      || itinerary.some((row) => row.translations && !row.title.trim() && !row.description.trim())
+      || itinerary.some((row) => row.translations && !row.title.trim() && !hasNarrative(row.description, row, 'description'))
       || highlights.some((row) => row.translations && !row.title.trim() && !row.items.trim())
       || locations.some((row) => row.translations && !row.name.trim())
       || videos.some((row) => row.translations && !row.title.trim())
@@ -430,7 +444,8 @@ export function TripBuilder({ initialSlug, previewAppearance }: { initialSlug?: 
         ? { id: row.id, name: row.name.trim(), nameAr: row.nameAr.trim() || undefined, latitude, longitude }
         : row.name.trim()
     })
-    const savedItinerary = itinerary.filter((row) => row.title.trim() || row.description.trim()).map((row, index) => ({
+    const savedItinerary = itinerary.filter((row) => row.title.trim() || hasNarrative(row.description, row, 'description')).map((row, index) => ({
+      contentFormats: row.contentFormats,
       translations: row.translations,
       day: row.day.trim() || (form.category === 'one-day-tours' ? `Stop ${index + 1}` : `Day ${index + 1}`),
       title: row.title.trim(),
@@ -460,7 +475,7 @@ export function TripBuilder({ initialSlug, previewAppearance }: { initialSlug?: 
       publishedAt: row.publishedAt || '',
       thumbnail: row.thumbnail.trim() || undefined,
     }))
-    const overview = splitLines(form.overview)
+    const overview = overviewFromEditor(form.overview, form)
     const galleryImages = gallery.map((item) => item.src)
     const common: Tour = {
       ...sourceTour,
@@ -490,12 +505,13 @@ export function TripBuilder({ initialSlug, previewAppearance }: { initialSlug?: 
       dayDetail: {
         ...(sourceTour.dayDetail ?? { overview: [] }),
         translations: form.translations,
+        contentFormats: form.contentFormats,
         overview,
         highlightImage: highlightImage.trim() || undefined,
         itineraryNote: form.itineraryNote.trim() || undefined,
         highlightGroups: savedHighlights,
         highlights: savedHighlights.flatMap((group) => group.items),
-        stops: savedItinerary.map(({ day, title, description, meals, image, translations }) => ({ day, title, description, meals, image, translations })),
+        stops: savedItinerary.map(({ day, title, description, meals, image, translations, contentFormats }) => ({ day, title, description, meals, image, translations, contentFormats })),
         gallery: gallery.map((item) => ({ src: item.src, alt: item.alt })),
         included: splitLines(form.included),
         excluded: splitLines(form.excluded),
@@ -510,6 +526,7 @@ export function TripBuilder({ initialSlug, previewAppearance }: { initialSlug?: 
       detail: {
         ...(sourceTour.detail ?? { highlights: [], itinerary: [], locations: [] }),
         translations: form.translations,
+        contentFormats: form.contentFormats,
         overview,
         highlightImage: highlightImage.trim() || undefined,
         itineraryNote: form.itineraryNote.trim() || undefined,
@@ -553,7 +570,7 @@ export function TripBuilder({ initialSlug, previewAppearance }: { initialSlug?: 
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(tourWritePayload({ ...saved, slug: finalSlug }, targetStatus)),
+        body: JSON.stringify(normalizeTourRichText(tourWritePayload({ ...saved, slug: finalSlug }, targetStatus))),
         credentials: 'same-origin',
       })
       const data = await res.json().catch(() => ({} as { error?: string; tour?: Tour }))
@@ -627,13 +644,13 @@ export function TripBuilder({ initialSlug, previewAppearance }: { initialSlug?: 
     <div className="sp-builder">
       <Card title={ar ? steps[activeStep].ar : steps[activeStep].en} sub={<AdminText en="Every field feeds the public tour detail experience" ar="كل حقل يغذي تجربة صفحة الرحلة العامة" />}>
         <Tabs.Root value={contentLocale} onValueChange={(value) => {
-          if (ENABLED_LOCALES.some((locale) => locale === value)) setStepLanguages((current) => ({ ...current, [activeStep]: value as EnabledLocale }))
+          if (!narrativeComposing.current && ENABLED_LOCALES.some((locale) => locale === value)) setStepLanguages((current) => ({ ...current, [activeStep]: value as EnabledLocale }))
         }} className="sp-builder-languages">
           {activeStep !== 1 && activeStep !== 10 && <Tabs.List className="sp-builder-language-tabs" aria-label={ar ? 'لغة محتوى الرحلة' : 'Tour content language'}>
             {ENABLED_LOCALES.map((locale) => <Tabs.Tab key={locale} value={locale}>{LOCALE_LABELS[locale]}</Tabs.Tab>)}
           </Tabs.List>}
           <Tabs.Panel value={contentLocale} className="sp-form" render={<div lang={contentLocale} />}>
-          {step === 4 && <label><AdminText en="Itinerary note" ar="ملاحظة البرنامج" /><textarea value={localText(form, 'itineraryNote')} onChange={set('itineraryNote')} rows={3} placeholder={ar ? 'ملاحظة تظهر أعلى أيام أو محطات البرنامج' : 'Shown above the itinerary days or stops'} /></label>}
+          {step === 4 && narrativeEditor(form, 'itineraryNote', 'Itinerary note', html => setForm(current => writeNarrative(current, 'itineraryNote', html, contentLocale)))}
           {step === 7 && gallery.length>0&&<div className="sp-media-alt-list"><strong><AdminText en="Gallery image descriptions" ar="أوصاف صور المعرض" /></strong>{gallery.map((image, index) => <label key={image.id}><AdminText en={`Image ${index + 1} description`} ar={`وصف الصورة ${index + 1}`} /><input value={localText(image, 'alt')} onChange={(event) => setGallery((current) => current.map((item) => item.id === image.id ? editText(item, 'alt', event.target.value) : item))} /></label>)}</div>}
           {step === 9 && <div className="sp-builder-note"><CheckCircle2 size={17}/><AdminText en="Related Tours are selected automatically from the tour category and destination. Customer reviews are submitted and moderated separately, so neither should be authored as tour content here." ar="يتم اختيار الرحلات ذات الصلة تلقائيا حسب تصنيف الرحلة والوجهة. أما تقييمات العملاء فتُرسل وتُراجع بشكل منفصل، لذلك لا يتم تأليف أي منهما كمحتوى للرحلة هنا." /></div>}
           {step === 9 && <div className="sp-builder-coverage"><span><b>{videos.length}</b><AdminText en="journey videos" ar="فيديوهات رحلة" /></span><span><b>{priceRows.length}</b><AdminText en="detailed price rows" ar="صفوف أسعار تفصيلية" /></span><span><b>{gallery.filter((item) => item.creditLabel && item.creditUrl).length}</b><AdminText en="photo credits" ar="مصادر صور" /></span><span><b>{form.itineraryNote ? 1 : 0}</b><AdminText en="itinerary note" ar="ملاحظة برنامج" /></span></div>}
@@ -658,11 +675,11 @@ export function TripBuilder({ initialSlug, previewAppearance }: { initialSlug?: 
 
           {step === 2 && <><div className="sp-repeat-list">{addOns.map((row, index) => <article className="sp-repeat-card" key={row.id}>{repeatHeader(<AdminText en="Optional add-on" ar="إضافة اختيارية" />, index, () => setAddOns((current) => current.filter((item) => item.id !== row.id)))}<div className="sp-form-2"><label><AdminText en="Title" ar="العنوان" /><input value={localText(row, 'title')} onChange={(event) => setAddOns((current) => current.map((item) => item.id === row.id ? editText(item, 'title', event.target.value) : item))} /></label><label><AdminText en="Price (blank = on request)" ar="السعر (فارغ = حسب الطلب)" /><input type="number" min="0" value={row.price} onChange={(event) => setAddOns((current) => current.map((item) => item.id === row.id ? { ...item, price: event.target.value } : item))} /></label></div></article>)}</div><button type="button" className="sp-btn" onClick={() => setAddOns((current) => [...current, { id: id('addon'), title: '', price: '' }])}><Plus size={16} /><AdminText en="Add add-on" ar="إضافة اختيار" /></button></>}
 
-          {step === 3 && <label><AdminText en="Overview paragraphs" ar="فقرات النظرة العامة" /><textarea value={localText(form, 'overview')} onChange={set('overview')} placeholder={ar ? 'فقرة في كل سطر' : 'One paragraph per line'} rows={8} /></label>}
+          {step === 3 && narrativeEditor(form, 'overview', 'Overview', html => setForm(current => writeNarrative(current, 'overview', html, contentLocale)))}
 
           {activeStep === 4 && <><p className="sp-builder-note"><AdminText en="Choose the main Highlights image, then create one or more groups with one highlight per line." ar="اختر الصورة الرئيسية لقسم أبرز المعالم، ثم أنشئ مجموعة أو أكثر واكتب بندا واحدا في كل سطر." /></p><article className="sp-repeat-card sp-highlight-image-editor"><header><span><ImagePlus size={16}/></span><strong><AdminText en="Highlights image" ar="صورة أبرز المعالم" /></strong></header><ImageField disabled={saving || visBusy} onUploadingChange={uploadActivity} value={highlightImage} onChange={setHighlightImage} preview="wide" linkLabel={{ en: 'Highlights image URL', ar: 'رابط صورة أبرز المعالم' }} uploadLabel={{ en: 'Upload Highlights image', ar: 'رفع صورة أبرز المعالم' }} previewAlt={ar ? 'معاينة صورة أبرز المعالم' : 'Highlights image preview'} /></article><div className="sp-repeat-list">{highlights.map((row, index) => <article className="sp-repeat-card" key={row.id}>{repeatHeader(<AdminText en="Highlight group" ar="مجموعة أبرز المعالم" />, index, () => setHighlights((current) => current.filter((item) => item.id !== row.id)))}<label><AdminText en="Group title" ar="عنوان المجموعة" /><input value={localText(row, 'title')} placeholder={ar ? 'أبرز معالم القاهرة' : 'Cairo highlights'} onChange={(event) => setHighlights((current) => current.map((item) => item.id === row.id ? editText(item, 'title', event.target.value) : item))} /></label><label><AdminText en="Highlights (one per line)" ar="المعالم البارزة (بند في كل سطر)" /><textarea value={localText(row, 'items')} rows={5} placeholder={ar ? 'أهرامات الجيزة\nأبو الهول' : 'Giza Pyramids\nGreat Sphinx'} onChange={(event) => setHighlights((current) => current.map((item) => item.id === row.id ? editText(item, 'items', event.target.value) : item))} /></label></article>)}</div><button type="button" className="sp-btn" onClick={() => setHighlights((current) => [...current, { id: id('highlight'), title: '', items: '' }])}><Plus size={16}/><AdminText en="Add highlight group" ar="إضافة مجموعة" /></button></>}
 
-          {step === 4 && <><div className="sp-repeat-list">{itinerary.map((row, index) => <article className="sp-repeat-card" key={row.id}>{repeatHeader(<AdminText en={form.category === 'one-day-tours' ? 'Itinerary stop' : 'Itinerary day'} ar={form.category === 'one-day-tours' ? 'محطة البرنامج' : 'يوم البرنامج'} />, index, () => setItinerary((current) => current.filter((item) => item.id !== row.id)))}<div className="sp-form-2"><label><AdminText en="Day label" ar="العنوان التعريفي لليوم" /><input value={localText(row, 'day')} placeholder={form.category === 'one-day-tours' ? 'Stop 1' : 'Day 1'} onChange={(event) => setItinerary((current) => current.map((item) => item.id === row.id ? editText(item, 'day', event.target.value) : item))} /></label><label><AdminText en="Day title" ar="عنوان اليوم" /><input value={localText(row, 'title')} onChange={(event) => setItinerary((current) => current.map((item) => item.id === row.id ? editText(item, 'title', event.target.value) : item))} /></label></div><label><AdminText en="Description" ar="الوصف" /><textarea value={localText(row, 'description')} rows={4} onChange={(event) => setItinerary((current) => current.map((item) => item.id === row.id ? editText(item, 'description', event.target.value) : item))} /></label><label><AdminText en="Meals" ar="وجبات اليوم" /><input value={localText(row, 'meals')} placeholder={ar ? 'إفطار، غداء، عشاء' : 'Breakfast, lunch, dinner'} onChange={(event) => setItinerary((current) => current.map((item) => item.id === row.id ? editText(item, 'meals', event.target.value) : item))} /></label><ImageField disabled={saving || visBusy} onUploadingChange={uploadActivity} value={row.image} onChange={(image) => setItinerary((current) => current.map((item) => item.id === row.id ? { ...item, image } : item))} preview="compact" linkLabel={{ en: 'Itinerary image URL', ar: 'رابط صورة البرنامج' }} uploadLabel={{ en: 'Upload itinerary image', ar: 'رفع صورة البرنامج' }} previewAlt={row.title || row.day} /></article>)}</div><button type="button" className="sp-btn" onClick={() => setItinerary((current) => [...current, { id: id('day'), day: form.category === 'one-day-tours' ? `Stop ${current.length + 1}` : `Day ${current.length + 1}`, title: '', description: '', meals: '', image: '' }])}><Plus size={16}/><AdminText en="Add itinerary item" ar="إضافة عنصر للبرنامج" /></button></>}
+          {step === 4 && <><div className="sp-repeat-list">{itinerary.map((row, index) => <article className="sp-repeat-card" key={row.id}>{repeatHeader(<AdminText en={form.category === 'one-day-tours' ? 'Itinerary stop' : 'Itinerary day'} ar={form.category === 'one-day-tours' ? 'محطة البرنامج' : 'يوم البرنامج'} />, index, () => setItinerary((current) => current.filter((item) => item.id !== row.id)))}<div className="sp-form-2"><label><AdminText en="Day label" ar="العنوان التعريفي لليوم" /><input value={localText(row, 'day')} placeholder={form.category === 'one-day-tours' ? 'Stop 1' : 'Day 1'} onChange={(event) => setItinerary((current) => current.map((item) => item.id === row.id ? editText(item, 'day', event.target.value) : item))} /></label><label><AdminText en="Day title" ar="عنوان اليوم" /><input value={localText(row, 'title')} onChange={(event) => setItinerary((current) => current.map((item) => item.id === row.id ? editText(item, 'title', event.target.value) : item))} /></label></div>{narrativeEditor(row, 'description', 'Description', html => setItinerary(current => current.map(item => item.id === row.id ? writeNarrative(item, 'description', html, contentLocale) : item)))}<label><AdminText en="Meals" ar="وجبات اليوم" /><input value={localText(row, 'meals')} placeholder={ar ? 'إفطار، غداء، عشاء' : 'Breakfast, lunch, dinner'} onChange={(event) => setItinerary((current) => current.map((item) => item.id === row.id ? editText(item, 'meals', event.target.value) : item))} /></label><ImageField disabled={saving || visBusy} onUploadingChange={uploadActivity} value={row.image} onChange={(image) => setItinerary((current) => current.map((item) => item.id === row.id ? { ...item, image } : item))} preview="compact" linkLabel={{ en: 'Itinerary image URL', ar: 'رابط صورة البرنامج' }} uploadLabel={{ en: 'Upload itinerary image', ar: 'رفع صورة البرنامج' }} previewAlt={row.title || row.day} /></article>)}</div><button type="button" className="sp-btn" onClick={() => setItinerary((current) => [...current, { id: id('day'), day: form.category === 'one-day-tours' ? `Stop ${current.length + 1}` : `Day ${current.length + 1}`, title: '', description: '', meals: '', image: '' }])}><Plus size={16}/><AdminText en="Add itinerary item" ar="إضافة عنصر للبرنامج" /></button></>}
 
           {step === 5 && <><label><AdminText en="What's included? (one per line)" ar="ما المشمول؟ (بند في كل سطر)" /><textarea value={localText(form, 'included')} onChange={set('included')} rows={6} /></label><label><AdminText en="What's excluded? (one per line)" ar="ما غير المشمول؟ (بند في كل سطر)" /><textarea value={localText(form, 'excluded')} onChange={set('excluded')} rows={6} /></label></>}
 

@@ -7,6 +7,7 @@ import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
 import { getCurrentUser, hasPermission } from '@/lib/server/auth';
 import { readJsonText } from '@/lib/json-text';
+import { readTourWriteRequest } from '@/lib/tour-rich-text';
 import { isTourPublished } from '@/lib/tour-publish';
 import { getTourBookingCounts } from '@/lib/server/tours';
 
@@ -106,7 +107,7 @@ export async function POST(request: Request) {
 
   let data: Record<string, any>;
   try {
-    data = await request.json();
+    data = await readTourWriteRequest(request);
     validateTourWrite(data, true);
     if ((data.status ?? 'published') === 'published') validateTourPublication(data);
   } catch (error) {

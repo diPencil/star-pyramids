@@ -2,8 +2,9 @@ import type { CruiseTypeSlug, Tour, TourCategory, TourLocation, TourVideoPlatfor
 import type { Translatable, TourTranslations } from '@/lib/tour-translations'
 import { getBookingTotal, getActiveDealPercent } from '@/data/tours'
 import { sanitizeLocale, type EnabledLocale } from '@/lib/locale-config'
+import { overviewFromEditor, resolveNarrative, type RichOwner, type RichField } from './tour-rich-text'
 
-export type BasicForm = Translatable & {
+export type BasicForm = RichOwner & {
   title: string
   titleAr: string
   category: TourCategory
@@ -26,7 +27,7 @@ export type BasicForm = Translatable & {
 
 export type AddOnRow = Translatable & { id: string; title: string; price: string }
 export type HighlightRow = Translatable & { id: string; title: string; items: string }
-export type ItineraryRow = Translatable & { id: string; day: string; title: string; description: string; meals: string; image: string }
+export type ItineraryRow = RichOwner & { id: string; day: string; title: string; description: string; meals: string; image: string }
 export type PassengerRateRow = { id: string; travelers: string; price: string }
 export type TravelerPriceRows = { adult: PassengerRateRow[]; child: PassengerRateRow[]; infant: PassengerRateRow[] }
 export type PriceTierRow = Translatable & { id: string; label: string; price: string; suffix: string }
@@ -70,12 +71,18 @@ export function cleanTravelerPriceRows(values: TravelerPriceRows) {
 export function buildTripPreview(source: Tour, draft: TripBuilderDraft, requestedLocale: EnabledLocale, cleared: ReadonlySet<string> = new Set()) {
   const locale = sanitizeLocale(requestedLocale), form = draft.form
   const text = (row: Translatable & object, key: string) => previewText(row, key, locale, cleared)
+  const narrative = (row: RichOwner & object, key: RichField) => resolveNarrative(row, key, String((row as Record<string, unknown>)[key] ?? ''), locale, cleared.has(previewTextKey(row, key, locale)))
+  const overview = narrative(form, 'overview'), note = narrative(form, 'itineraryNote')
   const amount = previewAmount(form.price)
   const manualDeal = previewAmount(form.deal) !== null && Number(form.deal) > 0 && form.dealEndsAt ? { percent: Number(form.deal), endsAt: form.dealEndsAt } : undefined
   const linked = 'pricingDealSource' in source && source.pricingDealSource === 'linked-offer' && getActiveDealPercent(source) > 0
   const galleryRows = draft.gallery.filter(row => row.src.trim())
   const gallery = galleryRows.map(row => row.src)
-  const itinerary = draft.itinerary.map(row => ({ day: text(row,'day'), title: text(row,'title'), description: text(row,'description'), meals: text(row,'meals'), image: row.image }))
+  const itinerary = draft.itinerary.map(row => {
+    const description = narrative(row, 'description')
+    return { day: text(row,'day'), title: text(row,'title'), description: description.value, meals: text(row,'meals'), image: row.image,
+      ...(row.contentFormats ? { contentFormats: { description: { en: description.format } } } : {}) }
+  })
   const highlights = draft.highlights.map(row => ({ title: text(row,'title'), items: lines(text(row,'items')) }))
   const locations: TourLocation[] = draft.locations.map(row => row.latitude.trim() && row.longitude.trim() && Number.isFinite(Number(row.latitude)) && Number.isFinite(Number(row.longitude)) ? { id: row.id, name: text(row,'name'), latitude: Number(row.latitude), longitude: Number(row.longitude) } : text(row,'name'))
   const priceRows = draft.priceRows.map(row => ({
@@ -84,8 +91,9 @@ export function buildTripPreview(source: Tour, draft: TripBuilderDraft, requeste
     tiers: row.tiers.map(tier => ({ label: text(tier,'label'), price: previewAmount(tier.price) ?? NaN, suffix: text(tier,'suffix') })),
   }))
   const content = {
-    overview: lines(text(form,'overview')), highlightImage: draft.highlightImage,
-    itineraryNote: text(form,'itineraryNote'), included: lines(text(form,'included')), excluded: lines(text(form,'excluded')),
+    overview: overviewFromEditor(overview.value, { contentFormats: { overview: { en: overview.format } } }), highlightImage: draft.highlightImage,
+    ...(form.contentFormats ? { contentFormats: { overview: { en: overview.format }, itineraryNote: { en: note.format } } } : {}),
+    itineraryNote: note.value, included: lines(text(form,'included')), excluded: lines(text(form,'excluded')),
     addOns: draft.addOns.map(row => ({ title: text(row,'title'), price: previewAmount(row.price) ?? undefined })),
     locations, priceRows, travelerPrices: cleanTravelerPriceRows(draft.travelerPrices),
   }

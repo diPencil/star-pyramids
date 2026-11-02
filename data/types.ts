@@ -1,11 +1,13 @@
 import type { CatalogueTranslations } from '@/lib/catalogue-translations'
 import type { TourTranslations } from '@/lib/tour-translations'
+import type { ContentFormats } from '@/lib/tour-rich-text'
 
 export type TourCategory = 'one-day-tours' | 'multi-days-tours' | 'nile-cruises' | 'shore-excursions'
 export type TourVariant = 'multi' | 'day' | 'cruise' | 'shore'
 export type CruiseTypeSlug = 'standard-nile-cruises' | 'deluxe-nile-cruise' | 'superior-nile-cruise' | 'luxury-nile-cruise'
 
 export type TourItineraryDay = {
+  contentFormats?: ContentFormats
   translations?: TourTranslations
   day: string
   title: string
@@ -75,6 +77,7 @@ export type TourLocation = string | {
 }
 
 export type TourDetail = {
+  contentFormats?: ContentFormats
   translations?: TourTranslations
   locationTranslations?: readonly (TourTranslations | null)[]
   overview: readonly string[]
@@ -92,12 +95,13 @@ export type TourDetail = {
 }
 
 export type DayTourDetail = {
+  contentFormats?: ContentFormats
   translations?: TourTranslations
   locationTranslations?: readonly (TourTranslations | null)[]
   overview: readonly string[]
   highlightImage?: string
   itineraryNote?: string
-  stops?: readonly { translations?: TourTranslations; day?: string; title: string; description: string; meals?: string; image?: string }[]
+  stops?: readonly { contentFormats?: ContentFormats; translations?: TourTranslations; day?: string; title: string; description: string; meals?: string; image?: string }[]
   highlights?: readonly string[]
   highlightGroups?: readonly TourHighlightGroup[]
   gallery?: readonly { src: string; alt: string }[]

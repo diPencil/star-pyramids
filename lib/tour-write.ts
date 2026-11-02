@@ -1,4 +1,5 @@
 import { readJsonText } from './json-text'
+import { normalizeTourRichText } from './tour-rich-text'
 import type { Tour } from '@/data/types'
 import type { Prisma } from '@prisma/client'
 
@@ -38,6 +39,7 @@ export function isTourImage(value: unknown): boolean {
 export function validateTourWrite(input: unknown, creating = false): void {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw Error('Invalid tour data.')
   const data = input as Record<string, unknown>
+  normalizeTourRichText(data)
   if (creating && ['title', 'slug', 'category', 'price'].some(key => data[key] === undefined)) throw Error('Enter title, slug, category and base price.')
   if (data.expectedUpdatedAt !== undefined && (typeof data.expectedUpdatedAt !== 'string' || !Number.isFinite(Date.parse(data.expectedUpdatedAt)))) throw Error('Invalid tour revision.')
   if (data.slug !== undefined && (typeof data.slug !== 'string' || !slugPattern.test(data.slug) || data.slug.length > 80)) throw Error('Enter a valid tour slug.')

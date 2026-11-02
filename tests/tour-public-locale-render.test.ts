@@ -15,9 +15,42 @@ vi.mock('@/components/ask-question',()=>({AskQuestionButton:()=>null}))
 vi.mock('@/components/mobile-booking-shortcut',()=>({MobileBookingShortcut:()=>null}))
 
 import { DayTourDetailPage } from '@/components/day-tour-detail'
+import { TourRichText } from '@/components/tour-rich-text'
+import { TripPreviewContent } from '@/components/admin/trip-builder-preview'
+import { buildTripPreview } from '@/lib/trip-builder-preview'
+import { editorData } from '@/components/admin/trip-builder'
 import { TourDetailPage, TourLocationMap } from '@/components/tour-detail'
 
 const records = [translationTour]
+
+it.each(['one-day-tours', 'multi-days-tours', 'nile-cruises', 'shore-excursions'] as const)('renders safe narrative HTML in the actual %s page and preview', category => {
+  state.locale = 'en'
+  const content = { overview: ['<h3>Rich heading</h3><p><strong>Formatted overview</strong></p>\n<ol><li>Visit</li></ol>'], itineraryNote: '<p><u>Formatted note</u></p>', contentFormats: { overview: { en: 'html-v1' as const }, itineraryNote: { en: 'html-v1' as const } },
+    highlights: [], locations: [], itinerary: [{ day: 'Day 1', title: 'Plain day', description: '<p><em>Formatted description</em></p>', contentFormats: { description: { en: 'html-v1' as const } } }], stops: [{ day: 'Stop 1', title: 'Plain stop', description: '<p><em>Formatted description</em></p>', contentFormats: { description: { en: 'html-v1' as const } } }], included: ['Plain lunch'], excluded: [] }
+  const source: Tour = { ...translationTour, category, image: '/fixture.jpg', gallery: ['/fixture.jpg'],
+    detail: category === 'one-day-tours' ? undefined : content,
+    dayDetail: category === 'one-day-tours' ? { ...content, highlights: [] } : undefined }
+  const html = renderToStaticMarkup(createElement(category === 'one-day-tours' ? DayTourDetailPage : TourDetailPage, { tour: source, related: [] }))
+  expect(html).toContain('<h3>Rich heading</h3>')
+  expect(html).toContain('<strong>Formatted overview</strong>')
+  expect(html).toContain('<u>Formatted note</u>')
+  expect(html).toContain('<em>Formatted description</em>')
+  expect(html).not.toContain('&lt;strong&gt;')
+  const loaded = editorData(source)
+  const preview = buildTripPreview(source, { ...loaded, catSlugs: loaded.categorySlugs }, 'en')
+  const previewHtml = renderToStaticMarkup(createElement(TripPreviewContent, { preview, counts: { adult: 1, child: 0, infant: 0 } }))
+  expect(previewHtml).toContain('<strong>Formatted overview</strong>')
+  expect(previewHtml).toContain('<u>Formatted note</u>')
+})
+
+it('keeps unmarked markup escaped and sanitizes marked HTML even when persistence was bypassed', () => {
+  const plain = renderToStaticMarkup(createElement(TourRichText, { value: '<b>literal</b>' }))
+  expect(plain).toBe('<p>&lt;b&gt;literal&lt;/b&gt;</p>')
+  const rich = renderToStaticMarkup(createElement(TourRichText, { value: '<p onclick="bad()"><strong>Safe</strong><script>bad()</script><a href="javascript:bad()">Link</a></p>', format: 'html-v1' }))
+  expect(rich).toContain('<strong>Safe</strong>')
+  expect(rich).not.toMatch(/onclick|script|javascript|bad\(\)/)
+  expect(rich).not.toMatch(/<p><div|<p><p/)
+})
 it.each(['en','es','it'] as const)('renders saved %s day-tour content in the actual public template', locale => {
   state.locale=locale
   const source={...records[0],image:'/fixture.jpg',gallery:['/fixture.jpg']}
