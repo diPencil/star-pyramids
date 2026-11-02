@@ -298,7 +298,7 @@
     {
       "area": "homepage-top-tours",
       "direction": "Single-row automatic horizontal tour slider",
-      "summary": "Keep existing TourCard and HorizontalSlider; show four cards on large screens, two on tablet and 86% cards on phones. Advance every five seconds, with arrows left and View All right on one footer row; no counter or playback button.",
+      "summary": "Keep existing TourCard and HorizontalSlider; show four cards on large screens, two on tablet and 86% cards on phones. Move continuously at 40px/second with seamless card recycling, arrows left and View All right; no counter or playback button.",
       "constraints": [
         "Include every published tour without the legacy featured selection/limit; preserve CMS title, subtitle, visibility, action link and canonical card data",
         "Pause for interaction, hidden/offscreen content and reduced motion",

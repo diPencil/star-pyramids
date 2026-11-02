@@ -1,7 +1,8 @@
 "use client"
 
-import { Children, type ReactNode, useCallback, useEffect, useRef, useState } from "react"
+import { Children, isValidElement, type ReactNode, useCallback, useEffect, useRef, useState } from "react"
 import { ArrowLeft, ArrowRight, Pause, Play } from "lucide-react"
+import { bindContinuousSlider } from '@/lib/continuous-slider'
 
 type HorizontalSliderProps = {
   children: ReactNode
@@ -13,6 +14,7 @@ type HorizontalSliderProps = {
   rotationLabels?: { pause: string; play: string }
   arrowsOnly?: boolean
   footerAction?: ReactNode
+  continuous?: boolean
 }
 
 export function HorizontalSlider({
@@ -25,9 +27,12 @@ export function HorizontalSlider({
   rotationLabels,
   arrowsOnly = false,
   footerAction,
+  continuous = false,
 }: HorizontalSliderProps) {
   const items = Children.toArray(children)
   const trackRef = useRef<HTMLDivElement>(null)
+  const continuousRef = useRef<ReturnType<typeof bindContinuousSlider> | null>(null)
+  const itemKeys = items.map((item, index) => isValidElement(item) ? item.key : index).join('|')
   const interaction = useRef({ hovered: false, focused: false, touching: false, last: 0 })
   const indexRef = useRef(0)
   const [stopped, setStopped] = useState(false)
@@ -36,7 +41,18 @@ export function HorizontalSlider({
 
   useEffect(() => {
     const track = trackRef.current
-    if (!track) return
+    if (!continuous || !track) return
+    const controller = bindContinuousSlider(track, {
+      canMove: () => !interaction.current.hovered && !interaction.current.focused && !interaction.current.touching,
+      onOverflow: (count) => setPositions(current => current.length === count ? current : Array.from({ length: count }, (_, index) => index)),
+    })
+    continuousRef.current = controller
+    return () => { controller.dispose(); continuousRef.current = null }
+  }, [continuous, itemKeys])
+
+  useEffect(() => {
+    const track = trackRef.current
+    if (!track || continuous) return
 
     const measure = () => {
       const first = track.children.item(0) as HTMLElement | null
@@ -57,7 +73,7 @@ export function HorizontalSlider({
     observer?.observe(track)
     window.addEventListener('resize', measure)
     return () => { observer?.disconnect(); window.removeEventListener('resize', measure) }
-  }, [items.length])
+  }, [items.length, continuous])
 
   const scrollToPosition = useCallback((index: number) => {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -65,15 +81,16 @@ export function HorizontalSlider({
   }, [positions])
 
   const goTo = useCallback((requestedIndex: number) => {
+    if (continuous) { continuousRef.current?.move(requestedIndex - indexRef.current); return }
     if (!positions.length) return
     const nextIndex = (requestedIndex + positions.length) % positions.length
     scrollToPosition(nextIndex)
     indexRef.current = nextIndex
     setActiveIndex(nextIndex)
-  }, [positions, scrollToPosition])
+  }, [positions, scrollToPosition, continuous])
 
   useEffect(() => {
-    if (positions.length < 2 || items.length < 2 || stopped || autoAdvanceMs <= 0) return
+    if (continuous || positions.length < 2 || items.length < 2 || stopped || autoAdvanceMs <= 0) return
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)")
     const timer = window.setInterval(() => {
       const state = interaction.current
@@ -84,9 +101,10 @@ export function HorizontalSlider({
       goTo(indexRef.current + 1)
     }, autoAdvanceMs)
     return () => window.clearInterval(timer)
-  }, [autoAdvanceMs, positions.length, items.length, goTo, stopped])
+  }, [autoAdvanceMs, positions.length, items.length, goTo, stopped, continuous])
 
   const syncActivePosition = () => {
+    if (continuous) return
     const current = trackRef.current?.scrollLeft ?? 0
     const nearest = positions.reduce((best, position, index) => Math.abs(position - current) < Math.abs(positions[best] - current) ? index : best, 0)
     indexRef.current = nearest
@@ -109,20 +127,20 @@ export function HorizontalSlider({
 
   return <div
     className="horizontal-slider"
-    onMouseEnter={() => { interaction.current.hovered = true }}
-    onMouseLeave={() => { interaction.current.hovered = false }}
-    onFocusCapture={() => { interaction.current.focused = true }}
+    onPointerEnter={(event) => { if (event.pointerType === 'mouse') interaction.current.hovered = true }}
+    onFocusCapture={() => { interaction.current.focused = !continuous || !interaction.current.touching }}
     onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) interaction.current.focused = false }}
     onPointerDown={() => { interaction.current.touching = true }}
     onPointerUp={() => { interaction.current.touching = false; interaction.current.last = Date.now() }}
     onPointerCancel={() => { interaction.current.touching = false; interaction.current.last = Date.now() }}
-    onPointerLeave={() => { interaction.current.touching = false }}
+    onPointerLeave={(event) => { if (event.pointerType === 'mouse') interaction.current.hovered = false; interaction.current.touching = false }}
     onWheel={() => { interaction.current.last = Date.now() }}
   >
-    <div ref={trackRef} className={className} aria-label={ariaLabel} role="region" tabIndex={0} onScroll={syncActivePosition} onKeyDown={(event) => {
+    <div ref={trackRef} className={className} data-continuous={continuous || undefined} aria-label={ariaLabel} role="region" tabIndex={0} onScroll={syncActivePosition} onKeyDown={(event) => {
       if (event.target !== event.currentTarget || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
       event.preventDefault()
       interaction.current.last = Date.now()
+      if (continuous && (event.key === 'Home' || event.key === 'End')) { continuousRef.current?.jump(event.key === 'Home' ? 0 : items.length - 1); return }
       goTo(event.key === 'Home' ? 0 : event.key === 'End' ? positions.length - 1 : indexRef.current + (event.key === 'ArrowLeft' ? -1 : 1))
     }}>{items}</div>
     {footerAction ? <div className="horizontal-slider-footer">{navigation}<div className="horizontal-slider-action">{footerAction}</div></div> : navigation}

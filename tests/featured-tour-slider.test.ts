@@ -20,6 +20,7 @@ describe('homepage featured tour carousel', () => {
     const html = renderToStaticMarkup(h(InitialLocaleProvider, { locale, preview: true, children: h(LocaleProvider, { children: h(RebuiltHomePage, { pageContent: { content } }) }) }))
     const section = html.split('class="featured-tours-slider"')[1].split('</section>')[0]
     expect(section).toContain('role="region"')
+    expect(section).toContain('data-continuous="true"')
     expect(section).toContain('tabindex="0"')
     expect(section).toContain(`aria-label="${featured.text[locale].xmasT.replaceAll("'", '&#x27;')}"`)
     expect(section.match(/<article\b/g)).toHaveLength(9)

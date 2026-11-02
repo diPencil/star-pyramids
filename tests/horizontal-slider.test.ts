@@ -38,13 +38,14 @@ const fire = (node: ReactElement<Record<string, unknown>>, handler: string, even
 function fixture(count = 6, width = 400, options: Partial<Parameters<typeof HorizontalSlider>[0]> = {}) {
   const motion = { matches: false }
   const doc = { visibilityState: 'visible' }
-  const win = Object.assign(new EventTarget(), { matchMedia: () => motion, setInterval, clearInterval, innerHeight: 800 })
+  let animation: FrameRequestCallback = () => {}
+  const win = Object.assign(new EventTarget(), { matchMedia: () => motion, setInterval, clearInterval, innerHeight: 800, getComputedStyle: () => ({ columnGap: '20px' }), requestAnimationFrame: (callback: FrameRequestCallback) => { animation = callback; return 1 }, cancelAnimationFrame: vi.fn() })
   vi.stubGlobal('window', win); vi.stubGlobal('document', doc)
   let resize = () => {}
   const disconnect = vi.fn()
   vi.stubGlobal('ResizeObserver', class { constructor(callback: () => void) { resize = callback } observe() {} disconnect = disconnect })
-  const children = Array.from({ length: count }, (_, index) => ({ offsetLeft: index * 200 }))
-  const track = { children: Object.assign(children, { item: (index: number) => children[index] }), clientWidth: width, scrollWidth: count * 200, scrollLeft: 0, getBoundingClientRect: () => ({ top: 100, bottom: 500 }), scrollTo: vi.fn(({ left }: { left: number }) => { track.scrollLeft = left }) }
+  const children = Array.from({ length: count }, (_, index) => ({ offsetLeft: index * 200, style: { order: '' }, getBoundingClientRect: () => ({ width: 180 }) }))
+  const track = Object.assign(new EventTarget(), { children: Object.assign(children, { item: (index: number) => children[index] }), clientWidth: width, scrollWidth: count * 200, scrollLeft: 0, getBoundingClientRect: () => ({ top: 100, bottom: 500 }), scrollTo: vi.fn(({ left }: { left: number }) => { track.scrollLeft = left }) })
   let root: ReturnType<typeof HorizontalSlider>
   const render = () => {
     hooks.cursor = 0
@@ -55,7 +56,7 @@ function fixture(count = 6, width = 400, options: Partial<Parameters<typeof Hori
     return root!
   }
   render(); render()
-  return { track, win, doc, motion, disconnect, render, resize: () => resize(), get root() { return root! }, region: () => find(root, node => node.props.role === 'region')!, button: (label: string) => find(root, node => node.props['aria-label'] === label)! }
+  return { track, win, doc, motion, disconnect, render, animate: (time: number) => animation(time), resize: () => resize(), get root() { return root! }, region: () => find(root, node => node.props.role === 'region')!, button: (label: string) => find(root, node => node.props['aria-label'] === label)! }
 }
 
 beforeEach(() => { hooks.cursor = 0; hooks.cells = []; hooks.pending = []; vi.useFakeTimers(); vi.setSystemTime(100_000) })
@@ -65,6 +66,36 @@ afterEach(() => {
 })
 
 describe('horizontal tour slider interaction', () => {
+  it('treats mouse hover as pause without leaving touch users stuck in synthetic hover', () => {
+    const f = fixture(8, 720, { continuous: true, arrowsOnly: true })
+    f.animate(1000)
+    fire(f.root!, 'onPointerEnter', { pointerType: 'touch' }); fire(f.root!, 'onPointerDown'); fire(f.root!, 'onFocusCapture'); fire(f.root!, 'onPointerUp')
+    f.animate(1016); expect(f.track.scrollLeft).toBeGreaterThan(0)
+    const before = f.track.scrollLeft
+    fire(f.root!, 'onPointerEnter', { pointerType: 'mouse' }); f.animate(1032)
+    expect(f.track.scrollLeft).toBe(before)
+    fire(f.root!, 'onPointerLeave', { pointerType: 'mouse' }); f.animate(1048)
+    expect(f.track.scrollLeft).toBeGreaterThan(before)
+  })
+  it('resumes continuous movement after mouse arrow clicks instead of keeping pointer focus paused', () => {
+    const f = fixture(8, 720, { continuous: true, arrowsOnly: true })
+    f.animate(1000)
+    fire(f.root!, 'onPointerEnter', { pointerType: 'mouse' }); fire(f.root!, 'onPointerDown'); fire(f.root!, 'onFocusCapture'); fire(f.root!, 'onPointerUp')
+    fire(f.button('Next'), 'onClick')
+    for (let time = 1016; time <= 1400; time += 16) f.animate(time)
+    fire(f.root!, 'onPointerLeave', { pointerType: 'mouse' })
+    const before = f.track.scrollLeft
+    f.animate(1416)
+    expect(f.track.scrollLeft).toBeGreaterThan(before)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+  it('keeps continuous movement paused for keyboard focus without affecting pointer resumption', () => {
+    const f = fixture(8, 720, { continuous: true, arrowsOnly: true })
+    f.animate(1000); fire(f.root!, 'onFocusCapture'); fire(f.root!, 'onPointerLeave', { pointerType: 'mouse' }); f.animate(1016)
+    expect(f.track.scrollLeft).toBe(0)
+    fire(f.root!, 'onBlurCapture', { currentTarget: { contains: () => false }, relatedTarget: null }); f.animate(1032)
+    expect(f.track.scrollLeft).toBeGreaterThan(0)
+  })
   it('groups arrows and the action into one footer with no counter, dots or playback button', () => {
     const f = fixture(11, 800, { arrowsOnly: true, footerAction: createElement('a', { href: '/trips' }, 'View All') })
     const footer = find(f.root, node => node.props.className === 'horizontal-slider-footer')!
@@ -93,7 +124,7 @@ describe('horizontal tour slider interaction', () => {
   })
   it('does not resume on mouse leave while a card still has keyboard focus', () => {
     const f = fixture()
-    fire(f.root!, 'onFocusCapture'); fire(f.root!, 'onMouseEnter'); fire(f.root!, 'onMouseLeave')
+    fire(f.root!, 'onFocusCapture'); fire(f.root!, 'onPointerEnter', { pointerType: 'mouse' }); fire(f.root!, 'onPointerLeave', { pointerType: 'mouse' })
     vi.advanceTimersByTime(5000); expect(f.track.scrollTo).not.toHaveBeenCalled()
     fire(f.root!, 'onBlurCapture', { currentTarget: { contains: () => true }, relatedTarget: {} })
     vi.advanceTimersByTime(5000); expect(f.track.scrollTo).not.toHaveBeenCalled()
