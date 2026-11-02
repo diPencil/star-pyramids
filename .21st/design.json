@@ -305,6 +305,17 @@
         "Keep other homepage sections unchanged and add no dependencies or database writes",
         "No browser automation, commit, push or deployment without explicit approval"
       ]
+    },
+    {
+      "area": "review-trip-selection",
+      "direction": "Bounded inline searchable trip choice with category context",
+      "summary": "Replace the native review trip dropdown with an inline combobox, search by title, filter the four stored tour types and show each result's real type. Wrap long names and keep results inside the modal with internal scrolling.",
+      "constraints": [
+        "Retain the existing review modal, moderation, authentication and canonical tourSlug submission",
+        "Require an explicit published trip choice; never infer type from the title or submit search text",
+        "Support EN/ES/IT, keyboard selection and Escape without nested portals",
+        "No database, schema, publishing, browser automation or dependency changes"
+      ]
     }
   ]
 }

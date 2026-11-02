@@ -10,6 +10,7 @@ useEffect:(callback:()=>void|(()=>void),deps:unknown[])=>{const index=h.effect++
 vi.mock('react-dom',()=>({createPortal:(children:ReactNode)=>children}))
 vi.mock('@/components/locale',()=>({useLocale:()=>({locale:h.locale}),tx:(locale:string,value:{en:string;es?:string;it?:string})=>locale==='es'?value.es??value.en:locale==='it'?value.it??value.en:value.en}))
 import { ReviewWriteModal, type ReviewModalCopy } from '@/components/reviews'
+import { ReviewTripPicker } from '@/components/review-trip-picker'
 type Element=ReactElement<Record<string,any>>
 const copy:ReviewModalCopy={heading:'Write a review',reviewTitle:'Title',reviewTitlePh:'Title',rating:'Rating',review:'Your review',reviewPh:'Your experience',cancel:'Cancel',submit:'Submit review'}
 const submitted=vi.fn(),closed=vi.fn()
@@ -25,22 +26,22 @@ function text(tree:ReactNode,value:string){const field=nodes(tree).find(node=>no
 const form=(tree:ReactNode)=>nodes(tree).find(node=>node.type==='form')!
 beforeEach(()=>{vi.clearAllMocks();h.locale='en';h.slots=[];h.effects=[];h.queued=[];h.cursor=0;h.effect=0;currentProps={copy,tourSlug:'@website',onSubmit:submitted,onClose:closed};doc=Object.assign(new EventTarget(),{body:{style:{overflow:''}},activeElement:null as FakeElement|null});previous=new FakeElement();textarea=new FakeElement();other=new FakeElement();doc.activeElement=previous;vi.stubGlobal('document',doc);vi.stubGlobal('HTMLElement',FakeElement);vi.stubGlobal('fetch',h.fetch);dialogNode.querySelector.mockReturnValue(textarea);dialogNode.querySelectorAll.mockReturnValue([textarea,other])})
 afterEach(()=>{h.effects.forEach(effect=>effect.cleanup?.());vi.unstubAllGlobals()})
-const loadedTrips = { tours: [{ slug: 'full-day-cairo', title: 'Full Day Cairo', status: 'published' }, { slug: 'hidden-trip', title: 'Private draft', status: 'draft' }, { slug: 'full-day-cairo', title: 'Full Day Cairo', status: 'published' }] }
+const loadedTrips = { tours: [{ slug: 'full-day-cairo', title: 'Full Day Cairo', status: 'published', category: 'one-day-tours' }, { slug: 'hidden-trip', title: 'Private draft', status: 'draft' }, { slug: 'full-day-cairo', title: 'Full Day Cairo', status: 'published', category: 'one-day-tours' }] }
 const settle = () => new Promise(resolve => setTimeout(resolve, 0))
 it.each([['es', 'Selecciona el viaje que quieres valorar'], ['it', 'Seleziona il viaggio che vuoi recensire']] as const)('localizes the trip picker in %s', async (locale, placeholder) => {
  h.locale = locale; currentProps.chooseTour = true; h.fetch.mockResolvedValue(Response.json(loadedTrips))
  mount(); await settle(); const tree = render()
- const select = nodes(tree).find(node => node.type === 'select')!
- expect(nodes(select).find(node => node.type === 'option' && node.props.value === '')!.props.children).toBe(placeholder)
+ const select = nodes(tree).find(node => node.type === ReviewTripPicker)!
+ expect(select.props.locale).toBe(locale)
 })
 it('loads only unique published trip choices and submits the selected canonical slug pending approval', async () => {
  currentProps.chooseTour = true
  h.fetch.mockImplementation(async (url: string) => url === '/api/tours' ? Response.json(loadedTrips) : Response.json({ review: { status: 'PENDING' } }, { status: 201 }))
  mount(); await settle(); let tree = text(render(), 'An excellent Cairo trip experience.')
- const select = nodes(tree).find(node => node.type === 'select')!
- expect(nodes(select).filter(node => node.type === 'option')).toHaveLength(2)
- expect(nodes(select).some(node => node.props.value === 'hidden-trip')).toBe(false)
- select.props.onChange({ target: { value: 'full-day-cairo' } }); tree = render()
+ const select = nodes(tree).find(node => node.type === ReviewTripPicker)!
+ expect(select.props.tours).toHaveLength(1)
+ expect(select.props.tours.some((tour: { slug: string }) => tour.slug === 'hidden-trip')).toBe(false)
+ select.props.onChange('full-day-cairo'); tree = render()
  await form(tree).props.onSubmit({ preventDefault: vi.fn() }); await settle()
  const post = h.fetch.mock.calls.find(call => call[0] === '/api/reviews')!
  expect(JSON.parse(post[1].body)).toEqual({ tourSlug: 'full-day-cairo', rating: 5, title: '', text: 'An excellent Cairo trip experience.' })
@@ -52,7 +53,7 @@ it('requires a real trip choice and never falls back to a website review', async
  await form(tree).props.onSubmit({ preventDefault: vi.fn() }); tree = render()
  expect(h.fetch).toHaveBeenCalledTimes(1); expect(submitted).not.toHaveBeenCalled()
  expect(nodes(tree).some(node => node.props.role === 'alert')).toBe(true)
- nodes(tree).find(node => node.type === 'select')!.props.onChange({ target: { value: 'forged-trip' } }); tree = render()
+ nodes(tree).find(node => node.type === ReviewTripPicker)!.props.onChange('forged-trip'); tree = render()
  await form(tree).props.onSubmit({ preventDefault: vi.fn() })
  expect(h.fetch).toHaveBeenCalledTimes(1)
 })
@@ -60,9 +61,9 @@ it('preserves the selected trip and review on sign-in failure and returns to tha
  currentProps.chooseTour = true
  h.fetch.mockImplementation(async (url: string) => url === '/api/tours' ? Response.json(loadedTrips) : Response.json({ error: 'Authentication required.' }, { status: 401 }))
  mount(); await settle(); let tree = text(render(), 'Please preserve this Cairo experience.')
- nodes(tree).find(node => node.type === 'select')!.props.onChange({ target: { value: 'full-day-cairo' } }); tree = render()
+ nodes(tree).find(node => node.type === ReviewTripPicker)!.props.onChange('full-day-cairo'); tree = render()
  await form(tree).props.onSubmit({ preventDefault: vi.fn() }); await settle(); tree = render()
- expect(nodes(tree).find(node => node.type === 'select')!.props.value).toBe('full-day-cairo')
+ expect(nodes(tree).find(node => node.type === ReviewTripPicker)!.props.value).toBe('full-day-cairo')
  expect(nodes(tree).find(node => node.type === 'textarea')!.props.value).toBe('Please preserve this Cairo experience.')
  expect(nodes(tree).find(node => node.type === 'a')!.props.href).toBe('/login?next=%2Fegypt-tours%2Ffull-day-cairo%23reviews')
  expect(submitted).not.toHaveBeenCalled()

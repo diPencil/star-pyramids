@@ -9,6 +9,8 @@ import { useLocale, tx } from '@/components/locale'
 import { cn } from '@/lib/utils'
 import { WEBSITE_REVIEW_SCOPE } from '@/lib/review-scope'
 import { useReviewRefresh } from '@/lib/use-review-refresh'
+import { ReviewTripPicker } from './review-trip-picker'
+import type { ReviewTripChoice } from '@/lib/review-trip-options'
 import './reviews-phase6.css'
 
 /** Customer review from the database (public API shape). */
@@ -128,7 +130,7 @@ export function ReviewWriteModal({
   const textHintId = useId()
   const [needsSignIn, setNeedsSignIn] = useState(false)
   const [selectedTour, setSelectedTour] = useState('')
-  const [tours, setTours] = useState<Array<{ slug: string; title: string }>>([])
+  const [tours, setTours] = useState<ReviewTripChoice[]>([])
   const [toursLoading, setToursLoading] = useState(chooseTour)
   const [toursError, setToursError] = useState(false)
   const [tourRetry, setTourRetry] = useState(0)
@@ -146,7 +148,7 @@ export function ReviewWriteModal({
         if (!row || typeof row !== 'object') return []
         const value = row as Record<string, unknown>
         return value.status === 'published' && typeof value.slug === 'string' && value.slug && value.slug.length <= 80 && typeof value.title === 'string' && value.title.trim()
-          ? [{ slug: value.slug, title: value.title }] : []
+          ? [{ slug: value.slug, title: value.title, category: typeof value.category === 'string' ? value.category : '' }] : []
       })
       if (!controller.signal.aborted) setTours([...new Map(rows.map(row => [row.slug, row])).values()])
     }).catch(() => { if (!controller.signal.aborted) { setTours([]); setToursError(true) } })
@@ -162,7 +164,7 @@ export function ReviewWriteModal({
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null
     const overflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    dialog.current?.querySelector<HTMLElement>(chooseTour ? 'select' : 'textarea')?.focus()
+    dialog.current?.querySelector<HTMLElement>(chooseTour ? '[data-review-trip-search]' : 'textarea')?.focus()
     const keydown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && !pending.current) close.current()
       if (event.key !== 'Tab') return
@@ -180,7 +182,7 @@ export function ReviewWriteModal({
     if (pending.current) return
     if (chooseTour && (toursLoading || toursError || !tours.some(tour => tour.slug === selectedTour))) {
       setError(tx(locale, { en: 'Choose a published trip to review.', es: 'Elige un viaje publicado para escribir tu reseña.', it: 'Scegli un viaggio pubblicato da recensire.' }))
-      dialog.current?.querySelector<HTMLElement>('select')?.focus()
+      dialog.current?.querySelector<HTMLElement>('[data-review-trip-search]')?.focus()
       return
     }
     if (text.trim().length < 10 || text.trim().length > 5000 || stars < 1 || stars > 5) {
@@ -213,13 +215,8 @@ export function ReviewWriteModal({
         <h3>{copy.heading}</h3>
         {copy.context && <p className="rev-modal-context">{copy.context}</p>}
         <form className="rev-form" onSubmit={event => { event.preventDefault(); void handleSubmit() }}>
-          {chooseTour && <div className="rev-trip-picker">
-            <label>{tx(locale, { en: 'Choose your trip', es: 'Elige tu viaje', it: 'Scegli il tuo viaggio' })}
-              <select name="tourSlug" required value={selectedTour} disabled={submitting} onChange={event => { setSelectedTour(event.target.value); setError(''); setNeedsSignIn(false) }}>
-                <option value="">{tx(locale, { en: 'Select the trip you want to review', es: 'Selecciona el viaje que quieres valorar', it: 'Seleziona il viaggio che vuoi recensire' })}</option>
-                {tours.map(tour => <option key={tour.slug} value={tour.slug}>{tour.title}</option>)}
-              </select>
-            </label>
+          {chooseTour && <div>
+            <ReviewTripPicker tours={tours} value={selectedTour} locale={locale} loading={toursLoading} disabled={submitting} onChange={slug => { setSelectedTour(slug); setError(''); setNeedsSignIn(false) }}/>
             {toursLoading && <p role="status">{tx(locale, { en: 'Loading published trips…', es: 'Cargando viajes publicados…', it: 'Caricamento dei viaggi pubblicati…' })}</p>}
             {toursError && <div role="alert"><p>{tx(locale, { en: 'Unable to load trips. Your review text is preserved.', es: 'No se pudieron cargar los viajes. El texto de tu reseña se conserva.', it: 'Impossibile caricare i viaggi. Il testo della recensione è conservato.' })}</p><button type="button" className="outline-btn" onClick={() => setTourRetry(value => value + 1)}>{tx(locale, { en: 'Retry', es: 'Reintentar', it: 'Riprova' })}</button></div>}
             {!toursLoading && !toursError && !tours.length && <p role="status">{tx(locale, { en: 'No published trips are available to review.', es: 'No hay viajes publicados disponibles para valorar.', it: 'Non ci sono viaggi pubblicati disponibili da recensire.' })}</p>}
