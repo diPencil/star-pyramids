@@ -1,6 +1,6 @@
 import { Children, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-const h=vi.hoisted(()=>({slots:[] as any[],cursor:0,effects:[] as {deps:unknown[];cleanup?:()=>void}[],effect:0,queued:[] as (()=>void)[],fetch:vi.fn()}))
+const h=vi.hoisted(()=>({locale:'en' as 'en'|'es'|'it',slots:[] as any[],cursor:0,effects:[] as {deps:unknown[];cleanup?:()=>void}[],effect:0,queued:[] as (()=>void)[],fetch:vi.fn()}))
 vi.mock('react',async()=>{const actual=await vi.importActual<typeof import('react')>('react');return{...actual,
 useState:(initial:any)=>{const slot=h.cursor++;if(!(slot in h.slots))h.slots[slot]=typeof initial==='function'?initial():initial;return[h.slots[slot],(next:any)=>{h.slots[slot]=typeof next==='function'?next(h.slots[slot]):next}]},
 useRef:(initial:any)=>{const slot=h.cursor++;if(!(slot in h.slots))h.slots[slot]={current:initial};return h.slots[slot]},
@@ -8,12 +8,12 @@ useId:()=> 'review-text-hint',
 useEffect:(callback:()=>void|(()=>void),deps:unknown[])=>{const index=h.effect++,old=h.effects[index];if(!old||deps.some((value,i)=>value!==old.deps[i])){h.queued.push(()=>{old?.cleanup?.();h.effects[index]={deps,cleanup:callback()||undefined}})}}
 }})
 vi.mock('react-dom',()=>({createPortal:(children:ReactNode)=>children}))
-vi.mock('@/components/locale',()=>({useLocale:()=>({locale:'en'}),tx:(_locale:string,value:{en:string})=>value.en}))
+vi.mock('@/components/locale',()=>({useLocale:()=>({locale:h.locale}),tx:(locale:string,value:{en:string;es?:string;it?:string})=>locale==='es'?value.es??value.en:locale==='it'?value.it??value.en:value.en}))
 import { ReviewWriteModal, type ReviewModalCopy } from '@/components/reviews'
 type Element=ReactElement<Record<string,any>>
 const copy:ReviewModalCopy={heading:'Write a review',reviewTitle:'Title',reviewTitlePh:'Title',rating:'Rating',review:'Your review',reviewPh:'Your experience',cancel:'Cancel',submit:'Submit review'}
 const submitted=vi.fn(),closed=vi.fn()
-let currentProps:{copy:ReviewModalCopy;tourSlug?:string;onSubmit:typeof submitted;onClose:typeof closed}
+let currentProps:{copy:ReviewModalCopy;tourSlug?:string;chooseTour?:boolean;onSubmit:typeof submitted;onClose:typeof closed}
 let doc:EventTarget&{body:{style:{overflow:string}};activeElement:FakeElement|null}
 class FakeElement { tabIndex=0; focus=vi.fn(()=>{doc.activeElement=this}) }
 let textarea:FakeElement,other:FakeElement,previous:FakeElement
@@ -23,8 +23,60 @@ function render(){h.cursor=0;h.effect=0;const tree=ReviewWriteModal(currentProps
 function mount(){render();return render()}
 function text(tree:ReactNode,value:string){const field=nodes(tree).find(node=>node.type==='textarea')!;field.props.onChange({target:{value}});return render()}
 const form=(tree:ReactNode)=>nodes(tree).find(node=>node.type==='form')!
-beforeEach(()=>{vi.clearAllMocks();h.slots=[];h.effects=[];h.queued=[];h.cursor=0;h.effect=0;currentProps={copy,tourSlug:'@website',onSubmit:submitted,onClose:closed};doc=Object.assign(new EventTarget(),{body:{style:{overflow:''}},activeElement:null as FakeElement|null});previous=new FakeElement();textarea=new FakeElement();other=new FakeElement();doc.activeElement=previous;vi.stubGlobal('document',doc);vi.stubGlobal('HTMLElement',FakeElement);vi.stubGlobal('fetch',h.fetch);dialogNode.querySelector.mockReturnValue(textarea);dialogNode.querySelectorAll.mockReturnValue([textarea,other])})
+beforeEach(()=>{vi.clearAllMocks();h.locale='en';h.slots=[];h.effects=[];h.queued=[];h.cursor=0;h.effect=0;currentProps={copy,tourSlug:'@website',onSubmit:submitted,onClose:closed};doc=Object.assign(new EventTarget(),{body:{style:{overflow:''}},activeElement:null as FakeElement|null});previous=new FakeElement();textarea=new FakeElement();other=new FakeElement();doc.activeElement=previous;vi.stubGlobal('document',doc);vi.stubGlobal('HTMLElement',FakeElement);vi.stubGlobal('fetch',h.fetch);dialogNode.querySelector.mockReturnValue(textarea);dialogNode.querySelectorAll.mockReturnValue([textarea,other])})
 afterEach(()=>{h.effects.forEach(effect=>effect.cleanup?.());vi.unstubAllGlobals()})
+const loadedTrips = { tours: [{ slug: 'full-day-cairo', title: 'Full Day Cairo', status: 'published' }, { slug: 'hidden-trip', title: 'Private draft', status: 'draft' }, { slug: 'full-day-cairo', title: 'Full Day Cairo', status: 'published' }] }
+const settle = () => new Promise(resolve => setTimeout(resolve, 0))
+it.each([['es', 'Selecciona el viaje que quieres valorar'], ['it', 'Seleziona il viaggio che vuoi recensire']] as const)('localizes the trip picker in %s', async (locale, placeholder) => {
+ h.locale = locale; currentProps.chooseTour = true; h.fetch.mockResolvedValue(Response.json(loadedTrips))
+ mount(); await settle(); const tree = render()
+ const select = nodes(tree).find(node => node.type === 'select')!
+ expect(nodes(select).find(node => node.type === 'option' && node.props.value === '')!.props.children).toBe(placeholder)
+})
+it('loads only unique published trip choices and submits the selected canonical slug pending approval', async () => {
+ currentProps.chooseTour = true
+ h.fetch.mockImplementation(async (url: string) => url === '/api/tours' ? Response.json(loadedTrips) : Response.json({ review: { status: 'PENDING' } }, { status: 201 }))
+ mount(); await settle(); let tree = text(render(), 'An excellent Cairo trip experience.')
+ const select = nodes(tree).find(node => node.type === 'select')!
+ expect(nodes(select).filter(node => node.type === 'option')).toHaveLength(2)
+ expect(nodes(select).some(node => node.props.value === 'hidden-trip')).toBe(false)
+ select.props.onChange({ target: { value: 'full-day-cairo' } }); tree = render()
+ await form(tree).props.onSubmit({ preventDefault: vi.fn() }); await settle()
+ const post = h.fetch.mock.calls.find(call => call[0] === '/api/reviews')!
+ expect(JSON.parse(post[1].body)).toEqual({ tourSlug: 'full-day-cairo', rating: 5, title: '', text: 'An excellent Cairo trip experience.' })
+ expect(submitted).toHaveBeenCalledOnce()
+})
+it('requires a real trip choice and never falls back to a website review', async () => {
+ currentProps.chooseTour = true; h.fetch.mockResolvedValue(Response.json(loadedTrips))
+ mount(); await settle(); let tree = text(render(), 'My genuine trip review.')
+ await form(tree).props.onSubmit({ preventDefault: vi.fn() }); tree = render()
+ expect(h.fetch).toHaveBeenCalledTimes(1); expect(submitted).not.toHaveBeenCalled()
+ expect(nodes(tree).some(node => node.props.role === 'alert')).toBe(true)
+ nodes(tree).find(node => node.type === 'select')!.props.onChange({ target: { value: 'forged-trip' } }); tree = render()
+ await form(tree).props.onSubmit({ preventDefault: vi.fn() })
+ expect(h.fetch).toHaveBeenCalledTimes(1)
+})
+it('preserves the selected trip and review on sign-in failure and returns to that trip', async () => {
+ currentProps.chooseTour = true
+ h.fetch.mockImplementation(async (url: string) => url === '/api/tours' ? Response.json(loadedTrips) : Response.json({ error: 'Authentication required.' }, { status: 401 }))
+ mount(); await settle(); let tree = text(render(), 'Please preserve this Cairo experience.')
+ nodes(tree).find(node => node.type === 'select')!.props.onChange({ target: { value: 'full-day-cairo' } }); tree = render()
+ await form(tree).props.onSubmit({ preventDefault: vi.fn() }); await settle(); tree = render()
+ expect(nodes(tree).find(node => node.type === 'select')!.props.value).toBe('full-day-cairo')
+ expect(nodes(tree).find(node => node.type === 'textarea')!.props.value).toBe('Please preserve this Cairo experience.')
+ expect(nodes(tree).find(node => node.type === 'a')!.props.href).toBe('/login?next=%2Fegypt-tours%2Ffull-day-cairo%23reviews')
+ expect(submitted).not.toHaveBeenCalled()
+})
+it('shows honest trip-loading errors with retry and retains text without posting to the wrong scope', async () => {
+ currentProps.chooseTour = true; h.fetch.mockRejectedValue(Error('Offline'))
+ mount(); await settle(); let tree = text(render(), 'Keep this text while retrying.')
+ expect(nodes(tree).find(node => node.type === 'button' && node.props.type === 'submit')!.props.disabled).toBe(true)
+ h.fetch.mockResolvedValue(Response.json(loadedTrips))
+ nodes(tree).find(node => node.type === 'button' && node.props.children === 'Retry')!.props.onClick(); render(); await settle(); tree = render()
+ expect(nodes(tree).find(node => node.type === 'textarea')!.props.value).toBe('Keep this text while retrying.')
+ expect(nodes(tree).find(node => node.type === 'button' && node.props.type === 'submit')!.props.disabled).toBe(false)
+ expect(submitted).not.toHaveBeenCalled()
+})
 it('focuses the writing field once and does not steal focus when parent close callbacks change',()=>{
  let tree=mount();expect(textarea.focus).toHaveBeenCalledTimes(1);tree=text(tree,'A genuine experience');other.focus();const newClose=vi.fn();currentProps={...currentProps,onClose:newClose};tree=render();expect(doc.activeElement).toBe(other);expect(textarea.focus).toHaveBeenCalledTimes(1);expect(nodes(tree).find(node=>node.type==='textarea')!.props.value).toBe('A genuine experience');doc.dispatchEvent(Object.assign(new Event('keydown'),{key:'Escape'}));expect(newClose).toHaveBeenCalledTimes(1);expect(closed).not.toHaveBeenCalled()
 })

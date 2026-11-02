@@ -22,6 +22,11 @@ it.each(['all', 'website', 'trips'])('routes selected %s tab into the matching l
   expect((html.match(/aria-pressed="true"/g) ?? []).length).toBe(1)
   expect(html).toContain('All reviews'); expect(html).toContain('Website reviews'); expect(html).toContain('Trip reviews')
   expect(html).not.toContain('5.0 / 5')
+  if (selected === 'trips') {
+    expect(html).not.toContain('Review link has not been configured yet.')
+    expect(html).toContain('class="rev-write"')
+    expect(html).not.toContain('class="rev-write" disabled')
+  }
 })
 it.each([['es', 'Todas las reseñas', 'Reseñas de viajes'], ['it', 'Tutte le recensioni', 'Recensioni dei viaggi']])('localizes homepage tabs in %s without enabling Arabic', (locale, all, trips) => {
   state.locale = locale as Locale

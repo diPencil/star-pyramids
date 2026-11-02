@@ -8,6 +8,7 @@ import { Star, CheckCircle2 } from 'lucide-react'
 import { useLocale, tx } from '@/components/locale'
 import { cn } from '@/lib/utils'
 import { WEBSITE_REVIEW_SCOPE } from '@/lib/review-scope'
+import { useReviewRefresh } from '@/lib/use-review-refresh'
 import './reviews-phase6.css'
 
 /** Customer review from the database (public API shape). */
@@ -60,7 +61,7 @@ export function StarsRow({ stars, size = 16 }: { stars: number; size?: number })
 
 /** Fetch published reviews + summary for a tour from the API. */
 async function fetchTourReviews(tourSlug: string, page = 1): Promise<{ reviews: CustomerReview[]; summary: ReviewSummary; totalPages: number }> {
-    const res = await fetch(`/api/reviews?tourSlug=${encodeURIComponent(tourSlug)}&page=${page}`, { credentials: 'same-origin' })
+    const res = await fetch(`/api/reviews?tourSlug=${encodeURIComponent(tourSlug)}&page=${page}`, { credentials: 'same-origin', cache: 'no-store' })
     if (!res.ok) throw new Error('Failed to fetch reviews')
     const data = await res.json()
     return { reviews: data.reviews || [], summary: data.summary || { average: null, count: 0 }, totalPages: data.pagination?.totalPages ?? 0 }
@@ -102,12 +103,14 @@ export function ReviewWriteModal({
   copy,
   tourSlug,
   tourTitle,
+  chooseTour = false,
   onSubmit,
   onClose,
 }: {
   copy: ReviewModalCopy
   tourSlug?: string
   tourTitle?: string
+  chooseTour?: boolean
   onSubmit: (input: ReviewInput) => void
   onClose: () => void
 }) {
@@ -124,6 +127,32 @@ export function ReviewWriteModal({
   close.current = onClose
   const textHintId = useId()
   const [needsSignIn, setNeedsSignIn] = useState(false)
+  const [selectedTour, setSelectedTour] = useState('')
+  const [tours, setTours] = useState<Array<{ slug: string; title: string }>>([])
+  const [toursLoading, setToursLoading] = useState(chooseTour)
+  const [toursError, setToursError] = useState(false)
+  const [tourRetry, setTourRetry] = useState(0)
+  const targetSlug = chooseTour ? selectedTour : tourSlug || WEBSITE_REVIEW_SCOPE
+
+  useEffect(() => {
+    if (!chooseTour) return
+    const controller = new AbortController()
+    setToursLoading(true); setToursError(false)
+    void fetch('/api/tours', { credentials: 'same-origin', cache: 'no-store', signal: controller.signal }).then(async response => {
+      if (!response.ok) throw Error('Unavailable tours')
+      const data: unknown = await response.json()
+      if (!data || typeof data !== 'object' || !('tours' in data) || !Array.isArray(data.tours)) throw Error('Invalid tours')
+      const rows = data.tours.flatMap((row: unknown) => {
+        if (!row || typeof row !== 'object') return []
+        const value = row as Record<string, unknown>
+        return value.status === 'published' && typeof value.slug === 'string' && value.slug && value.slug.length <= 80 && typeof value.title === 'string' && value.title.trim()
+          ? [{ slug: value.slug, title: value.title }] : []
+      })
+      if (!controller.signal.aborted) setTours([...new Map(rows.map(row => [row.slug, row])).values()])
+    }).catch(() => { if (!controller.signal.aborted) { setTours([]); setToursError(true) } })
+      .finally(() => { if (!controller.signal.aborted) setToursLoading(false) })
+    return () => controller.abort()
+  }, [chooseTour, tourRetry])
 
   useEffect(() => {
     setMounted(true)
@@ -133,11 +162,11 @@ export function ReviewWriteModal({
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null
     const overflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    dialog.current?.querySelector<HTMLElement>('textarea')?.focus()
+    dialog.current?.querySelector<HTMLElement>(chooseTour ? 'select' : 'textarea')?.focus()
     const keydown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && !pending.current) close.current()
       if (event.key !== 'Tab') return
-      const nodes = Array.from(dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled), textarea:not(:disabled), input:not(:disabled), a[href]') ?? []).filter(node => node.tabIndex >= 0)
+      const nodes = Array.from(dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled), textarea:not(:disabled), input:not(:disabled), select:not(:disabled), a[href]') ?? []).filter(node => node.tabIndex >= 0)
       if (!nodes.length) { event.preventDefault(); dialog.current?.focus(); return }
       const first = nodes[0], last = nodes[nodes.length - 1]
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
@@ -145,10 +174,15 @@ export function ReviewWriteModal({
     }
     document.addEventListener('keydown', keydown)
     return () => { document.body.style.overflow = overflow; document.removeEventListener('keydown', keydown); previous?.focus() }
-  }, [mounted])
+  }, [mounted, chooseTour])
 
   const handleSubmit = async () => {
     if (pending.current) return
+    if (chooseTour && (toursLoading || toursError || !tours.some(tour => tour.slug === selectedTour))) {
+      setError(tx(locale, { en: 'Choose a published trip to review.', es: 'Elige un viaje publicado para escribir tu reseña.', it: 'Scegli un viaggio pubblicato da recensire.' }))
+      dialog.current?.querySelector<HTMLElement>('select')?.focus()
+      return
+    }
     if (text.trim().length < 10 || text.trim().length > 5000 || stars < 1 || stars > 5) {
       setError(tx(locale, { en: 'Write between 10 and 5000 characters and choose a rating from 1 to 5.', es: 'Escribe entre 10 y 5000 caracteres y elige una valoración de 1 a 5.', it: 'Scrivi da 10 a 5000 caratteri e scegli una valutazione da 1 a 5.' }))
       dialog.current?.querySelector<HTMLElement>('textarea')?.focus()
@@ -158,7 +192,7 @@ export function ReviewWriteModal({
     setSubmitting(true)
     setError('')
     // Every public submission uses the moderated API, including the homepage.
-    const result = await submitReview(tourSlug || WEBSITE_REVIEW_SCOPE, { rating: stars, title: title.trim(), text: text.trim() })
+    const result = await submitReview(targetSlug, { rating: stars, title: title.trim(), text: text.trim() })
     if (result.success) {
       onSubmit({ rating: stars, title: title.trim(), text: text.trim() })
     } else {
@@ -179,6 +213,17 @@ export function ReviewWriteModal({
         <h3>{copy.heading}</h3>
         {copy.context && <p className="rev-modal-context">{copy.context}</p>}
         <form className="rev-form" onSubmit={event => { event.preventDefault(); void handleSubmit() }}>
+          {chooseTour && <div className="rev-trip-picker">
+            <label>{tx(locale, { en: 'Choose your trip', es: 'Elige tu viaje', it: 'Scegli il tuo viaggio' })}
+              <select name="tourSlug" required value={selectedTour} disabled={submitting} onChange={event => { setSelectedTour(event.target.value); setError(''); setNeedsSignIn(false) }}>
+                <option value="">{tx(locale, { en: 'Select the trip you want to review', es: 'Selecciona el viaje que quieres valorar', it: 'Seleziona il viaggio che vuoi recensire' })}</option>
+                {tours.map(tour => <option key={tour.slug} value={tour.slug}>{tour.title}</option>)}
+              </select>
+            </label>
+            {toursLoading && <p role="status">{tx(locale, { en: 'Loading published trips…', es: 'Cargando viajes publicados…', it: 'Caricamento dei viaggi pubblicati…' })}</p>}
+            {toursError && <div role="alert"><p>{tx(locale, { en: 'Unable to load trips. Your review text is preserved.', es: 'No se pudieron cargar los viajes. El texto de tu reseña se conserva.', it: 'Impossibile caricare i viaggi. Il testo della recensione è conservato.' })}</p><button type="button" className="outline-btn" onClick={() => setTourRetry(value => value + 1)}>{tx(locale, { en: 'Retry', es: 'Reintentar', it: 'Riprova' })}</button></div>}
+            {!toursLoading && !toursError && !tours.length && <p role="status">{tx(locale, { en: 'No published trips are available to review.', es: 'No hay viajes publicados disponibles para valorar.', it: 'Non ci sono viaggi pubblicati disponibili da recensire.' })}</p>}
+          </div>}
           <label>
             {copy.rating}
             <span className="rev-star-pick" role="radiogroup" aria-label={copy.rating}>
@@ -232,12 +277,12 @@ export function ReviewWriteModal({
             />
           </label>
           {error && <p className="rev-error" role="alert">{error}</p>}
-          {needsSignIn && <a href={`/login?next=${encodeURIComponent(tourSlug && tourSlug !== WEBSITE_REVIEW_SCOPE ? `/egypt-tours/${encodeURIComponent(tourSlug)}#reviews` : '/#reviews')}`}>{tx(locale, { en: 'Sign in to your account', es: 'Inicia sesión en tu cuenta', it: 'Accedi al tuo account', ar: 'سجّل الدخول إلى حسابك' })}</a>}
+          {needsSignIn && <a href={`/login?next=${encodeURIComponent(targetSlug && targetSlug !== WEBSITE_REVIEW_SCOPE ? `/egypt-tours/${encodeURIComponent(targetSlug)}#reviews` : '/#reviews')}`}>{tx(locale, { en: 'Sign in to your account', es: 'Inicia sesión en tu cuenta', it: 'Accedi al tuo account', ar: 'سجّل الدخول إلى حسابك' })}</a>}
           <div className="rev-form-actions">
             <button type="button" className="outline-btn" onClick={onClose} disabled={submitting}>
               {copy.cancel}
             </button>
-            <button type="submit" className="primary-btn" disabled={submitting}>
+            <button type="submit" className="primary-btn" disabled={submitting || chooseTour && (toursLoading || toursError || !tours.length)}>
               {submitting ? tx(locale, { en: 'Submitting…', es: 'Enviando…', it: 'Invio…' }) : copy.submit}
             </button>
           </div>
@@ -271,6 +316,7 @@ export function TourReviewsSection({
   const [expanded, setExpanded] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  useReviewRefresh(() => setRetry(value => value + 1), !showForm)
 
   // Load reviews on mount
   useEffect(() => {
