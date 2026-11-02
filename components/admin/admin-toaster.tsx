@@ -25,6 +25,8 @@ export type ToastOptions = {
 
 const MAX_TOASTS = 5
 const TOAST_STORE_KEY = 'sp-admin-toasts'
+// useSyncExternalStore requires a cached server snapshot during SSR/hydration.
+const SERVER_TOASTS: Toast[] = []
 
 export function toastDuration(kind: ToastKind): number | null {
   switch (kind) {
@@ -226,7 +228,7 @@ export function getToasts(): Toast[] {
 }
 
 export function getServerToasts(): Toast[] {
-  return []
+  return SERVER_TOASTS
 }
 
 export function useToasts(): Toast[] {

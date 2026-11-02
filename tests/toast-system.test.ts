@@ -2,12 +2,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import {
   enqueueToast,
+  getServerToasts,
   toastDuration,
   updateToastList,
   type Toast,
 } from '@/components/admin/admin-toaster'
 
 const NOW = 1_000_000
+
+it('returns the same empty server snapshot across repeated React hydration reads', () => {
+  const snapshot = getServerToasts()
+  for (let read = 0; read < 100; read++) expect(getServerToasts()).toBe(snapshot)
+  expect(snapshot).toEqual([])
+})
 
 const persistent = (overrides: Partial<Toast> = {}): Toast => ({
   id: 'a',
