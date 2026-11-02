@@ -309,7 +309,7 @@
     {
       "area": "review-trip-selection",
       "direction": "Bounded inline searchable trip choice with category context",
-      "summary": "Replace the native review trip dropdown with an inline combobox, search by title, filter the four stored tour types and show each result's real type. Wrap long names and keep results inside the modal with internal scrolling.",
+      "summary": "Replace the native review trip dropdown with an inline combobox, search by title, filter the four stored tour types and show each result's real type. Wrap long names and keep results inside the modal with internal scrolling. Use a compact 440px review dialog with tighter fields and a 144px result rail, retaining 44px touch targets and 16px input text.",
       "constraints": [
         "Retain the existing review modal, moderation, authentication and canonical tourSlug submission",
         "Require an explicit published trip choice; never infer type from the title or submit search text",

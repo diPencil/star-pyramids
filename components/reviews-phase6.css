@@ -32,3 +32,33 @@
 .rev-trip-results>p{padding:10px;font-size:13px}
 .rev-trip-selected{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;padding:10px;background:var(--soft);border-radius:10px}
 .rev-trip-selected>button{display:grid;place-items:center;flex:none;width:44px;height:44px;border:1px solid var(--border);border-radius:50%;background:var(--surface,#fff);color:var(--text)}
+
+/* Compact review dialog only. Keep published colors/fonts and 44px touch targets.
+   Geometry overrides intentionally win over global Appearance form-size settings. */
+.rev-modal .rev-modal-card{box-sizing:border-box;width:min(440px,calc(100vw - 24px));max-height:min(760px,calc(100dvh - 24px));padding:16px;border-radius:20px;overscroll-behavior:contain}
+.rev-modal .rev-modal-card h3{margin:0 0 6px;font-size:20px;line-height:1.2}
+.rev-modal .rev-modal-card p{font-size:12px;line-height:1.45}
+.rev-modal .rev-modal-card .rev-modal-context{margin:0 0 10px;font-size:12px;line-height:1.45}
+.rev-modal .rev-modal-card .rev-form{gap:10px;margin-top:0}
+.rev-modal .rev-modal-card .rev-form label{gap:4px;font-size:12px;line-height:1.4}
+.rev-modal .rev-modal-card .rev-form :is(input,textarea){min-height:44px!important;padding:9px 10px;font-size:16px!important;line-height:1.4;box-sizing:border-box}
+.rev-modal .rev-modal-card .rev-form textarea{height:96px;min-height:96px!important;resize:vertical}
+.rev-modal .rev-modal-card .rev-text-hint{font-size:10px;line-height:1.4}
+.rev-modal .rev-modal-card .rev-star-pick{gap:4px}
+.rev-modal .rev-modal-card .rev-star-pick button{width:44px;height:44px;min-width:44px;min-height:44px;padding:0;border-radius:10px}
+.rev-modal .rev-modal-card .rev-star-pick svg{width:20px;height:20px}
+.rev-modal .rev-modal-card .rev-trip-picker{gap:6px}
+.rev-modal .rev-modal-card .rev-trip-types{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
+.rev-modal .rev-modal-card .rev-trip-types button{padding:4px 6px;font-size:11px;line-height:1.25;min-width:0}
+.rev-modal .rev-modal-card .rev-trip-results{max-height:min(144px,20dvh);padding:3px}
+.rev-modal .rev-modal-card .rev-trip-results>button{min-height:44px;padding:6px 8px;box-sizing:border-box}
+.rev-modal .rev-modal-card .rev-trip-results>button>span,.rev-modal .rev-modal-card .rev-trip-selected>div{gap:2px}
+.rev-modal .rev-modal-card .rev-trip-results strong,.rev-modal .rev-modal-card .rev-trip-selected strong{font-size:12px;line-height:1.35}
+.rev-modal .rev-modal-card .rev-trip-results small,.rev-modal .rev-modal-card .rev-trip-selected small{font-size:10px;line-height:1.35}
+.rev-modal .rev-modal-card .rev-trip-selected{padding:6px 8px}
+.rev-modal .rev-modal-card .rev-form-actions{gap:8px;margin-top:0}
+.rev-modal .rev-modal-card .rev-form-actions button{min-height:44px!important;padding:9px 14px!important;font-size:13px!important;line-height:1.4}
+@media(max-width:480px){
+  .rev-modal .rev-modal-card{padding:14px}
+  .rev-modal .rev-modal-card .rev-trip-types{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
