@@ -58,3 +58,18 @@ it('shows pending verification separately and exposes recovery only via an expli
   html=renderToStaticMarkup(createElement(CustomersPage))
   expect(html).toContain('Email recovery link for SP-BK-TEST01');expect(state.recovery).not.toHaveBeenCalled()
 })
+it('explains an unverified booking association without implying that the guest booking was deleted',()=>{
+  state.detail={...account,status:'PENDING',emailVerifiedAt:null,bookingsCount:0,tripsCount:0,bookings:[],tripRequests:[],carRequests:[],eventRequests:[],payments:[],favorites:[],conversations:[]}
+  const html=renderToStaticMarkup(createElement(CustomerDetailContent,{customerKey:'registered'}))
+  expect(html).toContain('No account-linked bookings yet')
+  expect(html).toContain('Guest bookings remain separate until ownership is verified.')
+  expect(html).not.toContain('Pending verification · Pending verification')
+})
+it('renders the six populated profile datasets and their real detail destinations',()=>{
+  state.detail={...account,collectedValue:[],bookings:[{reference:'BK-A',status:'PENDING',paymentStatus:'PENDING',currency:'USD',total:280,createdAt:date,items:[{tourSlug:'cairo',tourTitle:'Cairo Tour',travelDate:'',guests:2}]}],tripRequests:[{reference:'TR-A',title:'Custom journey',status:'NEW',createdAt:date}],carRequests:[{reference:'CAR-A',title:'Sedan',vehicleSlug:'sedan',tripType:'One Way',status:'NEW',createdAt:date}],eventRequests:[{reference:'EV-A',title:'Festival',status:'NEW',createdAt:date}],payments:[{reference:'PAY-A',bookingReference:'BK-A',status:'PAID',currency:'USD',amount:100,amountPaid:100,createdAt:date}],favorites:[{itemType:'tour',itemSlug:'cairo',createdAt:date}],conversations:[]}
+  const html=renderToStaticMarkup(createElement(CustomerDetailContent,{customerKey:'registered'}))
+  for(const path of ['/admin/bookings/BK-A','/admin/trip-requests/detail?ref=TR-A','/admin/car-requests/CAR-A','/admin/event-requests/detail?ref=EV-A','/admin/payments/PAY-A']) expect(html).toContain(`href="${path}"`)
+  for(const text of ['Cairo Tour','Custom journey','sedan','Festival','cairo']) expect(html).toContain(text)
+  expect(html).toContain('is-pending')
+  expect(html).not.toContain('Titles and prices resolve live from the catalogue.')
+})

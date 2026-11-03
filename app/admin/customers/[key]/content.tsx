@@ -124,7 +124,7 @@ export function CustomerDetailContent({ customerKey }: { customerKey: string }) 
           <div><small><AdminText en="Username" ar="اسم المستخدم" /></small><strong dir="ltr">{customer.username ?? '-'}</strong></div>
           <div><small><AdminText en="Joined" ar="تاريخ التسجيل" /></small><strong>{formatDate(customer.createdAt, ar)}</strong></div>
           <div><small><AdminText en="Last login" ar="آخر دخول" /></small><strong>{customer.lastLoginAt ? formatDate(customer.lastLoginAt, ar) : '-'}</strong></div>
-          <div><small><AdminText en="Status" ar="الحالة" /></small><strong>{ar ? status.ar : status.en} · {crmAccountLabel(customer)}</strong></div>
+          <div><small><AdminText en="Status" ar="الحالة" /></small><strong>{crmAccountLabel(customer) === status.en ? (ar ? status.ar : status.en) : `${ar ? status.ar : status.en} · ${crmAccountLabel(customer)}`}</strong></div>
           <div><small>Confirmed booked value</small><strong>{formatCrmMoney(customer.confirmedValue)}</strong></div>
           <div><small>Collected net</small><strong>{formatCrmMoney(customer.collectedValue)}</strong></div>
         </div>
@@ -155,10 +155,10 @@ export function CustomerDetailContent({ customerKey }: { customerKey: string }) 
               : booking.paymentStatus === 'PENDING'
                 ? <span className="sp-pill is-pending"><AdminText en="Due" ar="مستحق" /></span>
                 : <span style={{ color: 'var(--sp-muted)' }}>{booking.paymentStatus}</span>}</td>
-            <td><StatusPill status={booking.status} /></td>
+            <td><StatusPill status={booking.status.toLowerCase()} /></td>
           </tr>
         ))}</tbody>
-      </table></AdminTableWrap> : <AdminEmpty title={<AdminText en="No bookings yet" ar="لا توجد حجوزات بعد" />} />}
+      </table></AdminTableWrap> : <AdminEmpty title="No account-linked bookings yet" copy="Guest bookings remain separate until ownership is verified. They can be reviewed under Customers → Guest booking contacts; matching an email does not link a booking." />}
     </Card>
 
     <Card title={<AdminText en="Trip requests" ar="طلبات الرحلات" />} sub={<AdminText en="Custom trip requests from this account" ar="طلبات الرحلات المخصصة من هذا الحساب" />}>
@@ -221,7 +221,7 @@ export function CustomerDetailContent({ customerKey }: { customerKey: string }) 
           </tr>
         ))}</tbody>
       </table></AdminTableWrap> : <AdminEmpty title={<AdminText en="No favorites yet" ar="لا توجد عناصر محفوظة بعد" />} />}
-      <p style={{ color: 'var(--sp-muted)', display: 'flex', gap: 6, alignItems: 'center', marginTop: 12 }}><Heart size={14} /><AdminText en="Titles and prices resolve live from the catalogue." ar="تُعرض العناوين والأسعار مباشرة من الكتالوج." /></p>
+      <p style={{ color: 'var(--sp-muted)', display: 'flex', gap: 6, alignItems: 'center', marginTop: 12 }}><Heart size={14} /><AdminText en="Stored catalogue references are shown here. An unavailable or removed tour may still have a saved reference." ar="تُعرض العناوين والأسعار مباشرة من الكتالوج." /></p>
     </Card>
 
     <AdminConfirmDialog

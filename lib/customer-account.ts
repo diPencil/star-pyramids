@@ -174,6 +174,23 @@ function fetchFavoritesEligibility(): Promise<boolean> {
   return authEligibleFetch
 }
 
+let accountFavoritesFetch: Promise<string[]> | null = null
+
+/** Account pages (including staff preview) must never fall back to browser-local favorites. */
+export function fetchAccountFavoriteSlugs(): Promise<string[]> {
+  if (!accountFavoritesFetch) {
+    accountFavoritesFetch = fetch('/api/account/favorites', { credentials: 'same-origin', cache: 'no-store' })
+      .then(async (res) => {
+        if (!res.ok) throw new Error('Could not load saved trips.')
+        const data = await res.json() as { favorites?: unknown }
+        if (!Array.isArray(data.favorites) || !data.favorites.every((slug) => typeof slug === 'string')) throw new Error('Could not load saved trips.')
+        return data.favorites as string[]
+      })
+      .finally(() => { accountFavoritesFetch = null })
+  }
+  return accountFavoritesFetch
+}
+
 function fetchServerFavorites(): Promise<string[] | null> {
   if (!serverFetch) {
     serverFetch = (async () => {
@@ -231,18 +248,22 @@ export function toggleCustomerFavorite(slug: string) {
   emitAccountChange()
 }
 
-export function useCustomerFavorites() {
-  const [slugs, setSlugs] = useState<string[]>(() => (serverMode === true && serverSlugsCache ? [...serverSlugsCache] : serverMode === false ? getFavoritesSnapshot() : []))
-  const [loading, setLoading] = useState(serverMode === null)
+export function useCustomerFavorites({ accountOnly = false }: { accountOnly?: boolean } = {}) {
+  const [slugs, setSlugs] = useState<string[]>(() => accountOnly ? [] : (serverMode === true && serverSlugsCache ? [...serverSlugsCache] : serverMode === false ? getFavoritesSnapshot() : []))
+  const [loading, setLoading] = useState(accountOnly || serverMode === null)
+  const [error, setError] = useState('')
+  const [nonce, setNonce] = useState(0)
   useEffect(() => {
     let cancelled = false
     // Reuse a freshly settled cache so pages with many heart buttons
     // and fast navigations do not refetch on every mount.
-    if (serverMode === true && serverSlugsCache && Date.now() - serverSettledAt < SERVER_CACHE_TTL_MS) {
+    setError('')
+    if (accountOnly) setLoading(true)
+    if (!accountOnly && serverMode === true && serverSlugsCache && Date.now() - serverSettledAt < SERVER_CACHE_TTL_MS) {
       setSlugs([...serverSlugsCache])
       setLoading(false)
     } else {
-      fetchServerFavorites().then((rows) => {
+      (accountOnly ? fetchAccountFavoriteSlugs() : fetchServerFavorites()).then((rows) => {
         if (cancelled) return
         if (rows === null) {
           // Guest (or unreachable API): browser-local set stays in
@@ -258,6 +279,10 @@ export function useCustomerFavorites() {
         }
         setLoading(false)
       }).catch(() => {
+        if (accountOnly) {
+          if (!cancelled) { setSlugs([]); setError('Could not load saved trips.'); setLoading(false) }
+          return
+        }
         // Any unexpected failure (e.g. unparsable response) must
         // still settle loading  -  fall back to the guest-local set
         // instead of hanging on the loading state.
@@ -270,6 +295,11 @@ export function useCustomerFavorites() {
     }
     const sync = (event?: Event) => {
       if (cancelled) return
+      if (accountOnly && (event instanceof StorageEvent || !serverSlugsCache)) {
+        if (event instanceof StorageEvent && event.key !== null && event.key !== FAVORITES_KEY) return
+        setNonce((value) => value + 1)
+        return
+      }
       if (serverMode === true) {
         // Same-tab mutations already updated the shared cache
         // optimistically. A cross-tab write to the favorites key
@@ -299,8 +329,8 @@ export function useCustomerFavorites() {
       accountListeners.delete(sync)
       window.removeEventListener('storage', storageSync)
     }
-  }, [])
-  return { slugs, has: (slug: string) => slugs.includes(slug), toggle: toggleCustomerFavorite, loading }
+  }, [accountOnly, nonce])
+  return { slugs, has: (slug: string) => slugs.includes(slug), toggle: toggleCustomerFavorite, loading, error, retry: () => setNonce((value) => value + 1) }
 }
 
 export function readCustomerProfile(): CustomerProfile {
