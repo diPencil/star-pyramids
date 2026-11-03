@@ -19,8 +19,10 @@ import {
 } from '../core/validation';
 import { dayTourTerms, getBookingTotal, getTravelerUnitPrices } from '@/data/tours';
 import { isTourPublished } from '@/lib/tour-publish';
-import { bookingAddons, bookingCents, bookingRequestNotes, bookingSelectionKey, validBookingTravelers, MAX_BOOKING_AMOUNT_CENTS } from '@/lib/booking-selection';
+import { bookingAddonCatalog, bookingAddons, bookingCents, bookingRequestNotes, bookingSelectionKey, validBookingTravelers, MAX_BOOKING_AMOUNT_CENTS } from '@/lib/booking-selection';
 import { findTourBySlug } from './tours';
+import { bookingPriceLine, bookingPriceSnapshot, type BookingPriceLine, type BookingPriceSnapshot } from '../booking-price';
+import {TourUnavailable} from './booking-quote';
 import {
   BOOKING_FINANCIAL_REVIEW_CODE,
   bookingCancelExposure,
@@ -229,6 +231,7 @@ function hasControlChars(value: string): boolean {
 }
 
 export interface ValidatedBookingLine {
+  price?: BookingPriceLine;
   tourSlug: string;
   tourTitle: string;
   tourImage: string;
@@ -251,6 +254,9 @@ export interface ValidatedBookingLine {
 }
 
 export interface ValidatedBookingDraft {
+  priceSnapshot?: BookingPriceSnapshot;
+  /** Server-approved enrollment consent, never mass-assigned from selections. */
+  accountConsent?: boolean;
   lines: ValidatedBookingLine[];
   subtotalCents: number;
   discountCents: number;
@@ -275,7 +281,7 @@ function count(value: unknown): number | null {
   return value;
 }
 
-async function resolveLine(raw: unknown): Promise<ValidatedBookingLine> {
+async function resolveLine(raw: unknown, lookup = findTourBySlug, now = new Date()): Promise<ValidatedBookingLine> {
   if (typeof raw !== 'object' || raw === null) throw new Error('Invalid booking items.');
   const body = raw as Record<string, unknown>;
   for (const key of Object.keys(body)) {
@@ -286,8 +292,8 @@ async function resolveLine(raw: unknown): Promise<ValidatedBookingLine> {
     throw new Error('Select a valid tour.');
   }
   // DB-authoritative catalogue: pricing always resolves from the tours table.
-  const tour = await findTourBySlug(tourSlug);
-  if (!tour || !isTourPublished(tour)) throw new Error('One of the selected tours is no longer available. Remove it and try again.');
+  const tour = await lookup(tourSlug);
+  if (!tour || !isTourPublished(tour)) throw new TourUnavailable(tourSlug);
 
   if (body.date !== undefined && typeof body.date !== 'string') throw new Error('Select a valid travel date.');
   const date = text(body.date) ?? '';
@@ -311,12 +317,12 @@ async function resolveLine(raw: unknown): Promise<ValidatedBookingLine> {
     if (!title || title.length > 120 || hasControlChars(title)) throw new Error('Invalid add-ons.');
     if (!titles.includes(title)) titles.push(title);
   }
-  const catalog = tour.detail?.addOns ?? tour.dayDetail?.addOns ?? (tour.category === 'one-day-tours' ? dayTourTerms.addOns : []);
+  const catalog = bookingAddonCatalog(tour,dayTourTerms.addOns);
   const extras = bookingAddons(catalog, titles);
   if (extras.unavailable.length) throw new Error('A selected extra is no longer available. Remove it from your cart and try again.');
   const addonTotalCents = extras.cents;
 
-  const pricing = getBookingTotal(tour, adults, children, infants);
+  const pricing = getBookingTotal(tour, adults, children, infants, now);
   const adultUnitCents = bookingCents(pricing.adult);
   const childUnitCents = bookingCents(pricing.child);
   const infantUnitCents = bookingCents(pricing.infant);
@@ -332,6 +338,7 @@ async function resolveLine(raw: unknown): Promise<ValidatedBookingLine> {
   const lineOriginalCents = originalTravelerCents + addonTotalCents;
   if (lineOriginalCents > MAX_BOOKING_AMOUNT_CENTS || travelerCents + addonTotalCents > MAX_BOOKING_AMOUNT_CENTS) throw new Error('The current price cannot be confirmed. Please contact our team.');
   return {
+    price: bookingPriceLine(tour,{tourSlug:tour.slug,date,adults,children,infants,addons:titles},now),
     tourSlug: tour.slug,
     tourTitle: tour.title.slice(0, 200),
     tourImage: (tour.image ?? '').slice(0, 255),
@@ -356,7 +363,7 @@ async function resolveLine(raw: unknown): Promise<ValidatedBookingLine> {
  * rejected (no mass assignment); prices, totals, status, payment,
  * references, and ownership fields are never read from the body.
  */
-export async function validateBookingDraft(input: unknown): Promise<ValidatedBookingDraft> {
+export async function validateBookingDraft(input: unknown, lookup = findTourBySlug): Promise<ValidatedBookingDraft> {
   if (typeof input !== 'object' || input === null) throw new Error('Invalid request.');
   const body = input as Record<string, unknown>;
   for (const key of Object.keys(body)) {
@@ -368,7 +375,8 @@ export async function validateBookingDraft(input: unknown): Promise<ValidatedBoo
     throw new Error('Your cart is empty or too large.');
   }
   const lines: ValidatedBookingLine[] = [];
-  for (const raw of rawLines) lines.push(await resolveLine(raw));
+  const now=new Date();
+  for (const raw of rawLines) lines.push(await resolveLine(raw,lookup,now));
   const uniqueSelections = new Set<string>();
   for (const line of lines) {
     const key = bookingSelectionKey({ ...line, date: line.travelDate || '', addons: [...line.addons, ...(line.requestedAddons ?? [])] });
@@ -419,6 +427,7 @@ export async function validateBookingDraft(input: unknown): Promise<ValidatedBoo
   const storedNotes = bookingRequestNotes(notes, lines.map(line => ({title: line.tourTitle, slug: line.tourSlug, requested: line.requestedAddons ?? []})));
   if (storedNotes.length > NOTE_MAX) throw new Error('The notes and requested extras are too long. Shorten them before submitting.');
   return {
+    priceSnapshot: bookingPriceSnapshot(lines.map(line=>line.price!)),
     lines,
     subtotalCents,
     discountCents,
@@ -577,6 +586,40 @@ const rowInclude = {
   user: { select: { email: true, firstName: true, lastName: true } },
 } satisfies Prisma.BookingInclude;
 
+const ATTEMPT_ACTION='Checkout attempt fingerprint v1';
+type CheckoutWriteOptions={fingerprint:string;persist?:(data:Prisma.BookingUncheckedCreateInput)=>Promise<BookingRow>};
+type LegacyCheckoutIdentity={lines:{tourSlug:string;date:string;adults:unknown;children:unknown;infants:unknown;addons:string[]}[];contact:{name:string;email:string;phone:string};notes:string;acceptedTerms:boolean};
+function assertCheckoutReplay(row:BookingRow,userId:string|null,fingerprint:string,legacy?:LegacyCheckoutIdentity) {
+  const activity=row.activities.find(entry=>entry.isInternal&&entry.action===ATTEMPT_ACTION);
+  if(!activity&&legacy){
+    const denied=()=>{throw Error('That submission key was already used for a different booking.')};
+    const consent=row.activities.some(entry=>entry.action==='Checkout account consent accepted');
+    if(row.userId!==null&&row.userId!==userId&&!consent||legacy.acceptedTerms!==consent||row.currency!=='USD'||row.contactName!==legacy.contact.name||row.contactEmail!==legacy.contact.email||row.contactPhone!==legacy.contact.phone||row.items.length!==legacy.lines.length)return denied();
+    const requests:{title:string;slug:string;requested:string[]}[]=[];
+    const used=new Set<string>();
+    for(const stored of row.items){
+      const paid=readJsonText(stored.addons);
+      if(!Array.isArray(paid)||paid.some(title=>typeof title!=='string'))return denied();
+      const matches=legacy.lines.filter(line=>line.tourSlug===stored.tourSlug&&line.date===stored.travelDate&&line.adults===stored.adults&&line.children===stored.children&&line.infants===stored.infants&&paid.every(title=>line.addons.includes(title)));
+      // Old snapshots cannot disambiguate every unpriced-extra permutation.
+      if(matches.length!==1||used.has(JSON.stringify(matches[0])))return denied();
+      used.add(JSON.stringify(matches[0]));
+      requests.push({title:stored.tourTitle,slug:stored.tourSlug,requested:matches[0].addons.filter(title=>!paid.includes(title))});
+    }
+    if((row.notes??'')!==bookingRequestNotes(legacy.notes,requests))return denied();
+    return;
+  }
+  let metadata:{fingerprint?:string;owner?:string|null}={};
+  try {metadata=JSON.parse(activity?.note??'{}')}catch{ /* fail closed for missing/legacy metadata */ }
+  if(metadata.fingerprint!==fingerprint || metadata.owner!==null&&metadata.owner!==userId) throw Error('That submission key was already used for a different booking.');
+}
+export async function findCheckoutReplay(userId:string|null,key:string,fingerprint:string,client:Pick<Prisma.TransactionClient,'booking'>=db,legacy?:LegacyCheckoutIdentity) {
+  const row=await client.booking.findUnique({where:{idempotencyKey:key},include:rowInclude});
+  if(!row)return null;
+  assertCheckoutReplay(row,userId,fingerprint,legacy);
+  return {booking:userId!==null&&row.userId===userId?toCustomerView(row):null,reference:row.reference,created:false as const,guestAccessUrl:null};
+}
+
 /**
  * Create exactly one booking for a checkout submission. A repeated
  * submission with the same idempotency key returns the original booking
@@ -585,8 +628,10 @@ const rowInclude = {
 export async function createBookingRecord(
   userId: string | null,
   draft: ValidatedBookingDraft,
+  checkout?: CheckoutWriteOptions,
 ): Promise<{ booking: Booking; created: boolean; guestAccessUrl: string | null }> {
   const assertReplayOwnership = (row: BookingRow) => {
+    if(checkout){assertCheckoutReplay(row,userId,checkout.fingerprint);return;}
     if (row.userId !== userId) throw new Error('That submission key was already used for a different booking.');
     // Bind every replay (account and guest) to its original request. An account
     // must not receive an unrelated old booking after changing a cart under the same key.
@@ -611,6 +656,7 @@ export async function createBookingRecord(
         decimalToCents(row.discount) !== draft.discountCents || JSON.stringify(stored) !== JSON.stringify(requested)) {
         throw new Error('That submission key was already used for a different booking.');
       }
+      if (typeof draft.accountConsent === 'boolean' && row.activities.some(activity => activity.action === 'Checkout account consent accepted') !== draft.accountConsent) throw new Error('That submission key was already used for a different booking.');
     }
   };
   const existingByKey = draft.idempotencyKey
@@ -625,8 +671,7 @@ export async function createBookingRecord(
   for (let attempt = 0; attempt < REF_ATTEMPTS; attempt += 1) {
     const reference = mintReferenceCandidate();
     try {
-      const row = await db.booking.create({
-        data: {
+      const data:Prisma.BookingUncheckedCreateInput = {
           reference,
           userId,
           contactName: draft.contactName,
@@ -658,11 +703,10 @@ export async function createBookingRecord(
             })),
           },
           activities: {
-            create: { actorRole: 'customer', action: 'Booking created' },
+            create: [{ actorRole: 'customer', action: 'Booking created' }, ...(draft.accountConsent ? [{actorRole:'customer',action:'Checkout account consent accepted'}] : []), ...(checkout?[{actorRole:'system',action:ATTEMPT_ACTION,isInternal:true,note:JSON.stringify({fingerprint:checkout.fingerprint,owner:userId})}]:[])],
           },
-        },
-        include: rowInclude,
-      });
+        };
+      const row = checkout?.persist ? await checkout.persist(data) : await db.booking.create({data,include:rowInclude});
       // Guest checkouts (userId NULL) have no account to log into, so a
       // private expiring link is minted and emailed to them. Account
       // bookings keep the existing session-owned customer link.
@@ -700,14 +744,14 @@ export async function createBookingRecord(
         currency: 'USD',
         detailUrl,
         accessNote,
-      }, { relatedReference: reference, idempotencyKey: `booking_created:${reference}` });
+      }, { relatedReference: reference, idempotencyKey: `booking_created:${reference}` }).catch(()=>undefined);
       await sendStaffEmailSafe('admin_booking_created', {
         name: draft.contactName,
         reference,
         total: (draft.totalCents / 100).toFixed(2),
         currency: 'USD',
         detailUrl: `/admin/bookings/${encodeURIComponent(reference)}`,
-      }, { relatedReference: reference, idempotencyKey: `admin_booking_created:${reference}` });
+      }, { relatedReference: reference, idempotencyKey: `admin_booking_created:${reference}` }).catch(()=>undefined);
       return {
         booking: toCustomerView(row),
         created: true,

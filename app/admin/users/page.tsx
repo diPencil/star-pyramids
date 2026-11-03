@@ -441,7 +441,7 @@ export default function UsersPage() {
         <tbody>{matrixSort.sortedRows.map((row, index) => <tr key={row.module}><td className="sp-row-number">{index + 1}</td><td><strong style={{ textTransform: 'capitalize' }}>{row.module}</strong></td>{superAdminRole ? <td key={superAdminRole.key}><span className="sp-mx-covered"><ShieldCheck size={14} aria-hidden="true" /></span></td> : null}{matrixRoles.map((item) => <td key={item.key}><span className="sp-mx-pills">{row.actions.map((perm) => {
           const granted = (row.grants[item.key] ?? []).includes(perm.action)
           // Policy overlay: SUPER_ADMIN-only capabilities render as locked
-          // on every other role  -  even when a legacy grant row exists  -
+          // on every other role  -  even when a legacy grant row exists  - 
           // because the APIs never honor them. Never toggleable.
           const reserved = restricted.has(perm.key)
           const label = reserved

@@ -116,7 +116,7 @@ rate limiting, email sending, permission matrix, dashboard metrics.
   stored value. No migration was needed (`site_settings` is key-value).
 - The admin UI (`app/admin/settings/page.tsx`) loads/saves through this
   endpoint, uses `SharedSelect` for every dropdown, and marks provider
-  connectivity (WhatsApp/Maps/SMTP/OAuth) honestly as not verified  -
+  connectivity (WhatsApp/Maps/SMTP/OAuth) honestly as not verified  - 
   "configuration saved" is never presented as "connection verified".
 - Public storefront readers (`localStorage` brand/social/currency/l10n)
   are kept as a compatibility mirror written on successful admin save;
@@ -222,7 +222,7 @@ confirmation and details without registering. The booking reference alone is
 **not** a credential and never grants access.
 
 - **Model**: `BookingAccessToken` + `BookingAccessAttempt`
-  (`prisma/migrations/20261010150000_guest_booking_access`). Additive only  -
+  (`prisma/migrations/20261010150000_guest_booking_access`). Additive only  - 
   no booking row, column, or value was altered.
 - **Tokens**: `lib/server/booking-access.ts`. 256 bits of CSPRNG entropy
   (`lib/core/tokens.ts`), base64url. Only the SHA-256 hash is persisted  -  the

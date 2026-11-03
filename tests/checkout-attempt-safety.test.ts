@@ -7,6 +7,15 @@ const storage={getItem:(key:string)=>stored.get(key)??null,setItem:(key:string,v
 const intent:Omit<BookingCheckoutDraft,'idempotencyKey'>={lines:[{tourSlug:'current-tour',date:'',adults:2,children:0,infants:0,addons:['Ticket','Transfer']}],contact:{name:'Test Customer',email:'test@example.com',phone:'+201234567890'},notes:'A note',currency:'USD'}
 beforeEach(()=>{stored.clear();vi.stubGlobal('window',{sessionStorage:storage});vi.stubGlobal('localStorage',storage);clearCart()})
 afterEach(()=>vi.unstubAllGlobals())
+it('migrates a pre-consent fingerprint without replacing its unresolved key',async()=>{
+  const lines=[{...intent.lines[0],tourSlug:'legacy-migration-test',addons:[...intent.lines[0].addons].sort()}]
+  const oldIntent={lines,contact:{name:intent.contact.name,email:intent.contact.email,phone:intent.contact.phone},notes:intent.notes,currency:'USD'}
+  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(oldIntent)))
+  const fingerprint=Array.from(new Uint8Array(digest),v=>v.toString(16).padStart(2,'0')).join('')
+  storage.setItem('sp-checkout-key',JSON.stringify({attempts:[{fingerprint,key:'legacy-migration-key'}]}))
+  const key=await checkoutAttemptKey({...intent,lines,acceptedTerms:true})
+  expect(key).toBe('legacy-migration-key');finishCheckoutAttempt(key)
+})
 it('reuses retries and normalizes order/email/phone without persisting raw contact information',async()=>{
   const key=await checkoutAttemptKey(intent)
   expect(await checkoutAttemptKey({...intent,contact:{...intent.contact,email:'TEST@EXAMPLE.COM',phone:'+20 1234567890'},lines:[{...intent.lines[0],addons:['Transfer','Ticket']}]})).toBe(key)

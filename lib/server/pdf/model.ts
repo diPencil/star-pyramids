@@ -1,4 +1,4 @@
-// Phase B: typed content model for issued booking documents. Pure data  -
+// Phase B: typed content model for issued booking documents. Pure data  - 
 // no database access, no rendering. Tests assert on this model directly,
 // which is what guarantees financial accuracy independently of drawing.
 //

@@ -80,7 +80,7 @@ model UserRole {
 ///  * Canonical permission catalog (Phase 4A configurable RBAC).
 ///  * `key` is `<module>.<action>` (e.g. `tours.edit`, `users.manage`).
 ///  * Grants live on RolePermission; SUPER_ADMIN bypasses checks in code and
-///  * always holds the full set. CUSTOMER intentionally holds zero grants  -
+///  * always holds the full set. CUSTOMER intentionally holds zero grants  - 
 ///  * storefront access stays role-based under Customers.
 model Permission {
   id        String           @id
@@ -542,7 +542,7 @@ model BookingAccessToken {
 
 /// Abuse protection for the public guest-booking lookup. Only FAILED token
 /// lookups are recorded, so this table is a brute-force signal rather than a
-/// traffic counter. Per-IP because the token itself is the secret here  -
+/// traffic counter. Per-IP because the token itself is the secret here  - 
 /// there is no account bucket to attach.
 model BookingAccessAttempt {
   id        String   @id @default(cuid())
@@ -844,7 +844,7 @@ model FavoriteItem {
 /// client-created. Only display data is stored (type + title + message
 /// + optional relative target path); no sensitive payloads, no payment
 /// secrets, no internal staff notes. `readAt` (nullable) is the read
-/// marker: NULL means unread. New events from this phase onward only  -
+/// marker: NULL means unread. New events from this phase onward only  - 
 /// historical records are never backfilled.
 model Notification {
   id        String    @id @default(cuid())
@@ -884,7 +884,7 @@ model SupportConversation {
 }
 
 /// Phase 2I: plain-text support messages. `senderRole` is stamped
-/// server-side from the authenticated session ('customer' | 'staff')  -
+/// server-side from the authenticated session ('customer' | 'staff')  - 
 /// the browser never declares who sends. `body` is validated plain
 /// text (1–2000 chars, no control characters); rendering must treat it
 /// as text, never HTML. `readAt` is the recipient-side read marker:
@@ -1374,7 +1374,7 @@ enum BookingPaymentStatus {
 /// automatically paid. `provider` is the gateway key that settled (or
 /// will settle) the payment; `pending` means created locally and
 /// awaiting provider handoff in Phase 2F-B. No card numbers, CVV, raw
-/// card details, or gateway credentials are ever stored here  -
+/// card details, or gateway credentials are ever stored here  - 
 /// `metadata` holds non-sensitive provider payload only.
 enum PaymentStatus {
   PENDING

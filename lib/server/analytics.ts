@@ -54,7 +54,7 @@ function groupCents(rows: Array<{ currency: string; cents: number }>): MoneyByCu
 }
 
 /** Percent change vs a previous equal-length window. Returns null
- *  ("New") when the previous window is empty but the current is not  -
+ *  ("New") when the previous window is empty but the current is not  - 
  *  no meaningful percentage exists. Returns 0 only when both are zero. */
 function pctChange(current: number, previous: number): number | null {
   if (previous === 0) return current > 0 ? null : 0;

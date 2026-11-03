@@ -3,7 +3,7 @@
 // Covers:
 // - integer-cent USD formatting;
 // - font embedding (Montserrat subsets, Identity-H) and real glyph
-//   coverage for Spanish/Italian/French sample text via fontkit  -
+//   coverage for Spanish/Italian/French sample text via fontkit  - 
 //   Arabic is intentionally unsupported and never claimed;
 // - structural validity of rendered PDFs for all three issuable types
 //   (header, EOF, page tree, embedded fonts, image when logo present);

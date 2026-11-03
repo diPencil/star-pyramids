@@ -650,7 +650,7 @@ export async function updateCustomerCarRequest(
     (existing.pickupTime ?? '') === draft.pickupTime &&
     (existing.returnTime ?? '') === draft.returnTime;
   if (unchanged) return toCustomerView(existing);
-  // Edited drafts must still point at a real, published fleet vehicle  -
+  // Edited drafts must still point at a real, published fleet vehicle  - 
   // same rule as initial submission.
   // Quote/transfer snapshot is recomputed at edit time so a price change
   // between submission and editing never leaves stale money on the record.

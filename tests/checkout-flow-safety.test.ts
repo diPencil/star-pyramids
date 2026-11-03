@@ -3,8 +3,9 @@ import type { ReactElement, ReactNode } from 'react'
 import type { CartItem } from '@/lib/cart'
 import type { Tour } from '@/data/types'
 import type { AuthenticatedUser } from '@/lib/auth-types'
+import {CustomerConfirmDialog} from '@/components/customer-confirm-dialog'
 
-const harness=vi.hoisted(()=>({index:0,values:[] as unknown[],items:[] as CartItem[],user:null as AuthenticatedUser|null,fetch:vi.fn(),remove:vi.fn(),finish:vi.fn(),key:vi.fn()}))
+const harness=vi.hoisted(()=>({index:0,values:[] as unknown[],items:[] as CartItem[],locale:'en' as 'en'|'es'|'it',user:null as AuthenticatedUser|null,fetch:vi.fn(),remove:vi.fn(),finish:vi.fn(),key:vi.fn()}))
 vi.mock('@/lib/use-current-user',()=>({useCurrentUser:()=>({user:harness.user,loading:false})}))
 vi.mock('react',async()=>{
   const actual=await vi.importActual<typeof import('react')>('react')
@@ -12,7 +13,7 @@ vi.mock('react',async()=>{
 })
 vi.mock('@/lib/cart',()=>({useCart:()=>({items:harness.items}),removeCartItems:harness.remove,clearCart:vi.fn(),removeFromCart:vi.fn(),removeCartAddons:vi.fn()}))
 vi.mock('@/lib/checkout-attempt',()=>({checkoutAttemptKey:harness.key,finishCheckoutAttempt:harness.finish}))
-vi.mock('@/components/locale',async()=>({...await vi.importActual<typeof import('@/components/locale')>('@/components/locale'),useLocale:()=>({locale:'en',currency:'USD'})}))
+vi.mock('@/components/locale',async()=>({...await vi.importActual<typeof import('@/components/locale')>('@/components/locale'),useLocale:()=>({locale:harness.locale,currency:'USD'})}))
 vi.mock('@/lib/cart-catalogue',async()=>{
   const {estimateCart}=await import('@/lib/booking')
   const tour:Tour={slug:'db-only',status:'published',category:'one-day-tours',title:'DB only',price:100,summary:'',image:'',location:'Cairo',duration:'Full day',dayDetail:{overview:[],addOns:[],travelerPrices:[{travelers:2,adultPrice:100,childPrice:0,infantPrice:0}]}}
@@ -26,12 +27,58 @@ function find(node:ReactNode,test:(element:ReactElement<Record<string,any>>)=>bo
   const element=node as ReactElement<Record<string,any>>
   return test(element)?element:find(element.props.children,test)
 }
-function contact(){let tree=render();find(tree,e=>e.props.autoComplete==='name')!.props.onChange({target:{value:'Test Customer'}});find(tree,e=>e.props.autoComplete==='email')!.props.onChange({target:{value:'test@example.com'}});find(tree,e=>e.props.invalid===false&&typeof e.props.onChange==='function'&&e.props.locale==='en')!.props.onChange('+201234567890');return render()}
+function contact(){let tree=render();find(tree,e=>e.type==='input'&&e.props.type==='checkbox')?.props.onChange({target:{checked:true}});find(tree,e=>e.props.autoComplete==='name')!.props.onChange({target:{value:'Test Customer'}});find(tree,e=>e.props.autoComplete==='email')!.props.onChange({target:{value:'test@example.com'}});find(tree,e=>e.props.invalid===false&&typeof e.props.onChange==='function'&&e.props.locale==='en')!.props.onChange('+201234567890');return render()}
 const response=(data:unknown,status=201)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json'}})
 beforeEach(()=>{vi.clearAllMocks();harness.index=0;harness.values=[];harness.user=null;harness.items=[{key:'submitted',tourSlug:'db-only',title:'DB only',date:'',adults:2,children:0,infants:0,addons:[],image:'',adultUnit:999,childUnit:999,infantUnit:999,addonTotal:0,total:999}];harness.key.mockResolvedValue('stable-attempt-key');vi.stubGlobal('fetch',harness.fetch)})
 afterEach(()=>vi.unstubAllGlobals())
 const signedInUser=():AuthenticatedUser=>({publicId:'customer-public-id',email:' test@example.com ',firstName:' Test ',lastName:'Customer ',username:'test',countryCode:'EG',phone:' +201234567890 ',status:'ACTIVE',emailVerifiedAt:null,lastLoginAt:null,roles:['CUSTOMER'],permissions:[]})
 function fields(tree:ReactNode){return {name:find(tree,e=>e.props.autoComplete==='name')!,email:find(tree,e=>e.props.autoComplete==='email')!,phone:find(tree,e=>e.props.invalid===false&&typeof e.props.onChange==='function'&&e.props.locale==='en')!}}
+function changedPrice(body:string,extra=2000){const price=JSON.parse(body).acceptedPrice;price.lines[0].base+=extra/2;price.lines[0].units[0]+=extra/2;price.lines[0].originalUnits[0]+=extra/2;price.lines[0].original+=extra;price.lines[0].total+=extra;price.subtotal+=extra;price.total+=extra;return price}
+it.each([['en','Accept Updated Price'],['es','Aceptar el precio actualizado'],['it','Accetta il prezzo aggiornato']] as const)('offers explicit localized price acceptance in %s',async(locale,label)=>{
+  harness.locale=locale;harness.user=signedInUser()
+  try{
+    harness.fetch.mockImplementationOnce(async(_url,options)=>response({code:'PRICE_CHANGED',price:changedPrice(options.body),quote:'quote'},409))
+    await find(render(),e=>e.type==='form')!.props.onSubmit({preventDefault:vi.fn()})
+    expect(find(render(),e=>e.type===CustomerConfirmDialog)!.props.confirmLabel).toBe(label)
+    expect(harness.remove).not.toHaveBeenCalled()
+  }finally{harness.locale='en'}
+})
+it('requires the modal action before submitting a changed price and preserves contact/cart',async()=>{
+  const tree=contact()
+  harness.fetch.mockImplementationOnce(async(_url,options)=>response({code:'PRICE_CHANGED',price:changedPrice(options.body),quote:'server-signed-quote'},409)).mockResolvedValueOnce(response({reference:'SP-BK-ABC123',total:220,guest:true,guestAccessUrl:null}))
+  await find(tree,e=>e.type==='form')!.props.onSubmit({preventDefault:vi.fn()})
+  const modal=find(render(),e=>e.type===CustomerConfirmDialog)!
+  expect(modal.props.open).toBe(true);expect(harness.fetch).toHaveBeenCalledTimes(1);expect(harness.remove).not.toHaveBeenCalled()
+  expect(fields(render()).name.props.value).toBe('Test Customer');expect(harness.items).toHaveLength(1)
+  modal.props.onConfirm()
+  await vi.waitFor(()=>expect(harness.remove).toHaveBeenCalledWith(['submitted']))
+  expect(JSON.parse(harness.fetch.mock.calls[1][1].body).priceQuote).toBe('server-signed-quote')
+})
+it('a second change opens fresh confirmation and never automatically accepts it',async()=>{
+  harness.fetch.mockImplementation(async(_url,options)=>response({code:'PRICE_CHANGED',price:changedPrice(options.body),quote:'quote-'+harness.fetch.mock.calls.length},409))
+  await find(contact(),e=>e.type==='form')!.props.onSubmit({preventDefault:vi.fn()})
+  find(render(),e=>e.type===CustomerConfirmDialog)!.props.onConfirm()
+  await vi.waitFor(()=>expect(harness.fetch).toHaveBeenCalledTimes(2))
+  await vi.waitFor(()=>expect(find(render(),e=>e.type===CustomerConfirmDialog)!.props.open).toBe(true))
+  expect(harness.remove).not.toHaveBeenCalled();expect(harness.finish).not.toHaveBeenCalled()
+})
+it('review cart closes the dialog without deleting selections or contact fields',async()=>{
+  vi.stubGlobal('document',{getElementById:()=>({focus:vi.fn()})})
+  harness.fetch.mockImplementationOnce(async(_url,options)=>response({code:'PRICE_CHANGED',price:changedPrice(options.body),quote:'quote'},409))
+  await find(contact(),e=>e.type==='form')!.props.onSubmit({preventDefault:vi.fn()})
+  find(render(),e=>e.type===CustomerConfirmDialog)!.props.onClose()
+  expect(find(render(),e=>e.type===CustomerConfirmDialog)!.props.open).toBe(false)
+  expect(fields(render()).email.props.value).toBe('test@example.com');expect(harness.items).toHaveLength(1);expect(harness.remove).not.toHaveBeenCalled()
+})
+it('recovers the frozen submitted intent after a lost response without accepting fresh prices',async()=>{
+  harness.fetch.mockRejectedValueOnce(Error('lost response')).mockResolvedValueOnce(response({success:true,existing:true,reference:'SP-BK-ABC123',guest:true,guestAccessUrl:null},200))
+  await find(contact(),e=>e.type==='form')!.props.onSubmit({preventDefault:vi.fn()})
+  const first=JSON.parse(harness.fetch.mock.calls[0][1].body)
+  const button=find(render(),e=>e.type==='button'&&e.props.children==='Recover a previous request')!
+  await button.props.onClick()
+  expect(JSON.parse(harness.fetch.mock.calls[1][1].body)).toEqual({...first,recoverOnly:true})
+  expect(harness.remove).toHaveBeenCalledWith(['submitted']);expect(harness.finish).toHaveBeenCalledWith('stable-attempt-key')
+})
 it('prefills current account contact data and submits it as editable contact, never ownership',async()=>{
   harness.user=signedInUser()
   const tree=render(),inputs=fields(tree)
@@ -61,6 +108,14 @@ it('keeps guest fields blank and never reads a previous locally stored profile',
   vi.stubGlobal('localStorage',{getItem:()=>JSON.stringify({fullName:'Previous visitor',email:'old@example.com'})})
   const inputs=fields(render())
   expect([inputs.name.props.value,inputs.email.props.value,inputs.phone.props.value]).toEqual(['','',''])
+})
+it('requires explicit guest account consent and preserves selections if it is missing',async()=>{
+  const initial=contact()
+  find(initial,e=>e.type==='input'&&e.props.type==='checkbox')!.props.onChange({target:{checked:false}})
+  const tree=render()
+  expect(find(tree,e=>e.type==='button'&&e.props.type==='submit')!.props.disabled).toBe(true)
+  await find(tree,e=>e.type==='form')!.props.onSubmit({preventDefault:vi.fn()})
+  expect(harness.fetch).not.toHaveBeenCalled();expect(harness.remove).not.toHaveBeenCalled()
 })
 it('handles missing account names and phone without fabricating values',()=>{
   harness.user={...signedInUser(),firstName:null,lastName:null,phone:null}

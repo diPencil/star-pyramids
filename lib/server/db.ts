@@ -1,6 +1,6 @@
 // Server-only Prisma client singleton.
 // Survives Next.js dev hot-reload via globalThis so HMR never opens
-// excessive DB connections. NEVER import from client components  -
+// excessive DB connections. NEVER import from client components  - 
 // this module (and all of lib/server) enforces `server-only`.
 import 'server-only';
 

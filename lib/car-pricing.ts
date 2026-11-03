@@ -1,6 +1,6 @@
 import { CarInputError } from '@/lib/rent-car-errors';
 // Rent Cars pricing (Phase 2): pure helpers shared by server services and
-// future UI. All financial amounts travel as integer minor units (cents)  -
+// future UI. All financial amounts travel as integer minor units (cents)  - 
 // floating-point arithmetic is never used for money. The multiplier is also
 // integer-scaled (basis points, hundredths: 200 = ×2.00) so every quote is
 // computed with exact integer math and deterministic half-up rounding.

@@ -7,6 +7,7 @@ import { applyLinkedOfferDeals } from './special-offers';
 import "server-only";
 
 import { db } from "./db";
+import type { Prisma } from '@prisma/client';
 import { readJsonText } from '@/lib/json-text';
 import { decodeTourJson } from '@/lib/tour-json';
 import type { Tour } from "@/data/types";
@@ -204,15 +205,15 @@ export async function listTourRouteSlugs(): Promise<string[]> {
  * Canonical slug hits directly; aliases resolve to their canonical tour.
  * Returns null for unknown slugs (callers map to notFound() / 404).
  */
-export async function findTourBySlug(slug: string): Promise<Tour | null> {
-  const direct = await db.tour.findUnique({ where: { slug } });
-  if (direct) return toTour((await applyLinkedOfferDeals([direct]))[0] as unknown as DbTourRow);
+export async function findTourBySlug(slug: string, client: Pick<Prisma.TransactionClient,'tour'|'offer'> = db): Promise<Tour | null> {
+  const direct = await client.tour.findUnique({ where: { slug } });
+  if (direct) return toTour((await applyLinkedOfferDeals([direct],client))[0] as unknown as DbTourRow);
   // Alias scan: aliases are stored as a JSON string array.
-  const rows = await db.tour.findMany({ select: { slug: true, aliases: true } });
+  const rows = await client.tour.findMany({ select: { slug: true, aliases: true } });
   const canonical = rows.find((r) => asStringArray(r.aliases).includes(slug));
   if (!canonical) return null;
-  const full = await db.tour.findUnique({ where: { slug: canonical.slug } });
-  return full ? toTour((await applyLinkedOfferDeals([full]))[0] as unknown as DbTourRow) : null;
+  const full = await client.tour.findUnique({ where: { slug: canonical.slug } });
+  return full ? toTour((await applyLinkedOfferDeals([full],client))[0] as unknown as DbTourRow) : null;
 }
 
 /** Tours filtered by canonical category. */

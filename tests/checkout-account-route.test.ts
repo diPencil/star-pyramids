@@ -1,0 +1,25 @@
+import {beforeEach,expect,it,vi} from 'vitest'
+const m=vi.hoisted(()=>({inspect:vi.fn(),complete:vi.fn(),current:vi.fn(),session:vi.fn(),limit:vi.fn(),record:vi.fn()}))
+vi.mock('@/lib/server/checkout-account',()=>({inspectCheckoutAccount:m.inspect,completeCheckoutAccount:m.complete}))
+vi.mock('@/lib/server/auth',()=>({getCurrentUser:m.current}))
+vi.mock('@/lib/server/session',()=>({createSession:m.session}))
+vi.mock('@/lib/server/rate-limit',()=>({checkResetSubmitRateLimit:m.limit,recordPasswordResetAttempt:m.record}))
+import {POST} from '@/app/api/bookings/account/route'
+const request=(body:unknown={},origin='https://starpyramids.com')=>new Request('https://starpyramids.com/api/bookings/account',{method:'POST',headers:{origin,host:'starpyramids.com','content-type':'application/json'},body:JSON.stringify({reference:'SP-BK-ABC123',token:'a'.repeat(43),mode:'inspect',...body as object})})
+beforeEach(()=>{vi.resetAllMocks();m.inspect.mockResolvedValue({needsPassword:false,email:'owner@example.com'});m.complete.mockResolvedValue({userId:'u1',newAccount:false});m.current.mockResolvedValue(null);m.limit.mockResolvedValue({allowed:true});m.session.mockResolvedValue({});m.record.mockResolvedValue(undefined)})
+it('inspection does not consume the token or open a session',async()=>{const res=await POST(request());expect(res.status).toBe(200);expect(m.complete).not.toHaveBeenCalled();expect(m.session).not.toHaveBeenCalled();expect(m.record).not.toHaveBeenCalled();expect(res.headers.get('cache-control')).toBe('no-store')})
+it('old accounts must use normal login, not a magic-link session',async()=>{const res=await POST(request({mode:'complete'}));expect(await res.json()).toEqual({success:true,redirectTo:'/login?next=%2Faccount'});expect(m.session).not.toHaveBeenCalled()})
+it('creates a new session only after successful verified activation',async()=>{m.inspect.mockResolvedValue({needsPassword:true,email:'owner@example.com'});m.complete.mockResolvedValue({userId:'u1',newAccount:true});const res=await POST(request({mode:'complete',password:'SafePass123!',confirmPassword:'SafePass123!'}));expect(await res.json()).toEqual({success:true,redirectTo:'/account'});expect(m.session).toHaveBeenCalledTimes(1)})
+it('preserves a committed activation when session creation fails',async()=>{m.complete.mockResolvedValue({userId:'u1',newAccount:true});m.session.mockRejectedValue(Error('session failed'));const res=await POST(request({mode:'complete'}));expect(await res.json()).toEqual({success:true,redirectTo:'/login?next=%2Faccount',sessionRecovery:true})})
+it('blocks cross-origin, malformed, oversized and rate-limited input',async()=>{expect((await POST(request({},'https://evil.example'))).status).toBe(403);expect((await POST(request({userId:'admin'}))).status).toBe(400);expect((await POST(request({password:'x'.repeat(5000)}))).status).toBe(400);m.limit.mockResolvedValue({allowed:false});expect((await POST(request())).status).toBe(429);expect(m.complete).not.toHaveBeenCalled()})
+it('uses generic failures without opening a session when token consumption loses a race',async()=>{m.complete.mockRejectedValue(Error('This account link is invalid or expired. Request a new link from your booking receipt.'));const res=await POST(request({mode:'complete'}));expect(res.status).toBe(400);expect(m.session).not.toHaveBeenCalled();expect(m.record).toHaveBeenCalledTimes(1)})
+it('returns the real limiter retry interval and a distinct safe service error',async()=>{
+  m.limit.mockResolvedValue({allowed:false,retryAfterSeconds:37})
+  const limited=await POST(request());expect(limited.headers.get('Retry-After')).toBe('37');expect(await limited.json()).toMatchObject({code:'RATE_LIMITED'})
+  m.limit.mockRejectedValue(Error('private database diagnostic'))
+  const failed=await POST(request());expect(failed.status).toBe(503);expect(await failed.json()).toEqual({code:'SERVICE_UNAVAILABLE'});expect(m.session).not.toHaveBeenCalled()
+})
+it.each([['inspect'],['complete']])('rejects an array mode rather than bypassing completion reservation: %j',async mode=>{
+  const res=await POST(request({mode:[mode]}))
+  expect(res.status).toBe(400);expect(m.complete).not.toHaveBeenCalled();expect(m.session).not.toHaveBeenCalled()
+})

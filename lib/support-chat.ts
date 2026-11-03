@@ -193,7 +193,7 @@ export function useSupportChat() {
       if (!res.ok) return false
       const data = (await res.json()) as { unreadCount?: unknown }
       if (typeof data.unreadCount === 'number') unreadCache = data.unreadCount
-      // The server also resolved matching support notifications  -
+      // The server also resolved matching support notifications  - 
       // revalidate the notification bell cache immediately.
       invalidateNotifications()
       if (cache) {

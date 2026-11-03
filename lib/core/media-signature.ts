@@ -1,6 +1,6 @@
 // Backend core  -  environment-neutral (Next.js server runtime AND trusted
 // Node CLI scripts). Pure functions only: no Node.js APIs, no Next.js
-// imports, no Prisma. Same boundary rules as lib/core/validation.ts  -
+// imports, no Prisma. Same boundary rules as lib/core/validation.ts  - 
 // server/CLI only, never client components.
 //
 // The browser-reported `File.type` is attacker-controlled: any extension

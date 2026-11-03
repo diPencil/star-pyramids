@@ -6,6 +6,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+vi.mock('@/lib/server/db', () => ({db:{}}));
 
 import { hashToken } from '@/lib/core/tokens';
 
@@ -40,15 +41,18 @@ function installDb() {
       findUnique: vi.fn(async ({ where }: { where: { tokenHash: string } }) => {
         lookups.push(where.tokenHash);
         if (findUniqueThrows) throw new Error('db down');
-        return created.find((row) => row.tokenHash === where.tokenHash) ?? null;
+        const row=created.find((row) => row.tokenHash === where.tokenHash);
+        return row ? {...row,booking:bookRow?{userId:bookRow.userId}:null} : null;
       }),
       updateMany: vi.fn(async () => ({ count: 0 })),
     },
+    $queryRaw:vi.fn(async()=>[]),
   };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (module: any) => {
     module.booking = delegate.booking;
     module.bookingAccessToken = delegate.bookingAccessToken;
+    module.$transaction = async (fn: (tx: typeof delegate) => Promise<unknown>) => fn(delegate);
   };
 }
 
@@ -130,6 +134,13 @@ describe('issueGuestBookingToken', () => {
 });
 
 describe('resolveGuestBookingToken', () => {
+  it('refuses an otherwise live token once its booking is linked to an account',async()=>{
+    const {issueGuestBookingToken,resolveGuestBookingToken}=await loadService();
+    const issued=await issueGuestBookingToken(REF);
+    bookRow={reference:REF,userId:'verified-customer'};
+    expect(created[0].revokedAt).toBeNull();
+    await expect(resolveGuestBookingToken(issued!.token)).rejects.toThrow('This booking link is not valid.');
+  });
   it('resolves a live token to its booking reference', async () => {
     const { issueGuestBookingToken, resolveGuestBookingToken } = await loadService();
     const issued = await issueGuestBookingToken(REF);

@@ -1,15 +1,14 @@
 import { NextResponse } from 'next/server'
-import { isSameOriginRequest } from '@/lib/server/csrf'
+import {bookingSameOrigin,bookingClientIp,reserveBookingAttempt} from '@/lib/server/booking-request-security'
 import { isValidEmail, normalizeEmail } from '@/lib/core/validation'
 import { OFFICIAL_BOOKING_REF_PATTERN } from '@/lib/booking'
-import { checkBookingRateLimit, recordBookingAttempt } from '@/lib/server/rate-limit'
 import { emailGuestBookingAccess } from '@/lib/server/booking-recovery'
 import { readBoundedJson } from '@/lib/server/request-json'
 
 // Identical response for missing, account-owned, mismatched and guest bookings.
 // No customer data, token or private URL ever leaves this endpoint.
 export async function POST(request: Request) {
-  if (!isSameOriginRequest(request)) return NextResponse.json({ error: 'Forbidden.' }, { status: 403 })
+  if (!bookingSameOrigin(request)) return NextResponse.json({ error: 'Forbidden.' }, { status: 403 })
   let body: unknown
   try {
     body = await readBoundedJson(request, 2048)
@@ -19,10 +18,10 @@ export async function POST(request: Request) {
   const reference = typeof input.reference === 'string' ? input.reference.trim() : ''
   const email = typeof input.email === 'string' ? normalizeEmail(input.email) : ''
   if (Object.keys(input).some(key => !['reference', 'email'].includes(key)) || !OFFICIAL_BOOKING_REF_PATTERN.test(reference) || email.length > 190 || !isValidEmail(email)) return NextResponse.json({ error: 'Invalid request.' }, { status: 400 })
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
-  const limit = await checkBookingRateLimit(email, ip)
-  if (!limit.allowed) return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } })
-  await recordBookingAttempt(email, ip)
+  const ip=bookingClientIp(request)
+  let limit
+  try{limit=await reserveBookingAttempt(email,ip)}catch{return NextResponse.json({error:'The service is temporarily unavailable.'},{status:503})}
+  if (!limit.allowed) return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429, headers: limit.retryAfterSeconds?{ 'Retry-After': String(limit.retryAfterSeconds) }:{} })
   // Response deliberately does not confirm existence, matching email or delivery.
   await emailGuestBookingAccess(reference, email).catch(() => undefined)
   return NextResponse.json({ accepted: true }, { headers: { 'Cache-Control': 'no-store' } })

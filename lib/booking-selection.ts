@@ -1,4 +1,11 @@
 /** Selection limits shared by the widget, cart and authoritative server validator. */
+import type { Tour } from '@/data/types'
+
+/** Match the exact field family displayed by each public booking widget. */
+export function bookingAddonCatalog(tour: Tour, dayFallback: readonly {title:string;price?:number}[]) {
+  return tour.category==='one-day-tours' ? tour.dayDetail?.addOns??dayFallback : tour.detail?.addOns??[]
+}
+
 export const MAX_BOOKING_TRAVELERS = 60
 export const MAX_BOOKING_PASSENGERS_PER_TYPE = 50
 export const MAX_BOOKING_AMOUNT_CENTS = 9_999_999_999

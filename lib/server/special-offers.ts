@@ -55,9 +55,9 @@ export async function linkedOfferFields(tx: Prisma.TransactionClient, input: Rec
 
 // One authoritative resolver for public cards, tour pages and booking pricing.
 // Never writes to Tour.deal: unrelated/manual deals are preserved verbatim.
-export async function applyLinkedOfferDeals<T extends { slug: string; deal: unknown }>(rows: T[]): Promise<(Omit<T, 'deal'> & { deal: unknown; manualDeal: unknown; pricingDealSource: 'linked-offer' | 'manual' })[]> {
+export async function applyLinkedOfferDeals<T extends { slug: string; deal: unknown }>(rows: T[], client: Pick<Prisma.TransactionClient,'offer'> = db): Promise<(Omit<T, 'deal'> & { deal: unknown; manualDeal: unknown; pricingDealSource: 'linked-offer' | 'manual' })[]> {
   if (!rows.length) return []
-  const offers = await db.offer.findMany({ where: { tourSlug: { in: rows.map(row => row.slug) } }, select: { tourSlug: true, isPublished: true, startsAt: true, deadline: true, discountPercent: true } })
+  const offers = await client.offer.findMany({ where: { tourSlug: { in: rows.map(row => row.slug) } }, select: { tourSlug: true, isPublished: true, startsAt: true, deadline: true, discountPercent: true } })
   const byTour = new Map(offers.map(offer => [offer.tourSlug, offer]))
   return rows.map(row => {
     const offer = byTour.get(row.slug)

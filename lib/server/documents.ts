@@ -859,7 +859,7 @@ export interface DocumentIssuerInfo {
  * settings (same source as the storefront) with the established static
  * company constants as fallbacks for contact fields. Legal fields have
  * NO fallback: `null` means "not provided" and must stay off documents.
- * There is deliberately no VAT rate, tax id, or bank-details field  -
+ * There is deliberately no VAT rate, tax id, or bank-details field  - 
  * none is configured anywhere in the product.
  */
 export async function getDocumentIssuer(): Promise<DocumentIssuerInfo> {

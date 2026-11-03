@@ -187,6 +187,7 @@ export type EmailEventType =
   | 'welcome'
   | 'booking_created'
   | 'booking_access_requested'
+  | 'booking_account_access'
   | 'booking_confirmed'
   | 'booking_completed'
   | 'booking_cancelled'
@@ -220,6 +221,11 @@ interface EmailTemplateDefinition {
 }
 
 const TEMPLATES: Record<EmailEventType, EmailTemplateDefinition> = {
+  booking_account_access: {
+    subject: 'Confirm your email for booking {{reference}}',
+    bodyHtml: '<h2>Welcome to STAR PYRAMIDS</h2><p>Confirm your email to link booking {{reference}} to your customer account. If this is your first booking, you can securely set a password. Existing accounts keep their current password and use normal sign-in.</p><p><a class="btn" href="{{accountUrl}}">Confirm email and continue</a></p><p>This private, single-use link expires in one hour. If you did not request this, ignore this email. No account access is granted until you confirm.</p>',
+    bodyText: 'Welcome to STAR PYRAMIDS\n\nConfirm your email to link booking {{reference}} to your customer account. New customers can securely set a password. Existing accounts keep their current password and use normal sign-in.\n\n{{accountUrl}}\n\nThis private, single-use link expires in one hour. If you did not request this, ignore this email.',
+  },
   booking_access_requested: {
     subject: 'Your private booking link - {{reference}}',
     bodyHtml: '<h2>Your booking link</h2><p>Hi {{name}},</p><p>A private link was requested for booking <strong>{{reference}}</strong>.</p><p><a href="{{detailUrl}}" class="btn">View your booking</a></p><p>This is your private access link. Keep it confidential and use the newest link. If you did not request it, do not share or forward this message.</p>',
@@ -522,6 +528,10 @@ function summarizeEmailError(error: unknown): string {
   // auth username) down to `***@host`. The trailing `.+` is greedy so the
   // match always ends at the last `@` before the host, never mid-credential.
   const redacted = withoutControlChars
+    // Provider rejection messages can echo message URLs or opaque bearer
+    // credentials. Scrub these before either persistence or structured logs.
+    .replace(/https?:\/\/[^\s<>"']+/gi, '[redacted URL]')
+    .replace(/[A-Za-z0-9_-]{32,}/g, '[redacted token]')
     .replace(/[^\s:@/]+:[^\s:@/]+@[^\s:@/]+/g, '***')
     .replace(/[^\s:@/]+:[^\s:@/]+(?=\s|$)/g, '***');
   const trimmed = (redacted || 'Unknown error').slice(0, 500);

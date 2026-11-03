@@ -52,6 +52,8 @@ import { WhatsAppGlyph } from '@/components/whatsapp-chat'
 import { BookingPrintDocument } from '@/components/booking-print-document'
 import { BookingPaymentPanel, PaymentInstructions, PaymentProofForm, bookingMoney, bookingPaymentLabel } from '@/components/booking-payment'
 import { LanguageModal } from '@/components/language-selector'
+import {CustomerConfirmDialog} from './customer-confirm-dialog'
+export {CustomerConfirmDialog} from './customer-confirm-dialog'
 import { ENABLED_LOCALES, LOCALE_LABELS, LOCALE_SHORT_LABELS, type EnabledLocale } from '@/lib/locale-config'
 import { customerErrorText } from '@/lib/customer-error-copy'
 import { useAuthenticatedUser } from '@/components/authenticated-user'
@@ -470,6 +472,13 @@ function BookingCard({ booking }: { booking: Booking }) {
   </article>
 }
 
+function AccountCompletionNotice() {
+  const user = useAuthenticatedUser()
+  const { locale } = useLocale()
+  if (!user || !user.roles.includes('CUSTOMER') || [user.firstName,user.lastName,user.username,user.countryCode,user.phone].every(value => typeof value === 'string' && value.trim())) return null
+  return <p role="status" className="co-payment-note"><Link href="/account/profile">{tx(locale,{en:'Complete your account profile to make the most of your bookings and offers. Your current booking remains available.',es:'Completa el perfil para aprovechar tus reservas y ofertas. Tu reserva actual sigue disponible.',it:'Completa il profilo per sfruttare al meglio prenotazioni e offerte. La prenotazione attuale resta disponibile.'})}</Link></p>
+}
+
 function OverviewSection() {
   const { locale, currency } = useLocale()
 
@@ -489,6 +498,7 @@ function OverviewSection() {
   const savedTours = favorites.slugs.map((slug) => liveTours.find((tour) => tour.slug === slug)).filter((tour) => Boolean(tour)).slice(0, 3)
 
   return <>
+    {!impersonated && <AccountCompletionNotice/>}
     <section className="customer-welcome-band">
       <div><span>{tx(locale, { en: 'Welcome back', es: 'Te damos la bienvenida', it: 'Bentornato', ar: 'أهلًا بعودتك' })}</span><h2>{displayName.split(' ')[0]}, {tx(locale, { en: 'let us keep your next journey moving.', es: 'sigamos preparando tu próximo viaje.', it: 'continuiamo a preparare il tuo prossimo viaggio.', ar: 'خلينا نجهز رحلتك القادمة.' })}</h2><p>{latestBooking ? (locale === 'es' ? `La última actualización de tu reserva está lista en ${latestBooking.reference}.` : locale === 'it' ? `L'ultimo aggiornamento della tua prenotazione è pronto in ${latestBooking.reference}.` : locale === 'ar' ? `آخر تحديث على الحجز ${latestBooking.reference}` : `Your latest booking update is ready under ${latestBooking.reference}.`) : (tx(locale, { en: 'Save a trip or add it to your cart and everything will stay organized here.', es: 'Guarda un viaje o añádelo a tu cesta y todo quedará organizado aquí.', it: 'Salva un viaggio o aggiungilo al carrello e tutto resterà organizzato qui.', ar: 'احفظ الرحلات أو أضفها للسلة وسيظهر كل شيء هنا.' }))}</p></div>
       <Link href={latestBooking ? '/account/bookings' : '/trips'}>{latestBooking ? (tx(locale, { en: 'Track booking', es: 'Seguir la reserva', it: 'Segui la prenotazione', ar: 'متابعة الحجز' })) : (tx(locale, { en: 'Find a trip', es: 'Buscar un viaje', it: 'Trova un viaggio', ar: 'ابحث عن رحلة' }))} <ArrowRight size={17} /></Link>
@@ -1053,75 +1063,6 @@ function passengerCountLabel(count: number, locale: Locale): string {
   return `${count} مسافر`
 }
 
-export function CustomerConfirmDialog({ open, title, copy, confirmLabel, cancelLabel, onConfirm, onClose }: {
-  open: boolean
-  title: string
-  copy: string
-  /** Omitted = blocking notice mode: no destructive confirm is offered. */
-  confirmLabel?: string
-  /** Defaults to a short keep/dismiss wording. */
-  cancelLabel?: string
-  onConfirm: () => void
-  onClose: () => void
-}) {
-  const { locale } = useLocale()
-
-  const panelRef = useRef<HTMLDivElement>(null)
-  const confirmRef = useRef<HTMLButtonElement>(null)
-  const restoreRef = useRef<Element | null>(null)
-  useEffect(() => {
-    if (!open) return
-    restoreRef.current = document.activeElement
-    if (confirmRef.current) confirmRef.current.focus()
-    else panelRef.current?.focus()
-    const onKey = (event: globalThis.KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        onClose()
-        return
-      }
-      if (event.key === 'Tab' && panelRef.current) {
-        const items = Array.from(
-          panelRef.current.querySelectorAll<HTMLElement>(
-            'button:not([disabled]), a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-          ),
-        )
-        if (!items.length) return
-        const first = items[0]
-        const last = items[items.length - 1]
-        const active = document.activeElement
-        if (event.shiftKey && (active === first || !panelRef.current.contains(active))) {
-          event.preventDefault()
-          last.focus()
-        } else if (!event.shiftKey && active === last) {
-          event.preventDefault()
-          first.focus()
-        }
-      }
-    }
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      if (restoreRef.current instanceof HTMLElement) restoreRef.current.focus()
-    }
-  }, [open, onClose])
-  if (!open) return null
-  return (
-    <div className="language-backdrop" role="presentation" onMouseDown={onClose}>
-      <div ref={panelRef} tabIndex={-1} className="language-modal" role="dialog" aria-modal="true" aria-label={title} onMouseDown={(event) => event.stopPropagation()}>
-        <div className="language-modal-head">
-          <h2>{title}</h2>
-          <button type="button" className="language-close" onClick={onClose} aria-label={tx(locale, { en: 'Close dialog', es: 'Cerrar el diálogo', it: 'Chiudi la finestra', ar: 'إغلاق الحوار' })}><X size={18} /></button>
-        </div>
-        <p style={{ margin: '12px 0 0', color: '#667085', fontSize: 13, lineHeight: 1.7 }}>{copy}</p>
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap', marginTop: 18 }}>
-          <button type="button" className="account-icon-action" onClick={onClose}>{cancelLabel ?? (tx(locale, { en: 'Keep it', es: 'Mantener', it: 'Mantieni', ar: 'تراجع' }))}</button>
-          {confirmLabel && <button ref={confirmRef} type="button" className="account-icon-action danger" onClick={onConfirm}>{confirmLabel}</button>}
-        </div>
-      </div>
-    </div>
-  )
-}
 
 function CarStatusBadge({ status }: { status: CarRequestStatus }) {
   const { locale } = useLocale()

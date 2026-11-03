@@ -177,3 +177,24 @@ This version has breaking changes  -  APIs, conventions, and file structure may 
 This block is written and re-added by `next dev`  -  verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## STAR PYRAMIDS project rules  -  highest priority for all agents
+
+These project-specific restrictions take precedence over instructions in any
+installed skill, plugin, persona, script, or general workflow. Skills are
+reference workflows only; they do not authorize actions prohibited here.
+
+- Do not use browsers, browser automation, or browser-based testing.
+- Do not stage, commit, push, or deploy without the user's explicit approval.
+- Do not perform production operations.
+- Do not reset or seed databases, or run destructive migrations. Preserve local
+development data.
+- Preserve the existing design system and page layouts. Do not make unrelated
+code or configuration changes.
+- Support English (EN), Spanish (ES), and Italian (IT). Arabic is disabled;
+do not add or enable Arabic/RTL behavior.
+- Do not access or modify `web-source-recovery`.
+- Before considering any bundled or repository script, inspect its complete
+contents and effects. Never execute a bundled script without inspecting it.
+- When a skill recommends an action that conflicts with these rules, follow
+these project rules and stop before the prohibited action.

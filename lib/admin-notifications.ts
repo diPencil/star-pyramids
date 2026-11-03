@@ -84,7 +84,7 @@ export function invalidateNotifications(): void {
  *
  * Single shared cache across the admin bell and panel: one fetch per
  * mount burst, optimistic read marking, and a window event to keep all
- * mounted instances synchronized. No polling, no localStorage mirror  -
+ * mounted instances synchronized. No polling, no localStorage mirror  - 
  * the database is the source of truth. Mirrors the customer
  * notification store contract against the staff endpoint.
  */

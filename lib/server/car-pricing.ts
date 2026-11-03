@@ -746,7 +746,7 @@ export interface CarRouteQuoteResolved {
  *  1. bad input / auth-free validation errors → thrown (400 at the route);
  *  2. vehicle unknown/hidden, unclear or insufficient capacity → thrown;
  *  3. route or price missing/inactive, unconfigured manual round-trip →
- *     `price_on_request` with a machine-readable reason (200 at the route)  -
+ *     `price_on_request` with a machine-readable reason (200 at the route)  - 
  *     no silent default prices, ever.
  */
 export type CarRouteQuoteResult =

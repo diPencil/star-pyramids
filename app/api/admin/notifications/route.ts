@@ -27,7 +27,7 @@ export async function GET() {
 }
 
 /**
- * Staff owner-only read marking. No creation endpoint exists by design  -
+ * Staff owner-only read marking. No creation endpoint exists by design  - 
  * notifications are created server-side by real domain events only.
  * Both actions are idempotent: re-marking succeeds without writing.
  * Recipient ownership is enforced: a foreign notification id yields 404

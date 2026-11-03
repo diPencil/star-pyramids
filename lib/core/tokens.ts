@@ -1,5 +1,5 @@
 // Backend core  -  environment-neutral (Next.js server runtime AND trusted
-// Node CLI scripts). Same boundary rules as lib/core/password.ts  -
+// Node CLI scripts). Same boundary rules as lib/core/password.ts  - 
 // server/CLI only, never client components.
 //
 // Opaque token helpers. Raw tokens are shown to the owner exactly once

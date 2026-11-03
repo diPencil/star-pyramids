@@ -186,7 +186,9 @@ export function addToCart(item: Omit<CartItem, 'key'>): string {
   const sanitized = sanitizeCartItem(item)
   if (!sanitized) throw new Error('addToCart requires a tour slug, title, and valid traveler counts')
   const key = sanitized.key
-  update([...latestSnapshot().filter((entry) => entry.key !== key), { ...sanitized, key }])
+  const current=latestSnapshot()
+  if(current.length>=MAX_LINES&&!current.some(entry=>entry.key===key)) throw Error('Your cart can contain at most 20 trip selections. Remove a selection before adding another.')
+  update([...current.filter((entry) => entry.key !== key), { ...sanitized, key }])
   return key
 }
 

@@ -16,7 +16,7 @@ type RefundBody = {
 /**
  * Staff-only offline refund recording (money already returned outside
  * the website). Gated by `payments.edit`; every success is audited.
- * The service owns validation, balance checks and the transition  -
+ * The service owns validation, balance checks and the transition  - 
  * the browser supplies details only, never statuses.
  */
 export async function POST(

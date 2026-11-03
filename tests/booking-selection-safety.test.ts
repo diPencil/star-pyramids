@@ -1,6 +1,6 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 import type { Tour } from '@/data/types'
-import { bookingAddons, bookingCents, validBookingTravelers } from '@/lib/booking-selection'
+import { bookingAddonCatalog, bookingAddons, bookingCents, validBookingTravelers } from '@/lib/booking-selection'
 import { estimateCart } from '@/lib/booking'
 import { sanitizeCartItem } from '@/lib/cart'
 
@@ -14,12 +14,29 @@ import { createBookingRecord, validateBookingDraft } from '@/lib/server/bookings
 
 const tour = (): Tour => ({slug: 'current-tour', status: 'published', category: 'one-day-tours', title: 'Current tour', price: 100, image: '', summary: '', duration: 'Full day', location: 'Cairo', dayDetail: { overview: [], travelerPrices: [{travelers: 2, adultPrice: 100, childPrice: 50, infantPrice: 0}], addOns: [{title: 'Ticket', price: 12.34}, {title: 'Transfer on request'}] }})
 const draft = (selection: Record<string, unknown> = {}) => ({lines: [{tourSlug: 'old-alias', date: '', adults: 2, children: 0, infants: 0, addons: [], ...selection}], contact: {name: 'Test Customer', email: 'test@example.com', phone: '+201234567890'}, notes: 'A customer note', currency: 'USD', idempotencyKey: 'safety-attempt-key'})
+it.each(['one-day-tours','multi-days-tours','nile-cruises','shore-excursions'] as const)('uses only the %s widget add-on owner',category=>{
+  const current=tour();current.category=category
+  current.detail={addOns:[{title:'Package extra',price:99}]} as Tour['detail']
+  expect(bookingAddonCatalog(current,[])[0].title).toBe(category==='one-day-tours'?'Ticket':'Package extra')
+})
+it('preserves an intentionally empty day add-on list',()=>{
+  const current=tour();current.dayDetail!.addOns=[]
+  current.detail={addOns:[{title:'Hidden legacy extra',price:99}]} as Tour['detail']
+  expect(bookingAddonCatalog(current,[{title:'Default extra',price:10}])).toEqual([])
+})
 beforeEach(() => { vi.resetAllMocks(); mocks.find.mockResolvedValue(tour()); mocks.findBooking.mockResolvedValue(null); mocks.token.mockResolvedValue(null); mocks.notify.mockResolvedValue(undefined); mocks.mail.mockResolvedValue(null) })
 
 it.each([[50,10,0,true], [50,10,1,false], [0,1,0,false], [1,50,9,true], [51,0,0,false], [2,0.5,0,false]])('enforces the same traveler bounds (%s, %s, %s)', (a,c,i,valid) => { expect(validBookingTravelers(a as number,c as number,i as number)).toBe(valid) })
 it.each([NaN, Infinity, -1, 100_000_000])('fails closed on invalid/oversized money %s', price => { expect(() => bookingCents(price)).toThrow(/cannot be confirmed/) })
 it('deduplicates extras and separates removed, priced and genuinely unpriced selections', () => {
   expect(bookingAddons(tour().dayDetail!.addOns!, ['Ticket','Ticket','Transfer on request','Removed'])).toEqual({priced:['Ticket'], requested:['Transfer on request'], unavailable:['Removed'], cents:1234})
+})
+it('charges the extras displayed by the day-tour widget when legacy detail JSON is also present',async()=>{
+  const current=tour();current.detail={addOns:[{title:'Ticket',price:999}]} as Tour['detail'];mocks.find.mockResolvedValue(current)
+  const validated=await validateBookingDraft(draft({addons:['Ticket']}))
+  const selected=sanitizeCartItem({...draft({addons:['Ticket']}).lines[0],tourSlug:current.slug,title:current.title})!
+  expect(validated.lines[0].addonTotalCents).toBe(1234)
+  expect(estimateCart([selected],[current]).validLines[0].addonTotal).toBe(12.34)
 })
 it('rejects ambiguous catalogue extras instead of choosing the first price', () => {
   expect(() => bookingAddons([{title:'Transfer',price:15},{title:'Transfer',price:30}],['Transfer'])).toThrow(/cannot be confirmed/)

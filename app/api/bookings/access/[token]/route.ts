@@ -1,3 +1,4 @@
+import {bookingClientIp as clientIp} from '@/lib/server/booking-request-security'
 import { NextResponse } from 'next/server';
 
 import {
@@ -11,10 +12,7 @@ import { getGuestBooking } from '@/lib/server/bookings';
 // Always evaluated per request: this route is a token lookup, never cached.
 export const dynamic = 'force-dynamic';
 
-function clientIp(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  return forwarded?.split(',')[0]?.trim() || 'unknown';
-}
+
 
 /**
  * Guest booking access (P0 Fix 04).

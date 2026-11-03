@@ -13,7 +13,7 @@ import '../account/account.css';
  * this route sits outside that layout, so the page rendered unstyled.
  *
  * This layout loads the same stylesheet here. It is safe to share:
- * `account.css` is fully class-scoped (plus `html[dir]` RTL helpers)  -
+ * `account.css` is fully class-scoped (plus `html[dir]` RTL helpers)  - 
  * no bare-element or body rules leak onto other routes  -  and nothing
  * about the page structure, metadata (`noindex`/`no-store` on the
  * page), or token handling changes. Private-link access still resolves

@@ -1,6 +1,6 @@
 // Payment domain service (Phase 2F-A). Server owns initiation,
 // reference issuance, ownership, amounts, status lifecycle, and
-// response shaping. The browser supplies a booking reference ONLY  -
+// response shaping. The browser supplies a booking reference ONLY  - 
 // never amounts, statuses, provider IDs, references, or ownership.
 //
 // Phase 2F-A integrates NO gateway: initiation creates a legitimate
@@ -232,7 +232,7 @@ export interface ValidatedPaymentInitiation {
 
 /**
  * Strict server validation of the initiation body. Only the booking
- * reference and an optional client idempotency key are accepted  -
+ * reference and an optional client idempotency key are accepted  - 
  * amounts, statuses, providers, and ownership are never read.
  */
 export function validatePaymentInitiation(input: unknown): ValidatedPaymentInitiation {
@@ -252,7 +252,7 @@ export function validatePaymentInitiation(input: unknown): ValidatedPaymentIniti
  * Initiate exactly one active payment attempt for an eligible booking
  * owned by the customer. A repeated initiation while an active
  * (pending/processing) attempt exists returns the original payment
- * instead of creating a duplicate. The record is always PENDING  -
+ * instead of creating a duplicate. The record is always PENDING  - 
  * initiation never marks money as paid.
  */
 export async function initiateCustomerPayment(

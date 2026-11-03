@@ -26,7 +26,7 @@ export async function GET() {
 }
 
 /**
- * Owner-only initiation. The body carries the booking reference ONLY  -
+ * Owner-only initiation. The body carries the booking reference ONLY  - 
  * amounts, statuses, providers, and ownership always come from the
  * server session and the stored booking, never the browser. Creates a
  * legitimate PENDING payment awaiting provider handoff; never paid.

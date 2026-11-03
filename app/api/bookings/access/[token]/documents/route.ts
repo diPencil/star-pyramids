@@ -1,3 +1,4 @@
+import {bookingClientIp as clientIp} from '@/lib/server/booking-request-security'
 import { NextResponse } from 'next/server';
 
 import {
@@ -12,10 +13,7 @@ import { listBookingDocuments, toDocumentListItem } from '@/lib/server/documents
 // Always evaluated per request: this route resolves a token, never cached.
 export const dynamic = 'force-dynamic';
 
-function clientIp(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  return forwarded?.split(',')[0]?.trim() || 'unknown';
-}
+
 
 /**
  * Guest document list for the token's own booking (Phase C).

@@ -75,18 +75,23 @@ export async function issueGuestBookingToken(reference: string): Promise<{
   token: string;
   expiresAt: Date;
 } | null> {
-  const booking = await db.booking.findUnique({
-    where: { reference },
-    select: { reference: true, userId: true },
-  });
-  if (!booking || booking.userId) return null;
+  return db.$transaction(async tx => {
+    // Enrollment takes this same row lock before linking the account and
+    // revoking guest links. A token cannot be minted after that revocation.
+    await tx.$queryRaw`SELECT reference FROM bookings WHERE reference = ${reference} FOR UPDATE`;
+    const booking = await tx.booking.findUnique({
+      where: { reference },
+      select: { reference: true, userId: true },
+    });
+    if (!booking || booking.userId) return null;
 
-  const token = generateOpaqueToken(32);
-  const expiresAt = new Date(Date.now() + ttlMs());
-  await db.bookingAccessToken.create({
-    data: { bookingRef: booking.reference, tokenHash: hashToken(token), expiresAt },
+    const token = generateOpaqueToken(32);
+    const expiresAt = new Date(Date.now() + ttlMs());
+    await tx.bookingAccessToken.create({
+      data: { bookingRef: booking.reference, tokenHash: hashToken(token), expiresAt },
+    });
+    return { token, expiresAt };
   });
-  return { token, expiresAt };
 }
 
 /**
@@ -105,9 +110,9 @@ export async function resolveGuestBookingToken(rawToken: string): Promise<{
 
   const row = await db.bookingAccessToken.findUnique({
     where: { tokenHash: hashToken(token) },
-    select: { bookingRef: true, revokedAt: true, expiresAt: true },
+    select: { bookingRef: true, revokedAt: true, expiresAt: true, booking: { select: { userId: true } } },
   });
-  if (!row) {
+  if (!row || !row.booking || row.booking.userId !== null) {
     throw new GuestBookingAccessError('unknown');
   }
   if (row.revokedAt) {

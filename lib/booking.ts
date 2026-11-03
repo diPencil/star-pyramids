@@ -1,6 +1,7 @@
 import { dayTourTerms, getBookingTotal, getTravelerUnitPrices } from '@/data/tours'
 import { isTourPublished } from '@/lib/tour-publish'
-import { bookingAddons, bookingCents, bookingSelectionKey, validBookingTravelers, MAX_BOOKING_AMOUNT_CENTS } from './booking-selection'
+import { bookingAddonCatalog, bookingAddons, bookingCents, bookingSelectionKey, validBookingTravelers, MAX_BOOKING_AMOUNT_CENTS } from './booking-selection'
+import {bookingPriceLine,type BookingPriceLine} from './booking-price'
 import type { CartItem } from '@/lib/cart'
 import type { Tour } from '@/data/types'
 import { localeFromAr, pickLocaleText, type Locale } from '@/lib/locale-config'
@@ -204,6 +205,7 @@ export type BookingCheckoutLine = {
 }
 
 export type BookingCheckoutDraft = {
+  acceptedTerms?: boolean
   lines: BookingCheckoutLine[]
   contact: BookingContact
   notes: string
@@ -295,6 +297,9 @@ export function bookingActivityLabel(action: string, ar: boolean | Locale): stri
   if (locale === 'en') return action
   const map: Record<string, { es?: string; it?: string; ar?: string }> = {
     'Booking created': { es: 'Reserva creada', it: 'Prenotazione creata', ar: 'تم إنشاء الحجز' },
+    'Checkout account consent accepted': { es: 'Consentimiento de cuenta aceptado al reservar', it: 'Consenso per l’account accettato alla prenotazione' },
+    'Checkout account email requested': { es: 'Correo de confirmación de cuenta solicitado', it: 'Email di conferma dell’account richiesta' },
+    'Booking linked after email verification': { es: 'Reserva vinculada tras verificar el correo', it: 'Prenotazione collegata dopo la verifica dell’email' },
     'Booking confirmed': { es: 'Reserva confirmada', it: 'Prenotazione confermata', ar: 'تم تأكيد الحجز' },
     'Booking completed': { es: 'Reserva completada', it: 'Prenotazione completata', ar: 'اكتمل الحجز' },
     'Booking cancelled': { es: 'Reserva cancelada', it: 'Prenotazione annullata', ar: 'تم إلغاء الحجز' },
@@ -336,6 +341,8 @@ export function isValidPreferredDate(value: string): boolean {
 }
 
 export type ResolvedCartLine = {
+  /** Exact financial context used by this rendered estimate, not submit time. */
+  price?: BookingPriceLine
   item: CartItem
   tour: Tour | null
   /** True when the slug no longer resolves to canonical tour data. Never substitute another tour. */
@@ -362,9 +369,7 @@ export type ResolvedCartLine = {
 }
 
 function addonCatalog(tour: Tour): readonly { title: string; price?: number }[] {
-  const catalog = tour.detail?.addOns ?? tour.dayDetail?.addOns
-  if (catalog) return catalog
-  return tour.category === 'one-day-tours' ? dayTourTerms.addOns : []
+  return bookingAddonCatalog(tour,dayTourTerms.addOns)
 }
 
 /**
@@ -386,7 +391,8 @@ export function resolveCartLine(item: CartItem, lookup: (slug: string) => Tour |
   }
   const invalidTravelers = !validBookingTravelers(item.adults, item.children, item.infants)
   try {
-    const pricing = getBookingTotal(tour, item.adults, item.children, item.infants)
+    const now=new Date()
+    const pricing = getBookingTotal(tour, item.adults, item.children, item.infants,now)
     const extras = bookingAddons(addonCatalog(tour), item.addons)
     const adult = bookingCents(pricing.adult), child = bookingCents(pricing.child), infant = bookingCents(pricing.infant)
     const travelerCents = item.adults * adult + item.children * child + item.infants * infant
@@ -396,6 +402,7 @@ export function resolveCartLine(item: CartItem, lookup: (slug: string) => Tour |
     if (!Number.isSafeInteger(canonicalCents) || canonicalCents < 0 || canonicalCents > MAX_BOOKING_AMOUNT_CENTS || originalCents + extras.cents > MAX_BOOKING_AMOUNT_CENTS) throw Error('Invalid total')
     return {
     item: { ...item, tourSlug: tour.slug, title: tour.title, image: tour.image }, tour, stale: false,
+    price:extras.unavailable.length?undefined:bookingPriceLine(tour,item,now),
     invalidTravelers, invalidPrice: false, unavailableAddons: extras.unavailable,
     adultUnit: adult / 100, childUnit: child / 100, infantUnit: infant / 100,
     travelerTotal: travelerCents / 100, discountTotal: Math.max(0, originalCents - travelerCents) / 100, pricedAddons: extras.priced, onRequestAddons: extras.requested, addonTotal: extras.cents / 100,

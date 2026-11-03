@@ -4,7 +4,7 @@
 // SECURITY BOUNDARY: server/CLI only. NEVER import from client components.
 // Next.js code must consume this through lib/server/* (which enforces
 // `server-only`); CLI scripts import it directly. Importing bcrypt into a
-// client bundle would leak hashing internals and bloat the client  -
+// client bundle would leak hashing internals and bloat the client  - 
 // code review must reject any `components|app/**/page` import of lib/core.
 import bcrypt from 'bcryptjs';
 

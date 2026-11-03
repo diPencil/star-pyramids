@@ -128,6 +128,18 @@ describe('email delivery status contract', () => {
     expect(record.status).toBe('FAILED');
     expect(record.errorSummary).not.toContain('hunter2');
   });
+  it('redacts private URLs and bare opaque credentials echoed by a failed mail provider',async()=>{
+    const secret='A'.repeat(43)
+    adapter.send.mockRejectedValue(Error(`rejected https://starpyramids.com/booking-account#reference=SP-BK-ABC123&token=${secret} bare=${secret}`))
+    const {sendEmail}=await loadEmail()
+    const log=vi.spyOn(console,'error').mockImplementation(()=>undefined)
+    try {
+      const row=await sendEmail(payload)
+      expect(row.errorSummary).not.toContain(secret)
+      expect(row.errorSummary).not.toContain('https://starpyramids.com/booking-account')
+      expect(JSON.stringify(log.mock.calls)).not.toContain(secret)
+    }finally{log.mockRestore()}
+  });
 
   it('does not resend when an idempotency key already exists', async () => {
     adapter.send.mockResolvedValue({ providerMessageId: 'msg-1' });

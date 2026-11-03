@@ -35,11 +35,17 @@ export async function checkoutAttemptKey(draft: Omit<BookingCheckoutDraft, 'idem
   const intent = {
     lines: draft.lines.map(line => ({ tourSlug: line.tourSlug, date: line.date, adults: line.adults, children: line.children, infants: line.infants, addons: [...new Set(line.addons)].sort() })).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
     contact: { name: draft.contact.name.trim(), email: draft.contact.email.trim().toLowerCase(), phone: draft.contact.phone.trim().replace(/[ ()-]/g, '') },
-    notes: draft.notes?.trim() ?? '', currency: 'USD',
+    notes: draft.notes?.trim() ?? '', currency: 'USD', acceptedTerms:draft.acceptedTerms===true,
   }
-  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(intent)))
-  const fingerprint = Array.from(new Uint8Array(hash), byte => byte.toString(16).padStart(2, '0')).join('')
+  const digest=async(value:unknown)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(value)))),byte=>byte.toString(16).padStart(2,'0')).join('')
+  const fingerprint=await digest(intent)
+  const {acceptedTerms:_,...oldIntent}=intent
+  const oldFingerprint=await digest(oldIntent)
   const legacy = loadAttempts()
+  const oldKey=attempts.get(oldFingerprint)
+  if(oldKey&&!attempts.has(fingerprint)&&!legacyClaims.has(oldKey)){
+    legacyClaims.set(oldKey,fingerprint);attempts.delete(oldFingerprint);attempts.set(fingerprint,oldKey);persistAttempts()
+  }
   const existing = attempts.get(fingerprint)
   if (existing) return existing
   if (attempts.size >= 20) throw Error('Too many unfinished checkout attempts. Contact our team before retrying.')

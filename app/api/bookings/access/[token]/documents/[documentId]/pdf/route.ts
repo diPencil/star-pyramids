@@ -1,3 +1,4 @@
+import {bookingClientIp as clientIp} from '@/lib/server/booking-request-security'
 import { NextResponse } from 'next/server';
 
 import {
@@ -12,10 +13,7 @@ import { buildBookingDocumentPdf, documentPdfResponse, publicBaseUrl } from '@/l
 // Private document bytes  -  evaluated per request, never cached.
 export const dynamic = 'force-dynamic';
 
-function clientIp(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  return forwarded?.split(',')[0]?.trim() || 'unknown';
-}
+
 
 /**
  * Guest PDF download through the opaque booking-access token (the same

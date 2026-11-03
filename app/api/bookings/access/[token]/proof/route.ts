@@ -1,3 +1,4 @@
+import {bookingClientIp as clientIp} from '@/lib/server/booking-request-security'
 import { NextResponse } from 'next/server';
 
 import {
@@ -15,17 +16,14 @@ import {
 // Always evaluated per request: this route is a token lookup, never cached.
 export const dynamic = 'force-dynamic';
 
-function clientIp(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  return forwarded?.split(',')[0]?.trim() || 'unknown';
-}
+
 
 /**
  * Guest payment-proof submission, authorized ONLY by the private access
  * token (same bearer trust as the read-only guest endpoint).
  *
  * Reference-only: appends one harmless activity row for staff review.
- * A leaked link can never move money, change status, or upload files  -
+ * A leaked link can never move money, change status, or upload files  - 
  * the submission never creates or settles a Payment row. Every token
  * failure returns the same 404 body as the read endpoint, and failed
  * lookups count against the same per-IP brute-force budget.

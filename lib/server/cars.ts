@@ -45,7 +45,7 @@ export async function listCars(): Promise<Car[]> {
 
 /**
  * Confirmed car-request bookings per assigned vehicle, keyed by slug.
- * `assignedVehicleSlug` (the staff assignment) is the booked vehicle  -
+ * `assignedVehicleSlug` (the staff assignment) is the booked vehicle  - 
  * `vehicleSlug` is only the customer's preference at submission time.
  * Only requests currently CONFIRMED count: a request that was never
  * confirmed, was cancelled, or has no assignment yet is not a booking.

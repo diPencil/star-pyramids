@@ -1,6 +1,6 @@
 // Backend core  -  environment-neutral (Next.js server runtime AND trusted
 // Node CLI scripts). Pure functions only: no browser APIs, no Next.js
-// imports, no Prisma. Same boundary rules as lib/core/password.ts  -
+// imports, no Prisma. Same boundary rules as lib/core/password.ts  - 
 // server/CLI only, never client components.
 //
 // The server MUST never trust localStorage, query strings, form payloads,

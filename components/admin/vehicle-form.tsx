@@ -12,7 +12,7 @@ import { slugify } from '@/lib/admin-store'
 import type { Car } from '@/data/types'
 
 /**
- * Shared create/edit vehicle form. The New page and edit mode render this  -
+ * Shared create/edit vehicle form. The New page and edit mode render this  - 
  * never separate copies. The caller owns the database mutation.
  * Slug is preserved in edit mode and generated on create.
  */

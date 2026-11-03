@@ -4,9 +4,12 @@ import { db } from './db'
 import { generateOpaqueToken, hashToken } from '../core/tokens'
 import { DEFAULT_ACCESS_TTL_DAYS, guestBookingPath } from './booking-access'
 import { sendCustomerEmailSafe } from './email'
+import { prepareCheckoutAccount } from './checkout-account'
 
 /** Email-only recovery. A reference/email never grants a browser credential. */
 export async function emailGuestBookingAccess(reference: string, email: string): Promise<void> {
+  // The enrollment service independently verifies the saved email and consent.
+  await prepareCheckoutAccount(reference,email).catch(()=>undefined)
   const issued = await db.$transaction(async tx => {
     // Serialize recoveries for this booking without changing its business data.
     await tx.$queryRaw`SELECT reference FROM bookings WHERE reference = ${reference} FOR UPDATE`
