@@ -32,11 +32,11 @@ export async function GET(
     return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
   }
   try {
-    const customer = await getCustomerDetail(publicId);
+    const customer = await getCustomerDetail(publicId, { includeFinancial: hasPermission(user, 'payments.view') });
     return NextResponse.json({
       customer,
       viewer: { publicId: user.publicId, roles: user.roles, permissions: user.permissions },
-    });
+    }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     return toError(error);
   }

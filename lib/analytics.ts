@@ -46,6 +46,8 @@ export interface AnalyticsKpis {
   newCustomers: number;
   /** Booking lines in non-cancelled bookings created in range. */
   tripsSold: number;
+  /** Items in currently CONFIRMED bookings created in range (not pending/completed). */
+  confirmedTrips?: number;
   /**
    * Percent change vs the previous equal-length period.
    * `null` means "New"  -  the previous period was empty while the

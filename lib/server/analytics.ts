@@ -210,7 +210,7 @@ export async function getAnalytics(
         tourSlug: true,
         tourTitle: true,
         lineTotal: true,
-        booking: { select: { currency: true } },
+        booking: { select: { currency: true, status: true } },
       },
     }),
     db.bookingItem.count({
@@ -414,6 +414,7 @@ export async function getAnalytics(
       bookings: bookingsSummary,
       newCustomers: customersNew,
       tripsSold: lines.length,
+      confirmedTrips: lines.filter(line => line.booking.status === 'CONFIRMED').length,
       deltas,
     },
     bookingMonthly,

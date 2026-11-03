@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import { BookingToursSummary } from '@/components/admin/booking-tours-summary'
 import { useEffect, useMemo, useState } from 'react'
 import { CalendarClock, CheckCircle2, CircleDollarSign, Eye, ShoppingCart, XCircle } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
@@ -11,6 +11,7 @@ import { formatCurrency } from '@/lib/currency'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
 import { SharedSelect } from '@/components/shared-select'
 import { type BookingStatus, type StaffBooking } from '@/lib/booking'
+import {toAdminBookingRow} from '@/lib/admin-booking-row'
 
 const statusTabs = [
   { id: 'all', en: 'All', ar: 'الكل' },
@@ -19,35 +20,6 @@ const statusTabs = [
   { id: 'completed', en: 'Completed', ar: 'مكتملة' },
   { id: 'cancelled', en: 'Cancelled', ar: 'ملغاة' },
 ] as const
-
-type Row = {
-  reference: string
-  currency: string
-  customer: string
-  tour: string
-  date: string
-  guests: number
-  total: number
-  status: BookingStatus
-  paymentSummary?: { paidTotal: number; state: string }
-}
-
-function toRow(booking: StaffBooking): Row {
-  const first = booking.lines[0]
-  const guests = booking.lines.reduce((sum, line) => sum + line.adults + line.children + line.infants, 0)
-  const date = booking.lines.map((line) => line.date).find((d) => d !== '') ?? booking.createdAt.slice(0, 10)
-  return {
-    reference: booking.reference,
-    currency: booking.currency,
-    customer: booking.account?.name || booking.contact.name,
-    tour: first?.title ?? '-',
-    date,
-    guests,
-    total: booking.total,
-    status: booking.status,
-    paymentSummary: booking.paymentSummary ? { paidTotal: booking.paymentSummary.paidTotal, state: booking.paymentSummary.state } : undefined,
-  }
-}
 
 /**
  * Admin bookings (Phase 2E). Real database-backed records from
@@ -84,7 +56,7 @@ export default function BookingsPage() {
     return () => { cancelled = true }
   }, [])
 
-  const rows = useMemo(() => bookings.map(toRow), [bookings])
+  const rows = useMemo(() => bookings.map(toAdminBookingRow), [bookings])
   const visible = useMemo(() => rows
     .filter((row) => filter === 'all' || row.status === filter)
     .filter((row) => `${row.reference} ${row.customer} ${row.tour}`.toLowerCase().includes(query.trim().toLowerCase())), [rows, filter, query])
@@ -98,7 +70,7 @@ export default function BookingsPage() {
   const confirmedRevenueLabel = [...confirmedRevenue].map(([code, amount]) => formatCurrency(amount, code, ar ? 'ar' : 'en')).join(' · ') || formatCurrency(0, 'USD')
   const bookingSort = useAdminTableSort(visible, {
     customer: (row) => row.customer, tour: (row) => row.tour, date: (row) => row.date,
-    guests: (row) => row.guests, total: (row) => row.total, status: (row) => row.status,
+    trips: (row) => row.trips, guests: (row) => row.guests, total: (row) => row.total, status: (row) => row.status,
   }, 'date', 'desc')
   const paging = usePagination(bookingSort.sortedRows)
 
@@ -138,13 +110,14 @@ export default function BookingsPage() {
         {loading ? <p><AdminText en="Loading stored bookings…" ar="جارٍ تحميل الحجوزات المحفوظة…" /></p>
           : loadError && !rows.length ? <AdminEmpty title={<AdminText en="Could not load bookings" ar="تعذر تحميل الحجوزات" />} copy={<AdminText en={loadError} ar={loadError} />} />
           : visible.length ? <AdminTableWrap><table className="sp-table">
-            <thead><tr><th className="sp-row-number">#</th><SortableTh label={<AdminText en="Customer" ar="العميل" />} column="customer" {...bookingSort} onSort={bookingSort.sortBy} /><SortableTh label={<AdminText en="Tour" ar="الرحلة" />} column="tour" {...bookingSort} onSort={bookingSort.sortBy} /><SortableTh label={<AdminText en="Date" ar="التاريخ" />} column="date" {...bookingSort} onSort={bookingSort.sortBy} /><SortableTh label={<AdminText en="Guests" ar="الضيوف" />} column="guests" {...bookingSort} onSort={bookingSort.sortBy} /><SortableTh label={<AdminText en="Total" ar="الإجمالي" />} column="total" {...bookingSort} onSort={bookingSort.sortBy} /><SortableTh label={<AdminText en="Status" ar="الحالة" />} column="status" {...bookingSort} onSort={bookingSort.sortBy} /><th></th></tr></thead>
+            <thead><tr><th className="sp-row-number">#</th><SortableTh label={<AdminText en="Customer" ar="العميل" />} column="customer" {...bookingSort} onSort={bookingSort.sortBy} /><SortableTh label={<AdminText en="Tours" ar="الرحلة" />} column="tour" {...bookingSort} onSort={bookingSort.sortBy} /><SortableTh label={<AdminText en="Trips" ar="Trips" />} column="trips" {...bookingSort} onSort={bookingSort.sortBy} /><SortableTh label={<AdminText en="Date" ar="التاريخ" />} column="date" {...bookingSort} onSort={bookingSort.sortBy} /><SortableTh label={<AdminText en="Guests" ar="الضيوف" />} column="guests" {...bookingSort} onSort={bookingSort.sortBy} /><SortableTh label={<AdminText en="Total" ar="الإجمالي" />} column="total" {...bookingSort} onSort={bookingSort.sortBy} /><SortableTh label={<AdminText en="Status" ar="الحالة" />} column="status" {...bookingSort} onSort={bookingSort.sortBy} /><th></th></tr></thead>
             <tbody>
               {paging.pageRows.map((b, index) => (
                 <tr key={b.reference}>
                   <td className="sp-row-number">{paging.from + index}</td>
                   <td><span className="sp-cust"><Avatar name={b.customer} src="" size={32} /><span><strong>{b.customer}</strong><small>{b.reference}</small></span></span></td>
-                  <td><Link href={`/admin/bookings/${encodeURIComponent(b.reference)}`}>{b.tour}</Link></td>
+                  <td><BookingToursSummary titles={b.tourTitles} reference={b.reference}/></td>
+                  <td>{b.trips}</td>
                   <td>{b.date}</td>
                   <td>{b.guests}</td>
                   <td>{formatCurrency(b.total, b.currency, ar ? 'ar' : 'en')}</td>

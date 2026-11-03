@@ -89,7 +89,7 @@ function Donut({ split, total }: { split: Array<{ label: string; value: number; 
       </svg>
       <div>
         <span className="sp-donut-num">{total.toLocaleString('en-US')}</span>
-        <p style={{ margin: 0, color: 'var(--sp-muted)', fontSize: 12 }}><AdminText en="Trips sold" ar="الرحلات المباعة" /></p>
+        <p style={{ margin: 0, color: 'var(--sp-muted)', fontSize: 12 }}><AdminText en="Booked trips" ar="الرحلات المباعة" /></p>
       </div>
     </div>
   )
@@ -317,8 +317,9 @@ export default function DashboardPage() {
             <span className="sp-kpi-ic"><Users size={19} /></span>
             {kpis ? <DeltaValue value={kpis.deltas.tripsPct} /> : <Delta value={0} />}
           </div>
-          <small><AdminText en="Trips Sold" ar="الرحلات المباعة" /></small>
+          <small><AdminText en="Trips Booked" ar="الرحلات المباعة" /></small>
           <strong>{loading && !kpis ? '…' : (kpis?.tripsSold ?? 0).toLocaleString('en-US')}</strong>
+          <div className="sp-kpi-foot">{kpis?.confirmedTrips === undefined ? 'Confirmed trips: not available' : `Confirmed trips: ${kpis.confirmedTrips}`} · Includes pending requests · Booking creation date</div>
           <div className="sp-kpi-foot">
             {kpis
               ? <AdminText en={`Booked volume ${fmtMoney(volume.amount, volume.currency)}`} ar={`حجم الحجوزات ${fmtMoney(volume.amount, volume.currency)}`} />
@@ -372,7 +373,7 @@ export default function DashboardPage() {
 
         <Card
           title={<AdminText en="Tour Statistic" ar="إحصائيات الرحلات" />}
-          sub={<AdminText en="Sold lines by tour category in range" ar="البنود المباعة حسب فئة الرحلة في الفترة" />}
+          sub={<AdminText en="Trip selections in non-cancelled bookings, including pending requests" ar="البنود المباعة حسب فئة الرحلة في الفترة" />}
         >
           <Donut split={data?.tourSplit ?? []} total={data?.tourSplitTotal ?? 0} />
           <div className="sp-legend">
@@ -390,7 +391,7 @@ export default function DashboardPage() {
             })}
             {(data?.tourSplit ?? []).length === 0 && !loading && (
               <AdminEmpty
-                title={<AdminText en="No trips sold in range" ar="لا رحلات مباعة في الفترة" />}
+                title={<AdminText en="No booked trips in range" ar="لا رحلات مباعة في الفترة" />}
                 copy={<AdminText en="Non-cancelled booking lines in range will appear here." ar="ستظهر هنا بنود الحجوزات غير الملغاة في الفترة." />}
               />
             )}
@@ -495,7 +496,7 @@ export default function DashboardPage() {
       <div className="sp-grid-dash">
         <Card
           title={<AdminText en="Popular tours" ar="الرحلات الأكثر طلبًا" />}
-          sub={<AdminText en="Top sold tours in range (non-cancelled bookings)" ar="الأعلى مبيعًا في الفترة (الحجوزات غير الملغاة)" />}
+          sub={<AdminText en="Top booked tours in range (non-cancelled bookings)" ar="الأعلى مبيعًا في الفترة (الحجوزات غير الملغاة)" />}
         >
           <div className="sp-hbars">
             {(data?.topTours ?? []).map((t, i) => (
@@ -513,7 +514,7 @@ export default function DashboardPage() {
             {(data?.topTours ?? []).length === 0 && !loading && (
               <AdminEmpty
                 title={<AdminText en="No tour sales in range" ar="لا مبيعات رحلات في الفترة" />}
-                copy={<AdminText en="Sold booking lines in range will appear here." ar="ستظهر هنا بنود الحجوزات المباعة في الفترة." />}
+                copy={<AdminText en="Booked trip selections in range will appear here." ar="ستظهر هنا بنود الحجوزات المباعة في الفترة." />}
               />
             )}
           </div>

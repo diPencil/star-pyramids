@@ -17,6 +17,11 @@ import {
   validatePasswordStrength,
 } from '@/lib/core/validation';
 import { db } from './db';
+import type { MoneyByCurrency } from '@/lib/analytics';
+import { customerBookingAmounts, collectedCrmMoney } from '@/lib/admin-crm-reporting';
+
+type CrmReadOptions = { includeFinancial?: boolean };
+const crmPaymentSelect = { status: true, currency: true, amountPaid: true, amountRefunded: true } as const;
 import { hashPassword } from '../core/password';
 import { UserManagementError, type ActorRef } from './users';
 
@@ -35,6 +40,10 @@ export interface CustomerListItem {
   lastLoginAt: Date | null;
   createdAt: Date;
   bookingsCount: number;
+  tripsCount: number;
+  bookedValue: MoneyByCurrency[];
+  confirmedValue: MoneyByCurrency[];
+  collectedValue: MoneyByCurrency[] | null;
   totalSpent: number;
   confirmedSpent: number;
   lastBookingAt: Date | null;
@@ -199,6 +208,8 @@ export async function createCustomer(
       lastLoginAt: user.lastLoginAt,
       createdAt: user.createdAt,
       bookingsCount: 0,
+      tripsCount: 0,
+      bookedValue: [], confirmedValue: [], collectedValue: null,
       totalSpent: 0,
       confirmedSpent: 0,
       lastBookingAt: null,
@@ -294,7 +305,7 @@ export async function updateCustomerProfile(
         data,
         select: {
           ...customerSelect,
-          bookings: { select: { total: true, status: true, createdAt: true }, orderBy: { createdAt: 'desc' } },
+          bookings: { select: { total: true, currency: true, status: true, createdAt: true, _count: {select: {items:true}} }, orderBy: { createdAt: 'desc' } },
         },
       });
       return {
@@ -312,10 +323,9 @@ export async function updateCustomerProfile(
         lastLoginAt: updated.lastLoginAt,
         createdAt: updated.createdAt,
         bookingsCount: updated.bookings.length,
-        totalSpent: updated.bookings.reduce((sum, b) => sum + money(b.total), 0),
-        confirmedSpent: updated.bookings
-          .filter((b) => b.status === 'CONFIRMED')
-          .reduce((sum, b) => sum + money(b.total), 0),
+        tripsCount: updated.bookings.reduce((sum,b)=>sum+b._count.items,0),
+        ...customerBookingAmounts(updated.bookings),
+        collectedValue: null,
         lastBookingAt: updated.bookings[0]?.createdAt ?? null,
       };
     } catch (error) {
@@ -347,13 +357,37 @@ const customerSelect = {
   createdAt: true,
 } as const;
 
-/** All users holding the CUSTOMER role (pure customers and dual-role alike). */
-export async function listCustomers(): Promise<CustomerListItem[]> {
-  const rows = await db.user.findMany({
+/** Read-only CRM contact snapshots. Never group or attach accounts by email. */
+export async function listGuestBookingContacts({ includeFinancial = false }: CrmReadOptions = {}, reader: Pick<Prisma.TransactionClient, 'booking' | 'user'> = db) {
+  const rows = await reader.booking.findMany({
+    where: { userId: null },
+    orderBy: { createdAt: 'desc' },
+    select: {
+      reference: true, contactName: true, contactEmail: true, contactPhone: true,
+      createdAt: true, status: true, currency: true, total: true,
+      _count: { select: { items: true } },
+      items: { select: { tourTitle: true } },
+      payments: includeFinancial ? { select: crmPaymentSelect } : false,
+    },
+  });
+  return rows.map(row => ({
+    reference: row.reference, displayName: row.contactName,
+    email: row.contactEmail, phone: row.contactPhone, createdAt: row.createdAt,
+    status: row.status, currency: row.currency, total: money(row.total),
+    tripsCount: row._count.items, bookingsCount: 1,
+    tourTitles: row.items.map(item => item.tourTitle),
+    ...customerBookingAmounts([row]),
+    collectedValue: includeFinancial ? collectedCrmMoney(row.payments ?? []) : null,
+  }));
+}
+
+/** CUSTOMER-role accounts retain their actual userId relationships only. */
+export async function listCustomers({ includeFinancial = false }: CrmReadOptions = {}, reader: Pick<Prisma.TransactionClient, 'booking' | 'user'> = db): Promise<CustomerListItem[]> {
+  const rows = await reader.user.findMany({
     where: { roles: { some: { role: { key: 'CUSTOMER' } } } },
     select: {
       ...customerSelect,
-      bookings: { select: { total: true, status: true, createdAt: true }, orderBy: { createdAt: 'desc' } },
+      bookings: { select: { total: true, currency: true, status: true, createdAt: true, _count: {select: {items:true}}, payments: includeFinancial ? { select: crmPaymentSelect } : false }, orderBy: { createdAt: 'desc' } },
     },
     orderBy: { createdAt: 'desc' },
   });
@@ -372,18 +406,23 @@ export async function listCustomers(): Promise<CustomerListItem[]> {
     lastLoginAt: row.lastLoginAt,
     createdAt: row.createdAt,
     bookingsCount: row.bookings.length,
-    totalSpent: row.bookings.reduce((sum, b) => sum + money(b.total), 0),
-    confirmedSpent: row.bookings
-      .filter((b) => b.status === 'CONFIRMED')
-      .reduce((sum, b) => sum + money(b.total), 0),
+    tripsCount: row.bookings.reduce((sum,b)=>sum+b._count.items,0),
+    ...customerBookingAmounts(row.bookings),
+    collectedValue: includeFinancial ? collectedCrmMoney(row.bookings.flatMap(b => b.payments ?? [])) : null,
     lastBookingAt: row.bookings[0]?.createdAt ?? null,
   }));
 }
 
-/** Full customer aggregate. Relations come only from existing FK links  -  never fabricated. */
+/** One read snapshot prevents a concurrent verified link appearing in both lists. */
+export async function listCrmDirectory(options: CrmReadOptions & { includeGuests: boolean }) {
+  return db.$transaction(async reader => ({
+    customers: await listCustomers(options, reader),
+    guestContacts: options.includeGuests ? await listGuestBookingContacts(options, reader) : [],
+  }), { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+}
 
-/** Full customer aggregate. Relations come only from existing FK links  -  never fabricated. */
-export async function getCustomerDetail(publicId: string): Promise<CustomerDetail> {
+/** Full customer aggregate. Relations come only from existing FK links - never fabricated. */
+export async function getCustomerDetail(publicId: string, { includeFinancial = false }: CrmReadOptions = {}): Promise<CustomerDetail> {
   const user = await db.user.findUnique({
     where: { publicId },
     select: {
@@ -411,16 +450,17 @@ export async function getCustomerDetail(publicId: string): Promise<CustomerDetai
           items: {
             select: { tourSlug: true, tourTitle: true, travelDate: true, adults: true, children: true, infants: true },
           },
-          payments: {
+          payments: includeFinancial ? {
             select: {
               reference: true,
               status: true,
               currency: true,
               amount: true,
               amountPaid: true,
+              amountRefunded: true,
               createdAt: true,
             },
-          },
+          } : false,
         },
         orderBy: { createdAt: 'desc' },
       }),
@@ -459,7 +499,7 @@ export async function getCustomerDetail(publicId: string): Promise<CustomerDetai
 
   const payments: CustomerPaymentItem[] = [];
   for (const booking of bookings) {
-    for (const payment of booking.payments) {
+    for (const payment of includeFinancial ? booking.payments ?? [] : []) {
       payments.push({
         reference: payment.reference,
         bookingReference: booking.reference,
@@ -488,10 +528,9 @@ export async function getCustomerDetail(publicId: string): Promise<CustomerDetai
     lastLoginAt: user.lastLoginAt,
     createdAt: user.createdAt,
     bookingsCount: bookings.length,
-    totalSpent: bookings.reduce((sum, b) => sum + money(b.total), 0),
-    confirmedSpent: bookings
-      .filter((b) => b.status === 'CONFIRMED')
-      .reduce((sum, b) => sum + money(b.total), 0),
+    tripsCount: bookings.reduce((sum,b)=>sum+b.items.length,0),
+    ...customerBookingAmounts(bookings),
+    collectedValue: includeFinancial ? collectedCrmMoney(bookings.flatMap(b => b.payments ?? [])) : null,
     lastBookingAt: bookings[0]?.createdAt ?? null,
     bookings: bookings.map((b) => ({
       reference: b.reference,
@@ -588,7 +627,7 @@ export async function setCustomerStatus(
       data: { status },
       select: {
         ...customerSelect,
-        bookings: { select: { total: true, status: true, createdAt: true }, orderBy: { createdAt: 'desc' } },
+        bookings: { select: { total: true, currency: true, status: true, createdAt: true, _count: {select: {items:true}} }, orderBy: { createdAt: 'desc' } },
       },
     });
     if (status === 'SUSPENDED') {
@@ -609,10 +648,9 @@ export async function setCustomerStatus(
       lastLoginAt: updated.lastLoginAt,
       createdAt: updated.createdAt,
       bookingsCount: updated.bookings.length,
-      totalSpent: updated.bookings.reduce((sum, b) => sum + money(b.total), 0),
-      confirmedSpent: updated.bookings
-        .filter((b) => b.status === 'CONFIRMED')
-        .reduce((sum, b) => sum + money(b.total), 0),
+      tripsCount: updated.bookings.reduce((sum,b)=>sum+b._count.items,0),
+      ...customerBookingAmounts(updated.bookings),
+      collectedValue: null,
       lastBookingAt: updated.bookings[0]?.createdAt ?? null,
     };
   });

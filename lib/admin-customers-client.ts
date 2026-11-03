@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import type { MoneyByCurrency } from './analytics';
 
 export type DirectoryCustomer = {
   publicId: string;
@@ -17,6 +18,10 @@ export type DirectoryCustomer = {
   lastLoginAt: string | null;
   createdAt: string;
   bookingsCount: number;
+  tripsCount: number;
+  bookedValue?: MoneyByCurrency[];
+  confirmedValue?: MoneyByCurrency[];
+  collectedValue?: MoneyByCurrency[] | null;
   totalSpent: number;
   confirmedSpent: number;
   lastBookingAt: string | null;
@@ -41,6 +46,9 @@ export type CustomerDetail = DirectoryCustomer & {
 };
 
 export type CustomersDirectoryStatus = {
+  canRequestGuestRecovery: boolean;
+  canViewGuestContacts: boolean;
+  guestContacts: GuestBookingContact[];
   /** DB customer list or null while loading/failed  -  never mock rows. */
   data: DirectoryCustomer[] | null;
   viewerPermissions: string[];
@@ -50,8 +58,13 @@ export type CustomersDirectoryStatus = {
   refresh(): void;
 };
 
+export type GuestBookingContact={reference:string;displayName:string;email:string;phone:string;createdAt:string;status:string;currency:string;total:number;tripsCount:number;bookingsCount?:number;tourTitles?:string[];bookedValue?:MoneyByCurrency[];confirmedValue?:MoneyByCurrency[];collectedValue?:MoneyByCurrency[]|null};
+
 export function useDbCustomersStatus(): CustomersDirectoryStatus {
   const [data, setData] = useState<DirectoryCustomer[] | null>(null);
+  const [guestContacts,setGuestContacts]=useState<GuestBookingContact[]>([]);
+  const [canViewGuestContacts,setCanViewGuestContacts]=useState(false);
+  const [canRequestGuestRecovery,setCanRequestGuestRecovery]=useState(false);
   const [viewerPermissions, setViewerPermissions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -77,10 +90,14 @@ export function useDbCustomersStatus(): CustomersDirectoryStatus {
         }
         const payload = (await res.json()) as {
           customers?: unknown;
-          viewer?: { permissions?: unknown };
+          guestContacts?: unknown;
+          viewer?: { permissions?: unknown;canViewGuestContacts?:unknown;canRequestGuestRecovery?:unknown };
         };
         if (cancelled) return;
         setData(Array.isArray(payload.customers) ? (payload.customers as DirectoryCustomer[]) : []);
+        setGuestContacts(Array.isArray(payload.guestContacts)?payload.guestContacts as GuestBookingContact[]:[]);
+        setCanViewGuestContacts(payload.viewer?.canViewGuestContacts===true);
+        setCanRequestGuestRecovery(payload.viewer?.canRequestGuestRecovery===true);
         setViewerPermissions(Array.isArray(payload.viewer?.permissions) ? (payload.viewer.permissions as string[]) : []);
         setLoading(false);
       } catch (err) {
@@ -97,7 +114,17 @@ export function useDbCustomersStatus(): CustomersDirectoryStatus {
   const retry = useCallback(() => setNonce((n) => n + 1), []);
   const refresh = useCallback(() => setNonce((n) => n + 1), []);
 
-  return { data, viewerPermissions, loading, error, retry, refresh };
+  return { data, guestContacts,canViewGuestContacts,canRequestGuestRecovery,viewerPermissions, loading, error, retry, refresh };
+}
+
+/** Reuse the existing proof-by-email flow; never obtain private credentials here. */
+export async function requestGuestCrmRecovery(reference: string, email: string): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch('/api/bookings/request-access', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ reference, email }) });
+  } catch { throw new Error('Network error. Please try again.'); }
+  if (!response.ok) throw new Error(response.status === 429 ? 'Too many requests. Please try again later.' : 'Recovery is temporarily unavailable. Please try again.');
+  // Accepted means neither identity nor delivery has been confirmed.
 }
 
 export type CustomerDetailStatus = {

@@ -8,13 +8,14 @@ import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableW
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { useAdminCurrency } from '@/components/admin/admin-currency'
+import { crmAccountLabel, formatCrmMoney } from '@/lib/admin-crm-reporting'
 import { mutateCustomerStatus, useDbCustomerDetail } from '@/lib/admin-customers-client'
 import { startImpersonation } from '@/lib/admin-store'
 import { toast } from '@/components/admin/admin-toaster'
 
 const accountStatusMeta = {
   ACTIVE: { en: 'Active', ar: 'نشط', color: '#22c55e' },
-  PENDING: { en: 'Pending', ar: 'بانتظار التفعيل', color: '#f59e0b' },
+  PENDING: { en: 'Pending verification', ar: 'بانتظار التفعيل', color: '#f59e0b' },
   SUSPENDED: { en: 'Suspended', ar: 'موقوف', color: '#ef4444' },
 } as const
 
@@ -104,8 +105,8 @@ export function CustomerDetailContent({ customerKey }: { customerKey: string }) 
     />
 
     <AdminStats items={[
-      { label: <AdminText en="Total spent" ar="إجمالي الإنفاق" />, value: formatUsd(customer.totalSpent), note: <AdminText en="All bookings" ar="كل الحجوزات" />, icon: Users },
-      { label: <AdminText en="Bookings" ar="الحجوزات" />, value: customer.bookingsCount, note: <AdminText en="Full history below" ar="السجل الكامل بالأسفل" />, icon: Users, tone: 'orange' },
+      { label: <AdminText en="Booked value" ar="إجمالي الإنفاق" />, value: formatCrmMoney(customer.bookedValue), note: <AdminText en="All bookings" ar="كل الحجوزات" />, icon: Users },
+      { label: <AdminText en="Bookings" ar="الحجوزات" />, value: customer.bookingsCount, note: <AdminText en={`${customer.tripsCount??0} trips across linked bookings`} ar="السجل الكامل بالأسفل" />, icon: Users, tone: 'orange' },
       { label: <AdminText en="Requests" ar="الطلبات" />, value: requestsCount, note: <AdminText en="Trip, car and event" ar="رحلات وسيارات وفعاليات" />, icon: Users, tone: 'green' },
       { label: <AdminText en="Messages" ar="الرسائل" />, value: customer.conversations.length, note: <AdminText en="Support threads" ar="محادثات الدعم" />, icon: MessageCircle, tone: 'violet' },
     ]} />
@@ -123,7 +124,9 @@ export function CustomerDetailContent({ customerKey }: { customerKey: string }) 
           <div><small><AdminText en="Username" ar="اسم المستخدم" /></small><strong dir="ltr">{customer.username ?? '-'}</strong></div>
           <div><small><AdminText en="Joined" ar="تاريخ التسجيل" /></small><strong>{formatDate(customer.createdAt, ar)}</strong></div>
           <div><small><AdminText en="Last login" ar="آخر دخول" /></small><strong>{customer.lastLoginAt ? formatDate(customer.lastLoginAt, ar) : '-'}</strong></div>
-          <div><small><AdminText en="Status" ar="الحالة" /></small><strong>{ar ? status.ar : status.en}</strong></div>
+          <div><small><AdminText en="Status" ar="الحالة" /></small><strong>{ar ? status.ar : status.en} · {crmAccountLabel(customer)}</strong></div>
+          <div><small>Confirmed booked value</small><strong>{formatCrmMoney(customer.confirmedValue)}</strong></div>
+          <div><small>Collected net</small><strong>{formatCrmMoney(customer.collectedValue)}</strong></div>
         </div>
         {canManage ? <AdminTableActions>
           <AdminIconAction icon={suspended ? UserCheck : UserX} label={suspended ? (ar ? `تفعيل ${name}` : `Activate ${name}`) : (ar ? `إيقاف ${name}` : `Suspend ${name}`)} tone={suspended ? 'success' : 'danger'} onClick={() => setConfirming(suspended ? 'ACTIVE' : 'SUSPENDED')} />
@@ -139,11 +142,12 @@ export function CustomerDetailContent({ customerKey }: { customerKey: string }) 
 
     <Card title={<AdminText en="Bookings history" ar="سجل الحجوزات" />} sub={<AdminText en="Every booking tied to this customer account" ar="كل الحجوزات المرتبطة بحساب هذا العميل" />}>
       {customer.bookings.length ? <AdminTableWrap><table className="sp-table">
-        <thead><tr><th><AdminText en="Booking" ar="الحجز" /></th><th><AdminText en="Tours" ar="الرحلات" /></th><th><AdminText en="Guests" ar="الضيوف" /></th><th><AdminText en="Total" ar="الإجمالي" /></th><th><AdminText en="Payment" ar="الدفع" /></th><th><AdminText en="Status" ar="الحالة" /></th></tr></thead>
+        <thead><tr><th><AdminText en="Booking" ar="الحجز" /></th><th><AdminText en="Tours" ar="الرحلات" /></th><th><AdminText en="Trips" ar="Trips" /></th><th><AdminText en="Guests" ar="الضيوف" /></th><th><AdminText en="Total" ar="الإجمالي" /></th><th><AdminText en="Payment" ar="الدفع" /></th><th><AdminText en="Status" ar="الحالة" /></th></tr></thead>
         <tbody>{customer.bookings.map((booking) => (
           <tr key={booking.reference}>
             <td><Link href={`/admin/bookings/${encodeURIComponent(booking.reference)}`}><strong dir="ltr">{booking.reference}</strong></Link><br /><small style={{ color: 'var(--sp-muted)' }}>{formatDate(booking.createdAt, ar)}</small></td>
             <td>{booking.items.map((item) => item.tourTitle).join(' · ') || '-'}</td>
+            <td>{booking.items.length}</td>
             <td>{booking.items.reduce((sum, item) => sum + item.guests, 0)}</td>
             <td>{fmtMoney(booking.total, booking.currency)}</td>
             <td>{booking.paymentStatus === 'PAID'
@@ -194,7 +198,7 @@ export function CustomerDetailContent({ customerKey }: { customerKey: string }) 
     </Card>
 
     <Card title={<AdminText en="Payments" ar="المدفوعات" />} sub={<AdminText en="Money records on this customer's bookings" ar="سجلات الأموال على حجوزات هذا العميل" />}>
-      {customer.payments.length ? <AdminTableWrap><table className="sp-table">
+      {customer.collectedValue === null ? <AdminEmpty title="Payment records restricted" copy="Your role cannot view payment records."/> : customer.payments.length ? <AdminTableWrap><table className="sp-table">
         <thead><tr><th><AdminText en="Payment" ar="الدفعة" /></th><th><AdminText en="Booking" ar="الحجز" /></th><th><AdminText en="Amount" ar="المبلغ" /></th><th><AdminText en="Paid" ar="المدفوع" /></th><th><AdminText en="Status" ar="الحالة" /></th></tr></thead>
         <tbody>{customer.payments.map((payment) => (
           <tr key={payment.reference}>

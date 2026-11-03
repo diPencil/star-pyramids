@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { getCurrentUser, hasPermission } from '@/lib/server/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
-import { createCustomer, listCustomers } from '@/lib/server/customers';
+import { createCustomer, listCrmDirectory } from '@/lib/server/customers';
 import { UserManagementError } from '@/lib/server/users';
 
 function toError(error: unknown) {
@@ -23,11 +23,14 @@ export async function GET() {
     return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
   }
   try {
-    const customers = await listCustomers();
+    const canViewGuestContacts=hasPermission(user,'bookings.view');
+    const includeFinancial = hasPermission(user, 'payments.view');
+    const {customers,guestContacts}=await listCrmDirectory({includeFinancial,includeGuests:canViewGuestContacts});
     return NextResponse.json({
       customers,
-      viewer: { publicId: user.publicId, roles: user.roles, permissions: user.permissions },
-    });
+      guestContacts,
+      viewer: { publicId: user.publicId, roles: user.roles, permissions: user.permissions,canViewGuestContacts, canRequestGuestRecovery: canViewGuestContacts && hasPermission(user, 'bookings.edit') },
+    },{headers:{'Cache-Control':'no-store'}});
   } catch {
     return NextResponse.json({ error: 'Could not load customers.' }, { status: 500 });
   }
