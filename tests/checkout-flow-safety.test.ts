@@ -2,8 +2,10 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { ReactElement, ReactNode } from 'react'
 import type { CartItem } from '@/lib/cart'
 import type { Tour } from '@/data/types'
+import type { AuthenticatedUser } from '@/lib/auth-types'
 
-const harness=vi.hoisted(()=>({index:0,values:[] as unknown[],items:[] as CartItem[],fetch:vi.fn(),remove:vi.fn(),finish:vi.fn(),key:vi.fn()}))
+const harness=vi.hoisted(()=>({index:0,values:[] as unknown[],items:[] as CartItem[],user:null as AuthenticatedUser|null,fetch:vi.fn(),remove:vi.fn(),finish:vi.fn(),key:vi.fn()}))
+vi.mock('@/lib/use-current-user',()=>({useCurrentUser:()=>({user:harness.user,loading:false})}))
 vi.mock('react',async()=>{
   const actual=await vi.importActual<typeof import('react')>('react')
   return {...actual,useState:(initial:unknown)=>{const index=harness.index++;if(!(index in harness.values))harness.values[index]=typeof initial==='function'?initial():initial;return[harness.values[index],(next:unknown)=>{harness.values[index]=typeof next==='function'?next(harness.values[index]):next}]},useRef:(initial:unknown)=>{const index=harness.index++;if(!(index in harness.values))harness.values[index]={current:initial};return harness.values[index]}}
@@ -26,8 +28,45 @@ function find(node:ReactNode,test:(element:ReactElement<Record<string,any>>)=>bo
 }
 function contact(){let tree=render();find(tree,e=>e.props.autoComplete==='name')!.props.onChange({target:{value:'Test Customer'}});find(tree,e=>e.props.autoComplete==='email')!.props.onChange({target:{value:'test@example.com'}});find(tree,e=>e.props.invalid===false&&typeof e.props.onChange==='function'&&e.props.locale==='en')!.props.onChange('+201234567890');return render()}
 const response=(data:unknown,status=201)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json'}})
-beforeEach(()=>{vi.clearAllMocks();harness.index=0;harness.values=[];harness.items=[{key:'submitted',tourSlug:'db-only',title:'DB only',date:'',adults:2,children:0,infants:0,addons:[],image:'',adultUnit:999,childUnit:999,infantUnit:999,addonTotal:0,total:999}];harness.key.mockResolvedValue('stable-attempt-key');vi.stubGlobal('fetch',harness.fetch)})
+beforeEach(()=>{vi.clearAllMocks();harness.index=0;harness.values=[];harness.user=null;harness.items=[{key:'submitted',tourSlug:'db-only',title:'DB only',date:'',adults:2,children:0,infants:0,addons:[],image:'',adultUnit:999,childUnit:999,infantUnit:999,addonTotal:0,total:999}];harness.key.mockResolvedValue('stable-attempt-key');vi.stubGlobal('fetch',harness.fetch)})
 afterEach(()=>vi.unstubAllGlobals())
+const signedInUser=():AuthenticatedUser=>({publicId:'customer-public-id',email:' test@example.com ',firstName:' Test ',lastName:'Customer ',username:'test',countryCode:'EG',phone:' +201234567890 ',status:'ACTIVE',emailVerifiedAt:null,lastLoginAt:null,roles:['CUSTOMER'],permissions:[]})
+function fields(tree:ReactNode){return {name:find(tree,e=>e.props.autoComplete==='name')!,email:find(tree,e=>e.props.autoComplete==='email')!,phone:find(tree,e=>e.props.invalid===false&&typeof e.props.onChange==='function'&&e.props.locale==='en')!}}
+it('prefills current account contact data and submits it as editable contact, never ownership',async()=>{
+  harness.user=signedInUser()
+  const tree=render(),inputs=fields(tree)
+  expect([inputs.name.props.value,inputs.email.props.value,inputs.phone.props.value]).toEqual(['Test Customer','test@example.com','+201234567890'])
+  harness.fetch.mockResolvedValue(response({reference:'SP-BK-ABC123',total:200,guest:false,guestAccessUrl:null}))
+  await find(tree,e=>e.type==='form')!.props.onSubmit({preventDefault:vi.fn()})
+  const sent=JSON.parse(harness.fetch.mock.calls[0][1].body)
+  expect(sent.contact).toEqual({name:'Test Customer',email:'test@example.com',phone:'+201234567890'})
+  expect(sent).not.toHaveProperty('userId');expect(sent).not.toHaveProperty('publicId')
+})
+it('fills untouched fields when account data arrives late without replacing a typed name',()=>{
+  fields(render()).name.props.onChange({target:{value:'Different passenger'}})
+  harness.user=signedInUser()
+  const inputs=fields(render())
+  expect([inputs.name.props.value,inputs.email.props.value,inputs.phone.props.value]).toEqual(['Different passenger','test@example.com','+201234567890'])
+})
+it('preserves edits and explicit clearing after account data refresh',()=>{
+  harness.user=signedInUser();const inputs=fields(render())
+  inputs.name.props.onChange({target:{value:''}})
+  inputs.email.props.onChange({target:{value:'other@example.com'}})
+  inputs.phone.props.onChange('+441234567890')
+  harness.user={...signedInUser(),firstName:'Refreshed',email:'refreshed@example.com',phone:'+201111111111'}
+  const next=fields(render())
+  expect([next.name.props.value,next.email.props.value,next.phone.props.value]).toEqual(['','other@example.com','+441234567890'])
+})
+it('keeps guest fields blank and never reads a previous locally stored profile',()=>{
+  vi.stubGlobal('localStorage',{getItem:()=>JSON.stringify({fullName:'Previous visitor',email:'old@example.com'})})
+  const inputs=fields(render())
+  expect([inputs.name.props.value,inputs.email.props.value,inputs.phone.props.value]).toEqual(['','',''])
+})
+it('handles missing account names and phone without fabricating values',()=>{
+  harness.user={...signedInUser(),firstName:null,lastName:null,phone:null}
+  const inputs=fields(render())
+  expect([inputs.name.props.value,inputs.email.props.value,inputs.phone.props.value]).toEqual(['','test@example.com',''])
+})
 it('sends selections only, synchronously blocks duplicate clicks and removes only the submitted cart keys',async()=>{
   const tree=contact(),submit=find(tree,e=>e.type==='form')!.props.onSubmit
   let resolve!:(response:Response)=>void;harness.fetch.mockReturnValue(new Promise<Response>(yes=>{resolve=yes}))

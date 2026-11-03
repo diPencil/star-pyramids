@@ -106,3 +106,10 @@ Follow-up files: `lib/server/email.ts`, `lib/checkout-attempt.ts`, `lib/cart.ts`
 Verification: **200 tests passed in 16 focused suites**; TypeScript (`--noEmit --incremental false`) passed. Next.js compile-only webpack verification passed (exit 0, compilation 9.7 seconds); full generation/prerender was not run. All persistence, SMTP and external calls in tests remained mocked. No real bookings, messages, database writes, browser automation, commits, push or deployment occurred.
 
 Before release, still verify actual email delivery and links on an approved isolated environment, plus mobile/desktop cart and checkout behavior. Automated tests do not establish inbox delivery or full production readiness.
+
+
+## Checkout account contact defaults — 2026-11-03
+
+Checkout contact inputs were initialized empty without consuming the existing authenticated-user hook. The page now uses `useCurrentUser` for the signed-in account's first/last name, email and phone. Each untouched field follows the account default; explicit typing or clearing takes precedence, including when account data arrives later. Guest fields remain blank, missing profile values are not fabricated, and no previous browser-local customer profile is read. Booking ownership is still determined only by the authenticated server session, not by the prefilled contact fields.
+
+Changed: `components/checkout-page.tsx`, `tests/checkout-flow-safety.test.ts`, and this report. Five additional tests cover prefilled submission, delayed account data, edited/cleared fields, guest isolation and missing profile values. The focused suite passed **205 tests in 16 files**. TypeScript (`--noEmit --incremental false`) and Next.js webpack compile-only verification both passed (exit 0, compilation 32.7 seconds). Full prerender/generation was not run. No browser test, database operation, real booking or SMTP delivery was performed.

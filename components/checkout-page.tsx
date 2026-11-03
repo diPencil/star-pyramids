@@ -18,6 +18,7 @@ import { checkoutAttemptKey, finishCheckoutAttempt } from '@/lib/checkout-attemp
 import { bookingRequestNotes, MAX_BOOKING_NOTE_LENGTH } from '@/lib/booking-selection'
 import { CartLineIssues } from './cart-line-issues'
 import { CartCatalogueStatus } from './cart-catalogue-status'
+import { useCurrentUser } from '@/lib/use-current-user'
 
 /**
  * Checkout (Phase 2E: real backend).
@@ -32,9 +33,15 @@ export function CheckoutPage() {
   const { items } = useCart()
   const catalogue = useCartCatalogue(items)
   const { estimate } = catalogue
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
+  const { user } = useCurrentUser()
+  // null means untouched: late account data may fill it. An explicit edit,
+  // including clearing a field, belongs to the customer and is never replaced.
+  const [nameInput, setName] = useState<string | null>(null)
+  const [emailInput, setEmail] = useState<string | null>(null)
+  const [phoneInput, setPhone] = useState<string | null>(null)
+  const name = nameInput ?? [user?.firstName, user?.lastName].filter((part): part is string => typeof part === 'string' && !!part.trim()).map(part => part.trim()).join(' ')
+  const email = emailInput ?? (typeof user?.email === 'string' ? user.email.trim() : '')
+  const phone = phoneInput ?? (typeof user?.phone === 'string' ? user.phone.trim() : '')
   const [notes, setNotes] = useState('')
   const [errors, setErrors] = useState<ContactErrors>({})
   const [attempted, setAttempted] = useState(false)
