@@ -16,6 +16,8 @@ it('renders an old guest in CRM even with no registered customer, with only a bo
   expect(html).toContain('Guest booking contacts');expect(html).toContain('Legacy Guest');expect(html).toContain('guest@example.com')
   expect(html).toContain('href="/admin/bookings/SP-BK-TEST01"');expect(html).not.toContain('/admin/customers/SP-BK-TEST01')
   expect(html).toContain('<td>2</td>');expect(html).toContain('no account access')
+  expect(html.indexOf('Guest booking contacts')).toBeLessThan(html.indexOf('Customer directory'))
+  expect(html).toContain('No registered accounts yet')
 })
 it('does not render guest PII when the server capability is absent',()=>{
   state.canGuests=false
@@ -26,6 +28,7 @@ it('shows account booking and trip counts as separate columns',()=>{
   state.accounts=[account]
   const html=renderToStaticMarkup(createElement(CustomersPage))
   expect(html).toContain('Trips');expect(html).toContain('<td>1</td>');expect(html).toContain('<td>2</td>')
+  expect(html.indexOf('Customer directory')).toBeLessThan(html.indexOf('Guest booking contacts'))
 })
 it('the customer profile lists both titles and the two-trip count within one booking',()=>{
   state.detail={...account,bookings:[{reference:'SP-BK-TEST01',status:'PENDING',paymentStatus:'PENDING',currency:'USD',total:620,createdAt:date,items:[{tourSlug:'alexandria',tourTitle:'Alexandria',travelDate:'',guests:2},{tourSlug:'ancient',tourTitle:'Ancient Wonders',travelDate:'',guests:2}]}],tripRequests:[],carRequests:[],eventRequests:[],payments:[],favorites:[],conversations:[]}

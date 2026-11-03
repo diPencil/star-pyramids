@@ -299,6 +299,7 @@ export function bookingActivityLabel(action: string, ar: boolean | Locale): stri
     'Booking created': { es: 'Reserva creada', it: 'Prenotazione creata', ar: 'تم إنشاء الحجز' },
     'Checkout account consent accepted': { es: 'Consentimiento de cuenta aceptado al reservar', it: 'Consenso per l’account accettato alla prenotazione' },
     'Checkout account email requested': { es: 'Correo de confirmación de cuenta solicitado', it: 'Email di conferma dell’account richiesta' },
+    'Checkout account setup needs recovery': { es: 'La configuración de la cuenta requiere recuperación', it: 'La configurazione dell’account richiede un recupero' },
     'Booking linked after email verification': { es: 'Reserva vinculada tras verificar el correo', it: 'Prenotazione collegata dopo la verifica dell’email' },
     'Booking confirmed': { es: 'Reserva confirmada', it: 'Prenotazione confermata', ar: 'تم تأكيد الحجز' },
     'Booking completed': { es: 'Reserva completada', it: 'Prenotazione completata', ar: 'اكتمل الحجز' },

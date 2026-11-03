@@ -8,6 +8,19 @@ Source inspection confirms display/query problems; screenshots alone do not
 prove database corruption, missing records or duplicate booking creation.
 No live database was queried, and no stored records were changed.
 
+### Guest-first visibility follow-up
+
+An owner screenshot after the initial push showed one guest booking counted in
+the KPI while the large empty account directory occupied the first viewport.
+The guest table was rendered below it. When there are guest contacts but zero
+account records, the guest section now renders first. With account records,
+the original account-first order remains. The KPI caption puts the guest count
+first, and the empty account message says **No registered accounts yet** rather
+than implying no CRM contacts exist. No query, identity or account data changed.
+The SSR ordering assertion failed before this fix and passed afterward; all
+37 relevant CRM/customer/date-range tests and TypeScript passed. Browser and
+actual production-record visibility remain unverified.
+
 The reported example is one PENDING booking worth USD 620 containing two tour
 items. It is correctly counted as one booking and two requested trip selections.
 Two adults in each item mean four traveler participations, potentially the same

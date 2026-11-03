@@ -87,15 +87,35 @@ export default function CustomersPage() {
   const confirmedValue = groupCrmMoney([...liveCustomers.flatMap(c=>c.confirmedValue??[]),...guestContacts.flatMap(c=>c.confirmedValue??[])])
   const suspendedCount = liveCustomers.filter((customer) => customer.status === 'SUSPENDED').length
 
+  const showGuestsFirst = canViewGuestContacts && !loading && !error && liveCustomers.length === 0 && guestContacts.length > 0
+  const guestSection = (canViewGuestContacts&&!loading&&!error&&<Card title="Guest booking contacts" sub="Booking contact records without a verified account link. Each row is one booking, not a registered customer account.">
+      <AdminTableTools query={query} onQueryChange={setQuery} placeholder="Search guest, booking, tour, email or phone...">
+        <SharedSelect value={guestStatus} onChange={setGuestStatus} label="Guest booking status" options={[{value:'all',label:'All booking statuses'},...['PENDING','CONFIRMED','COMPLETED','CANCELLED'].map(value=>({value,label:value.toLowerCase()}))]}/>
+      </AdminTableTools>
+      {guestRows.length?<>
+        <AdminTableWrap><table className="sp-table">
+          <thead><tr><th>Contact</th><th>Booking</th><th>Trips</th><th>Booked value</th><th>Confirmed value</th><th>Collected net</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody>{guestPaging.pageRows.map(contact=><tr key={contact.reference}>
+            <td><span className="sp-cust"><Avatar name={contact.displayName} size={34}/><span><strong>{contact.displayName}</strong><small dir="ltr">{contact.email}</small><small dir="ltr">{contact.phone}</small></span></span></td>
+            <td><Link href={`/admin/bookings/${encodeURIComponent(contact.reference)}`}>{contact.reference}</Link><br/><small>Guest contact · no account access · 1 booking</small><BookingToursSummary titles={contact.tourTitles??[]} reference={contact.reference}/></td>
+            <td>{contact.tripsCount}</td><td>{contact.currency} {formatCurrency(contact.total,contact.currency,'en')}</td><td>{formatCrmMoney(contact.confirmedValue)}</td><td>{formatCrmMoney(contact.collectedValue)}</td><td><StatusPill status={contact.status.toLowerCase()}/></td>
+            <td><AdminTableActions><AdminIconAction icon={Eye} label={`View booking ${contact.reference}`} href={`/admin/bookings/${encodeURIComponent(contact.reference)}`}/>{canRequestGuestRecovery&&<AdminIconAction icon={Mail} label={`Email recovery link for ${contact.reference}`} onClick={()=>{setRecoveryError('');setRecoveryTarget(contact)}}/>}</AdminTableActions></td>
+          </tr>)}</tbody>
+        </table></AdminTableWrap>
+        <AdminPagination page={guestPaging.page} pageCount={guestPaging.pageCount} onPage={guestPaging.setPage} pageSize={guestPaging.pageSize} onPageSize={guestPaging.setPageSize} from={guestPaging.from} to={guestPaging.to} total={guestPaging.total}/>
+      </>:<AdminEmpty title="No matching guest booking contacts" copy="Guest bookings appear here without creating or linking an account."/>}
+    </Card>)
+
   return <>
     <PageHead eyebrow="CRM" title="Customers" titleAr="العملاء" sub="Account and guest booking contacts · all-time totals" subAr="سجل الحجوزات وقنوات الوصول وقيمة العملاء" />
     <AdminStats items={[
-      { label: <AdminText en="Customer accounts" ar="العملاء" />, value: liveCustomers.length, note: <AdminText en={canViewGuestContacts?`Registered and pending accounts · ${guestContacts.length} guest booking contacts below`:'Registered and pending accounts'} ar="حسابات مسجلة" />, icon: Users },
+      { label: <AdminText en="Customer accounts" ar="العملاء" />, value: liveCustomers.length, note: <AdminText en={canViewGuestContacts?`${guestContacts.length} guest booking contacts · Registered and pending accounts`:'Registered and pending accounts'} ar="حسابات مسجلة" />, icon: Users },
       { label: <AdminText en="Bookings" ar="الحجوزات" />, value: bookingsCount, note: <AdminText en={canViewGuestContacts?'Linked account and guest bookings':'Linked account bookings'} ar="عبر كل العملاء" />, icon: ShoppingBag, tone: 'orange' },
       { label: <AdminText en="Confirmed account customers" ar="عملاء مؤكدون" />, value: liveCustomers.filter((customer) => (customer.confirmedValue??[]).length > 0).length, note: <AdminText en="Accounts with confirmed bookings" ar="بإنفاق مؤكد" />, icon: CheckCircle2, tone: 'green' },
       { label: <AdminText en="Confirmed booked value" ar="قيمة المؤكد" />, value: formatCrmMoney(confirmedValue), note: <AdminText en={canViewGuestContacts?"Account and guest bookings by currency":"Account bookings by currency"} ar="إجمالي الحجوزات المؤكدة" />, icon: CircleDollarSign, tone: 'violet' },
     ]} />
-    <Card title={<AdminText en="Customer directory" ar="دليل العملاء" />} sub={<AdminText en={`${rows.length} of ${liveCustomers.length} customers shown`} ar={`عرض ${rows.length} من ${liveCustomers.length} عملاء`} />}>
+    {showGuestsFirst && guestSection}
+    <Card title={<AdminText en="Customer directory" ar="دليل العملاء" />} sub={<AdminText en={`${rows.length} of ${liveCustomers.length} accounts shown`} ar={`عرض ${rows.length} من ${liveCustomers.length} عملاء`} />}>
       <AdminTableTools query={query} onQueryChange={setQuery} placeholder={ar ? 'ابحث بعميل أو بريد أو هاتف...' : 'Search customer, email or phone...'}>
         <SharedSelect value={status} onChange={(next) => setStatus(next as typeof status)} locale={ar ? 'ar' : 'en'} label={ar ? 'فلترة حسب حالة الحساب' : 'Filter by account status'} options={[{ value: 'all', label: ar ? 'كل الحالات' : 'All statuses' }, { value: 'ACTIVE', label: ar ? 'نشط' : 'Active' }, { value: 'PENDING', label: ar ? 'بانتظار التفعيل' : 'Pending' }, { value: 'SUSPENDED', label: ar ? 'موقوف' : 'Suspended' }]} />
       </AdminTableTools>
@@ -121,27 +141,11 @@ export default function CustomersPage() {
             </tr>
           })}
         </tbody>
-      </table></AdminTableWrap> : <AdminEmpty title={<AdminText en="No customers found" ar="لا يوجد عملاء" />} copy={<AdminText en="Try changing the search or filters." ar="جرب تغيير البحث أو الفلاتر." />} />}
+      </table></AdminTableWrap> : <AdminEmpty title={<AdminText en={liveCustomers.length?"No matching accounts":"No registered accounts yet"} ar="لا يوجد عملاء" />} copy={<AdminText en={liveCustomers.length?"Try changing the search or filters.":"Guest booking contacts are listed separately from login accounts."} ar="جرب تغيير البحث أو الفلاتر." />} />}
         {rows.length > 0 && <AdminPagination page={paging.page} pageCount={paging.pageCount} onPage={paging.setPage} pageSize={paging.pageSize} onPageSize={paging.setPageSize} from={paging.from} to={paging.to} total={paging.total} />}
     </Card>
 
-    {canViewGuestContacts&&!loading&&!error&&<Card title="Guest booking contacts" sub="Booking contact records without a verified account link. Each row is one booking, not a registered customer account.">
-      <AdminTableTools query={query} onQueryChange={setQuery} placeholder="Search guest, booking, tour, email or phone...">
-        <SharedSelect value={guestStatus} onChange={setGuestStatus} label="Guest booking status" options={[{value:'all',label:'All booking statuses'},...['PENDING','CONFIRMED','COMPLETED','CANCELLED'].map(value=>({value,label:value.toLowerCase()}))]}/>
-      </AdminTableTools>
-      {guestRows.length?<>
-        <AdminTableWrap><table className="sp-table">
-          <thead><tr><th>Contact</th><th>Booking</th><th>Trips</th><th>Booked value</th><th>Confirmed value</th><th>Collected net</th><th>Status</th><th>Actions</th></tr></thead>
-          <tbody>{guestPaging.pageRows.map(contact=><tr key={contact.reference}>
-            <td><span className="sp-cust"><Avatar name={contact.displayName} size={34}/><span><strong>{contact.displayName}</strong><small dir="ltr">{contact.email}</small><small dir="ltr">{contact.phone}</small></span></span></td>
-            <td><Link href={`/admin/bookings/${encodeURIComponent(contact.reference)}`}>{contact.reference}</Link><br/><small>Guest contact · no account access · 1 booking</small><BookingToursSummary titles={contact.tourTitles??[]} reference={contact.reference}/></td>
-            <td>{contact.tripsCount}</td><td>{contact.currency} {formatCurrency(contact.total,contact.currency,'en')}</td><td>{formatCrmMoney(contact.confirmedValue)}</td><td>{formatCrmMoney(contact.collectedValue)}</td><td><StatusPill status={contact.status.toLowerCase()}/></td>
-            <td><AdminTableActions><AdminIconAction icon={Eye} label={`View booking ${contact.reference}`} href={`/admin/bookings/${encodeURIComponent(contact.reference)}`}/>{canRequestGuestRecovery&&<AdminIconAction icon={Mail} label={`Email recovery link for ${contact.reference}`} onClick={()=>{setRecoveryError('');setRecoveryTarget(contact)}}/>}</AdminTableActions></td>
-          </tr>)}</tbody>
-        </table></AdminTableWrap>
-        <AdminPagination page={guestPaging.page} pageCount={guestPaging.pageCount} onPage={guestPaging.setPage} pageSize={guestPaging.pageSize} onPageSize={guestPaging.setPageSize} from={guestPaging.from} to={guestPaging.to} total={guestPaging.total}/>
-      </>:<AdminEmpty title="No matching guest booking contacts" copy="Guest bookings appear here without creating or linking an account."/>}
-    </Card>}
+    {!showGuestsFirst && guestSection}
     <AdminConfirmDialog open={recoveryTarget!==null} onClose={()=>{if(!recoverySending)setRecoveryTarget(null)}} onConfirm={()=>void requestRecovery()} title="Email a private recovery link?" description={`If eligible, the existing recovery service will email ${recoveryTarget?.email??''} for booking ${recoveryTarget?.reference??''}. This does not grant access in this browser, create consent or activate an account.`} confirmLabel={recoverySending?'Requesting…':'Request recovery email'} cancelLabel="Cancel" canConfirm={!recoverySending}>
       {recoveryError&&<p role="alert">{recoveryError}</p>}
     </AdminConfirmDialog>

@@ -4,7 +4,7 @@ import { Prisma } from '@prisma/client';
 import { getCurrentUser } from '@/lib/server/auth';
 import {bookingSameOrigin,bookingClientIp,reserveBookingAttempt} from '@/lib/server/booking-request-security';
 import { readBoundedJson } from '@/lib/server/request-json';
-import { prepareCheckoutAccount } from '@/lib/server/checkout-account';
+import { prepareCheckoutAccount, recordCheckoutAccountPreparationFailure } from '@/lib/server/checkout-account';
 import { createCheckoutBooking } from '@/lib/server/booking-checkout';
 import {PriceChanged,QuoteServiceError,TourUnavailable} from '@/lib/server/booking-quote';
 
@@ -87,7 +87,10 @@ export async function POST(request: Request) {
     const current=await getCurrentUser();
     const userId=current&&current.roles.includes('CUSTOMER')?current.id:null;
     const {booking,reference,created,guestAccessUrl}=await createCheckoutBooking(userId,selections,acceptedTerms,acceptedPrice,priceQuote as string|undefined,recoverOnly===true);
-    if(created&&userId===null&&acceptedTerms)await prepareCheckoutAccount(reference,bodyEmail(body)).catch(()=>undefined);
+    if(created&&userId===null&&acceptedTerms) {
+      try { await prepareCheckoutAccount(reference,bodyEmail(body)); }
+      catch { await recordCheckoutAccountPreparationFailure(reference).catch(()=>undefined); }
+    }
     if(!booking)return NextResponse.json({success:true,existing:true,reference,guest:true,guestAccessUrl:null},{status:200,headers:{'Cache-Control':'no-store'}});
     // `guestAccessUrl` is the private link minted for a guest checkout; it
     // is null for account bookings, which keep their existing session flow.

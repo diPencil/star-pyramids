@@ -17,6 +17,20 @@ function eligible(user: Account) {
   return normalizeEmail(user.email) === user.emailNormalized && customerOnly && (user.status === 'ACTIVE' || user.status === 'PENDING' && user.passwordHash === null && user.roles[0].assignedBy === 'checkout-registration')
 }
 
+/** Best-effort staff evidence only; never store the thrown error or credentials. */
+export async function recordCheckoutAccountPreparationFailure(reference: string): Promise<void> {
+  try {
+    await db.bookingActivity.create({data:{
+      booking:{connect:{reference}},actorRole:'system',isInternal:true,
+      action:'Checkout account setup needs recovery',
+      note:'Account preparation did not complete. Check consent and email delivery history before using the existing verified recovery flow.',
+    }})
+  } catch {
+    // A committed booking must still succeed if its audit store is unavailable.
+    console.error('[checkout-account] preparation_failed', {reference})
+  }
+}
+
 /** Called only for an explicitly consented guest booking or its matching recovery email. */
 export async function prepareCheckoutAccount(reference: string, email: string): Promise<void> {
   for (let attempt=0; attempt<3; attempt++) {
