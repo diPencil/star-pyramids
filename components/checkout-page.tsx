@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRef, useState, type FormEvent } from 'react'
-import { ArrowRight, CalendarDays, Check, CircleAlert, ShieldCheck, Trash2, Users } from 'lucide-react'
+import { ArrowRight, CalendarDays, Check, CircleAlert, Clock3, Compass, LockKeyhole, Mail, ShieldCheck, Trash2, Users } from 'lucide-react'
 import { Breadcrumb, SiteShell } from '@/components/site'
 import { formatPrice, tx, useLocale } from './locale'
 import { clearCart, removeFromCart, removeCartItems, useCart } from '@/lib/cart'
@@ -216,34 +216,64 @@ export function CheckoutPage() {
       </div>}
     </CustomerConfirmDialog>
     <Breadcrumb items={[tx(locale, { en: 'Checkout', es: 'Compra', it: 'Checkout', ar: 'إتمام الحجز' })]} />
-    <main className="container cart-page">
-      <header className="car-request-head">
+    <main className={`container cart-page${placed?' has-receipt':''}`}>
+      {!placed&&<header className="car-request-head">
         <span className="eyebrow">{tx(locale, { en: 'Almost done', es: 'Ya casi terminas', it: 'Quasi fatto', ar: 'لم يتبق إلا خطوة واحدة' })}</span>
         <h1>{tx(locale, { en: 'Checkout', es: 'Finalizar compra', it: 'Checkout', ar: 'إتمام الحجز' })}</h1>
-      </header>
-      {placed ? <div className="form-success large">
-        <Check size={42} />
-        <h1>{tx(locale, { en: 'Booking request received', es: 'Solicitud de reserva recibida', it: 'Richiesta di prenotazione ricevuta', ar: 'تم استلام طلب الحجز' })}</h1>
-        <span className="req-ref">{tx(locale, { en: 'Official reference: ', es: 'Referencia oficial: ', it: 'Riferimento ufficiale: ', ar: 'المرجع الرسمي: ' })}{placed.reference}</span>
-        {placed.total!==null&&<div className="req-summary-rows">
-          <div><span>{tx(locale, { en: 'Booking total', es: 'Total de la reserva', it: 'Totale prenotazione', ar: 'إجمالي الحجز' })}</span><strong>{formatPrice(placed.total, currency, locale)}</strong></div>
-        </div>}
-        <PaymentInstructions layout="note" />
-        {placed.guest && <p>{tx(locale,{en:"Check your email to confirm and link this booking to your account. New customers can set a password; existing customers keep theirs. Your booking request is already saved.",es:"Revisa tu correo para confirmar y vincular esta reserva. Los nuevos clientes pueden crear una contraseña; los existentes conservan la suya. Tu solicitud ya está guardada.",it:"Controlla l’email per confermare e collegare questa prenotazione. I nuovi clienti possono impostare una password; gli altri mantengono la propria. La richiesta è già salvata."})}</p>}
-        {placed.guest && <div>
+      </header>}
+      {placed ? <section className="checkout-receipt" aria-labelledby="checkout-receipt-title">
+        <header className="checkout-receipt-header">
+          <span className="checkout-receipt-check"><Check size={30} aria-hidden="true"/></span>
+          <div>
+            <span className="eyebrow">STAR PYRAMIDS · {tx(locale,{en:'Your journey',es:'Tu viaje',it:'Il tuo viaggio'})}</span>
+            <h1 id="checkout-receipt-title">{placed.existing?tx(locale,{en:'Your request is already saved',es:'Tu solicitud ya está guardada',it:'La tua richiesta è già salvata'}):tx(locale,{en:'Booking request received',es:'Solicitud de reserva recibida',it:'Richiesta di prenotazione ricevuta'})}</h1>
+            <p>{placed.existing?tx(locale,{en:'Your earlier request is on file. Open the booking or use your reference when contacting our team.',es:'Tu solicitud anterior está guardada. Abre la reserva o indica la referencia al contactar con nuestro equipo.',it:'La richiesta precedente è salvata. Apri la prenotazione o indica il riferimento quando contatti il nostro team.'}):tx(locale,{en:'Keep your reference handy. Our team will review your request before confirming the arrangements.',es:'Guarda tu referencia. Nuestro equipo revisará la solicitud antes de confirmar los detalles.',it:'Conserva il riferimento. Il nostro team esaminerà la richiesta prima di confermare i dettagli.'})}</p>
+          </div>
+        </header>
+        <div className="checkout-receipt-grid">
+          <aside className="checkout-receipt-summary" aria-labelledby="checkout-summary-title">
+            <Compass className="checkout-receipt-compass" size={130} aria-hidden="true"/>
+            <span className="checkout-receipt-status" role="status"><Clock3 size={15} aria-hidden="true"/>{tx(locale,{en:'Request saved',es:'Solicitud guardada',it:'Richiesta salvata'})}</span>
+            <h2 id="checkout-summary-title">{tx(locale,{en:'Your booking details',es:'Los detalles de tu reserva',it:'I dettagli della prenotazione'})}</h2>
+            <dl>
+              <div><dt>{tx(locale,{en:'Official reference',es:'Referencia oficial',it:'Riferimento ufficiale'})}</dt><dd className="checkout-receipt-reference" dir="ltr">{placed.reference}</dd></div>
+              {placed.total!==null&&<div className="checkout-receipt-total"><dt>{tx(locale,{en:'Booking total',es:'Total de la reserva',it:'Totale prenotazione'})}</dt><dd>{formatPrice(placed.total,currency,locale)}</dd></div>}
+            </dl>
+            {placed.total===null&&<p>{tx(locale,{en:'Open your saved booking to review its original total.',es:'Abre tu reserva guardada para consultar el importe original.',it:'Apri la prenotazione salvata per consultare il totale originale.'})}</p>}
+            <p className="checkout-receipt-unpaid"><ShieldCheck size={17} aria-hidden="true"/>{tx(locale,{en:'No charge has been made online.',es:'No se ha realizado ningún cargo en línea.',it:'Non è stato effettuato alcun addebito online.'})}</p>
+        <div className="checkout-receipt-actions">{placed.guestAccessUrl
+          ? <Link className="primary-btn" href={placed.guestAccessUrl}>{tx(locale, { en: 'View your booking', es: 'Ver tu reserva', it: 'Visualizza la prenotazione', ar: 'عرض حجزك' })}</Link>
+          : placed.linked && <Link className="primary-btn" href={`/account/bookings/detail?ref=${encodeURIComponent(placed.reference)}`}>{tx(locale, { en: 'View booking', es: 'Ver reserva', it: 'Visualizza prenotazione', ar: 'عرض الحجز' })}</Link>}<Link className="outline-btn" href="/trips">{tx(locale, { en: 'Browse more trips', es: 'Explorar más viajes', it: 'Sfoglia altri viaggi', ar: 'تصفح المزيد من الرحلات' })}</Link></div>
+          </aside>
+          <div className="checkout-receipt-content">
+            <section className="checkout-receipt-next" aria-labelledby="checkout-next-title">
+              <div className="checkout-receipt-section-title"><Mail size={22} aria-hidden="true"/><h2 id="checkout-next-title">{tx(locale,{en:'What happens next?',es:'¿Qué ocurre ahora?',it:'Cosa succede adesso?'})}</h2></div>
+              <ol className="checkout-receipt-steps" role="list">
+                <li><span className="checkout-receipt-step-number" aria-hidden="true">01</span><div>
+                  <h3>{placed.existing?tx(locale,{en:'Access your saved request',es:'Accede a tu solicitud guardada',it:'Accedi alla richiesta salvata'}):placed.guest?tx(locale,{en:'Check your email',es:'Revisa tu correo',it:'Controlla la tua email'}):tx(locale,{en:'Follow your request',es:'Sigue tu solicitud',it:'Segui la tua richiesta'})}</h3>
+                  <p>{placed.existing?tx(locale,{en:'Use your account, or request a private link by email. Your earlier request is already saved.',es:'Accede desde tu cuenta o solicita un enlace privado por correo. Tu solicitud anterior ya está guardada.',it:'Accedi dal tuo account o richiedi un link privato via email. La richiesta precedente è già salvata.'}):placed.guest?tx(locale,{en:'Verify your email to link this booking to your account. New customers can set a password; existing customers keep theirs. Your request is already saved.',es:'Verifica tu correo para vincular esta reserva a tu cuenta. Los nuevos clientes pueden crear una contraseña; los existentes conservan la suya. Tu solicitud ya está guardada.',it:'Verifica l’email per collegare la prenotazione al tuo account. I nuovi clienti possono impostare una password; gli altri mantengono la propria. La richiesta è già salvata.'}):placed.linked?tx(locale,{en:'Track this request from your account using the booking reference.',es:'Sigue esta solicitud desde tu cuenta con la referencia de reserva.',it:'Segui la richiesta dal tuo account con il riferimento della prenotazione.'}):tx(locale,{en:'Use your reference when you contact our team about this request.',es:'Indica tu referencia al contactar con nuestro equipo sobre esta solicitud.',it:'Indica il riferimento quando contatti il nostro team per questa richiesta.'})}</p>
+                </div></li>
+                <li><span className="checkout-receipt-step-number" aria-hidden="true">02</span><div>
+                  <h3>{placed.existing?tx(locale,{en:'Review the latest details',es:'Consulta los detalles actuales',it:'Consulta i dettagli aggiornati'}):tx(locale,{en:'Our team reviews the details',es:'Nuestro equipo revisa los detalles',it:'Il nostro team verifica i dettagli'})}</h3>
+                  <p>{placed.existing?tx(locale,{en:'Open your saved booking for its latest status and payment details.',es:'Abre tu reserva guardada para consultar el estado y los datos de pago actuales.',it:'Apri la prenotazione salvata per consultarne lo stato e i dettagli di pagamento aggiornati.'}):tx(locale,{en:'Your request still needs confirmation. Payment arrangements are handled with our team.',es:'Tu solicitud aún necesita confirmación. El pago se acuerda con nuestro equipo.',it:'La richiesta deve ancora essere confermata. Il pagamento viene concordato con il nostro team.'})}</p>
+                </div></li>
+              </ol>
+        {placed.guest && <div className="checkout-receipt-recovery">
           <button type="button" className="outline-btn" disabled={recovery === 'sending'} onClick={requestAccess}>{tx(locale, { en: 'Request a private link by email', es: 'Solicitar un enlace privado por email', it: 'Richiedi un link privato via email' })}</button>
           {recovery === 'accepted' && <p role="status">{tx(locale, { en: 'If the details match a guest booking, check its saved email address for a private link. Check spam too. Wait at least one minute before retrying, and contact our team if no email arrives.', es: 'Si los datos coinciden con una reserva de invitado, revisa el correo guardado para buscar el enlace privado, incluida la carpeta de spam. Espera al menos un minuto antes de repetir la solicitud y contacta con el equipo si no llega el correo.', it: 'Se i dati corrispondono a una prenotazione ospite, controlla l’indirizzo email salvato per il link privato, inclusa la cartella spam. Attendi almeno un minuto prima di riprovare e contatta il team se non ricevi l’email.' })}</p>}
           {recovery === 'error' && <p role="alert">{tx(locale, { en: 'The link could not be requested. Try later or contact our team with your reference.', es: 'No se pudo solicitar el enlace. Inténtalo más tarde o contacta con el equipo indicando tu referencia.', it: 'Impossibile richiedere il link. Riprova più tardi o contatta il team indicando il riferimento.' })}</p>}
         </div>}
-        <p>{placed.existing?tx(locale,{en:'Your earlier booking request was already saved. Its original pricing has not been changed. Use your account or request a private link by email to view it.',es:'Tu solicitud anterior ya estaba guardada. Su precio original no ha cambiado. Consúltala desde tu cuenta o solicita un enlace privado por correo.',it:'La richiesta precedente era già salvata. Il prezzo originale non è stato modificato. Consulta l’account oppure richiedi un link privato via email.'}):placed.guestAccessUrl
-          ? tx(locale, { en: 'We rechecked your tour prices and confirmed the total. This private link is the only way to open this booking  -  keep it confidential. Check your email for a copy; each new booking email replaces the private link.', es: 'Hemos revisado los precios de tus tours y confirmado el total. Este enlace privado es la única forma de abrir esta reserva: mantenlo confidencial. Revisa tu correo para ver si has recibido una copia; cada nuevo correo de la reserva sustituye el enlace.', it: 'Abbiamo ricontrollato i prezzi dei tuoi tour e confermato il totale. Questo link privato è l’unico modo per aprire la prenotazione: mantienilo riservato. Controlla la tua email per una copia; ogni nuova email della prenotazione sostituisce il link.', ar: 'راجعنا أسعار رحلاتك وأكدنا الإجمالي. هذا الرابط الخاص هو الطريقة الوحيدة لفتح الحجز  -  وقد أرسلناه إليك بالبريد أيضًا، وكل رسالة جديدة تستبدله.' })
-          : placed.linked
-          ? tx(locale, { en: 'We rechecked your tour prices and confirmed the total. Track your booking from your account.', es: 'Hemos revisado los precios de tus tours y confirmado el total. Sigue tu reserva desde tu cuenta.', it: 'Abbiamo ricontrollato i prezzi dei tuoi tour e confermato il totale. Segui la tua prenotazione dal tuo account.', ar: 'راجعنا أسعار رحلاتك وأكدنا الإجمالي. تابع حجزك من حسابك.' })
-          : tx(locale, { en: 'We rechecked your tour prices and confirmed the total. Quote the reference when you contact our team.', es: 'Hemos revisado los precios de tus tours y confirmado el total. Menciona la referencia cuando contactes con nuestro equipo.', it: 'Abbiamo ricontrollato i prezzi dei tuoi tour e confermato il totale. Cita il riferimento quando contatti il nostro team.', ar: 'راجعنا أسعار رحلاتك وأكدنا الإجمالي. اذكر المرجع عند التواصل مع فريقنا.' })}</p>
-        <div className="car-success-actions">{placed.guestAccessUrl
-          ? <Link className="primary-btn" href={placed.guestAccessUrl}>{tx(locale, { en: 'View your booking', es: 'Ver tu reserva', it: 'Visualizza la prenotazione', ar: 'عرض حجزك' })}</Link>
-          : placed.linked && <Link className="primary-btn" href={`/account/bookings/detail?ref=${encodeURIComponent(placed.reference)}`}>{tx(locale, { en: 'View booking', es: 'Ver reserva', it: 'Visualizza prenotazione', ar: 'عرض الحجز' })}</Link>}<Link className="outline-btn" href="/trips">{tx(locale, { en: 'Browse more trips', es: 'Explorar más viajes', it: 'Sfoglia altri viaggi', ar: 'تصفح المزيد من الرحلات' })}</Link></div>
-      </div> : !items.length ? <div className="cart-empty">
+
+              {placed.existing&&<p className="checkout-receipt-notice">{tx(locale,{en:'Your earlier request was already saved. Its original pricing has not been changed.',es:'Tu solicitud anterior ya estaba guardada. Su precio original no ha cambiado.',it:'La richiesta precedente era già salvata. Il prezzo originale non è stato modificato.'})}</p>}
+              {placed.guestAccessUrl&&<p className="checkout-receipt-privacy"><LockKeyhole size={16} aria-hidden="true"/>{tx(locale,{en:'Keep your private booking link confidential. Request a new email link if you need to recover access.',es:'Mantén confidencial el enlace privado de tu reserva. Solicita un nuevo enlace por correo si necesitas recuperar el acceso.',it:'Mantieni riservato il link privato della prenotazione. Richiedi un nuovo link via email per recuperare l’accesso.'})}</p>}
+            </section>
+            <section className="checkout-receipt-payment" aria-labelledby="checkout-payment-title">
+              <div className="checkout-receipt-section-title"><ShieldCheck size={22} aria-hidden="true"/><h2 id="checkout-payment-title">{tx(locale,{en:'Payment arrangements',es:'Acuerdos de pago',it:'Modalità di pagamento'})}</h2></div>
+              <PaymentInstructions layout="note"/>
+            </section>
+          </div>
+        </div>
+      </section> : !items.length ? <div className="cart-empty">
         <h2>{tx(locale, { en: 'Nothing to check out', es: 'Nada que comprar', it: 'Niente da acquistare', ar: 'لا توجد عناصر لإتمامها' })}</h2>
         <p>{tx(locale, { en: 'Add a trip to the cart first.', es: 'Añade primero un viaje al carrito.', it: 'Aggiungi prima un viaggio al carrello.', ar: 'أضف رحلة إلى السلة أولًا.' })}</p>
         <Link href="/trips" className="primary-btn">{tx(locale, { en: 'Browse trips', es: 'Explorar viajes', it: 'Sfoglia i viaggi', ar: 'تصفح الرحلات' })} <ArrowRight size={17} /></Link>

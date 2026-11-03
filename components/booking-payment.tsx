@@ -33,7 +33,7 @@ export function PaymentInstructions({ layout }: { layout: 'section' | 'note' }) 
     // checkout note style (`co-payment-note` lives in globals.css), so
     // no account-scoped CSS is required here.
     return <div role="note">
-      <p className="co-payment-note"><ShieldCheck size={16} /><span><strong>{title}:</strong> {methods.join(' · ')}. {contactLine}. <Link href="/contact">{contactCta}</Link></span></p>
+      <p className="co-payment-note"><ShieldCheck size={16} /><span><strong>{title}:</strong> {methods.join(' · ')}.<br/><Link href="/contact">{contactLine}</Link></span></p>
       <p className="co-payment-note"><ShieldCheck size={16} /><span>{verifyNote}</span></p>
     </div>
   }

@@ -27,7 +27,7 @@ function find(node:ReactNode,test:(element:ReactElement<Record<string,any>>)=>bo
   const element=node as ReactElement<Record<string,any>>
   return test(element)?element:find(element.props.children,test)
 }
-function contact(){let tree=render();find(tree,e=>e.type==='input'&&e.props.type==='checkbox')?.props.onChange({target:{checked:true}});find(tree,e=>e.props.autoComplete==='name')!.props.onChange({target:{value:'Test Customer'}});find(tree,e=>e.props.autoComplete==='email')!.props.onChange({target:{value:'test@example.com'}});find(tree,e=>e.props.invalid===false&&typeof e.props.onChange==='function'&&e.props.locale==='en')!.props.onChange('+201234567890');return render()}
+function contact(){let tree=render();find(tree,e=>e.type==='input'&&e.props.type==='checkbox')?.props.onChange({target:{checked:true}});find(tree,e=>e.props.autoComplete==='name')!.props.onChange({target:{value:'Test Customer'}});find(tree,e=>e.props.autoComplete==='email')!.props.onChange({target:{value:'test@example.com'}});find(tree,e=>e.props.invalid===false&&typeof e.props.onChange==='function'&&e.props.locale===harness.locale)!.props.onChange('+201234567890');return render()}
 const response=(data:unknown,status=201)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json'}})
 beforeEach(()=>{vi.clearAllMocks();harness.index=0;harness.values=[];harness.user=null;harness.items=[{key:'submitted',tourSlug:'db-only',title:'DB only',date:'',adults:2,children:0,infants:0,addons:[],image:'',adultUnit:999,childUnit:999,infantUnit:999,addonTotal:0,total:999}];harness.key.mockResolvedValue('stable-attempt-key');vi.stubGlobal('fetch',harness.fetch)})
 afterEach(()=>vi.unstubAllGlobals())
@@ -162,4 +162,31 @@ it('uses authoritative account ownership without a second read that could fail a
   await find(contact(),e=>e.type==='form')!.props.onSubmit({preventDefault:vi.fn()})
   expect(harness.fetch).toHaveBeenCalledTimes(1)
   expect(find(render(),e=>e.props.href==='/account/bookings/detail?ref=SP-BK-ABC123')).toBeDefined()
+})
+it.each([
+  ['en','Booking request received','Check your email'],
+  ['es','Solicitud de reserva recibida','Revisa tu correo'],
+  ['it','Richiesta di prenotazione ricevuta','Controlla la tua email'],
+] as const)('presents a labeled request receipt and guest next steps in %s',async(locale,title,nextStep)=>{
+  harness.locale=locale
+  try {
+    harness.fetch.mockResolvedValue(response({reference:'SP-BK-ABC123',total:280,guest:true,guestAccessUrl:'/booking/'+'a'.repeat(43)}))
+    await find(contact(),e=>e.type==='form')!.props.onSubmit({preventDefault:vi.fn()})
+    const tree=render()
+    expect(find(tree,e=>e.type==='h1')!.props.children).toBe(title)
+    expect(find(tree,e=>e.type==='aside'&&e.props['aria-labelledby']==='checkout-summary-title')).toBeDefined()
+    expect(find(tree,e=>e.type==='dd'&&e.props.children==='SP-BK-ABC123')).toBeDefined()
+    expect(find(tree,e=>e.type==='h3'&&e.props.children===nextStep)).toBeDefined()
+    expect(find(tree,e=>e.props.href==='/booking/'+'a'.repeat(43))).toBeDefined()
+  } finally { harness.locale='en' }
+})
+it('a recovered attempt shows saved-request language without inventing a total or current confirmation status',async()=>{
+  harness.fetch.mockResolvedValue(response({success:true,existing:true,reference:'SP-BK-ABC123',guest:true,guestAccessUrl:null},200))
+  await find(contact(),e=>e.type==='form')!.props.onSubmit({preventDefault:vi.fn()})
+  const tree=render()
+  expect(find(tree,e=>e.type==='h1')!.props.children).toBe('Your request is already saved')
+  expect(find(tree,e=>e.type==='dd'&&typeof e.props.children==='string'&&e.props.children.includes('$'))).toBeUndefined()
+  expect(find(tree,e=>e.type==='p'&&typeof e.props.children==='string'&&e.props.children.startsWith('Your request still needs confirmation'))).toBeUndefined()
+  expect(find(tree,e=>e.type==='h3'&&e.props.children==='Access your saved request')).toBeDefined()
+  expect(find(tree,e=>e.type==='p'&&typeof e.props.children==='string'&&e.props.children.startsWith('Verify your email to link'))).toBeUndefined()
 })
