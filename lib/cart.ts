@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { bookingSelectionKey } from './booking-selection'
 
 /**
  * ONE authoritative frontend cart contract.
@@ -9,8 +10,8 @@ import { useSyncExternalStore } from 'react'
  *
  * Persisted cart data is UNTRUSTED browser input: every stored line is
  * sanitized on read (never crashes, never resolves to another tour).
- * Canonical revalidation (stale slugs, authoritative estimates) lives in
- * `@/lib/booking` so tour detail, cart, and checkout share one engine.
+ * Live catalogue reads are owned by `@/lib/cart-catalogue`; the pure
+ * estimate engine in `@/lib/booking` requires that catalogue explicitly.
  */
 export type CartItem = {
   key: string
@@ -36,8 +37,8 @@ export type CartItem = {
 
 // Backend integration point: the cart persists in this browser only.
 // Checkout builds a BookingRequestDraft (@/lib/booking) from these lines;
-// the future backend service will receive that draft, revalidate it, and
-// return the authoritative booking. No API calls exist yet.
+// POST /api/bookings revalidates that draft against the database and returns
+// the authoritative booking. Local snapshots never authorize a booking price.
 const KEY = 'sp-cart'
 const MAX_LINES = 20
 const listeners = new Set<() => void>()
@@ -72,11 +73,11 @@ function sanitizeMoney(value: unknown): number {
 
 function sanitizeAddons(value: unknown): string[] {
   if (!Array.isArray(value)) return []
-  return value
+  return [...new Set(value
     .filter((entry): entry is string => typeof entry === 'string')
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0)
-    .slice(0, 20)
+    .slice(0, 20))]
 }
 
 /**
@@ -131,10 +132,16 @@ function readCart(): CartItem[] {
 }
 
 let cache: CartItem[] | null = null
+let pendingWrite = false
 
 function getSnapshot(): CartItem[] {
   if (cache === null) cache = readCart()
   return cache
+}
+
+function latestSnapshot(): CartItem[] {
+  if (pendingWrite) return getSnapshot()
+  try { return localStorage.getItem(KEY) === null ? getSnapshot() : readCart() } catch { return getSnapshot() }
 }
 
 function getServerSnapshot(): CartItem[] {
@@ -143,7 +150,7 @@ function getServerSnapshot(): CartItem[] {
 
 function update(next: CartItem[]) {
   cache = next
-  try { localStorage.setItem(KEY, JSON.stringify(next)) } catch { /* private mode */ }
+  try { localStorage.setItem(KEY, JSON.stringify(next)); pendingWrite = false } catch { pendingWrite = true }
   listeners.forEach((notify) => notify())
 }
 
@@ -151,6 +158,8 @@ function subscribe(notify: () => void) {
   listeners.add(notify)
   const onStorage = (event: StorageEvent) => {
     if (event.key === KEY || event.key === null) {
+      // A disk refresh must not erase selections that could not be persisted.
+      if (pendingWrite) return
       cache = null
       notify()
     }
@@ -163,7 +172,7 @@ function subscribe(notify: () => void) {
 }
 
 export function cartKey(item: Omit<CartItem, 'key'>): string {
-  return [item.tourSlug, item.date || 'open', item.adults, item.children, item.infants, item.addons.join('+')].join('|')
+  return bookingSelectionKey(item)
 }
 
 /**
@@ -177,12 +186,26 @@ export function addToCart(item: Omit<CartItem, 'key'>): string {
   const sanitized = sanitizeCartItem(item)
   if (!sanitized) throw new Error('addToCart requires a tour slug, title, and valid traveler counts')
   const key = sanitized.key
-  update([...getSnapshot().filter((entry) => entry.key !== key), { ...sanitized, key }])
+  update([...latestSnapshot().filter((entry) => entry.key !== key), { ...sanitized, key }])
   return key
 }
 
 export function removeFromCart(key: string) {
-  update(getSnapshot().filter((entry) => entry.key !== key))
+  update(latestSnapshot().filter((entry) => entry.key !== key))
+}
+
+/** Remove only submitted selections; another tab's newly added trip is not part of that order. */
+export function removeCartItems(keys: readonly string[]) {
+  const selected = new Set(keys)
+  update(latestSnapshot().filter(item => !selected.has(item.key)))
+}
+
+export function removeCartAddons(key: string, titles: readonly string[]) {
+  const current = latestSnapshot(), item = current.find(row => row.key === key)
+  if (!item) return
+  const removed = new Set(titles)
+  const next = sanitizeCartItem({ ...item, addons: item.addons.filter(title => !removed.has(title)) })
+  if (next) update([...current.filter(row => row.key !== key && row.key !== next.key), next])
 }
 
 export function clearCart() {

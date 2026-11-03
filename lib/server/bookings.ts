@@ -19,6 +19,7 @@ import {
 } from '../core/validation';
 import { dayTourTerms, getBookingTotal, getTravelerUnitPrices } from '@/data/tours';
 import { isTourPublished } from '@/lib/tour-publish';
+import { bookingAddons, bookingCents, bookingRequestNotes, bookingSelectionKey, validBookingTravelers, MAX_BOOKING_AMOUNT_CENTS } from '@/lib/booking-selection';
 import { findTourBySlug } from './tours';
 import {
   BOOKING_FINANCIAL_REVIEW_CODE,
@@ -236,6 +237,8 @@ export interface ValidatedBookingLine {
   children: number;
   infants: number;
   addons: string[];
+  /** Unpriced requests are preserved in Booking.notes, never as purchased/free extras. */
+  requestedAddons?: string[];
   adultUnitCents: number;
   childUnitCents: number;
   infantUnitCents: number;
@@ -272,14 +275,6 @@ function count(value: unknown): number | null {
   return value;
 }
 
-async function addonCatalog(slug: string): Promise<readonly { title: string; price?: number }[]> {
-  const tour = await findTourBySlug(slug);
-  if (!tour) return [];
-  const catalog = tour.detail?.addOns ?? tour.dayDetail?.addOns;
-  if (catalog) return catalog;
-  return tour.category === 'one-day-tours' ? dayTourTerms.addOns : [];
-}
-
 async function resolveLine(raw: unknown): Promise<ValidatedBookingLine> {
   if (typeof raw !== 'object' || raw === null) throw new Error('Invalid booking items.');
   const body = raw as Record<string, unknown>;
@@ -294,40 +289,37 @@ async function resolveLine(raw: unknown): Promise<ValidatedBookingLine> {
   const tour = await findTourBySlug(tourSlug);
   if (!tour || !isTourPublished(tour)) throw new Error('One of the selected tours is no longer available. Remove it and try again.');
 
+  if (body.date !== undefined && typeof body.date !== 'string') throw new Error('Select a valid travel date.');
   const date = text(body.date) ?? '';
   if (date !== '' && !isValidPreferredDate(date)) throw new Error('Select a valid travel date.');
 
   const adults = count(body.adults);
-  const children = count(body.children) ?? 0;
-  const infants = count(body.infants) ?? 0;
+  const children = body.children === undefined ? 0 : count(body.children);
+  const infants = body.infants === undefined ? 0 : count(body.infants);
   if (adults === null || adults < 1 || adults > 50) throw new Error('Each item needs 1-50 adults.');
-  if (children < 0 || children > 50 || infants < 0 || infants > 50) {
+  if (children === null || infants === null || children < 0 || children > 50 || infants < 0 || infants > 50) {
     throw new Error('Each item allows 0-50 children or infants.');
   }
-  if (adults + children + infants > 60) throw new Error('Each item allows at most 60 travelers.');
+  if (!validBookingTravelers(adults, children, infants)) throw new Error('Each item allows at most 60 travelers.');
 
   const rawAddons = body.addons ?? [];
   if (!Array.isArray(rawAddons) || rawAddons.length > MAX_ADDONS) throw new Error('Invalid add-ons.');
   const titles: string[] = [];
   for (const entry of rawAddons) {
     if (typeof entry !== 'string') throw new Error('Invalid add-ons.');
-    const title = entry.trim().slice(0, 120);
-    if (title) titles.push(title);
+    const title = entry.trim();
+    if (!title || title.length > 120 || hasControlChars(title)) throw new Error('Invalid add-ons.');
+    if (!titles.includes(title)) titles.push(title);
   }
-  const catalog = await addonCatalog(tourSlug);
-  let addonTotalCents = 0;
-  for (const title of titles) {
-    const match = catalog.find((addon) => addon.title === title);
-    if (!match || typeof match.price !== 'number') {
-      throw new Error(`“${title}” is no longer available. Remove it and try again.`);
-    }
-    addonTotalCents += toCents(match.price);
-  }
+  const catalog = tour.detail?.addOns ?? tour.dayDetail?.addOns ?? (tour.category === 'one-day-tours' ? dayTourTerms.addOns : []);
+  const extras = bookingAddons(catalog, titles);
+  if (extras.unavailable.length) throw new Error('A selected extra is no longer available. Remove it from your cart and try again.');
+  const addonTotalCents = extras.cents;
 
   const pricing = getBookingTotal(tour, adults, children, infants);
-  const adultUnitCents = toCents(pricing.adult);
-  const childUnitCents = toCents(pricing.child);
-  const infantUnitCents = toCents(pricing.infant);
+  const adultUnitCents = bookingCents(pricing.adult);
+  const childUnitCents = bookingCents(pricing.child);
+  const infantUnitCents = bookingCents(pricing.infant);
   const travelerCents = adults * adultUnitCents + children * childUnitCents + infants * infantUnitCents;
   // The active deal (percent + date window, resolved from the DB tour row)
   // is the ONLY discount source: it is applied here, once, to traveler
@@ -335,18 +327,20 @@ async function resolveLine(raw: unknown): Promise<ValidatedBookingLine> {
   // nor suppress it  -  selections only, prices never read from the body.
   const list = getTravelerUnitPrices(tour, Math.max(1, adults + children + infants));
   const originalTravelerCents =
-    adults * toCents(list.adult) + children * toCents(list.child) + infants * toCents(list.infant);
+    adults * bookingCents(list.adult) + children * bookingCents(list.child) + infants * bookingCents(list.infant);
   const lineDiscountCents = Math.max(0, originalTravelerCents - travelerCents);
   const lineOriginalCents = originalTravelerCents + addonTotalCents;
+  if (lineOriginalCents > MAX_BOOKING_AMOUNT_CENTS || travelerCents + addonTotalCents > MAX_BOOKING_AMOUNT_CENTS) throw new Error('The current price cannot be confirmed. Please contact our team.');
   return {
-    tourSlug,
+    tourSlug: tour.slug,
     tourTitle: tour.title.slice(0, 200),
     tourImage: (tour.image ?? '').slice(0, 255),
     travelDate: date,
     adults,
     children,
     infants,
-    addons: titles,
+    addons: extras.priced,
+    requestedAddons: extras.requested,
     adultUnitCents,
     childUnitCents,
     infantUnitCents,
@@ -375,6 +369,12 @@ export async function validateBookingDraft(input: unknown): Promise<ValidatedBoo
   }
   const lines: ValidatedBookingLine[] = [];
   for (const raw of rawLines) lines.push(await resolveLine(raw));
+  const uniqueSelections = new Set<string>();
+  for (const line of lines) {
+    const key = bookingSelectionKey({ ...line, date: line.travelDate || '', addons: [...line.addons, ...(line.requestedAddons ?? [])] });
+    if (uniqueSelections.has(key)) throw new Error('Your cart contains duplicate trip selections. Remove the duplicate and try again.');
+    uniqueSelections.add(key);
+  }
 
   const rawContact = body.contact;
   if (typeof rawContact !== 'object' || rawContact === null) throw new Error('Enter your contact details.');
@@ -411,10 +411,13 @@ export async function validateBookingDraft(input: unknown): Promise<ValidatedBoo
 
   const subtotalCents = lines.reduce((sum, line) => sum + line.lineOriginalCents, 0);
   if (subtotalCents <= 0) throw new Error('Your cart has no chargeable items.');
+  if (subtotalCents > MAX_BOOKING_AMOUNT_CENTS) throw new Error('The current price cannot be confirmed. Please contact our team.');
   // Booking snapshot semantics: `subtotal` is the ORIGINAL list value,
   // `discount` is the total deal savings, `total` is what is owed.
   // Stored line units are the CHARGED (post-deal) units.
   const discountCents = lines.reduce((sum, line) => sum + line.lineDiscountCents, 0);
+  const storedNotes = bookingRequestNotes(notes, lines.map(line => ({title: line.tourTitle, slug: line.tourSlug, requested: line.requestedAddons ?? []})));
+  if (storedNotes.length > NOTE_MAX) throw new Error('The notes and requested extras are too long. Shorten them before submitting.');
   return {
     lines,
     subtotalCents,
@@ -423,7 +426,7 @@ export async function validateBookingDraft(input: unknown): Promise<ValidatedBoo
     contactName,
     contactEmail,
     contactPhone: normalizePhone(contactPhoneRaw),
-    notes,
+    notes: storedNotes,
     idempotencyKey,
   };
 }
@@ -585,10 +588,9 @@ export async function createBookingRecord(
 ): Promise<{ booking: Booking; created: boolean; guestAccessUrl: string | null }> {
   const assertReplayOwnership = (row: BookingRow) => {
     if (row.userId !== userId) throw new Error('That submission key was already used for a different booking.');
-    // Guest keys are capabilities, not authenticated accounts. Bind their
-    // replay to the original contact and request instead of returning any
-    // guest's financial/contact snapshot for a reused global key.
-    if (userId === null) {
+    // Bind every replay (account and guest) to its original request. An account
+    // must not receive an unrelated old booking after changing a cart under the same key.
+    {
       const requested = draft.lines.map((line) => JSON.stringify([
         line.tourSlug, line.travelDate, line.adults, line.children, line.infants,
         [...line.addons].sort(), line.adultUnitCents, line.childUnitCents,
@@ -664,30 +666,33 @@ export async function createBookingRecord(
       // Guest checkouts (userId NULL) have no account to log into, so a
       // private expiring link is minted and emailed to them. Account
       // bookings keep the existing session-owned customer link.
-      const { detailUrl, accessNote } = await ownerBookingLink(reference, userId === null, true);
+      const access = await ownerBookingLink(reference, userId === null, true)
+        .catch(() => ({ detailUrl: '', accessNote: '' }));
+      const { detailUrl, accessNote } = userId === null && !access.detailUrl.startsWith('/booking/')
+        ? { detailUrl: '', accessNote: '' } : access;
       // Receipt for the new booking. Idempotent replays return early
       // above with created:false, so a retried key never notifies twice.
       // Guests (userId NULL) are skipped  -  no account to notify.
-      await notifyUser(userId, {
+      await Promise.resolve().then(() => notifyUser(userId, {
         type: 'booking_created',
         title: 'Booking received',
         message: `We received your booking ${reference}. Track its status here.`,
         href: `/account/bookings/detail?ref=${encodeURIComponent(reference)}`,
-      });
+      })).catch(() => undefined);
       // Operational copy for staff (guests included). Runs only on the
       // created path above, so idempotent replays never double-notify.
-      await notifyStaff({
+      await Promise.resolve().then(() => notifyStaff({
         type: 'admin_booking_created',
         title: 'New booking received',
         message: `Booking ${reference} needs review.`,
         href: `/admin/bookings/${encodeURIComponent(reference)}`,
-      });
+      })).catch(() => undefined);
       // Email receipts (best-effort  -  never break booking creation).
       // Customer copy goes to the address given at checkout (guests
       // included); staff copy goes to the configured operational
       // recipient. Idempotency key matches the booking reference so a
       // retried submission never sends twice.
-      await sendCustomerEmailSafe('booking_created', draft.contactEmail, {
+      if (detailUrl) await sendCustomerEmailSafe('booking_created', draft.contactEmail, {
         name: draft.contactName,
         reference,
         tourTitle: draft.lines.map((line) => line.tourTitle).join(', '),
@@ -709,7 +714,7 @@ export async function createBookingRecord(
         // Guests get their private link back so the confirmation screen can
         // show it immediately. Account bookings use their session instead,
         // so they receive null and nothing changes for them.
-        guestAccessUrl: userId === null ? detailUrl : null,
+        guestAccessUrl: userId === null && detailUrl.startsWith('/booking/') ? detailUrl : null,
       };
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {

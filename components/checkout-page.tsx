@@ -1,38 +1,23 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo, useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { ArrowRight, CalendarDays, Check, CircleAlert, ShieldCheck, Trash2, Users } from 'lucide-react'
 import { Breadcrumb, SiteShell } from '@/components/site'
 import { formatPrice, tx, useLocale } from './locale'
-import { clearCart, removeFromCart, useCart } from '@/lib/cart'
+import { clearCart, removeFromCart, removeCartItems, useCart } from '@/lib/cart'
 import {
-  estimateCart, hasContactErrors, validateBookingContact,
+  hasContactErrors, validateBookingContact, OFFICIAL_BOOKING_REF_PATTERN,
   type Booking, type BookingContact, type ContactErrors,
 } from '@/lib/booking'
 import { InternationalPhoneInput } from './international-phone-input'
 import { PaymentInstructions } from './booking-payment'
 import { customerErrorText } from '@/lib/customer-error-copy'
-
-const IDEMPOTENCY_KEY_STORAGE = 'sp-checkout-key'
-
-function checkoutKey(): string {
-  try {
-    const stored = window.sessionStorage.getItem(IDEMPOTENCY_KEY_STORAGE)
-    if (stored && /^[A-Za-z0-9-]{8,64}$/.test(stored)) return stored
-    const fresh = typeof crypto !== 'undefined' && 'randomUUID' in crypto
-      ? crypto.randomUUID()
-      : `key-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
-    window.sessionStorage.setItem(IDEMPOTENCY_KEY_STORAGE, fresh)
-    return fresh
-  } catch {
-    return `key-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
-  }
-}
-
-function rotateCheckoutKey() {
-  try { window.sessionStorage.removeItem(IDEMPOTENCY_KEY_STORAGE) } catch { /* noop */ }
-}
+import { useCartCatalogue } from '@/lib/cart-catalogue'
+import { checkoutAttemptKey, finishCheckoutAttempt } from '@/lib/checkout-attempt'
+import { bookingRequestNotes, MAX_BOOKING_NOTE_LENGTH } from '@/lib/booking-selection'
+import { CartLineIssues } from './cart-line-issues'
+import { CartCatalogueStatus } from './cart-catalogue-status'
 
 /**
  * Checkout (Phase 2E: real backend).
@@ -45,7 +30,8 @@ function rotateCheckoutKey() {
 export function CheckoutPage() {
   const { currency, locale } = useLocale()
   const { items } = useCart()
-  const estimate = useMemo(() => estimateCart(items), [items])
+  const catalogue = useCartCatalogue(items)
+  const { estimate } = catalogue
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
@@ -53,8 +39,10 @@ export function CheckoutPage() {
   const [errors, setErrors] = useState<ContactErrors>({})
   const [attempted, setAttempted] = useState(false)
   const [sending, setSending] = useState(false)
+  const pending = useRef(false)
+  const [recovery, setRecovery] = useState<'idle' | 'sending' | 'accepted' | 'error'>('idle')
   const [submitError, setSubmitError] = useState('')
-  const [placed, setPlaced] = useState<{ reference: string; total: number; linked: boolean; guestAccessUrl: string | null } | null>(null)
+  const [placed, setPlaced] = useState<{ reference: string; total: number; linked: boolean; guest: boolean; email: string; guestAccessUrl: string | null } | null>(null)
   const sendFailed = tx(locale, { en: 'Could not send the request. Please try again.', es: 'No se pudo enviar la solicitud. Inténtalo de nuevo.', it: 'Impossibile inviare la richiesta. Riprova.', ar: 'تعذر إرسال الطلب. حاول مجددًا.' })
 
   const copy = {
@@ -63,7 +51,7 @@ export function CheckoutPage() {
     emailInvalid: tx(locale, { en: 'Enter a valid email address.', es: 'Escribe un correo electrónico válido.', it: 'Inserisci un indirizzo email valido.', ar: 'اكتب بريدًا إلكترونيًا صحيحًا.' }),
     phoneRequired: tx(locale, { en: 'Enter your phone number.', es: 'Escribe tu número de teléfono.', it: 'Inserisci il tuo numero di telefono.', ar: 'اكتب رقم الهاتف.' }),
     phoneInvalid: tx(locale, { en: 'Enter a valid phone number (at least 7 digits).', es: 'Escribe un teléfono válido (al menos 7 dígitos).', it: 'Inserisci un numero di telefono valido (almeno 7 cifre).', ar: 'اكتب رقم هاتف صحيحًا (7 أرقام على الأقل).' }),
-    staleBlocked: tx(locale, { en: 'Remove the unavailable trips from the cart before sending the request.', es: 'Quita los viajes no disponibles del carrito antes de enviar la solicitud.', it: 'Rimuovi i viaggi non disponibili dal carrello prima di inviare la richiesta.', ar: 'أزل الرحلات غير المتاحة من السلة قبل إرسال الطلب.' }),
+    staleBlocked: tx(locale, { en: 'Review traveler counts, prices and unavailable extras in your cart before sending the request.', es: 'Revisa viajeros, precios y extras no disponibles antes de enviar la solicitud.', it: 'Controlla viaggiatori, prezzi ed extra non disponibili prima di inviare la richiesta.', ar: 'أزل الرحلات غير المتاحة من السلة قبل إرسال الطلب.' }),
     fixErrors: tx(locale, { en: 'Review the required fields before sending the request.', es: 'Revisa los campos obligatorios antes de enviar la solicitud.', it: 'Controlla i campi obbligatori prima di inviare la richiesta.', ar: 'راجع الحقول المطلوبة قبل إرسال الطلب.' }),
   }
 
@@ -75,19 +63,25 @@ export function CheckoutPage() {
     return code === 'required' ? copy.phoneRequired : copy.phoneInvalid
   }
 
-  const staleBlocked = estimate.staleLines.length > 0
+  const staleBlocked = estimate.blocked
   const showSummary = attempted && (hasContactErrors(errors) || staleBlocked)
 
-  const placeOrder = (e: FormEvent) => {
+  const placeOrder = async (e: FormEvent) => {
     e.preventDefault()
-    if (sending || placed) return
+    if (pending.current || sending || placed || !catalogue.ready) return
     const contact: BookingContact = { name: name.trim(), email: email.trim(), phone: phone.trim() }
     const fieldErrors = validateBookingContact(contact)
     setErrors(fieldErrors)
     setAttempted(true)
     setSubmitError('')
     if (!estimate.validLines.length || staleBlocked || hasContactErrors(fieldErrors)) return
+    if (bookingRequestNotes(notes.trim(), estimate.validLines.map(line => ({title: line.tour!.title, slug: line.item.tourSlug, requested: line.onRequestAddons}))).length > MAX_BOOKING_NOTE_LENGTH) {
+      setSubmitError(tx(locale, { en: 'Shorten your notes or reduce requested extras before submitting.', es: 'Acorta tus notas o reduce los extras solicitados antes de enviar.', it: 'Abbrevia le note o riduci gli extra richiesti prima di inviare.' }))
+      return
+    }
+    pending.current = true
     setSending(true)
+    const submittedKeys = items.map(item => item.key)
     const draft = {
       lines: estimate.validLines.map((line) => ({
         tourSlug: line.item.tourSlug,
@@ -100,37 +94,44 @@ export function CheckoutPage() {
       contact,
       notes: notes.trim(),
       currency: 'USD' as const,
-      idempotencyKey: checkoutKey(),
     }
-    fetch('/api/bookings', {
+    try {
+      const idempotencyKey = await checkoutAttemptKey(draft)
+      const res = await fetch('/api/bookings', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       credentials: 'same-origin',
-      body: JSON.stringify(draft),
-    })
-      .then(async (res) => {
-        const data = (await res.json()) as Booking & { error?: string; guestAccessUrl?: string | null }
-        if (!res.ok) throw new Error(customerErrorText(locale, data.error, sendFailed))
+      body: JSON.stringify({ ...draft, idempotencyKey }),
+      })
+        const data = (await res.json()) as Booking & { error?: string; guestAccessUrl?: string | null; guest?: boolean }
+        if (!res.ok) throw new Error(typeof data.error === 'string' ? data.error : sendFailed)
         // Guest checkouts get a private link from the server: the booking is
         // not linked to an account, so the reference alone opens nothing.
-        const guestAccessUrl = typeof data.guestAccessUrl === 'string' ? data.guestAccessUrl : null
-        let linked = true
-        if (!guestAccessUrl) {
+        if (!OFFICIAL_BOOKING_REF_PATTERN.test(data.reference) || !Number.isFinite(data.total) || data.total < 0) throw Error(sendFailed)
+        const guestAccessUrl = data.guest !== false && typeof data.guestAccessUrl === 'string' && /^\/booking\/[A-Za-z0-9_-]{43}$/.test(data.guestAccessUrl) ? data.guestAccessUrl : null
+        let linked = data.guest === false
+        if (!guestAccessUrl && data.guest === undefined) {
           try {
             const detail = await fetch(`/api/account/bookings/${encodeURIComponent(data.reference)}`, { credentials: 'same-origin' })
             linked = detail.ok
           } catch { linked = false }
-        } else {
-          linked = false
         }
-        setPlaced({ reference: data.reference, total: data.total, linked, guestAccessUrl })
-        clearCart()
-        rotateCheckoutKey()
-      })
-      .catch((error: unknown) => {
-        setSubmitError(error instanceof Error ? error.message : sendFailed)
-      })
-      .finally(() => setSending(false))
+        setPlaced({ reference: data.reference, total: data.total, linked, guest: data.guest === true || !!guestAccessUrl, email: contact.email, guestAccessUrl })
+        removeCartItems(submittedKeys)
+        finishCheckoutAttempt(idempotencyKey)
+    } catch (error: unknown) {
+      setSubmitError(error instanceof Error ? customerErrorText(locale, error.message, sendFailed) : sendFailed)
+    } finally { pending.current = false; setSending(false) }
+  }
+
+  const requestAccess = async () => {
+    if (!placed || recovery === 'sending' || pending.current) return
+    pending.current = true
+    setRecovery('sending')
+    try {
+      const res = await fetch('/api/bookings/request-access', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ reference: placed.reference, email: placed.email }) })
+      setRecovery(res.ok ? 'accepted' : 'error')
+    } catch { setRecovery('error') } finally { pending.current = false }
   }
 
   return <SiteShell>
@@ -148,8 +149,13 @@ export function CheckoutPage() {
           <div><span>{tx(locale, { en: 'Booking total', es: 'Total de la reserva', it: 'Totale prenotazione', ar: 'إجمالي الحجز' })}</span><strong>{formatPrice(placed.total, currency, locale)}</strong></div>
         </div>
         <PaymentInstructions layout="note" />
+        {placed.guest && !placed.guestAccessUrl && <div>
+          <button type="button" className="outline-btn" disabled={recovery === 'sending'} onClick={requestAccess}>{tx(locale, { en: 'Request a private link by email', es: 'Solicitar un enlace privado por email', it: 'Richiedi un link privato via email' })}</button>
+          {recovery === 'accepted' && <p role="status">{tx(locale, { en: 'If the details match a guest booking, check its saved email address for a private link. Check spam too. Wait at least one minute before retrying, and contact our team if no email arrives.', es: 'Si los datos coinciden con una reserva de invitado, revisa el correo guardado para buscar el enlace privado, incluida la carpeta de spam. Espera al menos un minuto antes de repetir la solicitud y contacta con el equipo si no llega el correo.', it: 'Se i dati corrispondono a una prenotazione ospite, controlla l’indirizzo email salvato per il link privato, inclusa la cartella spam. Attendi almeno un minuto prima di riprovare e contatta il team se non ricevi l’email.' })}</p>}
+          {recovery === 'error' && <p role="alert">{tx(locale, { en: 'The link could not be requested. Try later or contact our team with your reference.', es: 'No se pudo solicitar el enlace. Inténtalo más tarde o contacta con el equipo indicando tu referencia.', it: 'Impossibile richiedere il link. Riprova più tardi o contatta il team indicando il riferimento.' })}</p>}
+        </div>}
         <p>{placed.guestAccessUrl
-          ? tx(locale, { en: 'We rechecked your tour prices and confirmed the total. This private link is the only way to open this booking  -  we have emailed it to you too, and each new email replaces it.', es: 'Hemos revisado los precios de tus tours y confirmado el total. Este enlace privado es la única forma de abrir esta reserva: también te lo hemos enviado por correo y cada correo nuevo lo sustituye.', it: 'Abbiamo ricontrollato i prezzi dei tuoi tour e confermato il totale. Questo link privato è l’unico modo per aprire la prenotazione: te l’abbiamo inviato per email e ogni nuova email lo sostituisce.', ar: 'راجعنا أسعار رحلاتك وأكدنا الإجمالي. هذا الرابط الخاص هو الطريقة الوحيدة لفتح الحجز  -  وقد أرسلناه إليك بالبريد أيضًا، وكل رسالة جديدة تستبدله.' })
+          ? tx(locale, { en: 'We rechecked your tour prices and confirmed the total. This private link is the only way to open this booking  -  keep it confidential. Check your email for a copy; each new booking email replaces the private link.', es: 'Hemos revisado los precios de tus tours y confirmado el total. Este enlace privado es la única forma de abrir esta reserva: mantenlo confidencial. Revisa tu correo para ver si has recibido una copia; cada nuevo correo de la reserva sustituye el enlace.', it: 'Abbiamo ricontrollato i prezzi dei tuoi tour e confermato il totale. Questo link privato è l’unico modo per aprire la prenotazione: mantienilo riservato. Controlla la tua email per una copia; ogni nuova email della prenotazione sostituisce il link.', ar: 'راجعنا أسعار رحلاتك وأكدنا الإجمالي. هذا الرابط الخاص هو الطريقة الوحيدة لفتح الحجز  -  وقد أرسلناه إليك بالبريد أيضًا، وكل رسالة جديدة تستبدله.' })
           : placed.linked
           ? tx(locale, { en: 'We rechecked your tour prices and confirmed the total. Track your booking from your account.', es: 'Hemos revisado los precios de tus tours y confirmado el total. Sigue tu reserva desde tu cuenta.', it: 'Abbiamo ricontrollato i prezzi dei tuoi tour e confermato il totale. Segui la tua prenotazione dal tuo account.', ar: 'راجعنا أسعار رحلاتك وأكدنا الإجمالي. تابع حجزك من حسابك.' })
           : tx(locale, { en: 'We rechecked your tour prices and confirmed the total. Quote the reference when you contact our team.', es: 'Hemos revisado los precios de tus tours y confirmado el total. Menciona la referencia cuando contactes con nuestro equipo.', it: 'Abbiamo ricontrollato i prezzi dei tuoi tour e confermato il totale. Cita il riferimento quando contatti il nostro team.', ar: 'راجعنا أسعار رحلاتك وأكدنا الإجمالي. اذكر المرجع عند التواصل مع فريقنا.' })}</p>
@@ -160,7 +166,7 @@ export function CheckoutPage() {
         <h2>{tx(locale, { en: 'Nothing to check out', es: 'Nada que comprar', it: 'Niente da acquistare', ar: 'لا توجد عناصر لإتمامها' })}</h2>
         <p>{tx(locale, { en: 'Add a trip to the cart first.', es: 'Añade primero un viaje al carrito.', it: 'Aggiungi prima un viaggio al carrello.', ar: 'أضف رحلة إلى السلة أولًا.' })}</p>
         <Link href="/trips" className="primary-btn">{tx(locale, { en: 'Browse trips', es: 'Explorar viajes', it: 'Sfoglia i viaggi', ar: 'تصفح الرحلات' })} <ArrowRight size={17} /></Link>
-      </div> : !estimate.validLines.length ? <div className="cart-empty">
+      </div> : !catalogue.ready ? <CartCatalogueStatus error={catalogue.error} retry={catalogue.retry}/> : !estimate.validLines.length ? <div className="cart-empty">
         <CircleAlert size={40} />
         <h2>{tx(locale, { en: 'No available trips to check out', es: 'No hay viajes disponibles para comprar', it: 'Nessun viaggio disponibile da acquistare', ar: 'لا توجد رحلات متاحة لإتمامها' })}</h2>
         <p>{tx(locale, { en: 'The trips saved in your cart are no longer available. Clear the cart and pick current trips.', es: 'Los viajes guardados en tu carrito ya no están disponibles. Vacía el carrito y elige viajes actuales.', it: 'I viaggi salvati nel carrello non sono più disponibili. Svuota il carrello e scegli viaggi attuali.', ar: 'الرحلات المحفوظة في السلة لم تعد متاحة. أفرغ السلة واختر رحلات حالية.' })}</p>
@@ -181,18 +187,20 @@ export function CheckoutPage() {
         </div>
         <aside className="cart-summary">
           <h2>{tx(locale, { en: 'Order summary', es: 'Resumen del pedido', it: 'Riepilogo ordine', ar: 'ملخص الطلب' })}</h2>
-          {estimate.validLines.map(({ item, canonicalTotal, pricedAddons, onRequestAddons }) => <div key={item.key} className="co-line">
-            <div className="cart-summary-row"><span>{item.title}</span><strong>{formatPrice(canonicalTotal, currency, locale)}</strong></div>
+          {estimate.validLines.map(({ item, canonicalTotal, pricedAddons, onRequestAddons, invalidTravelers, invalidPrice, duplicateSelection, unavailableAddons }) => <div key={item.key} className="co-line">
+            <div className="cart-summary-row"><span>{item.title}</span><strong>{invalidPrice ? "—" : formatPrice(canonicalTotal, currency, locale)}</strong></div>
             <small className="co-line-sub"><CalendarDays size={13} />{item.date || tx(locale, { en: 'Open date', es: 'Fecha abierta', it: 'Data aperta', ar: 'التاريخ مفتوح' })} {item.date ? tx(locale, { en: '(preferred)', es: '(preferida)', it: '(preferita)', ar: '(مفضل)' }) : ''} · <Users size={13} />{item.adults + item.children + item.infants} {tx(locale, { en: 'guest(s)', es: 'viajeros', it: 'viaggiatori', ar: 'ضيوف' })}</small>
             {(pricedAddons.length > 0 || onRequestAddons.length > 0) && <small className="co-line-sub co-line-addons">{[...pricedAddons, ...onRequestAddons.map((a) => `${a} (${tx(locale, { en: 'on request', es: 'bajo petición', it: 'su richiesta', ar: 'حسب الطلب' })})`)].join(' · ')}</small>}
+            <CartLineIssues line={{item, invalidTravelers, invalidPrice, duplicateSelection, unavailableAddons, onRequestAddons}}/>
           </div>)}
           {estimate.staleLines.map(({ item }) => <div key={item.key} className="co-line is-stale">
             <div className="cart-summary-row"><span>{item.title}</span><button type="button" className="cart-remove" onClick={() => removeFromCart(item.key)} aria-label={tx(locale, { en: 'Remove from cart', es: 'Quitar del carrito', it: 'Rimuovi dal carrello', ar: 'إزالة من السلة' })}><Trash2 size={16} /></button></div>
             <small className="co-line-sub">{tx(locale, { en: 'No longer available - remove it to continue.', es: 'Ya no disponible - quítalo para continuar.', it: 'Non più disponibile - rimuovilo per continuare.', ar: 'لم تعد متاحة - أزلها للمتابعة.' })}</small>
           </div>)}
           {estimate.discount > 0 && <div className="cart-summary-row discount"><span>{tx(locale, { en: 'Deal savings', es: 'Ahorro por oferta', it: 'Risparmio offerta', ar: 'توفير العروض' })}</span><strong>−{formatPrice(estimate.discount, currency, locale)}</strong></div>}
-          <div className="cart-summary-row total"><span>{tx(locale, { en: 'Estimated total', es: 'Total estimado', it: 'Totale stimato', ar: 'الإجمالي التقديري' })}</span><strong>{formatPrice(estimate.subtotal, currency, locale)}</strong></div>
+          <div className="cart-summary-row total"><span>{tx(locale, { en: 'Estimated total', es: 'Total estimado', it: 'Totale stimato', ar: 'الإجمالي التقديري' })}</span><strong>{estimate.priceUnavailable ? "—" : formatPrice(estimate.subtotal, currency, locale)}</strong></div>
           <p>{tx(locale, { en: 'Frontend estimate only. The final price is recalculated from our catalogue before the booking is confirmed.', es: 'Solo estimación inicial. El precio final se recalcula desde nuestro catálogo antes de confirmar la reserva.', it: 'Solo stima iniziale. Il prezzo finale è ricalcolato dal nostro catalogo prima della conferma.', ar: 'تقدير مبدئي فقط. يُعاد حساب السعر النهائي من قائمتنا قبل تأكيد الحجز.' })}</p>
+          {staleBlocked && <p className="co-error" role="alert">{copy.staleBlocked}</p>}
           <button type="submit" className="primary-btn" disabled={staleBlocked || sending}>{sending ? tx(locale, { en: 'Sending...', es: 'Enviando...', it: 'Invio in corso...', ar: 'جارٍ الإرسال...' }) : tx(locale, { en: 'Request booking', es: 'Solicitar reserva', it: 'Richiedi prenotazione', ar: 'إرسال طلب الحجز' })} <ArrowRight size={17} /></button>
         </aside>
       </form>}

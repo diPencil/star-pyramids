@@ -158,4 +158,31 @@ describe('safe email helpers', () => {
     const { sendCustomerEmailSafe } = await loadEmail();
     await expect(sendCustomerEmailSafe('password_reset', 'guest@example.com', {})).resolves.toBeTruthy();
   });
+  it('sends booking links as absolute URLs using the trusted public origin', async () => {
+    adapter.send.mockResolvedValue({providerMessageId:'booking-link'});
+    const {sendCustomerEmailSafe}=await loadEmail();
+    const {resolveSiteUrl}=await import('@/lib/seo');
+    await sendCustomerEmailSafe('booking_access_requested','guest@example.com',{name:'Guest',reference:'SP-BK-ABC123',detailUrl:'/booking/'+'a'.repeat(43)});
+    const sent=adapter.send.mock.calls[0][0];
+    expect(sent.html).toContain(`href="${resolveSiteUrl()}/booking/`);
+    expect(sent.text).toContain(`${resolveSiteUrl()}/booking/`);
+  });
+  it.each(['booking_created','booking_confirmed','booking_completed','booking_cancelled','payment_proof_received','payment_initiated','payment_paid','payment_failed','admin_payment_initiated','admin_booking_created','admin_payment_proof_submitted'] as const)('keeps %s links on the public origin',async eventType=>{
+    adapter.send.mockResolvedValue({providerMessageId:'lifecycle-link'});
+    const {sendCustomerEmailSafe}=await loadEmail();
+    const {resolveSiteUrl}=await import('@/lib/seo');
+    await sendCustomerEmailSafe(eventType,'guest@example.com',{detailUrl:'/account/bookings/detail?ref=SP-BK-ABC123'});
+    expect(adapter.send.mock.calls[0][0].text).toContain(`${resolveSiteUrl()}/account/bookings/detail?ref=SP-BK-ABC123`);
+  });
+  it('preserves the refund receipt that intentionally has no detail URL',async()=>{
+    adapter.send.mockResolvedValue({providerMessageId:'refund'});
+    const {sendCustomerEmailSafe}=await loadEmail();
+    expect((await sendCustomerEmailSafe('payment_refunded','guest@example.com',{reference:'SP-PAY-ABC123',bookingReference:'SP-BK-ABC123'}))?.status).toBe('SENT');
+    expect(adapter.send.mock.calls[0][0].text).toContain('has been refunded');
+  });
+  it.each(['//evil.example/booking/x','https://evil.example/booking/x','javascript:alert(1)','/\\evil.example/x','/booking/\nx'])('does not send a booking link with an unsafe target %j',async detailUrl=>{
+    const {sendCustomerEmailSafe}=await loadEmail();
+    expect(await sendCustomerEmailSafe('booking_created','guest@example.com',{detailUrl})).toBeNull();
+    expect(adapter.send).not.toHaveBeenCalled();
+  });
 });

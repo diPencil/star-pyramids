@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { getCurrentUser } from '@/lib/server/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
+import { readBoundedJson } from '@/lib/server/request-json';
 import {
   checkBookingRateLimit,
   recordBookingAttempt,
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
 
   let body: unknown;
   try {
-    body = await request.json();
+    body = await readBoundedJson(request);
   } catch {
     return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
   }
@@ -72,10 +73,10 @@ export async function POST(request: Request) {
 
   try {
     const { booking, created, guestAccessUrl } = await createBookingRecord(userId, draft);
-    await recordBookingAttempt(draft.contactEmail, ip);
+    await recordBookingAttempt(draft.contactEmail, ip).catch(() => undefined);
     // `guestAccessUrl` is the private link minted for a guest checkout; it
     // is null for account bookings, which keep their existing session flow.
-    return NextResponse.json({ ...booking, guestAccessUrl }, { status: created ? 201 : 200 });
+    return NextResponse.json({ ...booking, guestAccessUrl, guest: userId === null }, { status: created ? 201 : 200 });
   } catch (error) {
     await recordBookingAttempt(draft.contactEmail, ip);
     if (error instanceof Error) {

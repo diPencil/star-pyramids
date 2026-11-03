@@ -1,4 +1,6 @@
-import { dayTourTerms, findTour, getBookingTotal } from '@/data/tours'
+import { dayTourTerms, getBookingTotal, getTravelerUnitPrices } from '@/data/tours'
+import { isTourPublished } from '@/lib/tour-publish'
+import { bookingAddons, bookingCents, bookingSelectionKey, validBookingTravelers, MAX_BOOKING_AMOUNT_CENTS } from './booking-selection'
 import type { CartItem } from '@/lib/cart'
 import type { Tour } from '@/data/types'
 import { localeFromAr, pickLocaleText, type Locale } from '@/lib/locale-config'
@@ -338,6 +340,10 @@ export type ResolvedCartLine = {
   tour: Tour | null
   /** True when the slug no longer resolves to canonical tour data. Never substitute another tour. */
   stale: boolean
+  invalidTravelers: boolean
+  invalidPrice: boolean
+  duplicateSelection?: boolean
+  unavailableAddons: readonly string[]
   /** Canonical traveler units for the stored headcount (USD base, deal already applied). */
   adultUnit: number
   childUnit: number
@@ -362,44 +368,47 @@ function addonCatalog(tour: Tour): readonly { title: string; price?: number }[] 
 }
 
 /**
- * Revalidate one persisted cart line against canonical tour data.
+ * Revalidate one persisted cart line against an explicitly supplied live catalogue.
  * Uses the single pricing engine (`getBookingTotal`); never parses price
  * strings or invents rates. Display estimate only  -  the backend
  * recalculates authoritatively at checkout.
  */
-export function resolveCartLine(item: CartItem): ResolvedCartLine {
-  const tour = findTour(item.tourSlug) ?? null
-  if (!tour) {
+export function resolveCartLine(item: CartItem, lookup: (slug: string) => Tour | undefined): ResolvedCartLine {
+  const tour = lookup(item.tourSlug) ?? null
+  if (!tour || !isTourPublished(tour)) {
     return {
       item, tour, stale: true,
+      invalidTravelers: false, invalidPrice: false, unavailableAddons: [],
       adultUnit: 0, childUnit: 0, infantUnit: 0, travelerTotal: 0,
       discountTotal: 0,
       pricedAddons: [], onRequestAddons: item.addons, addonTotal: 0, canonicalTotal: 0,
     }
   }
-  const pricing = getBookingTotal(tour, item.adults, item.children, item.infants)
-  const catalog = addonCatalog(tour)
-  const pricedAddons: string[] = []
-  const onRequestAddons: string[] = []
-  for (const title of item.addons) {
-    const match = catalog.find((addon) => addon.title === title)
-    if (match && typeof match.price === 'number') pricedAddons.push(title)
-    else onRequestAddons.push(title)
-  }
-  const addonTotal = pricedAddons.reduce((sum, title) => {
-    const match = catalog.find((addon) => addon.title === title)
-    return sum + (match?.price ?? 0)
-  }, 0)
-  const travelerTotal = pricing.total
-  return {
-    item, tour, stale: false,
-    adultUnit: pricing.adult, childUnit: pricing.child, infantUnit: pricing.infant,
-    travelerTotal, discountTotal: pricing.discount, pricedAddons, onRequestAddons, addonTotal,
-    canonicalTotal: travelerTotal + addonTotal,
+  const invalidTravelers = !validBookingTravelers(item.adults, item.children, item.infants)
+  try {
+    const pricing = getBookingTotal(tour, item.adults, item.children, item.infants)
+    const extras = bookingAddons(addonCatalog(tour), item.addons)
+    const adult = bookingCents(pricing.adult), child = bookingCents(pricing.child), infant = bookingCents(pricing.infant)
+    const travelerCents = item.adults * adult + item.children * child + item.infants * infant
+    const original = getTravelerUnitPrices(tour, item.adults + item.children + item.infants)
+    const originalCents = item.adults * bookingCents(original.adult) + item.children * bookingCents(original.child) + item.infants * bookingCents(original.infant)
+    const canonicalCents = travelerCents + extras.cents
+    if (!Number.isSafeInteger(canonicalCents) || canonicalCents < 0 || canonicalCents > MAX_BOOKING_AMOUNT_CENTS || originalCents + extras.cents > MAX_BOOKING_AMOUNT_CENTS) throw Error('Invalid total')
+    return {
+    item: { ...item, tourSlug: tour.slug, title: tour.title, image: tour.image }, tour, stale: false,
+    invalidTravelers, invalidPrice: false, unavailableAddons: extras.unavailable,
+    adultUnit: adult / 100, childUnit: child / 100, infantUnit: infant / 100,
+    travelerTotal: travelerCents / 100, discountTotal: Math.max(0, originalCents - travelerCents) / 100, pricedAddons: extras.priced, onRequestAddons: extras.requested, addonTotal: extras.cents / 100,
+    canonicalTotal: canonicalCents / 100,
+    }
+  } catch {
+    return { item, tour, stale: false, invalidTravelers, invalidPrice: true, unavailableAddons: [], adultUnit: 0, childUnit: 0, infantUnit: 0, travelerTotal: 0, discountTotal: 0, pricedAddons: [], onRequestAddons: [], addonTotal: 0, canonicalTotal: 0 }
   }
 }
 
 export type CartEstimate = {
+  blocked: boolean
+  priceUnavailable: boolean
   lines: ResolvedCartLine[]
   validLines: ResolvedCartLine[]
   staleLines: ResolvedCartLine[]
@@ -409,16 +418,34 @@ export type CartEstimate = {
   discount: number
 }
 
-export function estimateCart(items: readonly CartItem[]): CartEstimate {
-  const lines = items.map(resolveCartLine)
+export function estimateCart(items: readonly CartItem[], catalogue: readonly Tour[]): CartEstimate {
+  // Explicit live catalogue only. Never revive a removed/unpublished tour from bootstrap data.
+  const bySlug = new Map(catalogue.filter(isTourPublished).map(tour => [tour.slug, tour]))
+  for (const tour of catalogue) {
+    if (!isTourPublished(tour)) continue
+    for (const alias of tour.aliases ?? []) if (!bySlug.has(alias)) bySlug.set(alias, tour)
+  }
+  const lines = items.map(item => resolveCartLine(item, slug => bySlug.get(slug)))
+  const seen = new Set<string>()
+  for (const line of lines) {
+    if (line.stale) continue
+    const key = bookingSelectionKey({ ...line.item, tourSlug: line.tour!.slug })
+    line.duplicateSelection = seen.has(key)
+    seen.add(key)
+  }
   const validLines = lines.filter((line) => !line.stale)
   const staleLines = lines.filter((line) => line.stale)
   const round2 = (v: number) => Math.round(v * 100) / 100
+  const subtotal = round2(validLines.reduce((sum, line) => sum + line.canonicalTotal, 0))
+  const originalTotal = round2(validLines.reduce((sum, line) => sum + line.canonicalTotal + line.discountTotal, 0))
+  const priceUnavailable = validLines.some(line => line.invalidPrice) || validLines.length > 0 && (originalTotal <= 0 || originalTotal * 100 > MAX_BOOKING_AMOUNT_CENTS)
   return {
+    blocked: staleLines.length > 0 || priceUnavailable || validLines.some(line => line.duplicateSelection || line.invalidTravelers || line.unavailableAddons.length > 0),
+    priceUnavailable,
     lines,
     validLines,
     staleLines,
-    subtotal: round2(validLines.reduce((sum, line) => sum + line.canonicalTotal, 0)),
+    subtotal,
     discount: round2(validLines.reduce((sum, line) => sum + line.discountTotal, 0)),
   }
 }

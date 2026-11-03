@@ -247,7 +247,8 @@ describe('cart estimate  -  deal discount computation', () => {
       infantUnit: 0,
       total: 200,
     }];
-    const estimate = estimateCart(items);
+    const { findTour } = await import('@/data/tours');
+    const estimate = estimateCart(items, [findTour('test-tour')!]);
     expect(estimate.subtotal).toBe(200);
     expect(estimate.discount).toBe(0);
     vi.doUnmock('@/data/tours');
@@ -276,7 +277,7 @@ describe('cart estimate  -  deal discount computation', () => {
       infantUnit: 0,
       total: 100,
     }];
-    const estimate = estimateCart(items);
+    const estimate = estimateCart(items, []);
     expect(estimate.subtotal).toBe(0);
     expect(estimate.discount).toBe(0);
     expect(estimate.staleLines).toHaveLength(1);

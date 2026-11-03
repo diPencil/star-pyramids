@@ -19,6 +19,7 @@ import 'server-only';
 
 import { db } from './db';
 import { SmtpProviderAdapter } from './email-smtp';
+import { resolveSiteUrl } from '@/lib/seo';
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
@@ -185,6 +186,7 @@ function wrapHtml(title: string, bodyHtml: string, fromName?: string): string {
 export type EmailEventType =
   | 'welcome'
   | 'booking_created'
+  | 'booking_access_requested'
   | 'booking_confirmed'
   | 'booking_completed'
   | 'booking_cancelled'
@@ -218,6 +220,11 @@ interface EmailTemplateDefinition {
 }
 
 const TEMPLATES: Record<EmailEventType, EmailTemplateDefinition> = {
+  booking_access_requested: {
+    subject: 'Your private booking link - {{reference}}',
+    bodyHtml: '<h2>Your booking link</h2><p>Hi {{name}},</p><p>A private link was requested for booking <strong>{{reference}}</strong>.</p><p><a href="{{detailUrl}}" class="btn">View your booking</a></p><p>This is your private access link. Keep it confidential and use the newest link. If you did not request it, do not share or forward this message.</p>',
+    bodyText: 'Your booking link\n\nHi {{name}},\n\nA private link was requested for booking {{reference}}.\n\nView your booking: {{detailUrl}}\n\nKeep this private link confidential and use the newest link. If you did not request it, do not share or forward this message.',
+  },
   welcome: {
     subject: 'Welcome to Star Pyramids Tours',
     bodyHtml: '<h2>Welcome, {{name}}!</h2><p>Thank you for creating an account with Star Pyramids Tours. We are excited to help you explore Egypt.</p><p><a href="{{dashboardUrl}}" class="btn">Go to your account</a></p>',
@@ -397,7 +404,20 @@ export async function sendTemplatedEmail(
   options?: { relatedReference?: string; idempotencyKey?: string },
 ): Promise<EmailDeliveryRecord> {
   const sender = await getSenderConfigAsync();
-  const template = renderEmailTemplate(eventType, data, sender.fromName);
+  // Mail clients have no website origin for a relative booking URL. Resolve
+  // only at the outbound boundary; browser URLs and pure template previews stay unchanged.
+  const isBookingLink = eventType.startsWith('booking_') || eventType === 'admin_booking_created' || eventType.startsWith('payment_') || eventType.startsWith('admin_payment_');
+  let renderedData = data;
+  const usesDetailUrl = TEMPLATES[eventType]?.bodyHtml.includes('{{detailUrl}}') || TEMPLATES[eventType]?.bodyText.includes('{{detailUrl}}');
+  if (isBookingLink && usesDetailUrl) {
+    const path = data.detailUrl;
+    if (typeof path !== 'string' || !path || /[\\\u0000-\u0020\u007f]/.test(path) || path.startsWith('//')) throw new Error('Invalid booking email link.');
+    const origin = resolveSiteUrl();
+    const url = new URL(path, origin);
+    if (url.protocol !== 'https:' || url.origin !== origin || url.username || url.password || !path.startsWith('/') && !path.startsWith(`${origin}/`)) throw new Error('Invalid booking email link.');
+    renderedData = { ...data, detailUrl: url.href };
+  }
+  const template = renderEmailTemplate(eventType, renderedData, sender.fromName);
   return sendEmail({
     to,
     recipientType,

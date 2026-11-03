@@ -22,10 +22,11 @@ import { formatPrice, LocaleProvider, tx, useLocale, type Locale } from '@/compo
 import { catalogTours, findTour } from '@/data/tours'
 import { countries, defaultCountry } from '@/data/countries'
 import { localizeTourDuration, localizeTourLocation } from '@/lib/tour-format'
-import { estimateCart, isValidPreferredDate, bookingActivityLabel, bookingStatusLabel, type Booking, type BookingStatus } from '@/lib/booking'
+import { isValidPreferredDate, bookingActivityLabel, bookingStatusLabel, type Booking, type BookingStatus } from '@/lib/booking'
 import { documentTypeLabel, formatDocumentIssuedAt, guestDocumentPdfUrl, ownerDocumentPdfUrl, type DocumentListItem } from '@/lib/documents'
 import { paymentActivityLabel, paymentStatusLabel, type Payment } from '@/lib/payment'
 import { useCart } from '@/lib/cart'
+import { useCartCatalogue } from '@/lib/cart-catalogue'
 import { useInquiries, useBrandSettings, readImpersonation, stopImpersonation, type ImpersonatedCustomer } from '@/lib/admin-store'
 import { useDbCars } from '@/lib/events-cars-client'
 import { useDbTours } from '@/lib/tours-client'
@@ -481,7 +482,8 @@ function OverviewSection() {
   const supportThread = useSupportChat()
   const hasSupportThread = supportThread.conversation !== null || supportThread.messages.length > 0
   const cart = useCart()
-  const cartEstimate = useMemo(() => estimateCart(cart.items), [cart.items])
+  const cartCatalogue = useCartCatalogue(cart.items)
+  const cartEstimate = cartCatalogue.estimate
   const latestBooking = bookings[0]
   const liveTours = useDbTours(catalogTours, { includeNew: true })
   const savedTours = favorites.slugs.map((slug) => liveTours.find((tour) => tour.slug === slug)).filter((tour) => Boolean(tour)).slice(0, 3)
@@ -494,7 +496,7 @@ function OverviewSection() {
     <div className="customer-metrics">
       <Metric Icon={ShoppingBag} value={bookings.length} label={tx(locale, { en: 'Bookings', es: 'Reservas', it: 'Prenotazioni', ar: 'الحجوزات' })} note={tx(locale, { en: 'All requests', es: 'Todas las solicitudes', it: 'Tutte le richieste', ar: 'كل الطلبات' })} tone="blue" />
       <Metric Icon={Heart} value={favorites.slugs.length} label={tx(locale, { en: 'Saved', es: 'Guardado', it: 'Salvato', ar: 'المحفوظة' })} note={tx(locale, { en: 'Trip ideas', es: 'Ideas de viaje', it: 'Idee di viaggio', ar: 'أفكار للرحلة' })} tone="orange" />
-      <Metric Icon={ShoppingCart} value={cart.lines} label={tx(locale, { en: 'In cart', es: 'En la cesta', it: 'Nel carrello', ar: 'في السلة' })} note={cart.lines ? formatPrice(cartEstimate.subtotal, currency, locale) : (tx(locale, { en: 'Cart is empty', es: 'La cesta está vacía', it: 'Il carrello è vuoto', ar: 'السلة فارغة' }))} tone="green" />
+      <Metric Icon={ShoppingCart} value={cart.lines} label={tx(locale, { en: 'In cart', es: 'En la cesta', it: 'Nel carrello', ar: 'في السلة' })} note={cart.lines ? cartCatalogue.ready ? formatPrice(cartEstimate.subtotal, currency, locale) : tx(locale, { en: 'Check your cart for current prices', es: 'Consulta los precios actuales en tu carrito', it: 'Controlla i prezzi attuali nel carrello' }) : (tx(locale, { en: 'Cart is empty', es: 'La cesta está vacía', it: 'Il carrello è vuoto', ar: 'السلة فارغة' }))} tone="green" />
       <Metric Icon={MessageCircle} value={inquiries.length + (hasSupportThread ? 1 : 0)} label={tx(locale, { en: 'Conversations', es: 'Conversaciones', it: 'Conversazioni', ar: 'المحادثات' })} note={hasSupportThread ? (tx(locale, { en: 'Active support chat', es: 'Chat de asistencia activa', it: 'Chat di assistenza attiva', ar: 'دعم مباشر نشط' })) : (tx(locale, { en: 'Recorded enquiries', es: 'Consultas registradas', it: 'Richieste registrate', ar: 'طلبات مسجلة' }))} tone="violet" />
     </div>
     <div className="customer-overview-grid">
