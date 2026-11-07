@@ -9,6 +9,7 @@ import styles from './consent-manager.module.css'
 
 const optionalOff = { analytics: false, marketing: false }
 const optionalOn = { analytics: true, marketing: true }
+const sessionDismissedKey = 'sp-consent-widget-dismissed'
 
 const en = {
   title: 'Your cookie choices',
@@ -91,11 +92,13 @@ export function ConsentManager({ initialLocale }: { initialLocale: EnabledLocale
   const text = copy[locale]
   const id = useId()
   const settings = useRef<HTMLButtonElement>(null)
+  const region = useRef<HTMLElement>(null)
   const firstOption = useRef<HTMLInputElement>(null)
   const observedPreference = useRef<TrackingConsent | null>(null)
   const [preference, setPreference] = useState<TrackingConsent | null>()
   const [editing, setEditing] = useState(false)
   const [visible, setVisible] = useState(true)
+  const [sessionDismissed, setSessionDismissed] = useState(false)
   const [draft, setDraft] = useState<TrackingConsent>(optionalOff)
   const [feedback, setFeedback] = useState<'saved' | 'changed' | 'unavailable'>()
 
@@ -112,6 +115,12 @@ export function ConsentManager({ initialLocale }: { initialLocale: EnabledLocale
     }
     const unsubscribe = subscribeToTrackingConsent(window, sync)
     sync(readTrackingConsent(window))
+    try {
+      // Only widget visibility is session-scoped; consent remains in the bridge.
+      setSessionDismissed(readTrackingConsentPreference(window) !== null && window.sessionStorage.getItem(sessionDismissedKey) === '1')
+    } catch {
+      setSessionDismissed(false)
+    }
     return unsubscribe
   }, [])
 
@@ -141,7 +150,18 @@ export function ConsentManager({ initialLocale }: { initialLocale: EnabledLocale
     setFeedback(saved ? 'saved' : 'unavailable')
     observedPreference.current = current
     setPreference(current)
-    if (saved) close()
+    if (saved) {
+      close()
+      try {
+        window.sessionStorage.setItem(sessionDismissedKey, '1')
+        const dismissed = window.sessionStorage.getItem(sessionDismissedKey) === '1'
+        setSessionDismissed(dismissed)
+        if (dismissed) region.current?.focus({ preventScroll: true })
+      } catch {
+        // Keep the control available if session storage is unavailable.
+        setSessionDismissed(false)
+      }
+    }
     else {
       setVisible(true)
       setDraft(current ?? optionalOff)
@@ -151,7 +171,7 @@ export function ConsentManager({ initialLocale }: { initialLocale: EnabledLocale
   if (preference === undefined) return null
   const showPanel = visible && (preference === null || editing || feedback === 'unavailable')
   return (
-    <section className={styles.region} aria-label={text.title} lang={locale} onKeyDown={event => {
+    <section className={styles.region} ref={region} tabIndex={-1} aria-label={text.title} lang={locale} onKeyDown={event => {
       if (showPanel && event.key === 'Escape') {
         event.preventDefault()
         event.stopPropagation()
@@ -208,7 +228,7 @@ export function ConsentManager({ initialLocale }: { initialLocale: EnabledLocale
           {feedback && feedback !== 'saved' && <p className={styles.feedback} role="alert">{text[feedback]}</p>}
         </>}
       </div>
-      <button className={styles.settings} type="button" ref={settings} aria-expanded={showPanel} aria-controls={id}
+      <button className={styles.settings} type="button" ref={settings} hidden={sessionDismissed} aria-expanded={showPanel} aria-controls={id}
         onClick={() => { if (editing && showPanel) close(); else customize() }}>
         {text.settings}
       </button>

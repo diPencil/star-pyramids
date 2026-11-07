@@ -47,7 +47,7 @@ vi.mock('react', async importOriginal => ({
   },
 }))
 
-function browserAt(path = '/', values = new Map<string, string>()) {
+function browserAt(path = '/', values = new Map<string, string>(), sessionValues = new Map<string, string>()) {
   const appendChild = vi.fn()
   const localStorage = {
     get length() { return values.size },
@@ -60,10 +60,15 @@ function browserAt(path = '/', values = new Map<string, string>()) {
     location: { href: 'https://starpyramids.com' + path },
     crypto: { randomUUID },
     localStorage,
+    sessionStorage: {
+      getItem: vi.fn((key: string) => sessionValues.get(key) ?? null),
+      setItem: vi.fn((key: string, value: string) => { sessionValues.set(key, value) }),
+      removeItem: (key: string) => { sessionValues.delete(key) },
+    },
     document: { createElement: () => ({}), head: { appendChild } },
     dataLayer: [] as unknown[],
   })
-  return { browser: target as unknown as Window, target, localStorage, appendChild, values }
+  return { browser: target as unknown as Window, target, localStorage, appendChild, values, sessionValues }
 }
 
 type Element = ReactElement<Record<string, any>>
@@ -75,6 +80,7 @@ function elements(node: ReactNode): Element[] {
 }
 
 const launcherFocus = vi.fn()
+const regionFocus = vi.fn()
 const firstOptionFocus = vi.fn()
 const languageNotification = vi.fn()
 const language = { lang: 'en' }
@@ -85,6 +91,7 @@ function render() {
   const tree = ConsentManager({ initialLocale: 'en' })
   const nodes = elements(tree)
   for (const node of nodes) {
+    if (node.type === 'section' && node.props.ref) node.props.ref.current = { focus: regionFocus }
     if (node.type === 'input' && node.props.ref) node.props.ref.current = { focus: firstOptionFocus }
     if (node.type === 'button' && node.props['aria-controls']) node.props.ref.current = { focus: launcherFocus }
   }
@@ -125,7 +132,7 @@ afterEach(() => {
 it.each([
   ['Accept all', granted],
   ['Reject optional', denied],
-] as const)('persists %s once and leaves a settings control after a decision', (label, choice) => {
+] as const)('persists %s once and hides the widget for the session after a decision', (label, choice) => {
   const page = browserAt()
   const measurement = vi.fn()
   const stopMeasurement = subscribeToTrackingConsent(page.browser, measurement)
@@ -142,9 +149,11 @@ it.each([
     const dismissed = render()
     expect(launcher(dismissed).props.children).toBe('Cookie settings')
     expect(launcher(dismissed).props['aria-expanded']).toBe(false)
+    expect(launcher(dismissed).props.hidden).toBe(true)
     expect(dismissed.find(node => node.props.id === 'consent-panel')?.props.hidden).toBe(true)
     expect(dismissed.some(node => node.type === 'h2')).toBe(false)
     expect(launcherFocus).toHaveBeenCalled()
+    expect(regionFocus).toHaveBeenCalledWith({ preventScroll: true })
     expect(readTrackingConsentPreference(browserAt('/', page.values).browser)).toEqual(choice)
   } finally {
     stopMeasurement()
@@ -183,6 +192,7 @@ it('uses labelled native controls, restores focus on Escape, and saves categorie
   form.props.onSubmit({ preventDefault: vi.fn() })
   expect(readTrackingConsent(page.browser)).toEqual({ analytics: true, marketing: false })
   expect(launcher(render()).props['aria-expanded']).toBe(false)
+  expect(launcher(render()).props.hidden).toBe(true)
 })
 
 it('applies private-route withdrawal to public tabs and purges pending bookings before regrant', () => {
@@ -247,6 +257,7 @@ it('reports a storage failure and keeps optional tracking off on reload', () => 
   button(render(), 'Reject optional').props.onClick()
   expect(render().find(node => node.props.role === 'alert')?.props.children).toMatch(/couldn’t save/)
   expect(launcher(render()).props['aria-expanded']).toBe(true)
+  expect(launcher(render()).props.hidden).toBe(false)
   expect(readTrackingConsent(page.browser)).toEqual(denied)
   expect(readTrackingConsent(browserAt('/login', page.values).browser)).toEqual(denied)
   expect(page.appendChild).not.toHaveBeenCalled()
@@ -308,16 +319,47 @@ it('keeps a saved rejection dismissed after component hydration and reload', () 
   expect(render().filter(node => node.type === 'input').map(node => node.props.checked)).toEqual([false, false])
 })
 
-it('keeps the notice out of page flow with bounded mobile height and safe-area spacing', () => {
+it('keeps a compact vertical widget on the left edge with a bounded preferences panel', () => {
   const css = readFileSync('components/consent-manager.module.css', 'utf8')
   expect(css).toMatch(/\.region\s*\{[^}]*position:\s*fixed/s)
   expect(css).toContain('env(safe-area-inset-left)')
   expect(css).toContain('env(safe-area-inset-bottom)')
   expect(css).toContain('max-block-size: calc(100dvh')
   expect(css).toContain('overflow-y: auto')
-  expect(css).toContain('body:has(.mobile-bottom-nav)')
-  expect(css).toContain('calc(100vw - 24px')
+  expect(css).toContain('top: 50%')
+  expect(css).toContain('writing-mode: vertical-rl')
+  expect(css).toContain('max-inline-size: min(180px, 50dvh)')
+  expect(css).toContain('calc(100vw - 12px')
+  expect(css).not.toContain('bottom:')
   const page = browserAt()
   const initial = mount(page.browser)
   expect(initial.some(node => /\bcontainer\b/.test(node.props.className ?? ''))).toBe(false)
+})
+
+it('keeps the widget hidden through reloads and remounts but restores it in a new session', () => {
+  const page = browserAt()
+  button(mount(page.browser), 'Accept all').props.onClick()
+  expect(launcher(render()).props.hidden).toBe(true)
+  for (const cleanup of hooks.cleanups.splice(0)) cleanup()
+  hooks.values = []
+  const reload = browserAt('/trips', page.values, page.sessionValues)
+  expect(launcher(mount(reload.browser)).props.hidden).toBe(true)
+  expect(readTrackingConsent(reload.browser)).toEqual(granted)
+  for (const cleanup of hooks.cleanups.splice(0)) cleanup()
+  hooks.values = []
+  const newSession = browserAt('/', page.values)
+  const nodes = mount(newSession.browser)
+  expect(launcher(nodes).props.hidden).toBe(false)
+  expect(launcher(nodes).props['aria-expanded']).toBe(false)
+  launcher(nodes).props.onClick()
+  expect(render().filter(node => node.type === 'input').map(node => node.props.checked)).toEqual([true, true])
+})
+
+it('keeps the launcher available when session visibility cannot be persisted', () => {
+  const page = browserAt()
+  page.target.sessionStorage.setItem.mockImplementation(() => { throw new Error('blocked') })
+  button(mount(page.browser), 'Reject optional').props.onClick()
+  expect(launcher(render()).props.hidden).toBe(false)
+  expect(launcher(render()).props['aria-expanded']).toBe(false)
+  expect(readTrackingConsent(page.browser)).toEqual(denied)
 })
