@@ -328,6 +328,13 @@ it('keeps a compact vertical widget on the left edge with a bounded preferences 
   expect(css).toContain('overflow-y: auto')
   expect(css).toContain('top: 50%')
   expect(css).toContain('writing-mode: vertical-rl')
+  const settingsRule = css.match(/\.settings\s*\{([^}]+)\}/)![1]
+  expect(settingsRule).toContain('inline-size: max-content')
+  expect(settingsRule).toContain('block-size: 44px')
+  expect(settingsRule).toContain('white-space: nowrap')
+  expect(settingsRule).toContain('text-overflow: ellipsis')
+  const cardRule = css.match(/\.card\s*\{([^}]+)\}/)![1]
+  expect(cardRule).toContain('writing-mode: horizontal-tb')
   expect(css).toContain('max-inline-size: min(180px, 50dvh)')
   expect(css).toContain('calc(100vw - 12px')
   expect(css).not.toContain('bottom:')

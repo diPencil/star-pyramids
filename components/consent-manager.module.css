@@ -14,6 +14,7 @@
 }
 
 .card {
+  writing-mode: horizontal-tb;
   inline-size: calc(100% - 52px);
   margin-inline-start: 52px;
   max-block-size: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
@@ -99,8 +100,13 @@
   top: 50%;
   transform: translateY(-50%);
   writing-mode: vertical-rl;
-  min-block-size: 44px;
+  inline-size: max-content;
+  block-size: 44px;
   max-inline-size: min(180px, 50dvh);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1;
   padding: 12px 10px;
   background: var(--surface);
   border: 1px solid var(--border);
