@@ -865,7 +865,14 @@ model Notification {
 model SupportConversation {
   id              String                    @id @default(cuid())
   reference       String                    @unique @db.VarChar(16)
-  customerId      String
+  customerId      String?
+  guestSessionId  String?
+  guestName       String?                   @db.VarChar(120)
+  guestPhone      String?                   @db.VarChar(32)
+  channel         String                    @default("account") @db.VarChar(16)
+  agentRequestedAt DateTime?
+  needsStaffReply Boolean                   @default(true)
+  guestSession    ChatGuestSession?         @relation(fields: [guestSessionId], references: [id])
   subject         String?                   @db.VarChar(160)
   status          SupportConversationStatus @default(OPEN)
   assignedStaffId String?
@@ -874,9 +881,11 @@ model SupportConversation {
   updatedAt       DateTime                  @updatedAt
   closedAt        DateTime?
   assignee        User?                     @relation("SupportAssignee", fields: [assignedStaffId], references: [id])
-  customer        User                      @relation("SupportCustomer", fields: [customerId], references: [id], onDelete: Cascade)
+  customer        User?                     @relation("SupportCustomer", fields: [customerId], references: [id], onDelete: Cascade)
   messages        SupportMessage[]
 
+  @@index([guestSessionId, updatedAt])
+  @@index([channel, needsStaffReply])
   @@index([customerId, updatedAt])
   @@index([status, lastMessageAt])
   @@index([assignedStaffId], map: "support_conversations_assignedStaffId_fkey")
@@ -884,7 +893,7 @@ model SupportConversation {
 }
 
 /// Phase 2I: plain-text support messages. `senderRole` is stamped
-/// server-side from the authenticated session ('customer' | 'staff')  - 
+/// server-side from account/guest ownership, staff identity or the bot ('customer' | 'staff' | 'bot').
 /// the browser never declares who sends. `body` is validated plain
 /// text (1–2000 chars, no control characters); rendering must treat it
 /// as text, never HTML. `readAt` is the recipient-side read marker:
@@ -893,13 +902,15 @@ model SupportConversation {
 model SupportMessage {
   id             String              @id @default(cuid())
   conversationId String
-  senderId       String
+  senderId       String?
+  requestId      String?             @unique @db.VarChar(48)
+  requestHash    String?             @db.Char(64)
   senderRole     String              @db.VarChar(16)
   body           String              @db.VarChar(2000)
   readAt         DateTime?
   createdAt      DateTime            @default(now())
   conversation   SupportConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender         User                @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  sender         User?               @relation(fields: [senderId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, createdAt])
   @@index([senderId], map: "support_messages_senderId_fkey")
@@ -1514,4 +1525,24 @@ enum CarLocationKind {
 enum CarRoundTripMode {
   AUTOMATIC
   MANUAL
+}
+
+// Opaque guest credential hashes only; raw cookies never enter the database.
+model ChatGuestSession {
+  id String @id @default(cuid())
+  tokenHash String @unique @db.Char(64)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  conversations SupportConversation[]
+  @@index([expiresAt])
+  @@map("chat_guest_sessions")
+}
+
+// Shared fixed-window budgets across processes. Keys contain hashes, not raw IPs.
+model ChatRateBucket {
+  key String @id @db.Char(64)
+  count Int @default(1)
+  expiresAt DateTime
+  @@index([expiresAt])
+  @@map("chat_rate_buckets")
 }

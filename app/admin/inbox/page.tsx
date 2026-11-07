@@ -21,15 +21,21 @@ interface SupportThreadSummary {
   updatedAt: string
   closedAt: string | null
   unreadCount: number
+  guestPhone: string | null
+  guestName: string | null
+  agentRequestedAt: string | null
+  needsStaffReply: boolean
+  channel: string
+  staffEngaged: boolean
   customer: { email: string; name: string }
-  lastMessage: { senderRole: 'customer' | 'staff'; body: string; createdAt: string } | null
+  lastMessage: { senderRole: 'customer' | 'staff' | 'bot'; body: string; createdAt: string } | null
 }
 
 interface SupportThreadDetail {
   conversation: SupportThreadSummary
   messages: {
     id: string
-    senderRole: 'customer' | 'staff'
+    senderRole: 'customer' | 'staff' | 'bot'
     body: string
     readAt: string | null
     createdAt: string
@@ -59,6 +65,8 @@ export default function InboxPage() {
     if (enquiryNavigationGuard.current) enquiryNavigationGuard.current(navigate)
     else navigate()
   }
+  const fetchingThreads = useRef(false)
+  const detailVersion = useRef(0)
   const [threads, setThreads] = useState<SupportThreadSummary[]>([])
   const [globalUnread, setGlobalUnread] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -68,6 +76,7 @@ export default function InboxPage() {
   const [detailLoading, setDetailLoading] = useState(false)
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
+  const replyAttempt = useRef<{ reference: string; body: string; requestId: string } | null>(null)
   const [sendError, setSendError] = useState('')
   const [query, setQuery] = useState('')
   const [mobileChatOpen, setMobileChatOpen] = useState(false)
@@ -82,8 +91,10 @@ export default function InboxPage() {
   }, [draft, tab, detail])
 
   const fetchThreads = useCallback(async () => {
+    if (fetchingThreads.current) return
+    fetchingThreads.current = true
     try {
-      const res = await fetch('/api/admin/conversations', { credentials: 'same-origin' })
+      const res = await fetch('/api/admin/conversations', { credentials: 'same-origin', signal: AbortSignal.timeout(10000) })
       if (!res.ok) {
         setLoadError(ar ? 'تعذر تحميل المحادثات.' : 'Could not load conversations.')
         return
@@ -100,6 +111,7 @@ export default function InboxPage() {
     } catch {
       setLoadError(ar ? 'تعذر تحميل المحادثات.' : 'Could not load conversations.')
     } finally {
+      fetchingThreads.current = false
       setLoading(false)
     }
   }, [ar])
@@ -107,6 +119,12 @@ export default function InboxPage() {
   useEffect(() => {
     void fetchThreads()
   }, [fetchThreads])
+
+  useEffect(() => {
+    if (tab !== 'support') return
+    const timer = window.setInterval(() => { if (!document.hidden) void fetchThreads() }, 15000)
+    return () => window.clearInterval(timer)
+  }, [tab, fetchThreads])
 
   // Deep link from staff notifications: /admin/inbox?conversation=SP-CV-XXXXXX
   useEffect(() => {
@@ -121,25 +139,32 @@ export default function InboxPage() {
     }
   }, [])
 
-  const openThread = useCallback(async (reference: string) => {
-    setActiveRef(reference)
-    setMobileChatOpen(true)
-    setDetailLoading(true)
+  const openThread = useCallback(async (reference: string, background = false) => {
+    const revision = ++detailVersion.current
+    if (!background) { setActiveRef(reference); setMobileChatOpen(true); setDetailLoading(true) }
     try {
       const res = await fetch(`/api/admin/conversations/${encodeURIComponent(reference)}`, {
-        credentials: 'same-origin',
+        credentials: 'same-origin', signal: AbortSignal.timeout(10000),
       })
-      if (!res.ok) return
+      if (!res.ok || revision !== detailVersion.current) return
       const data = (await res.json()) as SupportThreadDetail
-      if (data && data.conversation) {
+      if (data && data.conversation && revision === detailVersion.current) {
         setDetail(data)
         void fetchThreads()
         invalidateNotifications()
       }
+    } catch {
+      /* Keep the selected history on a temporary polling failure. */
     } finally {
-      setDetailLoading(false)
+      if (revision === detailVersion.current) setDetailLoading(false)
     }
   }, [fetchThreads])
+
+  useEffect(() => {
+    if (tab !== 'support' || !activeRef || !mobileChatOpen) return
+    const timer = window.setInterval(() => { if (!document.hidden) void openThread(activeRef, true) }, 15000)
+    return () => window.clearInterval(timer)
+  }, [tab, activeRef, mobileChatOpen, openThread])
 
   // Auto-open the deep-linked thread once the list is available.
   useEffect(() => {
@@ -151,6 +176,7 @@ export default function InboxPage() {
   const send = async () => {
     const text = draft.trim()
     if (!text || !activeRef || sending) return
+    if (!replyAttempt.current || replyAttempt.current.reference !== activeRef || replyAttempt.current.body !== text) replyAttempt.current = { reference: activeRef, body: text, requestId: crypto.randomUUID() }
     setSending(true)
     setSendError('')
     try {
@@ -158,7 +184,7 @@ export default function InboxPage() {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ body: text }),
+        body: JSON.stringify({ body: text, requestId: replyAttempt.current.requestId }),
       })
       const data = (await res.json().catch(() => null)) as { error?: unknown } | null
       if (!res.ok) {
@@ -170,6 +196,7 @@ export default function InboxPage() {
         return
       }
       setDraft('')
+      replyAttempt.current = null
       await openThread(activeRef)
     } catch {
       setSendError(ar ? 'تعذر إرسال الرد.' : 'Could not send the reply.')
@@ -204,11 +231,11 @@ export default function InboxPage() {
   const q = query.trim().toLowerCase()
   const supportList = threads.filter((t) => {
     if (!q) return true
-    return `${t.reference} ${t.subject} ${t.customer.email} ${t.customer.name}`.toLowerCase().includes(q)
+    return `${t.reference} ${t.subject} ${t.customer.email} ${t.customer.name} ${t.guestPhone ?? ''}`.toLowerCase().includes(q)
   })
 
   const active = detail && detail.conversation.reference === activeRef ? detail : null
-  const openCount = threads.filter((t) => t.status === 'open').length
+  const openCount = threads.filter((t) => t.status === 'open' && t.needsStaffReply).length
   const closedCount = threads.filter((t) => t.status === 'closed').length
   const locale = ar ? 'ar' : 'en'
 
@@ -223,7 +250,7 @@ export default function InboxPage() {
       <AdminStats items={[
         { label: <AdminText en="Conversations" ar="المحادثات" />, value: threads.length, note: <AdminText en="Support threads" ar="محادثات الدعم" />, icon: MessagesSquare },
         { label: <AdminText en="Unread" ar="غير المقروءة" />, value: globalUnread, note: <AdminText en="Customer messages needing attention" ar="رسائل عملاء تحتاج اهتماما" />, icon: MessageCircle, tone: 'orange' },
-        { label: <AdminText en="Open" ar="المفتوحة" />, value: openCount, note: <AdminText en="Awaiting resolution" ar="بانتظار الحل" />, icon: Inbox, tone: 'green' },
+        { label: <AdminText en="Open" ar="المفتوحة" />, value: openCount, note: <AdminText en="Awaiting staff reply" ar="بانتظار الحل" />, icon: Inbox, tone: 'green' },
         { label: <AdminText en="Closed" ar="المغلقة" />, value: closedCount, note: <AdminText en="Resolved history" ar="سجل المحادثات المحلولة" />, icon: Inbox },
       ]} />
       <Card title={<AdminText en="Conversations" ar="المحادثات" />} sub={<AdminText en="Customer support threads" ar="محادثات دعم العملاء" />} className="sp-inbox">
@@ -239,7 +266,7 @@ export default function InboxPage() {
               <Avatar name={c.customer.name} size={42} online={c.status === 'open'} />
               <div>
                 <strong>{c.customer.name} · {c.reference}</strong>
-                <p>{c.lastMessage ? c.lastMessage.body : (ar ? 'لا رسائل بعد' : 'No messages yet')}</p>
+                <small>{c.channel === 'live' ? (c.agentRequestedAt ? text(c.needsStaffReply ? 'Agent requested · Awaiting reply' : 'Agent requested · Replied', 'Agente solicitado', 'Operatore richiesto', 'طلب موظف') : c.staffEngaged ? text('Staff conversation', 'Conversación con el equipo', 'Conversazione con il team', 'محادثة مع الفريق') : text('Bot conversation', 'Conversación con bot', 'Conversazione con bot', 'محادثة آلية')) : text('Customer support', 'Soporte al cliente', 'Assistenza clienti', 'دعم العملاء')}</small><p>{c.lastMessage ? c.lastMessage.body : (ar ? 'لا رسائل بعد' : 'No messages yet')}</p>
               </div>
               <span style={{ display: 'grid', justifyItems: 'end', gap: 6 }}>
                 <time>{formatSiteTime(c.lastMessageAt, locale)}</time>
@@ -264,7 +291,12 @@ export default function InboxPage() {
                   <Avatar name={active.conversation.customer.name} size={38} online={active.conversation.status === 'open'} />
                   <div style={{ minWidth: 0 }}>
                     <strong style={{ display: 'block', overflowWrap: 'anywhere' }}>{active.conversation.customer.name}</strong>
-                    <div style={{ color: 'var(--sp-muted)', fontSize: 12, overflowWrap: 'anywhere' }}>{active.conversation.customer.email} · {active.conversation.reference}{active.conversation.subject ? ` · ${active.conversation.subject}` : ''}</div>
+                    <div style={{ color: 'var(--sp-muted)', fontSize: 12, overflowWrap: 'anywhere' }}>{active.conversation.customer.email || active.conversation.guestPhone || text('Guest', 'Visitante', 'Ospite', 'زائر')} · {active.conversation.reference}{active.conversation.subject ? ` · ${active.conversation.subject}` : ''}</div>
+                    {active.conversation.agentRequestedAt && <div style={{ overflowWrap: 'anywhere' }}>
+                      <strong>{text('Agent requested', 'Agente solicitado', 'Operatore richiesto', 'طلب موظف')}</strong>
+                      <p>{active.conversation.guestName} · {active.conversation.guestPhone}</p>
+                      <small>{active.conversation.needsStaffReply ? text('Awaiting staff reply', 'En espera del equipo', 'In attesa del team', 'بانتظار الرد') : text('Staff replied', 'El equipo ha respondido', 'Il team ha risposto', 'تم الرد')}</small>
+                    </div>}
                   </div>
                   <span style={{ marginInlineStart: 'auto' }} className={`sp-pill ${active.conversation.status === 'open' ? 'is-active' : 'is-inactive'}`}>{active.conversation.status}</span>
                 </div>
@@ -272,7 +304,7 @@ export default function InboxPage() {
                   {!active.messages.length && <AdminEmpty title={<AdminText en="No messages yet" ar="لا رسائل بعد" />} copy={<AdminText en="Messages will appear here." ar="ستظهر الرسائل هنا." />} />}
                   {active.messages.map((m) => (
                     <div key={m.id} className={m.senderRole === 'customer' ? 'sp-row customer' : 'sp-row agent'}>
-                      <span className="sp-bubble">{m.body}</span>
+                      <span className="sp-bubble">{m.senderRole === 'bot' && <strong>{text('Automated assistant', 'Asistente automático', 'Assistente automatico', 'مساعد آلي')}<br /></strong>}{m.body}</span>
                       <span className="sp-chat-time">{formatSiteTime(m.createdAt, locale)}{m.senderRole === 'staff' && m.readAt ? (ar ? ' · مقروءة' : ' · Seen') : ''}</span>
                     </div>
                   ))}

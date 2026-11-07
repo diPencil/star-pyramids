@@ -6,7 +6,7 @@ import { invalidateNotifications } from './customer-notifications'
 
 export type SupportChatMessage = {
   id: string
-  senderRole: 'customer' | 'staff'
+  senderRole: 'customer' | 'staff' | 'bot'
   body: string
   readAt: string | null
   createdAt: string
@@ -40,7 +40,7 @@ function isValidMessage(row: unknown): row is SupportChatMessage {
   const item = row as SupportChatMessage
   return (
     typeof item.id === 'string' &&
-    (item.senderRole === 'customer' || item.senderRole === 'staff') &&
+    (item.senderRole === 'customer' || item.senderRole === 'staff' || item.senderRole === 'bot') &&
     typeof item.body === 'string'
   )
 }

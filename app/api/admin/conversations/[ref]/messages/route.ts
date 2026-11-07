@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { getCurrentUser, hasPermission } from '@/lib/server/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
-import { logSupportError, sendStaffMessage } from '@/lib/server/support-chat';
+import { logSupportError, supportFailure, sendStaffMessage } from '@/lib/server/support-chat';
 
 async function requireStaff() {
   const current = await getCurrentUser();
@@ -44,15 +44,12 @@ export async function POST(request: Request, context: RouteContext) {
       reference,
       current.id,
       (body as { body?: unknown })?.body,
+      (body as { requestId?: unknown })?.requestId,
     );
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
-    if (error instanceof Error) {
-      const status = error.message === 'Conversation not found.' ? 404 : 400;
-      logSupportError('staff-reply', reference, error);
-      return NextResponse.json({ error: error.message }, { status });
-    }
-    logSupportError('staff-reply', reference, error);
-    return NextResponse.json({ error: 'Could not send the reply. Please try again.' }, { status: 500 });
+    logSupportError('staff-reply', decodeURIComponent(ref), error);
+    const failure = supportFailure(error);
+    return NextResponse.json({ error: failure.error }, { status: failure.status });
   }
 }

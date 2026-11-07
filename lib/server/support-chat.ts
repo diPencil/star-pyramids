@@ -16,6 +16,7 @@ import { randomInt } from 'node:crypto';
 import { Prisma, SupportConversationStatus as DbStatus } from '@prisma/client';
 
 import { db } from './db';
+import { hashToken } from '@/lib/core/tokens';
 import {
   adminSupportHref,
   customerSupportHref,
@@ -28,13 +29,13 @@ const REF_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const REF_ATTEMPTS = 5;
 const REF_PATTERN = /^SP-CV-[A-Z0-9]{6}$/;
 
-function mintReferenceCandidate(): string {
+export function mintReferenceCandidate(): string {
   let suffix = '';
   for (let i = 0; i < 6; i += 1) suffix += REF_ALPHABET[randomInt(REF_ALPHABET.length)];
   return `SP-CV-${suffix}`;
 }
 
-export type SupportRole = 'customer' | 'staff';
+export type SupportRole = 'customer' | 'staff' | 'bot';
 export type SupportConversationStatus = 'open' | 'closed';
 
 const BODY_MAX = 2000;
@@ -100,6 +101,12 @@ export interface SupportConversationView {
 
 export interface StaffConversationView extends SupportConversationView {
   customer: { email: string; name: string };
+  guestPhone: string | null;
+  guestName: string | null;
+  agentRequestedAt: string | null;
+  needsStaffReply: boolean;
+  channel: string;
+  staffEngaged: boolean;
   lastMessage: { senderRole: SupportRole; body: string; createdAt: string } | null;
 }
 
@@ -119,7 +126,7 @@ function accountName(row: { firstName: string | null; lastName: string | null; e
 function toMessageView(row: { id: string; senderRole: string; body: string; readAt: Date | null; createdAt: Date }): SupportMessageView {
   return {
     id: row.id,
-    senderRole: row.senderRole === 'staff' ? 'staff' : 'customer',
+    senderRole: row.senderRole === 'staff' ? 'staff' : row.senderRole === 'bot' ? 'bot' : 'customer',
     body: row.body,
     readAt: row.readAt ? row.readAt.toISOString() : null,
     createdAt: row.createdAt.toISOString(),
@@ -136,7 +143,7 @@ function toConversationView(row: ConversationRow, viewerRole: SupportRole): Supp
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     closedAt: row.closedAt ? row.closedAt.toISOString() : null,
-    unreadCount: row.messages.filter((m) => m.readAt === null && m.senderRole !== viewerRole).length,
+    unreadCount: row.messages.filter((m) => m.readAt === null && (viewerRole === 'staff' ? m.senderRole === 'customer' && (row.channel !== 'live' || row.needsStaffReply) : m.senderRole === 'staff')).length,
   };
 }
 
@@ -145,10 +152,13 @@ function toStaffView(row: ConversationRow): StaffConversationView {
   const last = ordered[ordered.length - 1] ?? null;
   return {
     ...toConversationView(row, 'staff'),
-    customer: { email: row.customer.email, name: accountName(row.customer) },
+    customer: row.customer ? { email: row.customer.email, name: accountName(row.customer) } : { email: '', name: row.guestName || 'Guest' },
+    guestPhone: row.guestPhone, guestName: row.guestName, agentRequestedAt: row.agentRequestedAt?.toISOString() ?? null,
+    needsStaffReply: row.needsStaffReply, channel: row.channel,
+    staffEngaged: row.messages.some(m => m.senderRole === 'staff'),
     lastMessage: last
       ? {
-          senderRole: last.senderRole === 'staff' ? 'staff' : 'customer',
+          senderRole: last.senderRole === 'staff' ? 'staff' : last.senderRole === 'bot' ? 'bot' : 'customer',
           body: last.body,
           createdAt: last.createdAt.toISOString(),
         }
@@ -208,47 +218,51 @@ export async function sendCustomerMessage(
 ): Promise<{ conversation: SupportConversationView; message: SupportMessageView }> {
   const body = validateMessageBody(rawBody);
   const subject = validateSubject(rawSubject);
-  let open = await db.supportConversation.findFirst({
-    where: { customerId, status: 'OPEN' },
-    orderBy: { updatedAt: 'desc' },
-    select: { id: true, reference: true },
-  });
-  if (!open) {
-    let lastError: unknown = null;
-    for (let attempt = 0; attempt < REF_ATTEMPTS; attempt += 1) {
-      try {
-        open = await db.supportConversation.create({
-          data: {
-            reference: mintReferenceCandidate(),
-            customerId,
-            subject,
-            status: 'OPEN',
-          },
-          select: { id: true, reference: true },
-        });
-        lastError = null;
-        break;
-      } catch (error) {
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-          lastError = error;
-          continue;
+  const { open, message } = await db.$transaction(async tx => {
+    await tx.$queryRaw(Prisma.sql`SELECT id FROM users WHERE id = ${customerId} FOR UPDATE`);
+    let open = await tx.supportConversation.findFirst({
+      where: { customerId, status: 'OPEN' },
+      orderBy: { updatedAt: 'desc' },
+      select: { id: true, reference: true },
+    });
+    if (!open) {
+      let lastError: unknown = null;
+      for (let attempt = 0; attempt < REF_ATTEMPTS; attempt += 1) {
+        try {
+          open = await tx.supportConversation.create({
+            data: {
+              reference: mintReferenceCandidate(),
+              customerId,
+              subject,
+              status: 'OPEN',
+            },
+            select: { id: true, reference: true },
+          });
+          lastError = null;
+          break;
+        } catch (error) {
+          if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+            lastError = error;
+            continue;
+          }
+          throw error;
         }
-        throw error;
       }
+      if (!open) throw lastError instanceof Error ? lastError : new Error('Could not start the conversation. Please try again.');
     }
-    if (!open) throw lastError instanceof Error ? lastError : new Error('Could not start the conversation. Please try again.');
-  }
-  const message = await db.supportMessage.create({
-    data: {
-      conversationId: open.id,
-      senderId: customerId,
-      senderRole: 'customer',
-      body,
-    },
-  });
-  await db.supportConversation.update({
-    where: { id: open.id },
-    data: { lastMessageAt: message.createdAt },
+    const message = await tx.supportMessage.create({
+      data: {
+        conversationId: open.id,
+        senderId: customerId,
+        senderRole: 'customer',
+        body,
+      },
+    });
+    await tx.supportConversation.update({
+      where: { id: open.id },
+      data: { lastMessageAt: message.createdAt, needsStaffReply: true },
+    });
+    return { open, message };
   });
   const reference = open.reference;
   // Staff inbox notification (best-effort, one per message).
@@ -325,6 +339,8 @@ export async function listStaffConversations(
   if (q) {
     where.OR = [
       { reference: { contains: q } },
+      { guestName: { contains: q } },
+      { guestPhone: { contains: q } },
       { subject: { contains: q } },
       { customer: { email: { contains: q } } },
       { customer: { firstName: { contains: q } } },
@@ -342,7 +358,7 @@ export async function listStaffConversations(
 /** Total unread customer messages across every thread (staff badge). */
 export async function countStaffUnread(): Promise<number> {
   return db.supportMessage.count({
-    where: { senderRole: 'customer', readAt: null },
+    where: { senderRole: 'customer', readAt: null, conversation: { OR: [{ channel: 'account' }, { needsStaffReply: true }] } },
   });
 }
 
@@ -357,11 +373,18 @@ function assertValidReference(reference: string): void {
  */
 export function logSupportError(action: string, reference: string, error: unknown): void {
   try {
-    const detail = error instanceof Error ? `${error.name}: ${error.message}` : typeof error;
+    const detail = error instanceof Prisma.PrismaClientKnownRequestError ? error.code : error instanceof Error ? error.name : typeof error;
     console.error(`[support-chat] ${action} failed ref=${reference} :: ${detail}`);
   } catch {
     /* logging never breaks the request */
   }
+}
+
+/** Only fixed, expected domain errors may cross an API boundary. */
+export function supportFailure(error: unknown): { error: string; status: number } {
+  const expected = new Set(['Write a message first.', 'Messages must be 2,000 characters or fewer.', 'Messages contain unsupported characters.', 'Invalid request.', 'Conversation not found.', 'This conversation is closed. Reopen it before replying.', 'Request conflict.'])
+  if (!(error instanceof Error) || !expected.has(error.message)) return { error: 'Support temporarily unavailable. Please try again.', status: 503 }
+  return { error: error.message, status: error.message === 'Conversation not found.' ? 404 : error.message === 'Request conflict.' ? 409 : 400 }
 }
 
 /** One staff-visible thread with chronological history. */
@@ -405,32 +428,36 @@ export async function sendStaffMessage(
   reference: string,
   staffId: string,
   rawBody: unknown,
+  requestId?: unknown,
 ): Promise<{ conversation: StaffConversationView; message: SupportMessageView }> {
   const body = validateMessageBody(rawBody);
   assertValidReference(reference);
-  const existing = await db.supportConversation.findUnique({
-    where: { reference },
-    select: { id: true, status: true, customerId: true },
+  if (requestId !== undefined && (typeof requestId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestId))) throw new Error('Invalid request.');
+  const key = requestId ? `staff:${requestId}` : null;
+  const result = await db.$transaction(async tx => {
+    await tx.$queryRaw(Prisma.sql`SELECT id FROM support_conversations WHERE reference = ${reference} FOR UPDATE`);
+    const existing = await tx.supportConversation.findUnique({ where: { reference }, select: { id: true, status: true, customerId: true } });
+    if (!existing) throw new Error('Conversation not found.');
+    if (key) {
+      const replay = await tx.supportMessage.findUnique({ where: { requestId: key } });
+      if (replay) {
+        if (replay.conversationId !== existing.id || replay.senderId !== staffId || replay.requestHash !== hashToken(body)) throw new Error('Request conflict.');
+        return { existing, message: replay, replay: true };
+      }
+    }
+    if (existing.status !== 'OPEN') throw new Error('This conversation is closed. Reopen it before replying.');
+    const message = await tx.supportMessage.create({ data: { conversationId: existing.id, senderId: staffId, senderRole: 'staff', body, requestId: key, requestHash: key ? hashToken(body) : null } });
+    await tx.supportConversation.update({ where: { id: existing.id }, data: { lastMessageAt: message.createdAt, needsStaffReply: false } });
+    return { existing, message, replay: false };
   });
-  if (!existing) throw new Error('Conversation not found.');
-  if (existing.status !== 'OPEN') {
-    throw new Error('This conversation is closed. Reopen it before replying.');
+  const { existing, message } = result;
+  if (result.replay) {
+    const thread = await db.supportConversation.findUniqueOrThrow({ where: { id: existing.id }, include: threadInclude });
+    return { conversation: toStaffView(thread), message: toMessageView(message) };
   }
-  const message = await db.supportMessage.create({
-    data: {
-      conversationId: existing.id,
-      senderId: staffId,
-      senderRole: 'staff',
-      body,
-    },
-  });
-  await db.supportConversation.update({
-    where: { id: existing.id },
-    data: { lastMessageAt: message.createdAt },
-  });
   // Customer receipt (best-effort, one per reply). The href embeds
   // the conversation reference so read-sync can scope exactly.
-  await notifyUser(existing.customerId, {
+  if (existing.customerId) await notifyUser(existing.customerId, {
     type: 'support_message_received',
     title: 'New reply from our team',
     message: 'Our travel team replied to your message. Read it here.',
@@ -440,10 +467,10 @@ export async function sendStaffMessage(
   // Goes to the owning customer's account email only. Idempotency
   // key uses the message id so each reply emails once.
   try {
-    const owner = await db.user.findUnique({
+    const owner = existing.customerId ? await db.user.findUnique({
       where: { id: existing.customerId },
       select: { email: true, firstName: true, lastName: true },
-    });
+    }) : null;
     if (owner) {
       const ownerName = `${owner.firstName ?? ''} ${owner.lastName ?? ''}`.trim() || owner.email;
       await sendCustomerEmailSafe('support_message_received', owner.email, {

@@ -6,6 +6,7 @@ import {
   assignConversationToSelf,
   getStaffConversation,
   logSupportError,
+  supportFailure,
   markStaffThreadRead,
   sendStaffMessage,
   setConversationStatus,
@@ -79,18 +80,13 @@ export async function POST(request: Request, context: RouteContext) {
       decodeURIComponent(ref),
       current.id,
       (body as { body?: unknown })?.body,
+      (body as { requestId?: unknown })?.requestId,
     );
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
-    if (error instanceof Error) {
-      const status = error.message === 'Conversation not found.' ? 404 : 400;
-      // Log both branches so a 404 states its exact reason server-side
-      // instead of arriving at the client as an unexplained status.
-      logSupportError('staff-reply', decodeURIComponent(ref), error);
-      return NextResponse.json({ error: error.message }, { status });
-    }
     logSupportError('staff-reply', decodeURIComponent(ref), error);
-    return NextResponse.json({ error: 'Could not send the reply. Please try again.' }, { status: 500 });
+    const failure = supportFailure(error);
+    return NextResponse.json({ error: failure.error }, { status: failure.status });
   }
 }
 
@@ -132,7 +128,8 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
   } catch (error) {
     if (error instanceof Error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      const failure = supportFailure(error);
+      return NextResponse.json({ error: failure.error }, { status: failure.status });
     }
     throw error;
   }

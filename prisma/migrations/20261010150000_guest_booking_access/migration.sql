@@ -1,4 +1,4 @@
--- P0 Fix 04  -  guest booking access.
+-- P0 Fix 04 — guest booking access.
 -- Additive only: no existing booking row, column, or value is altered or
 -- removed. Guest access is granted by NEW rows, never by rewriting history.
 
