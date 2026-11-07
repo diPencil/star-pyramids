@@ -15,6 +15,26 @@ The public Live Chat widget now uses the existing SupportConversation / SupportM
 
 Bot threads remain visible. `needsStaffReply=false` excludes them from the unanswered/open-attention statistic and unread staff badge. Agent requests expose contact details and the request timestamp to authorized staff. Staff responses retain the existing support.edit permission and notification behavior for account customers; guest replies are recovered through the same website transcript. Bot messages are explicitly labelled.
 
+## Connection failure diagnosis
+
+The transport binds its injected/native fetch function to `globalThis`. Calling a stored native fetch as `transport.request(...)` with the transport as its receiver can throw `Illegal invocation` before any HTTP request. Receiver-sensitive regression tests cover history loading, bootstrap, delivery and polling; Node's native fetch and ordinary mocks do not expose this browser constraint. This code defect does not establish the cause of an uninspected production failure.
+
+Expected browser requests (all same-origin, uncached, with a 10-second client timeout):
+
+| Request | Expected response | Failure interpretation |
+| --- | --- | --- |
+| `GET /api/live-chat` on opening/reopening and every 10 seconds while visible | `200 {thread:null}` for a new visitor; `200 {thread:...}` for saved history; `304` only for unchanged owner-scoped history with an ETag | `403` staff preview; `429` shared rate limit; `503` caught backend failure |
+| `POST /api/live-chat/session` before each message/handoff | `200 {ok:true}`; a new production guest gets `__Host-sp-chat` | `403` Origin/forwarded-host mismatch or staff preview; `429` rate limit; `503` caught backend failure |
+| `POST /api/live-chat` after bootstrap | `201 {thread:...}` only after persistence; same request ID on a retry | `401` missing/expired cookie; `403` origin/staff restriction; `400/413` invalid/oversized input; `409` replay conflict; `429` rate limit; `503` caught backend failure |
+
+The guest credential is HttpOnly, Secure in production, host-only (no Domain), Path=/, SameSite=Strict, valid for 30 days. Do not weaken these settings to debug deployment. Serve the widget and APIs on the same canonical HTTPS host; a cookie issued on the apex domain is not sent to a separate www/API host. The proxy must preserve the public host/Origin and overwrite forwarded headers. The session route uses the default Node.js runtime; the message/history route explicitly uses Node.js. Neither requires WebSockets or a background worker.
+
+Before a separately approved Hostinger release, verify the app root is `web-source`, runtime supports Next.js's installed Node >=20.9 requirement, build executes the existing `prisma generate && next build --webpack` script, and the server runs `next start` rather than static export. Generate Prisma on the deployment platform; do not upload a Windows-generated engine. Verify the runtime DATABASE_URL points at the database actually imported, with correctly URL-encoded credentials. Do not paste its value into tickets or logs. No additional chat-specific environment variable is required.
+
+SQL-file upload is not evidence of import. An authorized operator can verify the intended remote database using only `SELECT DATABASE(), VERSION()`, the completed `20261107073000_guest_live_chat` entry in `_prisma_migrations`, and `information_schema` metadata (or `SHOW CREATE TABLE`) for `chat_guest_sessions`, `chat_rate_buckets`, `support_conversations` and `support_messages`. Compare columns, nullable customer/sender IDs, indexes and guest foreign key with the checked-in migration. Do not select message bodies, contacts or session tokens. This review did not connect to the remote database.
+
+If a failure remains, collect the failing request's method, path, timestamp, HTTP status, content type and sanitized Response. Report cookie presence/flags only, never values. If no request is emitted, pause on caught exceptions and record the exception name and stack. For Hostinger, collect the matching runtime/startup error class, Prisma error code and stack location, plus build lines showing Prisma generation and successful Next.js compilation. Redact URLs with credentials, SQL parameters, messages and contacts. P1000/P1001 indicate authentication/connectivity; P2021/P2022 indicate a missing table/column; a Prisma engine-load error indicates a platform/client artifact issue. These are diagnostic possibilities, not observed production errors. The handlers deliberately hide ORM details and do not log caught errors, so a generic 503 alone cannot identify the database fault. Note that even GET updates the rate-budget table: do not use live API probes as a read-only database check.
+
 ## Reviewed migration and local application
 
 `prisma/migrations/20261107073000_guest_live_chat/migration.sql` was generated with a schema-to-schema Prisma diff, then applied through Prisma's normal migration workflow to the explicitly authorized local imported database `localhost:3306/star_pyramids_production` on 7 November 2026:

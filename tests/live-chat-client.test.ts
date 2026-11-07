@@ -6,6 +6,23 @@ const input = { action: 'message' as const, body: 'Hello fixture', locale: 'en' 
 const store = new Map<string, string>()
 const storage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => { store.set(k, v) }, removeItem: (k: string) => { store.delete(k) } }
 beforeEach(() => { store.clear() })
+it('loads history with the global receiver required by browser fetch', async () => {
+  const request = vi.fn(function (this: unknown, _url: RequestInfo | URL, _init?: RequestInit) {
+    if (this !== globalThis) throw new TypeError('Illegal invocation')
+    return Promise.resolve(Response.json({ thread: null }))
+  })
+  await expect(new LiveChatTransport(request).read()).resolves.toBeNull()
+  expect(request).toHaveBeenCalledOnce()
+})
+it('preserves the browser fetch receiver for session bootstrap and message delivery', async () => {
+  const request = vi.fn(function (this: unknown, url: RequestInfo | URL, _init?: RequestInit) {
+    if (this !== globalThis) throw new TypeError('Illegal invocation')
+    return Promise.resolve(Response.json(url === '/api/live-chat/session' ? { ok: true } : { thread: null }))
+  })
+  await expect(new LiveChatTransport(request, storage).submit(input)).resolves.toBeNull()
+  expect(request.mock.calls.map(([url]) => url)).toEqual(['/api/live-chat/session', '/api/live-chat'])
+  expect(store.size).toBe(0)
+})
 it('bootstraps before submission and reuses the retry ID after lost acknowledgement and reload', async () => {
   const request = vi.fn<typeof fetch>()
   request.mockResolvedValueOnce(Response.json({ ok: true })).mockRejectedValueOnce(new Error('lost response'))

@@ -25,6 +25,18 @@ beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock)
 })
 afterEach(() => { for (const cleanup of hooks.cleanups.values()) cleanup(); vi.unstubAllGlobals(); vi.useRealTimers() })
+it('opens and polls with a receiver-sensitive browser fetch without showing a connection error', async () => {
+  fetchMock.mockImplementation(function (this: unknown) {
+    if (this !== globalThis) throw new TypeError('Illegal invocation')
+    return Promise.resolve(Response.json({ thread: null }))
+  })
+  render()
+  await vi.advanceTimersByTimeAsync(0)
+  expect(render().error).toBe(false)
+  await vi.advanceTimersByTimeAsync(10000)
+  expect(fetchMock).toHaveBeenCalledTimes(2)
+  expect(render().error).toBe(false)
+})
 it('polls only an open visible chat, restores staff replies and cleans up when closed', async () => {
   const reply = { reference: 'fixture', messages: [{ id: 'reply', senderRole: 'staff', body: 'Saved reply', createdAt: new Date().toISOString() }] }
   fetchMock.mockImplementation(async () => Response.json({ thread: reply }))

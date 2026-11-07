@@ -14,7 +14,10 @@ export class LiveChatTransport {
   private pending: { fingerprint: string; requestId: string } | null = null
   private etag: string | null = null
   private history: LiveThread = null
-  constructor(private request: typeof fetch = fetch, private storage?: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>) {}
+  constructor(private request: typeof fetch = fetch, private storage?: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>) {
+    // Native browser fetch requires its global receiver, not this transport instance.
+    this.request = request.bind(globalThis)
+  }
 
   private async json(url: string, init?: RequestInit) {
     const response = await this.request(url, { ...init, credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(10000) })
