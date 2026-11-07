@@ -9,6 +9,19 @@ const eligibility = 'x-middleware-request-x-sp-tracking-eligible'
 afterEach(() => vi.unstubAllEnvs())
 
 describe('measurement document boundary', () => {
+  it('allows a validated Tag Assistant landing and public navigation without admitting private URLs', () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    expect(proxy(new NextRequest(`${origin}/?gtm_debug=1794000000000`)).headers.get(eligibility)).toBe('1')
+    expect(proxy(new NextRequest(`${origin}/trips?_rsc=transport`, {
+      headers: { rsc: '1', referer: `${origin}/?gtm_debug=x` },
+    })).headers.get(eligibility)).toBe('1')
+    expect(proxy(new NextRequest(`${origin}/trips?gtm_debug=x&token=private`)).headers.get(eligibility)).toBe('0')
+    expect(proxy(new NextRequest(`${origin}/admin?gtm_debug=x`, {
+      headers: { cookie: 'sp_session=fake' },
+    })).headers.get(eligibility)).toBe('0')
+    vi.stubEnv('NODE_ENV', 'development')
+    expect(proxy(new NextRequest(`${origin}/?gtm_debug=x`)).headers.get(eligibility)).toBe('0')
+  })
   it('derives eligibility from the real request and overwrites a client-supplied marker', () => {
     vi.stubEnv('NODE_ENV', 'production')
     const response = proxy(new NextRequest(`${origin}/admin?tab=users`, {

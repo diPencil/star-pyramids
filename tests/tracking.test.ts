@@ -99,6 +99,30 @@ describe('Google Tag Manager configuration', () => {
     expect(sanitizeMeasurementUrl(`${production}/trips?page=2&wbraid=abc`, 'production')).toBe(`${production}/trips`)
   })
 
+  it.each(['x', '1794000000000'])('permits the bounded Tag Assistant signal %s without putting it in measurement URLs', signal => {
+    const url = `${production}/trips?gtm_debug=${signal}&utm_source=google`
+    expect(canMeasureLocation(new URL(url), 'production')).toBe(true)
+    expect(sanitizeMeasurementUrl(url, 'production')).toBe(`${production}/trips`)
+    const { browser, window } = browserAt(url)
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production')
+    expect(browser.document.head.appendChild).not.toHaveBeenCalled()
+    browser.localStorage.setItem(TRACKING_CONSENT_STORAGE_KEY, '{"analytics":true,"marketing":false}')
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production')
+    expect(browser.document.head.appendChild).toHaveBeenCalledOnce()
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production')
+    expect(browser.document.head.appendChild).toHaveBeenCalledOnce()
+  })
+
+  it.each([
+    '/trips?gtm_debug=person%40example.com', '/trips?gtm_debug=', '/trips?gtm_debug=true',
+    '/trips?gtm_debug=17940000000000', '/trips?gtm_debug=x&gtm_debug=x',
+    '/trips?gtm_debug=x&token=secret', '/trips?gtm_debug=x#secret',
+    '/account?gtm_debug=x', '/booking/private?gtm_debug=x',
+    '/trips?gtm_debug=x&gtm_auth=secret', '/trips?gtm_debug=x&gtm_preview=env-1',
+  ])('keeps invalid debug signals and sensitive contexts blocked: %s', path => {
+    expect(canMeasureLocation(new URL(path, production), 'production')).toBe(false)
+  })
+
   it('accepts bounded Google attribution and UTM parameters on the same public landing', () => {
     const campaign = 'gclid=abc_123&dclid=abc-123&gbraid=one&wbraid=two&gclsrc=aw.ds&gad_source=1&gad_campaignid=42' +
       '&utm_id=42&utm_source=google&utm_medium=cpc&utm_campaign=summer-2026&utm_term=cairo+day+tour' +

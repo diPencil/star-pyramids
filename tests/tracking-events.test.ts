@@ -39,6 +39,15 @@ function fixture(path = '/', consent = granted, id: string | null = 'GTM-KQ8GR36
 }
 
 describe('public page views', () => {
+  it('does not send the Tag Assistant signal or count it as another page view', () => {
+    const page = fixture('/trips?gtm_debug=1794000000000')
+    const observe = createPageViewTracker()
+    expect(observe(page.browser, 'production', { pathname: '/trips', search: 'gtm_debug=1794000000000', enabled: true })).toBe(true)
+    expect(page.dataLayer.at(-1)).toMatchObject({ event: 'sp_page_view', page_path: '/trips', page_location: `${origin}/trips` })
+    page.location.href = `${origin}/trips?gtm_debug=x`
+    expect(observe(page.browser, 'production', { pathname: '/trips', search: 'gtm_debug=x', enabled: true })).toBe(false)
+    expect(JSON.stringify(page.dataLayer)).not.toContain('gtm_debug')
+  })
   it('can report an initial page view once the container has applied the current consent', () => {
     const page = fixture('/', granted, 'GTM-TEST', false)
     const observe = createPageViewTracker()
