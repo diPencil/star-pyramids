@@ -1,16 +1,48 @@
-import { describe, expect, it } from 'vitest'
+import { randomUUID } from 'node:crypto'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
   DEFAULT_GTM_CONTAINER_ID,
   TRACKING_CONSENT_STORAGE_KEY,
-  buildConsentDefaultSnippet,
-  buildGtmIntegrationSnippet,
-  buildGtmLoaderSnippet,
-  isTrackingExcludedPath,
+  canMeasureLocation,
+  isSafeTrackingUrl,
   isValidGtmContainerId,
   normalizeGtmContainerId,
   resolveTrackingSettings,
+  sanitizeMeasurementUrl,
 } from '@/lib/tracking'
+import { analyticsDataLayer, GTM_CONSENT_READY_EVENT, initializeGtm, readTrackingConsent, readTrackingGrants, subscribeToTrackingConsent, updateGoogleConsent } from '@/lib/tracking-browser'
+
+const production = 'https://starpyramids.com'
+
+function browserAt(href: string, stored?: string) {
+  const values = new Map<string, string>()
+  if (stored) values.set(TRACKING_CONSENT_STORAGE_KEY, stored)
+  const browser = Object.assign(new EventTarget(), {
+    location: { href },
+    crypto: { randomUUID },
+    localStorage: {
+      getItem: vi.fn((key: string) => values.get(key) ?? null),
+      setItem: vi.fn((key: string, value: string) => { values.set(key, value) }),
+      removeItem: vi.fn((key: string) => { values.delete(key) }),
+    },
+    document: {
+      createElement: vi.fn(() => ({})),
+      head: { appendChild: vi.fn() },
+    },
+    dataLayer: [] as unknown[],
+  })
+  return { browser, window: browser as unknown as Window }
+}
+
+function consentChange(detail: unknown) {
+  return Object.assign(new Event('sp:consent-change'), { detail })
+}
+
+function finishLoading(browser: ReturnType<typeof browserAt>['browser']) {
+  const script = browser.document.head.appendChild.mock.calls[0][0] as { onload(): void }
+  script.onload()
+}
 
 describe('Google Tag Manager configuration', () => {
   it('accepts only GTM container IDs', () => {
@@ -42,51 +74,268 @@ describe('Google Tag Manager configuration', () => {
     })
   })
 
-  it('excludes admin, account and staff preview routes without excluding similar public paths', () => {
-    for (const path of [
-      '/admin',
-      '/admin/settings',
-      '/admin?tab=users',
-      '/admin/settings?section=seo#tracking',
-      '/account',
-      '/account/bookings',
-      '/account/bookings?ref=SP-123',
-      '/website-cms-preview',
-      '/website-cms-preview/homepage?page=home',
-    ]) {
-      expect(isTrackingExcludedPath(path)).toBe(true)
+  it.each([
+    '/admin/settings', '/account/bookings', '/website-cms-preview/homepage',
+    '/login', '/register', '/forgot-password', '/reset-password?token=secret',
+    '/booking/private', '/booking-account#token=secret', '/verify-voucher/private',
+    '/checkout', '/search?q=person%40example.com', '/make-your-trip', '/rent-car/request',
+    '/trips?%74oken=secret', '/trips?page=1&page=2', '/trips?gclid=person%40example.com',
+    '/trips#token=secret', '/egypt-tours/person%40example.com', '/unknown',
+    `/blogs/${'a'.repeat(43)}`, '/trips?sort=private', '/trips?destination=person%40example.com',
+    '/trips?utm_source=google&utm_source=newsletter', '/trips?utm_unknown=google',
+    '/trips?utm_source=person%40example.com', '/trips?utm_term=%2B1-555-123-4567',
+    '/trips?utm_campaign=https%3A%2F%2Fexample.com', '/trips?utm_content=sale%0A',
+    '/trips?utm_source=google&booking_token=private', '/trips?gclsrc=custom',
+    '/account?utm_source=google', '/trips?utm_source=google#secret',
+    `/trips?utm_term=${'a'.repeat(101)}`,
+  ])('excludes %s from measurement', path => {
+    expect(isSafeTrackingUrl(new URL(path, production))).toBe(false)
+    expect(sanitizeMeasurementUrl(production + path, 'production')).toBeNull()
+  })
+
+  it('allows public landings and strips query data from the explicit analytics URL', () => {
+    expect(isSafeTrackingUrl(new URL('/egypt-tours/cairo-day-tour?gclid=abc_123', production))).toBe(true)
+    expect(isSafeTrackingUrl(new URL('/trips?category=one-day-tours&duration=day&price=under-200', production))).toBe(true)
+    expect(sanitizeMeasurementUrl(`${production}/trips?page=2&wbraid=abc`, 'production')).toBe(`${production}/trips`)
+  })
+
+  it('accepts bounded Google attribution and UTM parameters on the same public landing', () => {
+    const campaign = 'gclid=abc_123&dclid=abc-123&gbraid=one&wbraid=two&gclsrc=aw.ds&gad_source=1&gad_campaignid=42' +
+      '&utm_id=42&utm_source=google&utm_medium=cpc&utm_campaign=summer-2026&utm_term=cairo+day+tour' +
+      '&utm_source_platform=Google+Ads&utm_content=text-ad&utm_creative_format=video&utm_marketing_tactic=remarketing'
+    const landing = `${production}/trips?${campaign}`
+    expect(canMeasureLocation(new URL(landing), 'production')).toBe(true)
+    expect(sanitizeMeasurementUrl(landing, 'production')).toBe(`${production}/trips`)
+  })
+
+  it.each([
+    [production, 'development'], [production, 'test'], ['http://starpyramids.com', 'production'],
+    ['https://qa.starpyramids.com', 'production'], ['http://localhost:3000', 'production'],
+    ['https://starpyramids.com.example.org', 'production'],
+  ])('keeps %s (%s) isolated from the production container', (url, environment) => {
+    expect(canMeasureLocation(new URL(url), environment)).toBe(false)
+    const { browser, window } = browserAt(url)
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, { analytics: true, marketing: true }, environment)
+    expect(browser.document.head.appendChild).not.toHaveBeenCalled()
+    expect(browser.dataLayer).toEqual([])
+  })
+
+  it('waits for an explicit grant, queues denied defaults before GTM, and loads only once', () => {
+    const { browser, window } = browserAt(production)
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production')
+    expect(browser.document.head.appendChild).not.toHaveBeenCalled()
+    expect(browser.dataLayer).toEqual([])
+    browser.localStorage.setItem(TRACKING_CONSENT_STORAGE_KEY, '{"analytics":true,"marketing":false}')
+    browser.document.head.appendChild.mockImplementation(() => {
+      expect(Array.from(browser.dataLayer[0] as ArrayLike<unknown>)).toEqual(['consent', 'default', {
+        analytics_storage: 'denied', ad_storage: 'denied', ad_user_data: 'denied',
+        ad_personalization: 'denied', personalization_storage: 'denied',
+        functionality_storage: 'granted', security_storage: 'granted', wait_for_update: 500,
+      }])
+      expect(Array.from(browser.dataLayer[1] as ArrayLike<unknown>)).toEqual(['set', 'ads_data_redaction', true])
+      expect(browser.dataLayer[2]).toMatchObject({ event: 'gtm.js' })
+    })
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production')
+    expect(browser.document.head.appendChild).toHaveBeenCalledExactlyOnceWith({
+      async: true, referrerPolicy: 'no-referrer', onload: expect.any(Function), src: `https://www.googletagmanager.com/gtm.js?id=${DEFAULT_GTM_CONTAINER_ID}`,
+    })
+    expect(analyticsDataLayer(window, 'production')).toBeUndefined()
+    finishLoading(browser)
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production')
+    expect(Array.from(browser.dataLayer[3] as ArrayLike<unknown>)).toEqual(['consent', 'update', expect.objectContaining({
+      analytics_storage: 'granted', ad_storage: 'denied',
+    })])
+    expect(browser.dataLayer.filter(entry => (entry as { event?: string }).event === GTM_CONSENT_READY_EVENT)).toHaveLength(1)
+  })
+
+  it('restores only explicit choices, persists updates and supports withdrawal', () => {
+    const { browser, window } = browserAt(production, '{"analytics":true,"marketing":false}')
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production')
+    finishLoading(browser)
+    expect(Array.from(browser.dataLayer[3] as ArrayLike<unknown>)).toEqual(['consent', 'update', expect.objectContaining({
+      analytics_storage: 'granted', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied',
+    })])
+    browser.localStorage.setItem.mockClear()
+    const unsubscribe = subscribeToTrackingConsent(window, choice => updateGoogleConsent(window, choice))
+    browser.dispatchEvent(consentChange({ analytics: 'true', marketing: true }))
+    expect(browser.localStorage.setItem).not.toHaveBeenCalled()
+    browser.dispatchEvent(consentChange({ analytics: false, marketing: false }))
+    expect(browser.localStorage.setItem).toHaveBeenCalledExactlyOnceWith(TRACKING_CONSENT_STORAGE_KEY, '{"analytics":false,"marketing":false}')
+    expect(Array.from(browser.dataLayer.at(-1) as ArrayLike<unknown>)).toEqual(['consent', 'update', expect.objectContaining({
+      analytics_storage: 'denied', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied',
+    })])
+    unsubscribe()
+  })
+
+  it('keeps analytics denied when the visitor grants marketing alone', () => {
+    const { browser, window } = browserAt(production, '{"analytics":false,"marketing":true}')
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production')
+    expect(browser.document.head.appendChild).toHaveBeenCalledOnce()
+    finishLoading(browser)
+    expect(Array.from(browser.dataLayer[3] as ArrayLike<unknown>)).toEqual(['consent', 'update', expect.objectContaining({
+      analytics_storage: 'denied', ad_storage: 'granted', ad_user_data: 'granted',
+    })])
+    expect(analyticsDataLayer(window, 'production')).toBeUndefined()
+  })
+
+  it('clears the old grant before a failed preference write and denies on reload and in other tabs', () => {
+    const { browser, window } = browserAt(production, '{"analytics":true,"marketing":true}')
+    const other = browserAt(production)
+    other.browser.localStorage = browser.localStorage
+    initializeGtm(other.window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(other.window), 'production')
+    finishLoading(other.browser)
+    const update = vi.fn()
+    const unsubscribe = subscribeToTrackingConsent(window, update)
+    browser.localStorage.setItem.mockImplementation(() => { throw new Error('Storage quota') })
+
+    browser.dispatchEvent(consentChange({ analytics: false, marketing: false }))
+    expect(update).toHaveBeenCalledExactlyOnceWith({ analytics: false, marketing: false })
+    expect(browser.localStorage.getItem(TRACKING_CONSENT_STORAGE_KEY)).toBeNull()
+    expect(analyticsDataLayer(other.window, 'production')).toBeUndefined()
+    const reloaded = browserAt(production)
+    reloaded.browser.localStorage = browser.localStorage
+    expect(readTrackingConsent(reloaded.window)).toEqual({ analytics: false, marketing: false })
+    unsubscribe()
+  })
+
+  it('keeps startup denied after withdrawal and rereads current consent before applying a grant', () => {
+    const { browser, window } = browserAt(production, '{"analytics":true,"marketing":true}')
+    const stop = subscribeToTrackingConsent(window, choice => initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, choice, 'production'))
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production')
+    browser.dispatchEvent(consentChange({ analytics: false, marketing: false }))
+    expect(Array.from(browser.dataLayer[3] as ArrayLike<unknown>)).toEqual(['consent', 'update', expect.objectContaining({
+      analytics_storage: 'denied', ad_storage: 'denied',
+    })])
+    finishLoading(browser)
+    expect(browser.dataLayer).not.toContainEqual({ event: GTM_CONSENT_READY_EVENT })
+    expect(analyticsDataLayer(window, 'production')).toBeUndefined()
+    browser.dispatchEvent(consentChange({ analytics: true, marketing: false }))
+    expect(browser.dataLayer.at(-1)).toEqual({ event: GTM_CONSENT_READY_EVENT })
+    expect(analyticsDataLayer(window, 'production')).toBe(browser.dataLayer)
+    expect(browser.document.head.appendChild).toHaveBeenCalledOnce()
+    stop()
+  })
+
+  it('retains only continuous category grants across explicit saves', () => {
+    const { browser, window } = browserAt(production)
+    const stop = subscribeToTrackingConsent(window, () => {})
+    browser.dispatchEvent(consentChange({ analytics: true, marketing: true }))
+    const original = readTrackingGrants(window)
+    browser.dispatchEvent(consentChange({ analytics: true, marketing: false }))
+    expect(readTrackingGrants(window)).toEqual({ analytics: original.analytics, marketing: undefined })
+    browser.dispatchEvent(consentChange({ analytics: true, marketing: true }))
+    const updated = readTrackingGrants(window)
+    expect(updated.analytics).toBe(original.analytics)
+    expect(updated.marketing).not.toBe(original.marketing)
+    browser.dispatchEvent(consentChange({ analytics: false, marketing: true }))
+    browser.dispatchEvent(consentChange({ analytics: true, marketing: true }))
+    expect(readTrackingGrants(window)).toEqual({ analytics: expect.not.stringMatching(original.analytics!), marketing: updated.marketing })
+    stop()
+  })
+
+  it('uses a denial-only cookie when the old grant cannot be removed, then honors a fresh saved choice', () => {
+    const first = browserAt(production, '{"analytics":true,"marketing":true}')
+    const second = browserAt(production)
+    second.browser.localStorage = first.browser.localStorage
+    let cookie = ''
+    for (const tab of [first, second]) {
+      Object.defineProperty(tab.browser.document, 'cookie', {
+        get: () => cookie,
+        set: (value: string) => { cookie = value.includes('Max-Age=0;') ? '' : value.split(';')[0] },
+      })
     }
-    for (const path of ['/', '/trips?page=2', '/administrator', '/accounting', '/website-cms-preview-guide']) {
-      expect(isTrackingExcludedPath(path)).toBe(false)
+    const remove = first.browser.localStorage.removeItem.getMockImplementation()!
+    const set = first.browser.localStorage.setItem.getMockImplementation()!
+    first.browser.localStorage.removeItem.mockImplementation(() => { throw new Error('Storage is read-only') })
+    first.browser.localStorage.setItem.mockImplementation(() => { throw new Error('Storage is read-only') })
+    const firstUpdate = vi.fn()
+    const secondUpdate = vi.fn()
+    const unsubscribeFirst = subscribeToTrackingConsent(first.window, firstUpdate)
+    const unsubscribeSecond = subscribeToTrackingConsent(second.window, secondUpdate)
+    first.browser.dispatchEvent(consentChange({ analytics: false, marketing: false }))
+    expect(firstUpdate).toHaveBeenLastCalledWith({ analytics: false, marketing: false })
+    expect(first.browser.localStorage.getItem(TRACKING_CONSENT_STORAGE_KEY)).toContain('"analytics":true')
+    expect(readTrackingConsent(second.window)).toEqual({ analytics: false, marketing: false })
+    second.browser.dispatchEvent(Object.assign(new Event('storage'), { key: TRACKING_CONSENT_STORAGE_KEY, newValue: '{"analytics":true}' }))
+    expect(secondUpdate).toHaveBeenLastCalledWith({ analytics: false, marketing: false })
+
+    first.browser.localStorage.removeItem.mockImplementation(remove)
+    first.browser.localStorage.setItem.mockImplementation(set)
+    second.browser.dispatchEvent(consentChange({ analytics: true, marketing: false }))
+    expect(cookie).toBe('')
+    expect(readTrackingConsent(first.window)).toEqual({ analytics: true, marketing: false })
+    unsubscribeFirst()
+    unsubscribeSecond()
+  })
+
+  it('does not restore an old grant in a fresh document with read-only consent storage', () => {
+    const { browser, window } = browserAt(production, '{"analytics":true,"marketing":true}')
+    browser.localStorage.setItem.mockImplementation(() => { throw new Error('Storage is read-only') })
+    expect(readTrackingConsent(window)).toEqual({ analytics: false, marketing: false })
+  })
+
+  it('fails closed for a reload when only a tab-local veto can be persisted and signals other open tabs', () => {
+    const first = browserAt(production, '{"analytics":true,"marketing":true}')
+    const second = browserAt(production)
+    second.browser.localStorage = first.browser.localStorage
+    const tabs = new Set<TestChannel>()
+    class TestChannel {
+      onmessage?: (event: { data: unknown }) => void
+      constructor() { tabs.add(this) }
+      postMessage(data: unknown) {
+        for (const tab of tabs) if (tab !== this) tab.onmessage?.({ data })
+      }
+      close() { tabs.delete(this) }
+    }
+    function makeTabStorage() {
+      const values = new Map<string, string>()
+      return {
+        getItem: (key: string) => values.get(key) ?? null,
+        setItem: (key: string, value: string) => { values.set(key, value) },
+      }
+    }
+    const tabStores = [makeTabStorage(), makeTabStorage()]
+    for (const [index, tab] of [first, second].entries()) {
+      Object.assign(tab.browser, { BroadcastChannel: TestChannel, sessionStorage: tabStores[index] })
+      Object.defineProperty(tab.browser.document, 'cookie', { get: () => '', set: () => {} })
+    }
+    first.browser.localStorage.removeItem.mockImplementation(() => { throw new Error('Storage is read-only') })
+    first.browser.localStorage.setItem.mockImplementation(() => { throw new Error('Storage is read-only') })
+    const firstUpdate = vi.fn()
+    const secondUpdate = vi.fn()
+    const unsubscribeFirst = subscribeToTrackingConsent(first.window, firstUpdate)
+    const unsubscribeSecond = subscribeToTrackingConsent(second.window, secondUpdate)
+
+    first.browser.dispatchEvent(consentChange({ analytics: false, marketing: false }))
+    expect(firstUpdate).toHaveBeenLastCalledWith({ analytics: false, marketing: false })
+    expect(secondUpdate).toHaveBeenLastCalledWith({ analytics: false, marketing: false })
+    for (const sessionStorage of tabStores) {
+      const reload = browserAt(production)
+      reload.browser.localStorage = first.browser.localStorage
+      Object.assign(reload.browser, { sessionStorage })
+      expect(readTrackingConsent(reload.window)).toEqual({ analytics: false, marketing: false })
+    }
+    unsubscribeFirst()
+    unsubscribeSecond()
+  })
+
+  it('does not load for blocked URLs or disabled and invalid container IDs', () => {
+    const denied = { analytics: false, marketing: false }
+    for (const [url, container] of [[`${production}/booking-account#token=secret`, DEFAULT_GTM_CONTAINER_ID], [production, null], [production, 'GTM-<script>']] as const) {
+      const { browser, window } = browserAt(url)
+      initializeGtm(window, container, denied, 'production')
+      expect(browser.document.head.appendChild).not.toHaveBeenCalled()
     }
   })
 
-  it('builds the official loader for the validated container only', () => {
-    const snippet = buildGtmLoaderSnippet('GTM-KQ8GR36H')
-    expect(snippet).toContain("https://www.googletagmanager.com/gtm.js?id='+i+dl")
-    expect(snippet).toContain("'GTM-KQ8GR36H'")
-    expect(() => buildGtmLoaderSnippet('GTM-<script>')).toThrow('Invalid Google Tag Manager Container ID.')
-  })
-
-  it('defaults non-essential consent to denied and reads stored choices', () => {
-    const snippet = buildConsentDefaultSnippet()
-    expect(snippet).toContain("ad_storage:'denied'")
-    expect(snippet).toContain("analytics_storage:'denied'")
-    expect(snippet).toContain("ad_user_data:'denied'")
-    expect(snippet).toContain("ad_personalization:'denied'")
-    expect(snippet).toContain("functionality_storage:'granted'")
-    expect(snippet).toContain("security_storage:'granted'")
-    expect(snippet).toContain(JSON.stringify(TRACKING_CONSENT_STORAGE_KEY))
-    expect(snippet).toContain("addEventListener('sp:consent-change'")
-    expect(snippet).toContain("Array.isArray(c)")
-    expect(snippet).toContain("typeof av!=='boolean'")
-    expect(snippet).toContain("typeof mv!=='boolean'")
-  })
-
-  it('establishes consent before GTM and guards against duplicate initialization', () => {
-    const snippet = buildGtmIntegrationSnippet('GTM-KQ8GR36H')
-    expect(snippet.indexOf("consent','default")).toBeLessThan(snippet.indexOf("event:'gtm.js'"))
-    expect(snippet).toContain('window.__spGtmInitialized')
-    expect(snippet.match(/gtm\.js\?id=/g)).toHaveLength(1)
+  it('applies consent revocation when another tab clears stored choices', () => {
+    const { browser, window } = browserAt(production, '{"analytics":true,"marketing":true}')
+    const update = vi.fn()
+    expect(readTrackingConsent(window)).toEqual({ analytics: true, marketing: true })
+    const unsubscribe = subscribeToTrackingConsent(window, update)
+    browser.localStorage.removeItem(TRACKING_CONSENT_STORAGE_KEY)
+    browser.dispatchEvent(Object.assign(new Event('storage'), { key: TRACKING_CONSENT_STORAGE_KEY }))
+    expect(update).toHaveBeenCalledExactlyOnceWith({ analytics: false, marketing: false })
+    unsubscribe()
   })
 })

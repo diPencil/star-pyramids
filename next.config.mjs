@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // The measurement boundary needs to distinguish Flight from document requests.
+  skipProxyUrlNormalize: true,
   // Phase 1A: static export REMOVED. API routes, server sessions and
   // Prisma database access require the Node.js server runtime
   // (`next start`). See BACKEND_SETUP.md for deployment implications.

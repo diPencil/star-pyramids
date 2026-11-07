@@ -1,5 +1,6 @@
 'use client'
 
+import { trackPublicInteraction } from '@/lib/tracking-events'
 import { Suspense, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { CampaignPlacementSlot } from './offer-campaigns'
@@ -136,7 +137,7 @@ function TripsContent() {
       </div>
     </div>}
     <main className="container trips-page">
-      <form className="trips-search" role="search" onSubmit={(event) => { event.preventDefault(); update({ q: search.trim().slice(0, 120) }) }}>
+      <form className="trips-search" role="search" onSubmit={(event) => { event.preventDefault(); if (search.trim()) trackPublicInteraction({ event: 'sp_search_submit', placement: 'trips' }); update({ q: search.trim().slice(0, 120) }) }}>
         <div className="trips-search-field">
           <Search size={21} aria-hidden="true" />
           <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t.searchPlaceholder} aria-label={t.search} maxLength={120} />

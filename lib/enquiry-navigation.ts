@@ -1,3 +1,5 @@
+import { DOCUMENT_LOCATION_CHANGE_EVENT } from './tracking'
+
 // Same-document history does not fire beforeunload. The Navigation API gives
 // us the destination entry without adding sentinel entries or rewriting history.
 type Entry = { key: string; index: number }
@@ -26,11 +28,20 @@ export function installEnquiryHistoryTracking(browser: Window) {
   const replace = history.replaceState.bind(history)
   const tag = (state: unknown) => ({ ...(state && typeof state === 'object' ? state : {}), [historyKey]: { documentId, index } })
   replace(tag(history.state), '', browser.location.href)
+  const notifyLocationChange = (previous: string) => {
+    if (browser.location.href !== previous) browser.dispatchEvent(new Event(DOCUMENT_LOCATION_CHANGE_EVENT))
+  }
   const pushState: History['pushState'] = (state: unknown, unused, url) => {
+    const previous = browser.location.href
     index += 1
     try { push(tag(state), unused, url) } catch (error) { index -= 1; throw error }
+    notifyLocationChange(previous)
   }
-  const replaceState: History['replaceState'] = (state: unknown, unused, url) => replace(tag(state), unused, url)
+  const replaceState: History['replaceState'] = (state: unknown, unused, url) => {
+    const previous = browser.location.href
+    replace(tag(state), unused, url)
+    notifyLocationChange(previous)
+  }
   const update = (event: PopStateEvent) => {
     const position = historyPosition(event.state)
     if (position?.documentId === documentId) index = position.index

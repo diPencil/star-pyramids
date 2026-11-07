@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { ArrowRight, CalendarDays, Check, CircleAlert, Clock3, Compass, LockKeyhole, Mail, ShieldCheck, Trash2, Users } from 'lucide-react'
 import { Breadcrumb, SiteShell } from '@/components/site'
 import { formatPrice, tx, useLocale } from './locale'
@@ -21,8 +21,9 @@ import { CartCatalogueStatus } from './cart-catalogue-status'
 import { useCurrentUser } from '@/lib/use-current-user'
 import {bookingPriceSnapshot,parseAcceptedPrice,type BookingPriceSnapshot} from '@/lib/booking-price'
 import {CustomerConfirmDialog} from './customer-confirm-dialog'
+import { bookingMeasurementHeaders, recordBeginCheckout, recordBookingReceipt } from '@/lib/booking-funnel'
 
-type CheckoutReply=Booking&{code?:string;slug?:string;price?:unknown;quote?:string;existing?:boolean;success?:boolean;error?:string;guestAccessUrl?:string|null;guest?:boolean}
+type CheckoutReply=Booking&{code?:string;slug?:string;price?:unknown;quote?:string;existing?:boolean;success?:boolean;error?:string;guestAccessUrl?:string|null;guest?:boolean;bookingMeasurement?:unknown}
 
 /**
  * Checkout (Phase 2E: real backend).
@@ -32,7 +33,7 @@ type CheckoutReply=Booking&{code?:string;slug?:string;price?:unknown;quote?:stri
  * reference. A per-attempt idempotency key makes double clicks, slow
  * networks, and re-renders create exactly ONE booking.
  */
-export function CheckoutPage() {
+export function CheckoutPage({ measureBookings = false }: { measureBookings?: boolean } = {}) {
   const { currency, locale } = useLocale()
   const { items } = useCart()
   const catalogue = useCartCatalogue(items)
@@ -82,11 +83,18 @@ export function CheckoutPage() {
   const staleBlocked = estimate.blocked||items.some(item=>unavailable.includes(item.key))
   const showSummary = attempted && (hasContactErrors(errors) || staleBlocked)
 
+  useEffect(() => {
+    if (measureBookings && catalogue.ready && !staleBlocked && !placed && estimate.validLines.length) {
+      recordBeginCheckout(window, process.env.NODE_ENV, estimate.validLines.map(line => line.item.tourSlug))
+    }
+  }, [measureBookings, catalogue.ready, staleBlocked, placed, estimate.validLines])
+
   async function acceptBookingResult(data:CheckoutReply,draftEmail:string,submittedKeys:string[],idempotencyKey:string) {
         // Guest checkouts get a private link from the server: the booking is
         // not linked to an account, so the reference alone opens nothing.
         const safeReplay=data.success===true&&data.existing===true&&data.guest===true
         if (!OFFICIAL_BOOKING_REF_PATTERN.test(data.reference) || !safeReplay&&(!Number.isFinite(data.total) || data.total < 0)) throw Error(sendFailed)
+        if (measureBookings) recordBookingReceipt(window, process.env.NODE_ENV, data.bookingMeasurement)
         const guestAccessUrl = data.guest !== false && typeof data.guestAccessUrl === 'string' && /^\/booking\/[A-Za-z0-9_-]{43}$/.test(data.guestAccessUrl) ? data.guestAccessUrl : null
         let linked = data.guest === false
         if (!guestAccessUrl && data.guest === undefined) {
@@ -138,7 +146,7 @@ export function CheckoutPage() {
       lastRequest.current={body,keys:submittedKeys}
       const res = await fetch('/api/bookings', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...bookingMeasurementHeaders(measureBookings) },
       credentials: 'same-origin',
       body: JSON.stringify(body),
       })
@@ -170,13 +178,13 @@ export function CheckoutPage() {
         if(hasContactErrors(invalid))return
         const draft={lines:estimate.lines.map(line=>({tourSlug:line.item.tourSlug,date:line.item.date,adults:line.item.adults,children:line.item.children,infants:line.item.infants,addons:[...line.item.addons]})),contact,notes:notes.trim(),currency:'USD' as const,acceptedTerms}
         const idempotencyKey=await checkoutAttemptKey(draft)
-        const res=await fetch('/api/bookings',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({...draft,idempotencyKey,recoverOnly:true})})
+        const res=await fetch('/api/bookings',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json',...bookingMeasurementHeaders(measureBookings)},body:JSON.stringify({...draft,idempotencyKey,recoverOnly:true})})
         const data=await res.json() as CheckoutReply
         if(!res.ok)throw Error(data.error??sendFailed)
         await acceptBookingResult(data,contact.email,items.map(item=>item.key),idempotencyKey)
         return
       }
-      const res=await fetch('/api/bookings',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({...previous.body,recoverOnly:true})})
+      const res=await fetch('/api/bookings',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json',...bookingMeasurementHeaders(measureBookings)},body:JSON.stringify({...previous.body,recoverOnly:true})})
       const data=await res.json() as CheckoutReply
       if(!res.ok)throw Error(data.error??sendFailed)
       await acceptBookingResult(data,previous.body.contact.email,previous.keys,previous.body.idempotencyKey)

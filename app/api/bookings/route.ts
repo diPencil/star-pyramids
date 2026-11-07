@@ -7,6 +7,9 @@ import { readBoundedJson } from '@/lib/server/request-json';
 import { prepareCheckoutAccount, recordCheckoutAccountPreparationFailure } from '@/lib/server/checkout-account';
 import { createCheckoutBooking } from '@/lib/server/booking-checkout';
 import {PriceChanged,QuoteServiceError,TourUnavailable} from '@/lib/server/booking-quote';
+import { BOOKING_MARKETING_GRANT_HEADER, BOOKING_MEASUREMENT_HEADER, bookingMeasurementGrants } from '@/lib/booking-measurement';
+import { isProductionTrackingHost } from '@/lib/tracking';
+import { getTrackingSettings } from '@/lib/server/tracking';
 
 function bodyEmail(body: unknown): string {
   if (typeof body !== 'object' || body === null) return 'unknown';
@@ -86,15 +89,20 @@ export async function POST(request: Request) {
     }
     const current=await getCurrentUser();
     const userId=current&&current.roles.includes('CUSTOMER')?current.id:null;
-    const {booking,reference,created,guestAccessUrl}=await createCheckoutBooking(userId,selections,acceptedTerms,acceptedPrice,priceQuote as string|undefined,recoverOnly===true);
+    const requestedMeasurement = bookingMeasurementGrants(request.headers.get(BOOKING_MEASUREMENT_HEADER), request.headers.get(BOOKING_MARKETING_GRANT_HEADER));
+    const measurement = requestedMeasurement &&
+      isProductionTrackingHost(process.env.NODE_ENV, request.headers.get('host') ?? new URL(request.url).host) &&
+      (await getTrackingSettings()).enabled ? requestedMeasurement : undefined;
+    const {booking,reference,created,guestAccessUrl,bookingMeasurement}=await createCheckoutBooking(userId,selections,acceptedTerms,acceptedPrice,priceQuote as string|undefined,recoverOnly===true,measurement);
+    const measurementReply = measurement && bookingMeasurement ? { bookingMeasurement } : {};
     if(created&&userId===null&&acceptedTerms) {
       try { await prepareCheckoutAccount(reference,bodyEmail(body)); }
       catch { await recordCheckoutAccountPreparationFailure(reference).catch(()=>undefined); }
     }
-    if(!booking)return NextResponse.json({success:true,existing:true,reference,guest:true,guestAccessUrl:null},{status:200,headers:{'Cache-Control':'no-store'}});
+    if(!booking)return NextResponse.json({success:true,existing:true,reference,guest:true,guestAccessUrl:null,...measurementReply},{status:200,headers:{'Cache-Control':'no-store'}});
     // `guestAccessUrl` is the private link minted for a guest checkout; it
     // is null for account bookings, which keep their existing session flow.
-    return NextResponse.json({ ...booking, existing:!created,guestAccessUrl, guest: userId === null }, { status: created ? 201 : 200, headers:{'Cache-Control':'no-store'} });
+    return NextResponse.json({ ...booking, existing:!created,guestAccessUrl, guest: userId === null, ...measurementReply }, { status: created ? 201 : 200, headers:{'Cache-Control':'no-store'} });
   } catch (error) {
     return bookingFailure(error);
   }

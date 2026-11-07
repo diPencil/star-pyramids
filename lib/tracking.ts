@@ -1,8 +1,49 @@
 export const DEFAULT_GTM_CONTAINER_ID = 'GTM-KQ8GR36H'
 export const TRACKING_CONSENT_STORAGE_KEY = 'sp-consent'
+export const TRACKING_ELIGIBLE_HEADER = 'x-sp-tracking-eligible'
+export const DOCUMENT_LOCATION_CHANGE_EVENT = 'sp:location-change'
+export type TrackingGrants = { analytics?: string; marketing?: string }
+export const isTrackingGrant = (value: unknown): value is string =>
+  typeof value === 'string' && value.length === 36 && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(value)
 
 const GTM_CONTAINER_ID_PATTERN = /^GTM-[A-Z0-9]{4,12}$/
-const PRIVATE_TRACKING_PREFIXES = ['/admin', '/account', '/website-cms-preview'] as const
+const PRODUCTION_HOSTS = new Set(['starpyramids.com', 'www.starpyramids.com'])
+const PUBLIC_PAGES = new Set([
+  '/', '/about', '/accessible-travel', '/egypt-travel-guide', '/faq', '/privacy',
+  '/rent-car', '/terms', '/trips',
+])
+const CATALOGUE_PATH = /^\/(?:blogs|destinations|egypt-tours|events|special-offers)(?:\/[a-z0-9]{1,32}(?:-[a-z0-9]{1,32})*){0,3}$/
+const CLICK_ID = /^[A-Za-z0-9_-]{1,256}$/
+// Campaign labels are bounded words or slugs. Exclude URLs, email addresses,
+// phone-only strings and control characters after URL decoding.
+const CAMPAIGN_LABEL = /^(?=[A-Za-z0-9 _-]{1,100}$)(?=[A-Za-z0-9 _-]*[A-Za-z])[A-Za-z0-9]+(?:[ _-][A-Za-z0-9]+)*$/
+const CAMPAIGN_NAME = new RegExp(`${CAMPAIGN_LABEL.source}|^[0-9]{1,20}$`)
+const CAMPAIGN_ID = /^(?:[0-9]{1,20}|(?=[A-Za-z0-9_-]{1,64}$)(?=[A-Za-z0-9_-]*[A-Za-z])[A-Za-z0-9]+(?:[_-][A-Za-z0-9]+)*)$/
+const PUBLIC_QUERY_VALUES: ReadonlyMap<string, RegExp> = new Map([
+  ['page', /^[1-9][0-9]{0,5}$/],
+  ['gclid', CLICK_ID],
+  ['dclid', CLICK_ID],
+  ['gbraid', CLICK_ID],
+  ['wbraid', CLICK_ID],
+  ['gclsrc', /^(?:aw\.ds|ds)$/],
+  ['gad_source', /^[0-9]{1,8}$/],
+  ['gad_campaignid', /^[0-9]{1,20}$/],
+  ['utm_id', CAMPAIGN_ID],
+  ['utm_source', CAMPAIGN_LABEL],
+  ['utm_medium', CAMPAIGN_LABEL],
+  ['utm_campaign', CAMPAIGN_NAME],
+  ['utm_source_platform', CAMPAIGN_LABEL],
+  ['utm_term', CAMPAIGN_LABEL],
+  ['utm_content', CAMPAIGN_NAME],
+  ['utm_creative_format', CAMPAIGN_LABEL],
+  ['utm_marketing_tactic', CAMPAIGN_LABEL],
+])
+const CATALOGUE_FILTER_VALUES: ReadonlyMap<string, RegExp> = new Map([
+  ['category', /^(?:one-day-tours|multi-days-tours|nile-cruises|shore-excursions)$/],
+  ['duration', /^(?:day|short|long)$/],
+  ['price', /^(?:under-200|200-400|over-400)$/],
+  ['sort', /^(?:Recommended|Price: low to high|Price: high to low)$/],
+])
 
 export interface TrackingSettings {
   enabled: boolean
@@ -30,24 +71,35 @@ export function resolveTrackingSettings(input: { enabled?: unknown; containerId?
   }
 }
 
-export function isTrackingExcludedPath(requestPath: string): boolean {
-  const pathname = requestPath.split(/[?#]/, 1)[0] || '/'
-  return PRIVATE_TRACKING_PREFIXES.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
-  )
+export function isProductionTrackingHost(environment: string | undefined, host: string): boolean {
+  return environment === 'production' && PRODUCTION_HOSTS.has(host.toLowerCase())
 }
 
-export function buildGtmLoaderSnippet(containerId: string): string {
-  const id = normalizeGtmContainerId(containerId)
-  if (!id) throw new Error('Invalid Google Tag Manager Container ID.')
-  return `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${id}');`
+/** Allow only public catalogue URLs and typed parameters. A tag can read the
+ * actual URL, so dropping a parameter from a payload alone is insufficient. */
+export function isSafeTrackingUrl(url: URL): boolean {
+  if (url.hash || url.username || url.password) return false
+  const path = url.pathname.replace(/\/$/, '') || '/'
+  if (!PUBLIC_PAGES.has(path) && !CATALOGUE_PATH.test(path)) return false
+  const isTourListing = path === '/trips' || path.startsWith('/egypt-tours/')
+  const seen = new Set<string>()
+  for (const [key, value] of url.searchParams) {
+    const pattern = PUBLIC_QUERY_VALUES.get(key) ?? (isTourListing ? CATALOGUE_FILTER_VALUES.get(key) : undefined)
+    if (seen.has(key) || value !== value.trim() || !pattern?.test(value)) return false
+    seen.add(key)
+  }
+  return true
 }
 
-export function buildConsentDefaultSnippet(): string {
-  return `window.dataLayer=window.dataLayer||[];window.gtag=window.gtag||function(){window.dataLayer.push(arguments);};(function(w){function u(c){if(!c||typeof c!=='object'||Array.isArray(c))return;var av=c.analytics,mv=c.marketing;if((av!==undefined&&typeof av!=='boolean')||(mv!==undefined&&typeof mv!=='boolean'))return;var a=av===true?'granted':'denied';var m=mv===true?'granted':'denied';w.gtag('consent','update',{analytics_storage:a,ad_storage:m,ad_user_data:m,ad_personalization:m,personalization_storage:m});}w.gtag('consent','default',{ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied',analytics_storage:'denied',functionality_storage:'granted',personalization_storage:'denied',security_storage:'granted',wait_for_update:500});w.gtag('set','ads_data_redaction',true);try{var r=w.localStorage.getItem(${JSON.stringify(TRACKING_CONSENT_STORAGE_KEY)});if(r){u(JSON.parse(r));}}catch(e){}w.addEventListener('sp:consent-change',function(e){if(e&&e.detail){u(e.detail);}});})(window);`
+export function canMeasureLocation(url: URL, environment: string | undefined): boolean {
+  return url.protocol === 'https:' && isProductionTrackingHost(environment, url.host) && isSafeTrackingUrl(url)
 }
 
-export function buildGtmIntegrationSnippet(containerId: string): string {
-  const loader = buildGtmLoaderSnippet(containerId)
-  return `if(!window.__spGtmInitialized){window.__spGtmInitialized=true;${buildConsentDefaultSnippet()}\n${loader}}`
+export function sanitizeMeasurementUrl(value: string, environment: string | undefined): string | null {
+  try {
+    const url = new URL(value)
+    return canMeasureLocation(url, environment) ? url.origin + url.pathname : null
+  } catch {
+    return null
+  }
 }

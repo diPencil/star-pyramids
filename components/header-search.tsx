@@ -1,5 +1,6 @@
 'use client'
 
+import { trackPublicInteraction } from '@/lib/tracking-events'
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -45,26 +46,26 @@ export function HeaderSearch({ mobile = false, query, onQueryChange, placeholder
   }
   return <form ref={form} className={mobile ? 'mobile-header-search container public-search-control' : 'site-search public-search-control'} role="search"
     onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false) }}
-    onSubmit={event => { event.preventDefault(); setOpen(false); router.push(searchHref(query)) }}>
+    onSubmit={event => { event.preventDefault(); if (query.trim()) trackPublicInteraction({ event: 'sp_search_submit', placement: mobile ? 'mobile_header' : 'header' }); setOpen(false); router.push(searchHref(query)) }}>
     {mobile ? <Search size={18} aria-hidden="true"/> : <button className="public-search-submit" type="submit" aria-label={submitLabel}><Search size={19}/></button>}
     <input ref={input} type="search" role="combobox" aria-autocomplete="list" aria-expanded={show} aria-controls={show ? id : undefined}
       aria-activedescendant={show && active >= 0 && active < count ? `${id}-${active}` : undefined} autoComplete="off" maxLength={120} enterKeyHint="search"
       value={query} placeholder={placeholder} aria-label={placeholder} onFocus={() => setOpen(true)}
       onChange={event => { onQueryChange(event.target.value); setActive(-1); setOpen(true) }} onKeyDown={onKeyDown}/>
     {mobile && <button type="submit" aria-label={submitLabel}><ArrowRight size={18}/></button>}
-    {show && <LiveSearchSuggestions query={query} id={id} active={active} onCountChange={setCount} onClose={() => { setOpen(false); setActive(-1) }}/>}
+    {show && <LiveSearchSuggestions query={query} id={id} active={active} onCountChange={setCount} onClose={() => { setOpen(false); setActive(-1) }} onSubmitSearch={() => trackPublicInteraction({ event: 'sp_search_submit', placement: mobile ? 'mobile_header' : 'header' })}/>}
   </form>
 }
 
-function LiveSearchSuggestions({ onCountChange, ...props }: { query: string; id: string; active: number; onCountChange(count: number): void; onClose(): void }) {
+function LiveSearchSuggestions({ onCountChange, ...props }: { query: string; id: string; active: number; onCountChange(count: number): void; onClose(): void; onSubmitSearch(): void }) {
   const state = usePublicSearch(props.query)
   const count = Math.min(state.results.length, 8)
   useEffect(() => { onCountChange(count) }, [count, onCountChange])
   return <SearchSuggestions {...props} {...state}/>
 }
 
-export function SearchSuggestions({ query, id, active, results, loading, failed, retry, onClose }: {
-  query: string; id: string; active: number; results: SearchResult[]; loading: boolean; failed: readonly unknown[]; retry(): void; onClose(): void
+export function SearchSuggestions({ query, id, active, results, loading, failed, retry, onClose, onSubmitSearch }: {
+  query: string; id: string; active: number; results: SearchResult[]; loading: boolean; failed: readonly unknown[]; retry(): void; onClose(): void; onSubmitSearch?(): void
 }) {
   const { locale } = useLocale()
   const options = results.slice(0, 8)
@@ -78,6 +79,6 @@ export function SearchSuggestions({ query, id, active, results, loading, failed,
         <span><small>{tx(locale, SEARCH_TYPE_LABELS[item.type])}</small><strong>{item.title}</strong><span>{item.copy}</span></span><ArrowRight size={16} aria-hidden="true"/>
       </Link>)}
     </div>
-    <Link href={searchHref(query)} onClick={onClose} className="public-search-all">{tx(locale, { en: 'View all results', es: 'Ver todos los resultados', it: 'Vedi tutti i risultati' })}<ArrowRight size={16}/></Link>
+    <Link href={searchHref(query)} onClick={() => { onSubmitSearch?.(); onClose() }} className="public-search-all">{tx(locale, { en: 'View all results', es: 'Ver todos los resultados', it: 'Vedi tutti i risultati' })}<ArrowRight size={16}/></Link>
   </div>
 }

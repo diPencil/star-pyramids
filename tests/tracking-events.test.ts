@@ -1,0 +1,198 @@
+import { randomUUID } from 'node:crypto'
+import { describe, expect, it, vi } from 'vitest'
+import { GTM_CONSENT_READY_EVENT, initializeGtm, isGtmReady } from '@/lib/tracking-browser'
+import { createPageViewTracker, navigationInteraction, publicPageView, queueBookingFunnelEvent, queuePublicInteraction, type PublicInteraction } from '@/lib/tracking-events'
+import { TRACKING_CONSENT_STORAGE_KEY } from '@/lib/tracking'
+
+const origin = 'https://starpyramids.com'
+const denied = { analytics: false, marketing: false }
+const granted = { analytics: true, marketing: false }
+
+function fixture(path = '/', consent = granted, id: string | null = 'GTM-KQ8GR36H', autoReady = true) {
+  const dataLayer: unknown[] = []
+  const location = { href: origin + path }
+  const script: { onload?: () => void } = {}
+  const analytics = randomUUID()
+  const save = (choice: typeof consent) => values.set(TRACKING_CONSENT_STORAGE_KEY, JSON.stringify({ ...choice, grants: { analytics } }))
+  const values = new Map<string, string>()
+  save(consent)
+  const browser = Object.assign(new EventTarget(), {
+    location,
+    dataLayer,
+    crypto: { randomUUID },
+    localStorage: {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => { values.set(key, value) },
+      removeItem: (key: string) => { values.delete(key) },
+    },
+    document: { createElement: () => script, head: { appendChild: vi.fn() } },
+  }) as unknown as Window
+  const ready = () => { if (!isGtmReady(browser)) script.onload?.() }
+  initializeGtm(browser, id, consent, 'production')
+  if (autoReady) ready()
+  dataLayer.length = 0
+  return { browser, location, dataLayer, ready, applyConsent(choice: typeof consent) {
+    save(choice)
+    initializeGtm(browser, id, choice, 'production')
+    if (autoReady) ready()
+  } }
+}
+
+describe('public page views', () => {
+  it('can report an initial page view once the container has applied the current consent', () => {
+    const page = fixture('/', granted, 'GTM-TEST', false)
+    const observe = createPageViewTracker()
+    const commit = { pathname: '/', search: '', enabled: true }
+    expect(observe(page.browser, 'production', commit)).toBe(false)
+    page.ready()
+    expect(observe(page.browser, 'production', commit)).toBe(true)
+    expect(observe(page.browser, 'production', commit)).toBe(false)
+    expect(page.dataLayer.at(-1)).toMatchObject({ event: 'sp_page_view', page_path: '/' })
+  })
+  it('uses the committed public tour and pagination, omitting campaign and filter parameters', () => {
+    expect(publicPageView(new URL(`${origin}/egypt-tours/full-day-cairo/?gclid=click&utm_source=google&utm_campaign=Cairo+Summer&page=2&sort=Recommended`), 'production')).toEqual({
+      event: 'sp_page_view',
+      page_path: '/egypt-tours/full-day-cairo?page=2',
+      page_location: `${origin}/egypt-tours/full-day-cairo?page=2`,
+      page_title: 'Full Day Cairo | STAR PYRAMIDS',
+    })
+  })
+
+  it.each(['/search?q=private', '/trips?q=private', '/booking/private', '/account', '/trips#private', '/trips?token=private'])(
+    'does not create a payload for %s', path => {
+      expect(publicPageView(new URL(origin + path), 'production')).toBeNull()
+    },
+  )
+
+  it('counts committed navigation, pagination and back/forward without rerender or filter duplicates', () => {
+    const { browser, location, dataLayer } = fixture('/trips')
+    const observe = createPageViewTracker()
+    const commit = (pathname: string, search = '', enabled = true) => observe(browser, 'production', { pathname, search, enabled })
+    expect(commit('/trips', '', false)).toBe(false)
+    expect(commit('/trips')).toBe(true)
+    expect(commit('/trips')).toBe(false)
+    location.href = `${origin}/trips?price=under-200&gclid=click&utm_source=google`
+    expect(commit('/trips', 'price=under-200&gclid=click&utm_source=google')).toBe(false)
+    location.href = `${origin}/trips?page=2`
+    expect(commit('/trips')).toBe(false) // Router has not committed the query yet.
+    expect(commit('/trips', 'page=2')).toBe(true)
+    location.href = `${origin}/egypt-tours/full-day-cairo`
+    expect(commit('/trips', 'page=2')).toBe(false)
+    expect(commit('/egypt-tours/full-day-cairo')).toBe(true)
+    location.href = `${origin}/trips?page=2`
+    expect(commit('/trips', 'page=2')).toBe(true)
+    location.href = `${origin}/egypt-tours/full-day-cairo`
+    expect(commit('/egypt-tours/full-day-cairo')).toBe(true)
+    expect(dataLayer.map(value => (value as { page_path: string }).page_path)).toEqual([
+      '/trips', '/trips?page=2', '/egypt-tours/full-day-cairo', '/trips?page=2', '/egypt-tours/full-day-cairo',
+    ])
+  })
+
+  it('honors late consent, withdrawal and a browser back/forward cache restoration', () => {
+    const { browser, dataLayer, applyConsent } = fixture('/', denied)
+    const observe = createPageViewTracker()
+    const commit = { pathname: '/', search: '', enabled: true }
+    expect(observe(browser, 'production', commit)).toBe(false)
+    applyConsent(granted)
+    expect(observe(browser, 'production', commit)).toBe(true)
+    expect(observe(browser, 'production', { ...commit, restored: true })).toBe(true)
+    applyConsent(denied)
+    expect(observe(browser, 'production', { ...commit, restored: true })).toBe(false)
+    expect(dataLayer.filter(value => (value as { event?: string }).event === 'sp_page_view')).toHaveLength(2)
+  })
+})
+
+describe('public interaction events', () => {
+  it('keeps consented startup clicks outside GTM until ready and drops them on withdrawal', () => {
+    const interaction = { event: 'sp_search_submit', placement: 'header' } as const
+    const first = fixture('/', granted, 'GTM-TEST', false)
+    expect(queuePublicInteraction(first.browser, 'production', interaction)).toBe(true)
+    expect(first.dataLayer).not.toContainEqual(interaction)
+    first.ready()
+    expect(first.dataLayer.at(-1)).toEqual(interaction)
+
+    const second = fixture('/', granted, 'GTM-TEST', false)
+    expect(queuePublicInteraction(second.browser, 'production', interaction)).toBe(true)
+    second.applyConsent(denied)
+    second.applyConsent(granted)
+    second.ready()
+    expect(second.dataLayer).not.toContainEqual(interaction)
+  })
+  it('projects only event-specific fields and emits a GA4-compatible item array for card selections', () => {
+    const { browser, dataLayer } = fixture('/trips')
+    const inputs: PublicInteraction[] = [
+      { event: 'sp_navigation_click', placement: 'mobile_menu', destination: 'trips' },
+      { event: 'sp_select_item', itemId: 'full-day-cairo' },
+      { event: 'sp_book_now_click', itemId: 'full-day-cairo' },
+      { event: 'sp_search_submit', placement: 'header' },
+      { event: 'sp_cta_click', ctaId: 'offer' },
+      { event: 'sp_contact_click', channel: 'whatsapp', placement: 'support_widget' },
+    ]
+    for (const input of inputs) {
+      expect(queuePublicInteraction(browser, 'production', { ...input, searchText: 'private', email: 'person@example.com' } as PublicInteraction)).toBe(true)
+    }
+    expect(dataLayer).toEqual([
+      { event: 'sp_navigation_click', placement: 'mobile_menu', destination: 'trips' },
+      { event: 'sp_select_item', items: [{ item_id: 'full-day-cairo' }], placement: 'tour_card' },
+      { event: 'sp_book_now_click', item_id: 'full-day-cairo', placement: 'tour_detail' },
+      { event: 'sp_search_submit', placement: 'header' },
+      { event: 'sp_cta_click', cta_id: 'offer' },
+      { event: 'sp_contact_click', channel: 'whatsapp', placement: 'support_widget' },
+    ])
+  })
+
+  it('drops contact addresses, link parameters and private destinations', () => {
+    expect(navigationInteraction('/trips?q=private', origin, 'header')).toEqual({ event: 'sp_navigation_click', destination: 'trips', placement: 'header' })
+    expect(navigationInteraction('https://wa.me/123456?text=private', origin, 'footer')).toEqual({ event: 'sp_contact_click', channel: 'whatsapp', placement: 'footer' })
+    expect(navigationInteraction('mailto:person@example.com', origin, 'footer')).toEqual({ event: 'sp_contact_click', channel: 'email', placement: 'footer' })
+    expect(navigationInteraction('/contact?ref=private', origin, 'header')).toEqual({ event: 'sp_contact_click', channel: 'contact_page', placement: 'header' })
+    expect(navigationInteraction('/booking/private', origin, 'header')).toBeNull()
+    expect(navigationInteraction('javascript:void(0)', origin, 'header')).toBeNull()
+  })
+
+  it('requires an active container, analytics consent, a production host and an eligible current URL', () => {
+    const action = { event: 'sp_search_submit', placement: 'header' } as const
+    const { browser, location, dataLayer, applyConsent } = fixture('/', denied)
+    expect(queuePublicInteraction(browser, 'production', action)).toBe(false)
+    applyConsent({ analytics: false, marketing: true })
+    expect(queuePublicInteraction(browser, 'production', action)).toBe(false)
+    applyConsent(granted)
+    expect(queuePublicInteraction(browser, 'test', action)).toBe(false)
+    location.href = 'https://qa.starpyramids.com/trips'
+    expect(queuePublicInteraction(browser, 'production', action)).toBe(false)
+    location.href = `${origin}/trips?q=private`
+    expect(queuePublicInteraction(browser, 'production', action)).toBe(false)
+    location.href = `${origin}/trips`
+    expect(queuePublicInteraction(browser, 'production', { event: 'sp_select_item', itemId: 'person@example.com' })).toBe(false)
+    expect(queuePublicInteraction(browser, 'production', action)).toBe(true)
+    applyConsent(denied)
+    expect(queuePublicInteraction(browser, 'production', action)).toBe(false)
+    const disabled = fixture('/', granted, null)
+    expect(queuePublicInteraction(disabled.browser, 'production', action)).toBe(false)
+    expect(dataLayer.filter(value => {
+      const { event } = value as { event?: string }
+      return event?.startsWith('sp_') && event !== GTM_CONSENT_READY_EVENT
+    })).toEqual([action])
+  })
+
+  it('blocks all application dispatchers on sensitive URLs after GTM has loaded', () => {
+    const { browser, location, dataLayer, ready } = fixture('/trips')
+    ready()
+    expect(isGtmReady(browser)).toBe(true)
+    const observe = createPageViewTracker()
+    const addToCart = {
+      event: 'sp_add_to_cart', event_id: 'f_aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      items: [{ item_id: 'cairo-tour', quantity: 1 }],
+    }
+    for (const path of ['/trips#token=private', '/trips?token=private', '/booking/private']) {
+      const url = new URL(path, origin)
+      location.href = url.href
+      expect(observe(browser, 'production', { pathname: url.pathname, search: url.searchParams.toString(), enabled: true })).toBe(false)
+      expect(queuePublicInteraction(browser, 'production', { event: 'sp_search_submit', placement: 'header' })).toBe(false)
+      expect(queueBookingFunnelEvent(browser, 'production', addToCart)).toBe(false)
+    }
+    expect(dataLayer).toEqual([])
+    location.href = origin + '/trips'
+    expect(queueBookingFunnelEvent(browser, 'production', addToCart)).toBe(true)
+  })
+})

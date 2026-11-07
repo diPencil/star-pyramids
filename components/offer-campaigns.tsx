@@ -1,4 +1,5 @@
 'use client'
+import { trackPublicInteraction } from '@/lib/tracking-events'
 import { CmsPublicLink } from '@/components/cms-public-link'
 
 import { usePresentation, PresentationSection, PresentationOrder } from '@/components/presentation-content-context'
@@ -50,7 +51,8 @@ export function CampaignAction({ item }: { item: Offer }) {
   // URL and finally the contact fallback apply  -  never a broken link.
   const href = item.tourSlug ? offerHref(item) : resolveTourCtaHref(campaign.ctaTourSlug, tours) ?? (safeCampaignHref(campaign.ctaHref) ? campaign.ctaHref : `/contact?offer=${encodeURIComponent(item.slug)}`)
   const label = campaign.ctaLabel || tx(locale, { en: 'Plan my trip', es: 'Planificar mi viaje', it: 'Pianifica il mio viaggio', ar: 'خطط رحلتي' })
-  return href.startsWith('/') ? <Link className="primary-btn" href={href}>{label}<ArrowRight size={16}/></Link> : <a className="primary-btn" href={href} target="_blank" rel="noopener noreferrer">{label}<ArrowRight size={16}/></a>
+  const trackOffer = () => trackPublicInteraction({ event: 'sp_cta_click', ctaId: 'offer' })
+  return href.startsWith('/') ? <Link className="primary-btn" href={href} onClick={trackOffer}>{label}<ArrowRight size={16}/></Link> : <a className="primary-btn" href={href} target="_blank" rel="noopener noreferrer" onClick={trackOffer}>{label}<ArrowRight size={16}/></a>
 }
 
 export function CampaignAdCard({ item }: { item: Offer }) {

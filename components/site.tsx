@@ -1,4 +1,5 @@
 'use client'
+import { trackPublicInteraction, trackPublicNavigation } from '@/lib/tracking-events'
 import { NavigationMenu } from './navigation-menu'
 import { usePublishedNavigation } from './navigation-context'
 import { useMarketingNotifications } from '@/lib/marketing-notifications-client'
@@ -417,10 +418,10 @@ export function Header() {
 
       <div className="header-nav">
         <div className="container header-nav-inner">
-          <nav className={publishedMenu !== null ? 'cms-managed-nav' : undefined} aria-label={tx(locale, { en: 'Primary navigation', es: 'Navegación principal', it: 'Navigazione principale', ar: 'القائمة الرئيسية' })}>
+          <nav onClickCapture={event => trackPublicNavigation(event.target, 'header')} className={publishedMenu !== null ? 'cms-managed-nav' : undefined} aria-label={tx(locale, { en: 'Primary navigation', es: 'Navegación principal', it: 'Navigazione principale', ar: 'القائمة الرئيسية' })}>
             {publishedMenu !== null ? <NavigationMenu navigation={publishedMenu} locale={locale} pathname={pathname} idPrefix="published-primary"/> : <NavLinks nav={navConfig} activeKey={activeNav} pathname={pathname} idPrefix="primary-nav" onToursOpen={() => setToursOpen((value) => !value)} toursOpen={toursOpen} onCompanyOpen={() => setCompanyOpen((value) => !value)} companyOpen={companyOpen} tourLinks={tourLinks} t={t} ex={ex} />}
           </nav>
-          <div className="nav-right-actions">{publishedMenu !== null ? <NavigationMenu navigation={publishedMenu} locale={locale} pathname={pathname} actions/> : <Link className={`make-trip-link${activeNav === 'make' ? ' active' : ''}`} href="/make-your-trip">{t.make}</Link>}<HeaderAuthAction user={headerUser} loading={headerUserLoading} signInLabel={t.signIn} dashboardLabel={t.dashboard} accountLabel={t.account} /></div>
+          <div className="nav-right-actions" onClickCapture={event => trackPublicNavigation(event.target, 'header')}>{publishedMenu !== null ? <NavigationMenu navigation={publishedMenu} locale={locale} pathname={pathname} actions/> : <Link className={`make-trip-link${activeNav === 'make' ? ' active' : ''}`} href="/make-your-trip">{t.make}</Link>}<HeaderAuthAction user={headerUser} loading={headerUserLoading} signInLabel={t.signIn} dashboardLabel={t.dashboard} accountLabel={t.account} /></div>
         </div>
       </div>
 
@@ -428,7 +429,7 @@ export function Header() {
       {menu && <dialog ref={mobileMenuRef} id="public-mobile-menu" className="mobile-nav" aria-label={tx(locale, { en: 'Mobile navigation', es: 'Navegación móvil', it: 'Navigazione mobile', ar: 'قائمة الموبايل' })} onCancel={() => setMenu(false)} onMouseDown={(event) => { if (event.target === event.currentTarget) setMenu(false) }}>
         <div className="mobile-nav-content">
           <div className="mobile-nav-heading"><Logo/><button type="button" className="icon-btn" autoFocus onClick={() => setMenu(false)} aria-label={tx(locale, { en: 'Close menu', es: 'Cerrar menú', it: 'Chiudi menu', ar: 'إغلاق القائمة' })}><X size={20}/></button></div>
-          <nav>{publishedMenu !== null ? <NavigationMenu navigation={publishedMenu} locale={locale} pathname={pathname} mobile onNavigate={() => setMenu(false)}/> : mobileGroups.map((group) => <section key={group.label}><h2>{group.label}</h2>{group.links.map(([label, href]) => <Link key={href} href={href} aria-current={pathname === href ? 'page' : undefined} onClick={() => setMenu(false)}>{label}<ArrowRight size={16} aria-hidden="true"/></Link>)}</section>)}</nav>
+          <nav onClickCapture={event => trackPublicNavigation(event.target, 'mobile_menu')}>{publishedMenu !== null ? <NavigationMenu navigation={publishedMenu} locale={locale} pathname={pathname} mobile onNavigate={() => setMenu(false)}/> : mobileGroups.map((group) => <section key={group.label}><h2>{group.label}</h2>{group.links.map(([label, href]) => <Link key={href} href={href} aria-current={pathname === href ? 'page' : undefined} onClick={() => setMenu(false)}>{label}<ArrowRight size={16} aria-hidden="true"/></Link>)}</section>)}</nav>
           <div className="mobile-nav-account"><HeaderAuthAction mobile user={headerUser} loading={headerUserLoading} signInLabel={t.signIn} dashboardLabel={t.dashboard} accountLabel={t.account} onNavigate={() => setMenu(false)} /></div>
         </div>
       </dialog>}
@@ -437,10 +438,10 @@ export function Header() {
     <div className={scrolled ? 'compact-sticky-header is-open' : 'compact-sticky-header'} aria-hidden={!scrolled}>
       <div className="container compact-sticky-inner">
         <Logo/>
-        <nav className={publishedMenu !== null ? 'cms-managed-nav' : undefined} aria-label={tx(locale, { en: 'Sticky navigation', es: 'Navegación fija', it: 'Navigazione fissa', ar: 'القائمة العائمة' })}>
+        <nav onClickCapture={event => trackPublicNavigation(event.target, 'sticky_header')} className={publishedMenu !== null ? 'cms-managed-nav' : undefined} aria-label={tx(locale, { en: 'Sticky navigation', es: 'Navegación fija', it: 'Navigazione fissa', ar: 'القائمة العائمة' })}>
           {publishedMenu !== null ? <NavigationMenu navigation={publishedMenu} locale={locale} pathname={pathname} idPrefix="published-sticky"/> : <NavLinks nav={navConfig} activeKey={activeNav} pathname={pathname} idPrefix="compact-nav" onToursOpen={() => setToursOpen((value) => !value)} toursOpen={toursOpen} onCompanyOpen={() => setCompanyOpen((value) => !value)} companyOpen={companyOpen} tourLinks={tourLinks} t={t} ex={ex} />}
         </nav>
-        <div className="compact-sticky-actions">
+        <div className="compact-sticky-actions" onClickCapture={event => trackPublicNavigation(event.target, 'sticky_header')}>
           <Link className={`icon-btn header-cart${cartLines > 0 ? ' has-items' : ''}`} href="/cart" aria-label={cartLabel}>
             <ShoppingCart size={16}/>
             {cartLines > 0 && <span className="cart-count-badge" aria-hidden="true">{cartLines > 9 ? '9+' : cartLines}</span>}
@@ -500,7 +501,7 @@ function DynamicFooter() {
   const footerTag = locale === 'ar' ? (brand.aboutAr || ex.footerTag) : (brand.aboutEn || ex.footerTag)
   const copyright = locale === 'ar' ? (brand.copyrightAr || ex.rights) : (brand.copyrightEn || ex.rights)
 
-  return <footer>
+  return <footer onClickCapture={event => trackPublicNavigation(event.target, 'footer')}>
     <div className="container footer-grid">
       <div className="foot-brand">
         <Logo />
@@ -608,6 +609,7 @@ export function TripSearchEngine() {
 
   // Handle search with proper query parameters
   const handleSearch = () => {
+    trackPublicInteraction({ event: 'sp_search_submit', placement: 'tour_search' })
     if (tripKind) {
       const params = new URLSearchParams();
       if (where) params.set('destination', where);
@@ -816,7 +818,7 @@ export function TripSearchEngine() {
   );
 }
 
-export function CardGallery({ images: imgs, title, href, children }: { images: readonly string[]; title: string; href: string; children?: React.ReactNode }) {
+export function CardGallery({ images: imgs, title, href, children, onSelect }: { images: readonly string[]; title: string; href: string; children?: React.ReactNode; onSelect?: () => void }) {
   const [idx, setIdx] = useState(0)
   const scrub = (e: CardMouseEvent<HTMLDivElement>) => {
     const r = e.currentTarget.getBoundingClientRect()
@@ -824,7 +826,7 @@ export function CardGallery({ images: imgs, title, href, children }: { images: r
   }
   return (
     <div className="card-gallery" onMouseMove={scrub} onMouseLeave={() => setIdx(0)}>
-      <Link href={href} aria-label={title} className="tour-gallery-link">
+      <Link href={href} aria-label={title} className="tour-gallery-link" onClick={onSelect}>
         {imgs.map((src, i) => (
           <Image
             key={src + i}
@@ -883,16 +885,18 @@ export function TourCardPresentation({ tour, variant = 'multi', saved = false, c
   for (const ch of tour.slug) offset = (offset + ch.charCodeAt(0)) % images.length
   const gallery = (tour.gallery && tour.gallery.length > 0) ? tour.gallery : [tour.image, ...images.slice(offset), ...images.slice(0, offset)].filter((src, index, all) => all.indexOf(src) === index).slice(0, 5)
 
+  const selectTour = passive ? undefined : () => trackPublicInteraction({ event: 'sp_select_item', itemId: tour.slug })
+
   return <article className={`tour-card ${variant}`}>
     <div className="tour-image">
-      <CardGallery images={gallery} title={title} href={href}>
+      <CardGallery images={gallery} title={title} href={href} onSelect={selectTour}>
         <button type="button" className="tour-fav" aria-label={saved ? tx(plc, { en: 'Remove from saved', es: 'Quitar de guardados', it: 'Rimuovi dai salvati', ar: 'إزالة من المحفوظات' }) : tx(plc, { en: 'Save tour', es: 'Guardar el viaje', it: 'Salva il viaggio', ar: 'حفظ الرحلة' })} aria-pressed={saved} disabled={passive} onClick={onToggle}><Heart size={17} fill={saved ? '#f7951d' : 'none'} color={saved ? '#f7951d' : '#1f2937'} strokeWidth={2} /></button>
         <button type="button" className="tour-share" aria-label={copied ? tx(plc, { en: 'Link copied', es: 'Enlace copiado', it: 'Link copiato', ar: 'تم نسخ الرابط' }) : tx(plc, { en: 'Share tour', es: 'Compartir el viaje', it: 'Condividi il viaggio', ar: 'مشاركة الرحلة' })} disabled={passive} onClick={onShare}>{copied ? <Check size={17} color="#1d4ed8" /> : <Share2 size={17} color="#1f2937" />}</button>
       </CardGallery>
     </div>
     <div className="tour-body">
       {cruiseTypeInfo ? <div className="meta cruise-meta"><span className="cities-pill">◉ {plc === 'ar' ? localizeTourLocation(tour.location) : tour.location}</span><em>{plc === 'ar' ? cruiseTypeInfo.titleAr : cruiseTypeInfo.titleEn}</em></div> : <div className="meta">◉ {plc === 'ar' ? localizeTourLocation(tour.location) : tour.location} <em>{tour.travelStyle ?? 'Classic'}</em></div>}
-      <h3><Link href={href}>{title}</Link></h3>
+      <h3><Link href={href} onClick={selectTour}>{title}</Link></h3>
       <div className="tour-bottom"><div><small>{tx(plc, { en: 'Start From', es: 'Desde', it: 'Da', ar: 'يبدأ من' })}</small><strong>{formatPrice(tour.price, currency, plc)}</strong></div><span>{variant === 'day' ? <Clock3 size={12} /> : variant === 'cruise' ? <Ship size={12} /> : variant === 'shore' ? <Anchor size={12} /> : null}{plc === 'ar' ? localizeTourDuration(tour.duration) : tour.duration}</span></div>
     </div>
   </article>
@@ -940,12 +944,12 @@ export function PageShowcaseHero({ showFeatured = true, image, eyebrow, title, i
         <h1>{title}</h1>
         <p>{intro}</p>
         <div className="events-page-hero-actions">
-          <a href={primaryHref} className="primary-btn">{primaryLabel} <ArrowRight size={17}/></a>
-          {showFeatured && <Link href={secondaryHref} className="events-hero-link">{secondaryLabel} <ArrowRight size={16}/></Link>}
+          <a href={primaryHref} className="primary-btn" onClick={() => trackPublicInteraction({ event: 'sp_cta_click', ctaId: 'hero_primary' })}>{primaryLabel} <ArrowRight size={17}/></a>
+          {showFeatured && <Link href={secondaryHref} className="events-hero-link" onClick={() => trackPublicInteraction({ event: 'sp_cta_click', ctaId: 'hero_secondary' })}>{secondaryLabel} <ArrowRight size={16}/></Link>}
         </div>
       </div>
       {showFeatured && <div className="events-hero-rail">
-        <Link href={railHref} className="events-next-event">
+        <Link href={railHref} className="events-next-event" onClick={() => trackPublicInteraction({ event: 'sp_cta_click', ctaId: 'hero_rail' })}>
           <span>{railLabel}</span>
           <strong>{railTitle}</strong>
           <small>{railMeta.map(({ Icon, label }, index) => <span className="showcase-hero-meta" key={`${label}-${index}`}>{index > 0 && <i aria-hidden="true"/>}<Icon size={14}/>{label}</span>)}</small>

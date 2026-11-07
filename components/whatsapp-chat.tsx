@@ -1,4 +1,5 @@
 'use client'
+import { trackPublicInteraction } from '@/lib/tracking-events'
 import { BrandMark } from '@/components/brand-mark'
 
 import { useEffect, useRef, useState } from 'react'
@@ -86,6 +87,7 @@ export function WhatsAppWidget({ open, onOpen, onClose }: { open: boolean; onOpe
   const send = (raw: string) => {
     const clean = raw.trim().slice(0, 500)
     if (!clean) return
+    trackPublicInteraction({ event: 'sp_contact_click', channel: 'whatsapp', placement: 'support_widget' })
     setMessages((prev) => [...prev, { id: idRef.current++, from: 'user', text: clean, time: timeNow() }])
     setDraft('')
     timerRef.current = window.setTimeout(() => {

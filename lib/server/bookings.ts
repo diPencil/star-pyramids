@@ -5,7 +5,8 @@
 // statuses, references, user linkage, or payment state.
 import 'server-only';
 
-import { randomInt } from 'node:crypto';
+import { createHash, randomInt } from 'node:crypto';
+import { parseBookingFunnelEvent, type BookingMeasurementGrants, type BookingMeasurementReceipt } from '../booking-measurement';
 import { Prisma, BookingStatus as DbStatus, PaymentStatus as DbPaymentStatus } from '@prisma/client';
 
 import { db } from './db';
@@ -587,8 +588,31 @@ const rowInclude = {
 } satisfies Prisma.BookingInclude;
 
 const ATTEMPT_ACTION='Checkout attempt fingerprint v1';
-type CheckoutWriteOptions={fingerprint:string;persist?:(data:Prisma.BookingUncheckedCreateInput)=>Promise<BookingRow>};
+type CheckoutWriteOptions={fingerprint:string;measurement?:BookingMeasurementGrants;persist?:(data:Prisma.BookingUncheckedCreateInput)=>Promise<BookingRow>};
+type BookingConsentProof = { analytics: string; marketing?: string };
 type LegacyCheckoutIdentity={lines:{tourSlug:string;date:string;adults:unknown;children:unknown;infants:unknown;addons:string[]}[];contact:{name:string;email:string;phone:string};notes:string;acceptedTerms:boolean};
+
+function bookingConsentProof(key: string, grants: BookingMeasurementGrants): BookingConsentProof {
+  const digest = (category: string, grant: string) =>
+    createHash('sha256').update(JSON.stringify(['sp-booking-consent-v1', key, category, grant])).digest('hex');
+  return {
+    analytics: digest('analytics', grants.analytics),
+    marketing: grants.marketing ? digest('marketing', grants.marketing) : undefined,
+  };
+}
+
+function bookingMeasurement(row: BookingRow, grants?: BookingMeasurementGrants): BookingMeasurementReceipt | undefined {
+  if (!grants) return undefined;
+  const event = parseBookingFunnelEvent({
+    event: 'sp_booking_created',
+    event_id: 'bk_' + createHash('sha256').update(`sp-booking-created-v1:${row.id}`).digest('hex').slice(0, 32),
+    currency: row.currency,
+    value: Number(row.total),
+    items: row.items.map(item => ({ item_id: item.tourSlug, quantity: 1, price: Number(item.lineTotal) })),
+  });
+  return event?.event === 'sp_booking_created' ? { event, grants } : undefined;
+}
+
 function assertCheckoutReplay(row:BookingRow,userId:string|null,fingerprint:string,legacy?:LegacyCheckoutIdentity) {
   const activity=row.activities.find(entry=>entry.isInternal&&entry.action===ATTEMPT_ACTION);
   if(!activity&&legacy){
@@ -607,17 +631,22 @@ function assertCheckoutReplay(row:BookingRow,userId:string|null,fingerprint:stri
       requests.push({title:stored.tourTitle,slug:stored.tourSlug,requested:matches[0].addons.filter(title=>!paid.includes(title))});
     }
     if((row.notes??'')!==bookingRequestNotes(legacy.notes,requests))return denied();
-    return;
+    return undefined;
   }
-  let metadata:{fingerprint?:string;owner?:string|null}={};
+  let metadata:{fingerprint?:string;owner?:string|null;measurement?:BookingConsentProof}={};
   try {metadata=JSON.parse(activity?.note??'{}')}catch{ /* fail closed for missing/legacy metadata */ }
   if(metadata.fingerprint!==fingerprint || metadata.owner!==null&&metadata.owner!==userId) throw Error('That submission key was already used for a different booking.');
+  return metadata.measurement;
 }
-export async function findCheckoutReplay(userId:string|null,key:string,fingerprint:string,client:Pick<Prisma.TransactionClient,'booking'>=db,legacy?:LegacyCheckoutIdentity) {
+export async function findCheckoutReplay(userId:string|null,key:string,fingerprint:string,client:Pick<Prisma.TransactionClient,'booking'>=db,legacy?:LegacyCheckoutIdentity,measurement?:BookingMeasurementGrants) {
   const row=await client.booking.findUnique({where:{idempotencyKey:key},include:rowInclude});
   if(!row)return null;
-  assertCheckoutReplay(row,userId,fingerprint,legacy);
-  return {booking:userId!==null&&row.userId===userId?toCustomerView(row):null,reference:row.reference,created:false as const,guestAccessUrl:null};
+  const captured = assertCheckoutReplay(row,userId,fingerprint,legacy);
+  const current = measurement && bookingConsentProof(key, measurement);
+  const grants = measurement && current && captured?.analytics === current.analytics
+    ? { analytics: measurement.analytics, marketing: captured.marketing === current.marketing ? measurement.marketing : undefined }
+    : undefined;
+  return {booking:userId!==null&&row.userId===userId?toCustomerView(row):null,reference:row.reference,created:false as const,guestAccessUrl:null,bookingMeasurement:bookingMeasurement(row, grants)};
 }
 
 /**
@@ -629,7 +658,7 @@ export async function createBookingRecord(
   userId: string | null,
   draft: ValidatedBookingDraft,
   checkout?: CheckoutWriteOptions,
-): Promise<{ booking: Booking; created: boolean; guestAccessUrl: string | null }> {
+): Promise<{ booking: Booking; created: boolean; guestAccessUrl: string | null; bookingMeasurement?: BookingMeasurementReceipt }> {
   const assertReplayOwnership = (row: BookingRow) => {
     if(checkout){assertCheckoutReplay(row,userId,checkout.fingerprint);return;}
     if (row.userId !== userId) throw new Error('That submission key was already used for a different booking.');
@@ -667,6 +696,8 @@ export async function createBookingRecord(
     return { booking: toCustomerView(existingByKey), created: false, guestAccessUrl: null };
   }
 
+  const measurement = checkout?.measurement && draft.idempotencyKey ? checkout.measurement : undefined;
+  const proof = measurement && draft.idempotencyKey ? bookingConsentProof(draft.idempotencyKey, measurement) : undefined;
   let lastError: unknown = null;
   for (let attempt = 0; attempt < REF_ATTEMPTS; attempt += 1) {
     const reference = mintReferenceCandidate();
@@ -703,7 +734,7 @@ export async function createBookingRecord(
             })),
           },
           activities: {
-            create: [{ actorRole: 'customer', action: 'Booking created' }, ...(draft.accountConsent ? [{actorRole:'customer',action:'Checkout account consent accepted'}] : []), ...(checkout?[{actorRole:'system',action:ATTEMPT_ACTION,isInternal:true,note:JSON.stringify({fingerprint:checkout.fingerprint,owner:userId})}]:[])],
+            create: [{ actorRole: 'customer', action: 'Booking created' }, ...(draft.accountConsent ? [{actorRole:'customer',action:'Checkout account consent accepted'}] : []), ...(checkout?[{actorRole:'system',action:ATTEMPT_ACTION,isInternal:true,note:JSON.stringify({fingerprint:checkout.fingerprint,owner:userId,measurement:proof})}]:[])],
           },
         };
       const row = checkout?.persist ? await checkout.persist(data) : await db.booking.create({data,include:rowInclude});
@@ -755,6 +786,7 @@ export async function createBookingRecord(
       return {
         booking: toCustomerView(row),
         created: true,
+        bookingMeasurement: bookingMeasurement(row, measurement),
         // Guests get their private link back so the confirmation screen can
         // show it immediately. Account bookings use their session instead,
         // so they receive null and nothing changes for them.

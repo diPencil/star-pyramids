@@ -6,6 +6,7 @@ import {findTourBySlug} from './tours'
 import {assertAcceptedPrice,requestDigest} from './booking-quote'
 import {normalizeEmail,normalizePhone} from '../core/validation'
 import {validBookingTravelers} from '../booking-selection'
+import type { BookingMeasurementGrants } from '../booking-measurement'
 
 /** Stable request identity requires no live catalogue, so committed retries
  * remain recoverable after repricing, deletion or expiry of a price quote. */
@@ -34,9 +35,9 @@ export function checkoutRequestIdentity(input:unknown,acceptedTerms:boolean) {
 }
 
 class ReplayWon extends Error {}
-export async function createCheckoutBooking(userId:string|null,input:unknown,acceptedTerms:boolean,acceptedPrice:unknown,quote?:string,recoverOnly=false) {
+export async function createCheckoutBooking(userId:string|null,input:unknown,acceptedTerms:boolean,acceptedPrice:unknown,quote?:string,recoverOnly=false,measurement?:BookingMeasurementGrants) {
   const {key,fingerprint,identity}=checkoutRequestIdentity(input,acceptedTerms)
-  const replay=await findCheckoutReplay(userId,key,fingerprint,db,identity)
+  const replay=await findCheckoutReplay(userId,key,fingerprint,db,identity,measurement)
   if(replay)return replay
   if(recoverOnly)throw Error('No completed booking request was found. Review your cart before sending a new request.')
   if(!userId&&!acceptedTerms)throw Error('You must accept the Terms and Privacy Policy.')
@@ -46,7 +47,7 @@ export async function createCheckoutBooking(userId:string|null,input:unknown,acc
     const quoteIntent=requestDigest({fingerprint,key,userId})
     assertAcceptedPrice(quoteIntent,draft.priceSnapshot!,acceptedPrice,quote)
     const slugs=[...new Set(draft.lines.map(line=>line.tourSlug))].sort()
-    const result=await createBookingRecord(userId,draft,{fingerprint,persist:data=>db.$transaction(async tx=>{
+    const result=await createBookingRecord(userId,draft,{fingerprint,measurement,persist:data=>db.$transaction(async tx=>{
       // Deterministic order; lock only selected tours and their existing offers.
       // SMTP, hashing and enrollment are deliberately outside this transaction.
       await tx.$queryRaw(Prisma.sql`SELECT slug FROM tours WHERE slug IN (${Prisma.join(slugs)}) ORDER BY slug FOR UPDATE`)
@@ -58,7 +59,7 @@ export async function createCheckoutBooking(userId:string|null,input:unknown,acc
       return tx.booking.create({data,include:{items:true,activities:true,payments:{select:{status:true,amountPaid:true,amountRefunded:true,reference:true,createdAt:true,currency:true}},user:{select:{email:true,firstName:true,lastName:true}}}})
     },{isolationLevel:Prisma.TransactionIsolationLevel.ReadCommitted,maxWait:5000,timeout:10000})})
     if(!result.created){
-      const existing=await findCheckoutReplay(userId,key,fingerprint,db,identity)
+      const existing=await findCheckoutReplay(userId,key,fingerprint,db,identity,measurement)
       if(!existing)throw Error('Unable to process your booking right now. Please try again.')
       return existing
     }
@@ -66,7 +67,7 @@ export async function createCheckoutBooking(userId:string|null,input:unknown,acc
   }catch(error){
     // The winner is checked even if publication/price changed while waiting.
     // Fingerprint/ownership verification still happens before any acknowledgement.
-    const winner=await findCheckoutReplay(userId,key,fingerprint,db,identity)
+    const winner=await findCheckoutReplay(userId,key,fingerprint,db,identity,measurement)
     if(winner)return winner
     throw error
   }

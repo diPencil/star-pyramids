@@ -1,0 +1,123 @@
+.region {
+  color: var(--text);
+  background: var(--surface);
+  border-block-end: 1px solid var(--border);
+}
+
+.inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0 20px;
+}
+
+.copy {
+  padding-block: 12px;
+  max-inline-size: 70ch;
+}
+
+.copy h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-block: 0 4px;
+}
+
+.copy p,
+.feedback {
+  font-size: .875rem;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.copy a,
+.settings {
+  color: var(--blue);
+  text-decoration: underline;
+  text-underline-offset: .18em;
+}
+
+.actions {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.actions button {
+  min-block-size: 44px;
+  min-inline-size: 44px;
+  white-space: normal;
+}
+
+.settings {
+  background: transparent;
+  border: 0;
+  padding-inline: 6px;
+  font-size: .875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.region :is(button, a, input):focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+}
+
+.panel,
+.feedback {
+  grid-column: 1 / -1;
+}
+
+.preferences {
+  border-block-start: 1px solid var(--border);
+  padding-block: 12px;
+}
+
+.preferences fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  border: 0;
+  margin: 0 0 8px;
+  padding: 0;
+  min-inline-size: 0;
+}
+
+.preferences label {
+  display: flex;
+  flex: 1 1 15rem;
+  align-items: center;
+  gap: 10px;
+  min-block-size: 44px;
+  cursor: pointer;
+}
+
+.preferences input {
+  accent-color: var(--blue);
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+  flex: none;
+}
+
+.preferences small {
+  display: block;
+  font-size: .875rem;
+  line-height: 1.4;
+}
+
+.feedback {
+  padding-block: 6px 12px;
+}
+
+@media (max-width: 900px) {
+  .inner { grid-template-columns: minmax(0, 1fr); }
+  .actions { grid-column: 1; justify-content: flex-start; }
+  .copy + .actions { padding-block-end: 8px; }
+  .preferences { padding-block: 8px; }
+}
+
+@media print {
+  .region { display: none; }
+}

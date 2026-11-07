@@ -4,10 +4,10 @@ import {Prisma} from '@prisma/client'
 import {estimateCart} from '@/lib/booking'
 import {sanitizeCartItem} from '@/lib/cart'
 import {bookingPriceLine,bookingPriceSnapshot} from '@/lib/booking-price'
-const m=vi.hoisted(()=>({rows:[] as any[],tour:null as any,reads:0,hook:null as null|(()=>void),mail:vi.fn(),token:vi.fn(),create:vi.fn(),query:vi.fn()}))
+const m=vi.hoisted(()=>({rows:[] as any[],tour:null as any,secondTour:null as any,reads:0,hook:null as null|(()=>void),mail:vi.fn(),token:vi.fn(),create:vi.fn(),query:vi.fn()}))
 const db=vi.hoisted(()=>({booking:{findUnique:vi.fn(),create:vi.fn()},$transaction:vi.fn(),$queryRaw:vi.fn()}))
 vi.mock('@/lib/server/db',()=>({db}))
-vi.mock('@/lib/server/tours',()=>({findTourBySlug:async()=>{m.reads++;return m.tour}}))
+vi.mock('@/lib/server/tours',()=>({findTourBySlug:async(slug:string)=>{m.reads++;return slug==='second-tour'?m.secondTour:m.tour}}))
 vi.mock('@/lib/server/notifications',()=>({notifyUser:vi.fn(),notifyStaff:vi.fn()}))
 vi.mock('@/lib/server/email',()=>({sendCustomerEmailSafe:m.mail,sendStaffEmailSafe:m.mail}))
 vi.mock('@/lib/server/booking-access',()=>({issueGuestBookingToken:m.token,revokeGuestBookingTokens:vi.fn(),guestBookingPath:()=>'/booking/'+ 'x'.repeat(43)}))
@@ -18,7 +18,7 @@ const input=()=>({lines:[{...selection}],contact:{name:'Test Customer',email:'te
 const snapshot=()=>bookingPriceSnapshot([bookingPriceLine(m.tour,selection)])
 function tour():Tour{return {slug:'test-tour',category:'one-day-tours',status:'published',title:'Test tour',price:100,image:'',summary:'',duration:'Day',location:'Cairo',dayDetail:{overview:[],addOns:[{title:'Ticket',price:10},{title:'On request'}]}}}
 beforeEach(()=>{
-  vi.resetAllMocks();vi.stubEnv('BOOKING_QUOTE_SECRET','test-only-quote-secret-with-at-least-32-bytes');m.rows=[];m.tour=tour();m.reads=0;m.hook=null
+  vi.resetAllMocks();vi.stubEnv('BOOKING_QUOTE_SECRET','test-only-quote-secret-with-at-least-32-bytes');m.rows=[];m.tour=tour();m.secondTour=null;m.reads=0;m.hook=null
   db.booking.findUnique.mockImplementation(async({where})=>m.rows.find(row=>row.idempotencyKey===where.idempotencyKey)??null)
   db.booking.create.mockImplementation(async({data})=>{
     if(m.rows.some(row=>row.idempotencyKey===data.idempotencyKey))throw new Prisma.PrismaClientKnownRequestError('Unique constraint',{code:'P2002',clientVersion:'test',meta:{target:'bookings_idempotencyKey_key'}})
@@ -35,6 +35,60 @@ it('books unchanged integer-cent pricing and records a hidden immutable intent',
   expect(m.rows[0].status).toBe('PENDING');expect(m.rows[0].paymentStatus).toBe('PENDING')
   expect(m.rows[0].activities.find((a:any)=>a.action==='Checkout attempt fingerprint v1')).toMatchObject({isInternal:true})
   expect(result.booking?.activity.some(a=>a.action==='Checkout attempt fingerprint v1')).toBe(false)
+})
+const measurementGrants = { analytics: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', marketing: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb' }
+const renewedGrant = 'cccccccc-cccc-cccc-cccc-cccccccccccc'
+
+it.each([null, 'customer-owner'])('returns one authoritative multi-tour milestone for new and recovered bookings (%s)', async owner => {
+  const draft = input()
+  const second = { ...selection, tourSlug: 'second-tour', addons: [] }
+  draft.lines.push(second)
+  m.secondTour = { ...tour(), slug: second.tourSlug, price: 140 }
+  const accepted = bookingPriceSnapshot([bookingPriceLine(m.tour, selection), bookingPriceLine(m.secondTour, second)])
+  const result = await createCheckoutBooking(owner, draft, !owner, accepted, undefined, false, measurementGrants)
+  expect(result.bookingMeasurement).toEqual({
+    event: {
+      event: 'sp_booking_created', event_id: expect.stringMatching(/^bk_[a-f0-9]{32}$/), currency: 'USD', value: 490,
+      items: [{ item_id: 'test-tour', price: 210, quantity: 1 }, { item_id: 'second-tour', price: 280, quantity: 1 }],
+    },
+    grants: measurementGrants,
+  })
+  expect(JSON.stringify(m.rows[0].activities)).not.toContain(measurementGrants.analytics)
+  expect(JSON.stringify(m.rows[0].activities)).not.toContain(measurementGrants.marketing)
+  const reads = m.reads
+  m.tour = null
+  m.secondTour = null
+  const replay = await createCheckoutBooking(owner, draft, !owner, undefined, undefined, true, measurementGrants)
+  expect(replay.created).toBe(false)
+  expect(replay.bookingMeasurement).toEqual(result.bookingMeasurement)
+  if (!owner) expect(replay.booking).toBeNull()
+  expect(m.create).toHaveBeenCalledOnce()
+  expect(m.reads).toBe(reads)
+  await expect(createCheckoutBooking('wrong-owner', draft, false, undefined, undefined, true, measurementGrants)).rejects.toThrow(/different booking/)
+})
+
+it('keeps booking replay available without reviving withdrawn Analytics or attaching new Marketing consent', async () => {
+  const analytics = measurementGrants.analytics
+  const created = await createCheckoutBooking(null, input(), true, snapshot(), undefined, false, { analytics })
+  const marketingLater = await createCheckoutBooking(null, input(), true, undefined, undefined, true, measurementGrants)
+  expect(marketingLater.bookingMeasurement).toEqual(created.bookingMeasurement)
+  expect(marketingLater.bookingMeasurement?.grants.marketing).toBeUndefined()
+  const renewed = await createCheckoutBooking(null, input(), true, undefined, undefined, true, { ...measurementGrants, analytics: renewedGrant })
+  expect(renewed).toMatchObject({ created: false, reference: created.reference })
+  expect(renewed.bookingMeasurement).toBeUndefined()
+})
+
+it('cannot add measurement retroactively to an unmeasured booking or before persistence', async () => {
+  const accepted = snapshot()
+  await expect(createCheckoutBooking(null, input(), true, accepted, undefined, true, measurementGrants)).rejects.toThrow(/No completed booking/)
+  m.tour.price = 110
+  const changed = await createCheckoutBooking(null, input(), true, accepted, undefined, false, measurementGrants).catch(error => error)
+  expect(changed).toBeInstanceOf(PriceChanged)
+  expect(changed).not.toHaveProperty('bookingMeasurement')
+  expect(m.rows).toHaveLength(0)
+  await createCheckoutBooking(null, input(), true, changed.price, changed.quote)
+  const replay = await createCheckoutBooking(null, input(), true, undefined, undefined, true, measurementGrants)
+  expect(replay.bookingMeasurement).toBeUndefined()
 })
 it.each(['increase','decrease','extra','discount','component'] as const)('requires explicit signed acceptance for %s',async change=>{
   const old=snapshot()

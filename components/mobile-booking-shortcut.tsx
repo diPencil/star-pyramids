@@ -1,5 +1,6 @@
 'use client'
 
+import { trackPublicInteraction } from '@/lib/tracking-events'
 import { useEffect, useState } from 'react'
 import { ArrowRight, CalendarDays } from 'lucide-react'
 import { tx, useLocale } from './locale'
@@ -20,6 +21,7 @@ export function MobileBookingShortcut() {
   return <div className="mobile-booking-shortcut"><button type="button" onClick={() => {
     const booking = document.querySelector<HTMLElement>('.tour-booking-card')
     if (!booking) return
+    trackPublicInteraction({ event: 'sp_cta_click', ctaId: 'booking_shortcut' })
     booking.tabIndex = -1
     booking.focus({ preventScroll: true })
     booking.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })

@@ -2,11 +2,9 @@ import { BrandProvider } from '@/components/brand-context'
 import { readServerBrandSettings } from '@/lib/server/brand-settings'
 import { NavigationProvider } from '@/components/navigation-context'
 import { publishedNavigation } from '@/lib/server/navigation'
-import { Analytics } from '@vercel/analytics/next'
 import { Alexandria, Montserrat } from 'next/font/google'
 import type { Metadata, Viewport } from 'next'
 import { headers } from 'next/headers'
-import Script from 'next/script'
 import { BrandFavicon } from '@/components/brand-favicon'
 import { InitialLocaleProvider } from '@/components/locale'
 import { EnquiryHistoryTracking } from '@/components/enquiry-history-tracking'
@@ -18,12 +16,10 @@ import { getSetting } from '@/lib/server/settings'
 import { getGlobalSeo } from '@/lib/server/global-seo'
 import { readPublishedAppearance } from '@/lib/server/website-appearance'
 import { PublicAppearance } from '@/components/public-appearance'
+import { SiteMeasurement } from '@/components/site-measurement'
+import { ConsentManager } from '@/components/consent-manager'
 import { getTrackingSettings } from '@/lib/server/tracking'
-import {
-  buildGtmIntegrationSnippet,
-  isTrackingExcludedPath,
-  isValidGtmContainerId,
-} from '@/lib/tracking'
+import { TRACKING_ELIGIBLE_HEADER } from '@/lib/tracking'
 
 // Optimize font loading: preload critical weights, use display: swap
 const montserrat = Montserrat({
@@ -131,21 +127,12 @@ export default async function RootLayout({
   const locale = await getServerLocale()
   const htmlLang = getHtmlLang(locale)
   const requestHeaders = await headers()
-  const tracking = await getTrackingSettings()
-  const currentPath = requestHeaders.get('x-sp-path') || '/'
-  const gtmContainerId =
-    tracking.enabled && !isTrackingExcludedPath(currentPath) && isValidGtmContainerId(tracking.containerId)
-      ? tracking.containerId
-      : ''
+  const measurementAllowed = process.env.NODE_ENV === 'production' && requestHeaders.get(TRACKING_ELIGIBLE_HEADER) === '1'
+  const tracking = measurementAllowed ? await getTrackingSettings() : null
 
   return (
     <html lang={htmlLang} data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
-        {gtmContainerId && (
-          <Script id="gtm-loader" strategy="beforeInteractive">
-            {buildGtmIntegrationSnippet(gtmContainerId)}
-          </Script>
-        )}
         {/* Preconnect to Google Fonts for faster font loading */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -153,21 +140,10 @@ export default async function RootLayout({
         <link rel="preload" as="image" href="/egypt-hero.png" />
       </head>
       <body className={`${montserrat.variable} ${alexandria.variable} antialiased`}>
-        {gtmContainerId && (
-          <noscript>
-            <iframe
-              src={`https://www.googletagmanager.com/ns.html?id=${gtmContainerId}`}
-              height="0"
-              width="0"
-              style={{ display: 'none', visibility: 'hidden' }}
-              title="Google Tag Manager"
-            />
-          </noscript>
-        )}
         <BrandProvider initial={await readServerBrandSettings()}><BrandFavicon />
         <EnquiryHistoryTracking />
-        <NavigationProvider initial={await publishedNavigation().catch(() => ({ revision: -1, primaryLocale: 'en' as const, items: [] }))}><InitialLocaleProvider locale={locale}><PresentationProvider states={{ ...await readPresentationStates(), faq: await readPublishedPage('faq') }}><PublicAppearance tokens={await readPublishedAppearance()}>{children}</PublicAppearance></PresentationProvider></InitialLocaleProvider></NavigationProvider></BrandProvider>
-        {process.env.NODE_ENV === 'production' && <Analytics />}
+        <NavigationProvider initial={await publishedNavigation().catch(() => ({ revision: -1, primaryLocale: 'en' as const, items: [] }))}><InitialLocaleProvider locale={locale}><PresentationProvider states={{ ...await readPresentationStates(), faq: await readPublishedPage('faq') }}><PublicAppearance tokens={await readPublishedAppearance()}><ConsentManager initialLocale={locale} />{children}</PublicAppearance></PresentationProvider></InitialLocaleProvider></NavigationProvider></BrandProvider>
+        {measurementAllowed && <SiteMeasurement containerId={tracking?.enabled ? tracking.containerId : null} explicitPageViews={process.env.TRACKING_EXPLICIT_PAGE_VIEWS === 'true'} />}
       </body>
     </html>
   )

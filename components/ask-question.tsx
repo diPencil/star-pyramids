@@ -1,5 +1,6 @@
 'use client'
 
+import { trackPublicInteraction } from '@/lib/tracking-events'
 import { useEffect, useRef, useState } from 'react'
 import { Mail, X } from 'lucide-react'
 import { whatsappNumber } from '@/data/company'
@@ -52,6 +53,7 @@ export function AskQuestionButton({
   const openDialog = () => {
     setError('')
     setSent(false)
+    trackPublicInteraction({ event: 'sp_cta_click', ctaId: 'ask_question' })
     setOpen(true)
   }
 
@@ -76,6 +78,7 @@ export function AskQuestionButton({
     if (channel === 'whatsapp') {
       saveInquiry({ channel, name: trimmedName, contact: '', message: trimmedMessage, tourSlug, tourTitle })
       const text = buildQuestionMessage(trimmedName, tourTitle, trimmedMessage, subjectType)
+      trackPublicInteraction({ event: 'sp_contact_click', channel: 'whatsapp', placement: 'tour_enquiry' })
       window.open(`https://wa.me/${whatsappNumber(brand.whatsapp)}?text=${encodeURIComponent(text)}`, '_blank', 'noopener')
       setSent(true)
       return

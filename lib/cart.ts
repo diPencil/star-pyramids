@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { bookingSelectionKey } from './booking-selection'
+import { recordCartAddition } from './booking-funnel'
 
 /**
  * ONE authoritative frontend cart contract.
@@ -187,8 +188,10 @@ export function addToCart(item: Omit<CartItem, 'key'>): string {
   if (!sanitized) throw new Error('addToCart requires a tour slug, title, and valid traveler counts')
   const key = sanitized.key
   const current=latestSnapshot()
-  if(current.length>=MAX_LINES&&!current.some(entry=>entry.key===key)) throw Error('Your cart can contain at most 20 trip selections. Remove a selection before adding another.')
+  const exists = current.some(entry => entry.key === key)
+  if(current.length>=MAX_LINES&&!exists) throw Error('Your cart can contain at most 20 trip selections. Remove a selection before adding another.')
   update([...current.filter((entry) => entry.key !== key), { ...sanitized, key }])
+  if (!exists && typeof window !== 'undefined') recordCartAddition(window, process.env.NODE_ENV, sanitized.tourSlug)
   return key
 }
 

@@ -1,15 +1,19 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { randomUUID } from 'node:crypto'
 import type { ReactElement, ReactNode } from 'react'
 import type { CartItem } from '@/lib/cart'
 import type { Tour } from '@/data/types'
 import type { AuthenticatedUser } from '@/lib/auth-types'
 import {CustomerConfirmDialog} from '@/components/customer-confirm-dialog'
+import { FUNNEL_STORAGE_PREFIX } from '@/lib/booking-funnel'
+import { BOOKING_MEASUREMENT_HEADER } from '@/lib/booking-measurement'
+import { TRACKING_CONSENT_STORAGE_KEY } from '@/lib/tracking'
 
-const harness=vi.hoisted(()=>({index:0,values:[] as unknown[],items:[] as CartItem[],locale:'en' as 'en'|'es'|'it',user:null as AuthenticatedUser|null,fetch:vi.fn(),remove:vi.fn(),finish:vi.fn(),key:vi.fn()}))
+const harness=vi.hoisted(()=>({index:0,values:[] as unknown[],items:[] as CartItem[],locale:'en' as 'en'|'es'|'it',user:null as AuthenticatedUser|null,fetch:vi.fn(),remove:vi.fn(),finish:vi.fn(),key:vi.fn(),measure:false}))
 vi.mock('@/lib/use-current-user',()=>({useCurrentUser:()=>({user:harness.user,loading:false})}))
 vi.mock('react',async()=>{
   const actual=await vi.importActual<typeof import('react')>('react')
-  return {...actual,useState:(initial:unknown)=>{const index=harness.index++;if(!(index in harness.values))harness.values[index]=typeof initial==='function'?initial():initial;return[harness.values[index],(next:unknown)=>{harness.values[index]=typeof next==='function'?next(harness.values[index]):next}]},useRef:(initial:unknown)=>{const index=harness.index++;if(!(index in harness.values))harness.values[index]={current:initial};return harness.values[index]}}
+  return {...actual,useEffect:vi.fn(),useState:(initial:unknown)=>{const index=harness.index++;if(!(index in harness.values))harness.values[index]=typeof initial==='function'?initial():initial;return[harness.values[index],(next:unknown)=>{harness.values[index]=typeof next==='function'?next(harness.values[index]):next}]},useRef:(initial:unknown)=>{const index=harness.index++;if(!(index in harness.values))harness.values[index]={current:initial};return harness.values[index]}}
 })
 vi.mock('@/lib/cart',()=>({useCart:()=>({items:harness.items}),removeCartItems:harness.remove,clearCart:vi.fn(),removeFromCart:vi.fn(),removeCartAddons:vi.fn()}))
 vi.mock('@/lib/checkout-attempt',()=>({checkoutAttemptKey:harness.key,finishCheckoutAttempt:harness.finish}))
@@ -20,7 +24,7 @@ vi.mock('@/lib/cart-catalogue',async()=>{
   return {useCartCatalogue:()=>({ready:true,error:null,retry:vi.fn(),estimate:estimateCart(harness.items,[tour])})}
 })
 import { CheckoutPage } from '@/components/checkout-page'
-function render(){harness.index=0;return CheckoutPage()}
+function render(){harness.index=0;return CheckoutPage({measureBookings:harness.measure})}
 function find(node:ReactNode,test:(element:ReactElement<Record<string,any>>)=>boolean):ReactElement<Record<string,any>>|undefined {
   if(Array.isArray(node)){for(const child of node){const result=find(child,test);if(result)return result}return}
   if(!node||typeof node!=='object'||!('props'in node))return
@@ -30,7 +34,7 @@ function find(node:ReactNode,test:(element:ReactElement<Record<string,any>>)=>bo
 function contact(){let tree=render();find(tree,e=>e.type==='input'&&e.props.type==='checkbox')?.props.onChange({target:{checked:true}});find(tree,e=>e.props.autoComplete==='name')!.props.onChange({target:{value:'Test Customer'}});find(tree,e=>e.props.autoComplete==='email')!.props.onChange({target:{value:'test@example.com'}});find(tree,e=>e.props.invalid===false&&typeof e.props.onChange==='function'&&e.props.locale===harness.locale)!.props.onChange('+201234567890');return render()}
 const response=(data:unknown,status=201)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json'}})
 beforeEach(()=>{vi.clearAllMocks();harness.index=0;harness.values=[];harness.user=null;harness.items=[{key:'submitted',tourSlug:'db-only',title:'DB only',date:'',adults:2,children:0,infants:0,addons:[],image:'',adultUnit:999,childUnit:999,infantUnit:999,addonTotal:0,total:999}];harness.key.mockResolvedValue('stable-attempt-key');vi.stubGlobal('fetch',harness.fetch)})
-afterEach(()=>vi.unstubAllGlobals())
+afterEach(()=>{harness.measure=false;vi.unstubAllGlobals();vi.unstubAllEnvs()})
 const signedInUser=():AuthenticatedUser=>({publicId:'customer-public-id',email:' test@example.com ',firstName:' Test ',lastName:'Customer ',username:'test',countryCode:'EG',phone:' +201234567890 ',status:'ACTIVE',emailVerifiedAt:null,lastLoginAt:null,roles:['CUSTOMER'],permissions:[]})
 function fields(tree:ReactNode){return {name:find(tree,e=>e.props.autoComplete==='name')!,email:find(tree,e=>e.props.autoComplete==='email')!,phone:find(tree,e=>e.props.invalid===false&&typeof e.props.onChange==='function'&&e.props.locale==='en')!}}
 function changedPrice(body:string,extra=2000){const price=JSON.parse(body).acceptedPrice;price.lines[0].base+=extra/2;price.lines[0].units[0]+=extra/2;price.lines[0].originalUnits[0]+=extra/2;price.lines[0].original+=extra;price.lines[0].total+=extra;price.subtotal+=extra;price.total+=extra;return price}
@@ -78,6 +82,40 @@ it('recovers the frozen submitted intent after a lost response without accepting
   await button.props.onClick()
   expect(JSON.parse(harness.fetch.mock.calls[1][1].body)).toEqual({...first,recoverOnly:true})
   expect(harness.remove).toHaveBeenCalledWith(['submitted']);expect(harness.finish).toHaveBeenCalledWith('stable-attempt-key')
+})
+it('queues the saved milestone only after a verified recovery, following a price change and a lost response', async () => {
+  harness.measure = true
+  vi.stubEnv('NODE_ENV', 'production')
+  const grants = { analytics: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' }
+  const values = new Map([[TRACKING_CONSENT_STORAGE_KEY, JSON.stringify({ analytics: true, grants })]])
+  vi.stubGlobal('window', {
+    location: { href: 'https://starpyramids.com/checkout' },
+    crypto: { randomUUID },
+    localStorage: { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value), removeItem: (key: string) => values.delete(key) },
+    sessionStorage: { getItem: () => null, removeItem: vi.fn() },
+  })
+  const bookingEvent = {
+    event: 'sp_booking_created', event_id: 'bk_' + 'b'.repeat(32),
+    currency: 'USD', value: 220, items: [{ item_id: 'db-only', quantity: 1, price: 220 }],
+  }
+  const bookingMeasurement = { event: bookingEvent, grants }
+  harness.fetch
+    .mockImplementationOnce(async (_url, options) => response({ code: 'PRICE_CHANGED', price: changedPrice(options.body), quote: 'server-quote', bookingMeasurement }, 409))
+    .mockRejectedValueOnce(Error('lost response'))
+    .mockResolvedValueOnce(response({ success: true, existing: true, reference: 'SP-BK-ABC123', guest: true, guestAccessUrl: null, bookingMeasurement }, 200))
+  await find(contact(), e => e.type === 'form')!.props.onSubmit({ preventDefault: vi.fn() })
+  const key = FUNNEL_STORAGE_PREFIX + bookingEvent.event_id
+  expect(values.has(key)).toBe(false)
+  find(render(), e => e.type === CustomerConfirmDialog)!.props.onConfirm()
+  const recover = () => find(render(), e => e.type === 'button' && e.props.children === 'Recover a previous request')
+  await vi.waitFor(() => expect(recover()).toBeDefined())
+  expect(values.has(key)).toBe(false)
+  expect(harness.remove).not.toHaveBeenCalled()
+  await recover()!.props.onClick()
+  expect(harness.fetch.mock.calls.every(([, options]) => options.headers[BOOKING_MEASUREMENT_HEADER] === grants.analytics)).toBe(true)
+  expect(JSON.parse(values.get(key)!)).toMatchObject(bookingMeasurement)
+  expect(values.get(key)).not.toMatch(/SP-BK|test@example/)
+  expect(harness.remove).toHaveBeenCalledExactlyOnceWith(['submitted'])
 })
 it('prefills current account contact data and submits it as editable contact, never ownership',async()=>{
   harness.user=signedInUser()
