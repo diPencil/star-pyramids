@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react'
+import { X } from 'lucide-react'
 import { discardPendingBookingFunnel } from '@/lib/booking-funnel'
 import { sanitizeLocale, type EnabledLocale } from '@/lib/locale-config'
 import { chooseTrackingConsent, readTrackingConsent, readTrackingConsentPreference, subscribeToTrackingConsent, type TrackingConsent } from '@/lib/tracking-browser'
@@ -11,7 +12,7 @@ const optionalOn = { analytics: true, marketing: true }
 
 const en = {
   title: 'Your cookie choices',
-  description: 'Essential cookies keep the site working. With your permission, we use optional cookies to understand how the site is used and measure our advertising.',
+  description: 'Essential cookies keep the site working. Choose whether to allow analytics and advertising cookies.',
   accept: 'Accept all',
   reject: 'Reject optional',
   customize: 'Customize preferences',
@@ -22,6 +23,7 @@ const en = {
   marketingHelp: 'Helps us measure our ads and make them more relevant.',
   save: 'Save preferences',
   cancel: 'Cancel',
+  close: 'Close cookie panel',
   privacy: 'Privacy policy',
   saved: 'Cookie preferences saved.',
   changed: 'Your preferences changed in another tab. Review them before saving.',
@@ -32,7 +34,7 @@ const copy: Record<EnabledLocale, typeof en> = {
   en,
   es: {
     title: 'Tus preferencias de cookies',
-    description: 'Las cookies esenciales permiten que el sitio funcione. Con tu permiso, usamos cookies opcionales para entender cómo se usa el sitio y medir nuestra publicidad.',
+    description: 'Las cookies esenciales permiten que el sitio funcione. Tú decides si permites las cookies de analítica y publicidad.',
     accept: 'Aceptar todas',
     reject: 'Rechazar las opcionales',
     customize: 'Personalizar preferencias',
@@ -43,6 +45,7 @@ const copy: Record<EnabledLocale, typeof en> = {
     marketingHelp: 'Nos ayuda a medir nuestros anuncios y hacerlos más relevantes.',
     save: 'Guardar preferencias',
     cancel: 'Cancelar',
+    close: 'Cerrar el panel de cookies',
     privacy: 'Política de privacidad',
     saved: 'Se han guardado tus preferencias de cookies.',
     changed: 'Tus preferencias han cambiado en otra pestaña. Revísalas antes de guardarlas.',
@@ -50,7 +53,7 @@ const copy: Record<EnabledLocale, typeof en> = {
   },
   it: {
     title: 'Le tue preferenze sui cookie',
-    description: 'I cookie essenziali consentono al sito di funzionare. Con il tuo permesso, usiamo cookie facoltativi per capire come viene usato il sito e misurare la nostra pubblicità.',
+    description: 'I cookie essenziali consentono al sito di funzionare. Scegli se consentire i cookie di analisi e pubblicità.',
     accept: 'Accetta tutti',
     reject: 'Rifiuta i facoltativi',
     customize: 'Personalizza le preferenze',
@@ -61,6 +64,7 @@ const copy: Record<EnabledLocale, typeof en> = {
     marketingHelp: 'Ci aiuta a misurare gli annunci e a renderli più pertinenti.',
     save: 'Salva le preferenze',
     cancel: 'Annulla',
+    close: 'Chiudi il pannello dei cookie',
     privacy: 'Informativa sulla privacy',
     saved: 'Preferenze sui cookie salvate.',
     changed: 'Le tue preferenze sono cambiate in un’altra scheda. Controllale prima di salvarle.',
@@ -91,6 +95,7 @@ export function ConsentManager({ initialLocale }: { initialLocale: EnabledLocale
   const observedPreference = useRef<TrackingConsent | null>(null)
   const [preference, setPreference] = useState<TrackingConsent | null>()
   const [editing, setEditing] = useState(false)
+  const [visible, setVisible] = useState(true)
   const [draft, setDraft] = useState<TrackingConsent>(optionalOff)
   const [feedback, setFeedback] = useState<'saved' | 'changed' | 'unavailable'>()
 
@@ -116,50 +121,59 @@ export function ConsentManager({ initialLocale }: { initialLocale: EnabledLocale
 
   const close = () => {
     setEditing(false)
+    setVisible(false)
     settings.current?.focus()
   }
+  const customize = () => {
+    const current = readTrackingConsentPreference(window)
+    observedPreference.current = current
+    setPreference(current)
+    setDraft(current ?? optionalOff)
+    setFeedback(undefined)
+    setVisible(true)
+    setEditing(true)
+  }
   const save = (choice: TrackingConsent) => {
-    const saved = chooseTrackingConsent(window, choice)
+    const persisted = chooseTrackingConsent(window, choice)
+    // Dismiss from the verified result even if a bridge notification was missed.
+    const current = readTrackingConsentPreference(window)
+    const saved = persisted && samePreference(choice, current)
     setFeedback(saved ? 'saved' : 'unavailable')
+    observedPreference.current = current
+    setPreference(current)
     if (saved) close()
-    else setDraft(readTrackingConsent(window))
+    else {
+      setVisible(true)
+      setDraft(current ?? optionalOff)
+    }
   }
 
   if (preference === undefined) return null
-  const showChoices = preference === null || editing
+  const showPanel = visible && (preference === null || editing || feedback === 'unavailable')
   return (
     <section className={styles.region} aria-label={text.title} lang={locale} onKeyDown={event => {
-      if (editing && event.key === 'Escape') {
+      if (showPanel && event.key === 'Escape') {
         event.preventDefault()
         event.stopPropagation()
         close()
       }
     }}>
-      <div className={`container ${styles.inner}`}>
-        {showChoices && (
+      <div className={styles.card} id={id} hidden={!showPanel}>
+        {showPanel && <>
           <div className={styles.copy}>
-            <h2>{text.title}</h2>
+            <div className={styles.heading}>
+              <h2>{text.title}</h2>
+              <button className={styles.close} type="button" onClick={close} aria-label={text.close}>
+                <X size={18} aria-hidden="true" />
+              </button>
+            </div>
             <p>{text.description} <a href="/privacy">{text.privacy}</a></p>
           </div>
-        )}
         <div className={styles.actions}>
-          {showChoices && <>
             <button className="outline-btn" type="button" onClick={() => save(optionalOn)}>{text.accept}</button>
             <button className="outline-btn" type="button" onClick={() => save(optionalOff)}>{text.reject}</button>
-          </>}
-          <button className={styles.settings} type="button" ref={settings} aria-expanded={editing} aria-controls={id}
-            onClick={() => {
-              if (editing) close()
-              else {
-                setDraft(readTrackingConsent(window))
-                setFeedback(undefined)
-                setEditing(true)
-              }
-            }}>
-            {preference === null ? text.customize : text.settings}
-          </button>
+            {!editing && <button className={styles.textButton} type="button" onClick={customize}>{text.customize}</button>}
         </div>
-        <div className={styles.panel} id={id} hidden={!editing}>
           {editing && (
             <form className={styles.preferences} onSubmit={event => {
               event.preventDefault()
@@ -187,15 +201,18 @@ export function ConsentManager({ initialLocale }: { initialLocale: EnabledLocale
               </fieldset>
               <div className={styles.actions}>
                 <button className="outline-btn" type="submit">{text.save}</button>
-                <button className={styles.settings} type="button" onClick={close}>{text.cancel}</button>
+                <button className={styles.textButton} type="button" onClick={close}>{text.cancel}</button>
               </div>
             </form>
           )}
-        </div>
-        <p className={feedback && feedback !== 'saved' ? styles.feedback : 'sr-only'} role="status">
-          {feedback && text[feedback]}
-        </p>
+          {feedback && feedback !== 'saved' && <p className={styles.feedback} role="alert">{text[feedback]}</p>}
+        </>}
       </div>
+      <button className={styles.settings} type="button" ref={settings} aria-expanded={showPanel} aria-controls={id}
+        onClick={() => { if (editing && showPanel) close(); else customize() }}>
+        {text.settings}
+      </button>
+      <p className="sr-only" role="status">{feedback === 'saved' && text.saved}</p>
     </section>
   )
 }

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import type { ReactElement, ReactNode } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ConsentManager } from '@/components/consent-manager'
@@ -138,7 +139,11 @@ it.each([
     expect(measurement).toHaveBeenCalledExactlyOnceWith(choice)
     expect(page.localStorage.setItem).toHaveBeenCalledOnce()
     expect(JSON.parse(page.localStorage.setItem.mock.calls[0][1])).toMatchObject(choice)
-    expect(launcher(render()).props.children).toBe('Cookie settings')
+    const dismissed = render()
+    expect(launcher(dismissed).props.children).toBe('Cookie settings')
+    expect(launcher(dismissed).props['aria-expanded']).toBe(false)
+    expect(dismissed.find(node => node.props.id === 'consent-panel')?.props.hidden).toBe(true)
+    expect(dismissed.some(node => node.type === 'h2')).toBe(false)
     expect(launcherFocus).toHaveBeenCalled()
     expect(readTrackingConsentPreference(browserAt('/', page.values).browser)).toEqual(choice)
   } finally {
@@ -150,8 +155,9 @@ it('uses labelled native controls, restores focus on Escape, and saves categorie
   const page = browserAt()
   const initial = mount(page.browser)
   const launch = launcher(initial)
-  expect(launch.props['aria-expanded']).toBe(false)
-  launch.props.onClick()
+  expect(launch.props['aria-expanded']).toBe(true)
+  expect(initial.filter(node => node.type === 'input')).toEqual([])
+  button(initial, 'Customize preferences').props.onClick()
   const open = render()
   expect(launcher(open).props['aria-expanded']).toBe(true)
   expect(firstOptionFocus).toHaveBeenCalledOnce()
@@ -176,6 +182,7 @@ it('uses labelled native controls, restores focus on Escape, and saves categorie
   const form = render().find(node => node.type === 'form')!
   form.props.onSubmit({ preventDefault: vi.fn() })
   expect(readTrackingConsent(page.browser)).toEqual({ analytics: true, marketing: false })
+  expect(launcher(render()).props['aria-expanded']).toBe(false)
 })
 
 it('applies private-route withdrawal to public tabs and purges pending bookings before regrant', () => {
@@ -238,7 +245,8 @@ it('reports a storage failure and keeps optional tracking off on reload', () => 
   launcher(mount(page.browser)).props.onClick()
   page.localStorage.setItem.mockImplementation(() => { throw new Error('quota exceeded') })
   button(render(), 'Reject optional').props.onClick()
-  expect(render().find(node => node.props.role === 'status')?.props.children).toMatch(/couldn’t save/)
+  expect(render().find(node => node.props.role === 'alert')?.props.children).toMatch(/couldn’t save/)
+  expect(launcher(render()).props['aria-expanded']).toBe(true)
   expect(readTrackingConsent(page.browser)).toEqual(denied)
   expect(readTrackingConsent(browserAt('/login', page.values).browser)).toEqual(denied)
   expect(page.appendChild).not.toHaveBeenCalled()
@@ -251,7 +259,65 @@ it('does not save an open stale draft before the cross-tab storage notification 
   page.values.set(TRACKING_CONSENT_STORAGE_KEY, JSON.stringify(denied))
   form.props.onSubmit({ preventDefault: vi.fn() })
   expect(page.localStorage.setItem.mock.calls.filter(([key]) => key === TRACKING_CONSENT_STORAGE_KEY)).toEqual([])
-  expect(render().find(node => node.props.role === 'status')?.props.children).toMatch(/changed in another tab/)
+  expect(render().find(node => node.props.role === 'alert')?.props.children).toMatch(/changed in another tab/)
   expect(render().filter(node => node.type === 'input').map(node => node.props.checked)).toEqual([false, false])
   expect(readTrackingConsent(page.browser)).toEqual(denied)
+})
+
+it('dismisses from the verified save result even when the UI bridge callback was removed', () => {
+  const page = browserAt()
+  const stopMeasurement = subscribeToTrackingConsent(page.browser, () => {})
+  try {
+    const initial = mount(page.browser)
+    hooks.cleanups.at(-1)!()
+    button(initial, 'Accept all').props.onClick()
+    expect(readTrackingConsent(page.browser)).toEqual(granted)
+    expect(launcher(render()).props['aria-expanded']).toBe(false)
+    expect(render().some(node => node.type === 'h2')).toBe(false)
+  } finally {
+    stopMeasurement()
+  }
+})
+
+it('closes without granting, reopens preferences, and shows the notice again after an undecided reload', () => {
+  const page = browserAt()
+  const initial = mount(page.browser)
+  const close = initial.find(node => node.type === 'button' && node.props['aria-label'] === 'Close cookie panel')!
+  close.props.onClick()
+  expect(launcher(render()).props['aria-expanded']).toBe(false)
+  expect(readTrackingConsentPreference(page.browser)).toBeNull()
+  expect(page.localStorage.setItem).not.toHaveBeenCalled()
+  launcher(render()).props.onClick()
+  expect(render().filter(node => node.type === 'input').map(node => node.props.checked)).toEqual([false, false])
+  render()[0].props.onKeyDown({ key: 'Escape', preventDefault: vi.fn(), stopPropagation: vi.fn() })
+  expect(readTrackingConsentPreference(page.browser)).toBeNull()
+  for (const cleanup of hooks.cleanups.splice(0)) cleanup()
+  hooks.values = []
+  const reloaded = mount(browserAt('/', page.values).browser)
+  expect(button(reloaded, 'Accept all')).toBeDefined()
+  expect(reloaded.filter(node => node.type === 'input')).toEqual([])
+})
+
+it('keeps a saved rejection dismissed after component hydration and reload', () => {
+  const values = new Map([[TRACKING_CONSENT_STORAGE_KEY, JSON.stringify(denied)]])
+  const page = browserAt('/', values)
+  const reloaded = mount(page.browser)
+  expect(launcher(reloaded).props['aria-expanded']).toBe(false)
+  expect(reloaded.some(node => node.type === 'h2')).toBe(false)
+  launcher(reloaded).props.onClick()
+  expect(render().filter(node => node.type === 'input').map(node => node.props.checked)).toEqual([false, false])
+})
+
+it('keeps the notice out of page flow with bounded mobile height and safe-area spacing', () => {
+  const css = readFileSync('components/consent-manager.module.css', 'utf8')
+  expect(css).toMatch(/\.region\s*\{[^}]*position:\s*fixed/s)
+  expect(css).toContain('env(safe-area-inset-left)')
+  expect(css).toContain('env(safe-area-inset-bottom)')
+  expect(css).toContain('max-block-size: calc(100dvh')
+  expect(css).toContain('overflow-y: auto')
+  expect(css).toContain('body:has(.mobile-bottom-nav)')
+  expect(css).toContain('calc(100vw - 24px')
+  const page = browserAt()
+  const initial = mount(page.browser)
+  expect(initial.some(node => /\bcontainer\b/.test(node.props.className ?? ''))).toBe(false)
 })
