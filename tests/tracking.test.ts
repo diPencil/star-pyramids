@@ -11,7 +11,7 @@ import {
   resolveTrackingSettings,
   sanitizeMeasurementUrl,
 } from '@/lib/tracking'
-import { analyticsDataLayer, GTM_CONSENT_READY_EVENT, initializeGtm, readTrackingConsent, readTrackingGrants, subscribeToTrackingConsent, updateGoogleConsent } from '@/lib/tracking-browser'
+import { analyticsDataLayer, GTM_CONSENT_READY_EVENT, initializeGtm, isGtmReady, readTrackingConsent, readTrackingGrants, subscribeToTrackingConsent, updateGoogleConsent } from '@/lib/tracking-browser'
 
 const production = 'https://starpyramids.com'
 
@@ -45,6 +45,44 @@ function finishLoading(browser: ReturnType<typeof browserAt>['browser']) {
 }
 
 describe('Google Tag Manager configuration', () => {
+  it('recovers a failed script without repeating defaults, startup or accepting a stale load callback', () => {
+    const { browser, window } = browserAt(production, '{"analytics":true,"marketing":false}')
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production')
+    const first = browser.document.head.appendChild.mock.calls[0][0] as { onload(): void; onerror(): void; remove?: () => void }
+    first.remove = vi.fn()
+    first.onerror()
+    expect(first.remove).toHaveBeenCalledOnce()
+    expect(isGtmReady(window)).toBe(false)
+    expect(analyticsDataLayer(window, 'production')).toBeUndefined()
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production')
+    expect(browser.document.head.appendChild).toHaveBeenCalledTimes(2)
+    first.onload()
+    expect(isGtmReady(window)).toBe(false)
+    const second = browser.document.head.appendChild.mock.calls[1][0] as { onload(): void }
+    second.onload()
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production')
+    expect(isGtmReady(window)).toBe(true)
+    expect(browser.document.head.appendChild).toHaveBeenCalledTimes(2)
+    expect(browser.dataLayer.filter(entry => (entry as { event?: string }).event === 'gtm.js')).toHaveLength(1)
+    expect(browser.dataLayer.filter(entry => (entry as { event?: string }).event === GTM_CONSENT_READY_EVENT)).toHaveLength(1)
+    expect(browser.dataLayer.filter(entry => Array.from(entry as ArrayLike<unknown>)[1] === 'default')).toHaveLength(1)
+  })
+
+  it('does not retry a failed script after withdrawal or on a protected URL', () => {
+    const { browser, window } = browserAt(production, '{"analytics":true,"marketing":false}')
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production')
+    const first = browser.document.head.appendChild.mock.calls[0][0] as { onerror(): void; onload?: () => void }
+    first.onerror()
+    browser.localStorage.setItem(TRACKING_CONSENT_STORAGE_KEY, '{"analytics":false,"marketing":false}')
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, { analytics: true, marketing: false }, 'production')
+    browser.localStorage.setItem(TRACKING_CONSENT_STORAGE_KEY, '{"analytics":true,"marketing":false}')
+    browser.location.href = production + '/checkout'
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production')
+    expect(browser.document.head.appendChild).toHaveBeenCalledOnce()
+    expect(isGtmReady(window)).toBe(false)
+    first.onload?.()
+    expect(isGtmReady(window)).toBe(false)
+  })
   it('accepts only GTM container IDs', () => {
     expect(isValidGtmContainerId('GTM-KQ8GR36H')).toBe(true)
     expect(normalizeGtmContainerId('  GTM-KQ8GR36H  ')).toBe('GTM-KQ8GR36H')
@@ -161,7 +199,7 @@ describe('Google Tag Manager configuration', () => {
     })
     initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production')
     expect(browser.document.head.appendChild).toHaveBeenCalledExactlyOnceWith({
-      async: true, referrerPolicy: 'no-referrer', onload: expect.any(Function), src: `https://www.googletagmanager.com/gtm.js?id=${DEFAULT_GTM_CONTAINER_ID}`,
+      async: true, referrerPolicy: 'no-referrer', onload: expect.any(Function), onerror: expect.any(Function), src: `https://www.googletagmanager.com/gtm.js?id=${DEFAULT_GTM_CONTAINER_ID}`,
     })
     expect(analyticsDataLayer(window, 'production')).toBeUndefined()
     finishLoading(browser)

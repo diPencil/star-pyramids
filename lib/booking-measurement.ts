@@ -23,7 +23,10 @@ export type BookingMeasurement = {
   value: number
   items: (TourItem & { price: number })[]
 }
-export type BookingFunnelEvent = FunnelIntent | BookingMeasurement
+export type TripRequestMeasurement = { event: 'trip_request_created'; event_id: string }
+export type BookingFunnelEvent = FunnelIntent | BookingMeasurement | TripRequestMeasurement
+export const isFunnelLead = (event: BookingFunnelEvent): boolean =>
+  event.event === 'sp_booking_created' || event.event === 'trip_request_created'
 export type BookingMeasurementReceipt = { event: BookingMeasurement; grants: BookingMeasurementGrants }
 
 export const isPublicTourId = (id: unknown): id is string =>
@@ -39,6 +42,9 @@ function usdCents(value: unknown): number | null {
 export function parseBookingFunnelEvent(input: unknown): BookingFunnelEvent | null {
   if (!input || typeof input !== 'object') return null
   const { event, event_id, items, currency, value } = input as Record<string, unknown>
+  if (event === 'trip_request_created') {
+    return typeof event_id === 'string' && /^tr_[a-f0-9]{32}$/.test(event_id) ? { event, event_id } : null
+  }
   if (event !== 'sp_add_to_cart' && event !== 'sp_begin_checkout' && event !== 'sp_booking_created') return null
   const idPattern = event === 'sp_booking_created' ? /^bk_[a-f0-9]{32}$/ : /^f_[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/
   if (typeof event_id !== 'string' || !idPattern.test(event_id) || !Array.isArray(items) ||

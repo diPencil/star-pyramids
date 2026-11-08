@@ -16,6 +16,8 @@ const unresolvedConsent = new WeakSet<Window>()
 const verifiedConsentStorage = new WeakSet<Window>()
 const analyticsConsent = new WeakMap<Window, boolean>()
 const readyContainers = new WeakSet<Window>()
+const failedContainers = new WeakSet<Window>()
+const loadingScripts = new WeakMap<Window, HTMLScriptElement>()
 const appliedGoogleConsent = new WeakMap<Window, TrackingConsent>()
 const startupInteractions = new WeakMap<Window, { analytics: string; events: object[] }>()
 type ConsentListener = (choice: TrackingConsent) => void
@@ -271,25 +273,36 @@ export function initializeGtm(browser: TrackingWindow, containerId: string | nul
     return
   }
   analyticsConsent.set(browser, false)
-  if (browser.__spGtmInitialized) {
+  if (browser.__spGtmInitialized && !failedContainers.has(browser)) {
     updateGoogleConsent(browser, choice)
     return
   }
   if (!choice.analytics && !choice.marketing) return
+  // A retry must not trust a grant captured before a withdrawal/storage failure.
+  if (failedContainers.has(browser)) {
+    const current = readTrackingConsent(browser)
+    if (!current.analytics && !current.marketing) return
+  }
+  const firstAttempt = !browser.__spGtmInitialized
   browser.dataLayer ??= []
   browser.gtag ??= function () { browser.dataLayer?.push(arguments) }
-  browser.gtag('consent', 'default', {
-    ...consentState(DENIED),
-    functionality_storage: 'granted',
-    security_storage: 'granted',
-    wait_for_update: 500,
-  })
-  browser.gtag('set', 'ads_data_redaction', true)
+  if (firstAttempt) {
+    browser.gtag('consent', 'default', {
+      ...consentState(DENIED),
+      functionality_storage: 'granted',
+      security_storage: 'granted',
+      wait_for_update: 500,
+    })
+    browser.gtag('set', 'ads_data_redaction', true)
+  }
   const script = browser.document.createElement('script')
   script.async = true
   script.referrerPolicy = 'no-referrer'
   script.src = `https://www.googletagmanager.com/gtm.js?id=${id}`
   script.onload = () => {
+    if (loadingScripts.get(browser) !== script) return
+    loadingScripts.delete(browser)
+    failedContainers.delete(browser)
     readyContainers.add(browser)
     const eligible = analyticsConsent.has(browser) && canMeasureLocation(new URL(browser.location.href), environment)
     updateGoogleConsent(browser, eligible ? readTrackingConsent(browser) : DENIED)
@@ -300,7 +313,17 @@ export function initializeGtm(browser: TrackingWindow, containerId: string | nul
     }
     browser.dispatchEvent(new Event(GTM_READY_EVENT))
   }
+  script.onerror = () => {
+    if (loadingScripts.get(browser) !== script) return
+    loadingScripts.delete(browser)
+    failedContainers.add(browser)
+    startupInteractions.delete(browser)
+    updateGoogleConsent(browser, DENIED)
+    script.remove?.()
+  }
+  loadingScripts.set(browser, script)
+  failedContainers.delete(browser)
   browser.__spGtmInitialized = true
-  browser.dataLayer.push({ 'gtm.start': Date.now(), event: 'gtm.js' })
+  if (firstAttempt) browser.dataLayer.push({ 'gtm.start': Date.now(), event: 'gtm.js' })
   browser.document.head.appendChild(script)
 }

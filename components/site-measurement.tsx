@@ -62,6 +62,7 @@ export function SiteMeasurement({ containerId, explicitPageViews }: { containerI
     }
     window.addEventListener(GTM_READY_EVENT, flush)
     window.addEventListener('storage', onStorage)
+    window.addEventListener('online', refresh)
     const unsubscribe = subscribeToTrackingConsent(window, refresh)
     const stopLocation = subscribeToTrackingLocation(window, refresh)
     refresh()
@@ -70,6 +71,7 @@ export function SiteMeasurement({ containerId, explicitPageViews }: { containerI
       stopLocation()
       window.removeEventListener(GTM_READY_EVENT, flush)
       window.removeEventListener('storage', onStorage)
+      window.removeEventListener('online', refresh)
     }
   }, [refresh])
 

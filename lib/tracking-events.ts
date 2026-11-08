@@ -1,6 +1,6 @@
 import { canMeasureLocation } from './tracking'
 import { analyticsDataLayer, pushPublicInteraction, readTrackingGrants } from './tracking-browser'
-import { isPublicTourId, parseBookingFunnelEvent, type BookingMeasurementGrants } from './booking-measurement'
+import { isFunnelLead, isPublicTourId, parseBookingFunnelEvent, type BookingMeasurementGrants } from './booking-measurement'
 
 const NAV_PLACEMENTS = ['header', 'sticky_header', 'mobile_menu', 'footer'] as const
 const DESTINATIONS = ['home', 'trips', 'tours', 'destinations', 'offers', 'blogs', 'events', 'rent_car', 'planner', 'contact', 'company', 'external'] as const
@@ -53,7 +53,7 @@ export function queueBookingFunnelEvent(browser: Window, environment: string | u
   const event = parseBookingFunnelEvent(input)
   if (!event) return false
   try {
-    if (event.event === 'sp_booking_created') {
+    if (isFunnelLead(event)) {
       const current = readTrackingGrants(browser)
       if (!grants || grants.analytics !== current.analytics) return false
       layer.push({ ...event, ads_eligible: Boolean(grants.marketing && grants.marketing === current.marketing) })

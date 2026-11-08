@@ -1,5 +1,5 @@
-import { BOOKING_MARKETING_GRANT_HEADER, BOOKING_MEASUREMENT_HEADER, bookingMeasurementGrants, parseBookingFunnelEvent, type BookingFunnelEvent, type BookingMeasurementGrants } from './booking-measurement'
-import { isProductionTrackingHost } from './tracking'
+import { BOOKING_MARKETING_GRANT_HEADER, BOOKING_MEASUREMENT_HEADER, bookingMeasurementGrants, isFunnelLead, parseBookingFunnelEvent, type BookingFunnelEvent, type BookingMeasurementGrants } from './booking-measurement'
+import { isProductionTrackingHost, isSafeTrackingUrl } from './tracking'
 import { analyticsDataLayer, canCaptureAnalytics, readTrackingConsent, readTrackingGrants } from './tracking-browser'
 import { queueBookingFunnelEvent } from './tracking-events'
 
@@ -31,7 +31,7 @@ function remember(browser: Window, event: BookingFunnelEvent, grants?: BookingMe
   if (storage.getItem(DELIVERED_PREFIX + event.event_id) !== null) return
   const stored = storage.getItem(key)
   const now = Date.now()
-  if (stored !== null && (event.event !== 'sp_booking_created' || readPendingRecord(key, stored, now))) return
+  if (stored !== null && (!isFunnelLead(event) || readPendingRecord(key, stored, now))) return
   storage.setItem(key, JSON.stringify({ event, capturedAt: now, grants }))
 }
 
@@ -43,7 +43,7 @@ function readPendingRecord(key: string, stored: string, now: number): PendingRec
     const grants = bookingMeasurementGrants(record?.grants?.analytics, record?.grants?.marketing)
     if (event && key === FUNNEL_STORAGE_PREFIX + event.event_id && typeof capturedAt === 'number' &&
         Number.isFinite(capturedAt) && capturedAt + RETENTION_MS > now &&
-        (event.event !== 'sp_booking_created' || grants)) return { event, capturedAt, grants }
+        (!isFunnelLead(event) || grants)) return { event, capturedAt, grants }
   } catch { /* Ignore malformed storage records. */ }
   return null
 }
@@ -85,6 +85,37 @@ export function recordBookingReceipt(browser: Window, environment: string | unde
   } catch { /* Keep receipt, cart cleanup and attempt recovery independent. */ }
 }
 
+/** Capture only consent proofs on the planner; no Google tag or URL is queued here. */
+export function tripRequestMeasurementGrants(browser: Window, environment: string | undefined): BookingMeasurementGrants | undefined {
+  try {
+    const url = new URL(browser.location.href)
+    if (url.protocol !== 'https:' || !isProductionTrackingHost(environment, url.host) ||
+        url.pathname !== '/make-your-trip' || url.hash || !readTrackingConsent(browser).analytics) return
+    const allowed = new Set(['destination', 'tour', 'from', 'to', 'date', 'guests', 'addons', 'step', 'src', 'blog'])
+    const seen = new Set<string>()
+    const campaign = new URL(url)
+    campaign.pathname = '/'
+    for (const key of url.searchParams.keys()) {
+      if (seen.has(key)) return
+      seen.add(key)
+      if (allowed.has(key)) campaign.searchParams.delete(key)
+    }
+    // Reuse the existing strict attribution/debug allowlist for remaining parameters.
+    if (!isSafeTrackingUrl(campaign)) return
+    const grants = readTrackingGrants(browser)
+    return bookingMeasurementGrants(grants.analytics, grants.marketing)
+  } catch { return }
+}
+
+export function recordTripRequestReceipt(browser: Window, environment: string | undefined, input: unknown, captured?: BookingMeasurementGrants) {
+  try {
+    const current = tripRequestMeasurementGrants(browser, environment)
+    const event = parseBookingFunnelEvent(input)
+    const grants = bookingMeasurementGrants(captured?.analytics, captured?.marketing)
+    if (event?.event === 'trip_request_created' && grants && current?.analytics === grants.analytics) remember(browser, event, grants)
+  } catch { /* An optional measurement failure must never hide a persisted request. */ }
+}
+
 function storedKeys(storage: Storage): string[] {
   const keys: string[] = []
   for (let i = 0; i < storage.length; i++) {
@@ -118,14 +149,14 @@ export async function flushBookingFunnel(browser: Window, environment: string | 
       if (!stored) continue
       if (!consent) { storage.removeItem(key); continue }
       const record = readPendingRecord(key, stored, now)
-      if (!record || (record.event.event === 'sp_booking_created' && record.grants?.analytics !== currentGrants.analytics)) {
+      if (!record || (isFunnelLead(record.event) && record.grants?.analytics !== currentGrants.analytics)) {
         // A replay in another tab may have refreshed this entry.
         if (storage.getItem(key) === stored) storage.removeItem(key)
         continue
       }
       if (canDispatch) pending.push({ key, ...record })
     }
-    const order = { sp_add_to_cart: 0, sp_begin_checkout: 1, sp_booking_created: 2 }
+    const order = { sp_add_to_cart: 0, sp_begin_checkout: 1, sp_booking_created: 2, trip_request_created: 2 }
     pending.sort((a, b) => a.capturedAt - b.capturedAt || order[a.event.event] - order[b.event.event])
     for (const { key, event, grants } of pending) {
       if (storage.getItem(key) === null) continue

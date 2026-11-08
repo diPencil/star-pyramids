@@ -27,7 +27,7 @@ function mount(path: string, modern: boolean) {
   const location = { href: origin + path }
   const navigation = modern ? new EventTarget() : undefined
   const values = new Map([[TRACKING_CONSENT_STORAGE_KEY, '{"analytics":true,"marketing":false}']])
-  const script: { onload?: () => void } = {}
+  const script: { onload?: () => void; onerror?: () => void } = {}
   const appendChild = vi.fn()
   const history = {
     state: null as unknown,
@@ -62,6 +62,17 @@ function mount(path: string, modern: boolean) {
   }
   return { browser, origin, location, navigation, script, appendChild }
 }
+
+it('retries a failed container after reconnection while preserving current consent', () => {
+  const { browser, script, appendChild } = mount('/trips', false)
+  script.onerror?.()
+  browser.dispatchEvent(new Event('online'))
+  expect(appendChild).toHaveBeenCalledTimes(2)
+  script.onload?.()
+  expect(browser.dataLayer).toContainEqual({ event: GTM_CONSENT_READY_EVENT })
+  browser.dispatchEvent(new Event('online'))
+  expect(appendChild).toHaveBeenCalledTimes(2)
+})
 
 it.each(['hashchange', 'popstate', 'navigation', 'replaceState', 'pushState'] as const)('starts once after same-document fragment recovery via %s', change => {
   const { browser, origin, location, navigation, script, appendChild } = mount('/trips#private', change === 'navigation')

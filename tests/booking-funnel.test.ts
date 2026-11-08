@@ -1,9 +1,12 @@
 import { randomUUID } from 'node:crypto'
 import { afterEach, expect, it, vi } from 'vitest'
-import { bookingMeasurementHeaders, flushBookingFunnel, FUNNEL_STORAGE_PREFIX, recordBeginCheckout, recordBookingReceipt, recordCartAddition } from '@/lib/booking-funnel'
+import { bookingMeasurementHeaders, flushBookingFunnel, FUNNEL_STORAGE_PREFIX, recordBeginCheckout, recordBookingReceipt, recordCartAddition, recordTripRequestReceipt, tripRequestMeasurementGrants } from '@/lib/booking-funnel'
 import { BOOKING_MEASUREMENT_HEADER, parseBookingFunnelEvent } from '@/lib/booking-measurement'
 import { TRACKING_CONSENT_STORAGE_KEY } from '@/lib/tracking'
 import { initializeGtm, readTrackingConsent, updateGoogleConsent } from '@/lib/tracking-browser'
+import { submitTripRequest } from '@/lib/trip-request-submission'
+import { tripRequestMeasurement } from '@/lib/server/trip-request-measurement'
+import type { MakeYourTripRequestDraft } from '@/lib/trip-request'
 
 const origin = 'https://starpyramids.com'
 const environment = 'production'
@@ -20,6 +23,9 @@ const booking = {
 }
 const receipt = { event: booking, grants: { analytics: analyticsGrant } }
 const analyticsLead = { ...booking, ads_eligible: false }
+const tripLead = tripRequestMeasurement('opaque-persisted-row-id')
+const privateDraft = { contact: { name: 'Private Name', email: 'private@example.test', phone: '+12025550123' }, notes: 'private-note' } as MakeYourTripRequestDraft
+const tripResponse = { reference: 'SP-TR-ABC123', ...privateDraft, tripRequestMeasurement: tripLead }
 
 function storage(): Storage {
   const values = new Map<string, string>()
@@ -61,6 +67,120 @@ function setConsent(local: Storage, analytics: boolean, marketing?: string, anal
 afterEach(() => {
   vi.unstubAllGlobals()
   vi.unstubAllEnvs()
+})
+
+it('projects a stable opaque trip lead ID and rejects raw references or extra personal fields', () => {
+  expect(tripLead).toEqual(tripRequestMeasurement('opaque-persisted-row-id'))
+  expect(tripRequestMeasurement('different-row-id')).not.toEqual(tripLead)
+  expect(tripLead.event_id).toMatch(/^tr_[a-f0-9]{32}$/)
+  expect(parseBookingFunnelEvent({ ...tripLead, ...privateDraft, reference: tripResponse.reference, value: 1000 })).toEqual(tripLead)
+  expect(parseBookingFunnelEvent({ ...tripLead, event_id: tripResponse.reference })).toBeNull()
+})
+
+it('captures only a successful persisted creation and dispatches it once on a public page after reload/replay', async () => {
+  const planner = documentAt('/make-your-trip?tour=cairo-tour&guests=2&utm_source=google&gclid=abc_123')
+  setConsent(planner.local, true)
+  const request = vi.fn().mockResolvedValue(Response.json(tripResponse, { status: 201 }))
+  Object.assign(planner.browser, { fetch: request })
+  expect(await submitTripRequest(planner.browser, environment, privateDraft)).toEqual(tripResponse)
+  expect(request).toHaveBeenCalledWith('/api/trip-requests', expect.objectContaining({ method: 'POST', credentials: 'same-origin' }))
+  expect(planner.layer).toEqual([])
+  const key = FUNNEL_STORAGE_PREFIX + tripLead.event_id
+  const queued = planner.local.getItem(key)
+  expect(queued).not.toBeNull()
+  for (const secret of ['Private Name', 'private@example.test', '+12025550123', 'private-note', tripResponse.reference, 'opaque-persisted-row-id', 'cairo-tour']) expect(queued).not.toContain(secret)
+  const reloaded = documentAt('/make-your-trip', planner.local)
+  recordTripRequestReceipt(reloaded.browser, environment, tripLead, { analytics: analyticsGrant })
+  expect(planner.local.getItem(key)).toBe(queued)
+  const page = documentAt('/', planner.local)
+  page.boot(); page.ready()
+  await flushBookingFunnel(page.browser, environment)
+  expect(page.layer).toEqual([{ ...tripLead, ads_eligible: false }])
+  recordTripRequestReceipt(reloaded.browser, environment, tripLead, { analytics: analyticsGrant })
+  await flushBookingFunnel(page.browser, environment)
+  const revisit = documentAt('/', planner.local)
+  revisit.boot(); revisit.ready()
+  await flushBookingFunnel(revisit.browser, environment)
+  expect(revisit.layer).toEqual([])
+  expect(page.layer).toHaveLength(1)
+})
+
+it.each([200, 400, 422, 500])('does not count an unconfirmed creation response (%s)', async status => {
+  const planner = documentAt('/make-your-trip')
+  setConsent(planner.local, true)
+  Object.assign(planner.browser, { fetch: vi.fn().mockResolvedValue(Response.json({ ...tripResponse, error: 'fixture failure' }, { status })) })
+  const result = submitTripRequest(planner.browser, environment, privateDraft)
+  if (status >= 400) await expect(result).rejects.toThrow('fixture failure')
+  else await expect(result).resolves.toEqual(expect.objectContaining({ reference: tripResponse.reference }))
+  expect(planner.local.getItem(FUNNEL_STORAGE_PREFIX + tripLead.event_id)).toBeNull()
+})
+
+it('does not count a lost response or an update of an existing request', async () => {
+  const planner = documentAt('/make-your-trip')
+  setConsent(planner.local, true)
+  const request = vi.fn().mockRejectedValueOnce(Error('offline')).mockResolvedValueOnce(Response.json(tripResponse, { status: 201 }))
+  Object.assign(planner.browser, { fetch: request })
+  await expect(submitTripRequest(planner.browser, environment, privateDraft)).rejects.toThrow('offline')
+  await submitTripRequest(planner.browser, environment, privateDraft, tripResponse.reference)
+  expect(request).toHaveBeenLastCalledWith(`/api/account/trip-requests/${tripResponse.reference}`, expect.objectContaining({ method: 'PATCH' }))
+  expect(planner.local.getItem(FUNNEL_STORAGE_PREFIX + tripLead.event_id)).toBeNull()
+})
+
+it.each(['denied', 'late-grant', 'withdrawn', 'regranted'] as const)('requires continuous Analytics consent through creation: %s', async scenario => {
+  const planner = documentAt('/make-your-trip')
+  setConsent(planner.local, scenario === 'withdrawn' || scenario === 'regranted')
+  Object.assign(planner.browser, { fetch: vi.fn().mockImplementation(async () => {
+    if (scenario === 'late-grant') setConsent(planner.local, true)
+    if (scenario === 'withdrawn') setConsent(planner.local, false)
+    if (scenario === 'regranted') setConsent(planner.local, true, undefined, newAnalyticsGrant)
+    return Response.json(tripResponse, { status: 201 })
+  }) })
+  await submitTripRequest(planner.browser, environment, privateDraft)
+  expect(planner.local.getItem(FUNNEL_STORAGE_PREFIX + tripLead.event_id)).toBeNull()
+})
+
+it('does not restore a queued trip lead after Analytics withdrawal and a new grant', async () => {
+  const planner = documentAt('/make-your-trip')
+  setConsent(planner.local, true)
+  recordTripRequestReceipt(planner.browser, environment, tripLead, tripRequestMeasurementGrants(planner.browser, environment))
+  setConsent(planner.local, true, undefined, newAnalyticsGrant)
+  const page = documentAt('/', planner.local)
+  page.boot(); page.ready()
+  await flushBookingFunnel(page.browser, environment)
+  expect(page.layer).toEqual([])
+  expect(planner.local.getItem(FUNNEL_STORAGE_PREFIX + tripLead.event_id)).toBeNull()
+})
+
+it.each([
+  [undefined, marketingGrant, false], [marketingGrant, newMarketingGrant, false], [marketingGrant, marketingGrant, true],
+])('preserves Marketing eligibility captured before trip persistence (%s -> %s)', async (captured, current, eligible) => {
+  const planner = documentAt('/make-your-trip')
+  setConsent(planner.local, true, captured)
+  const grants = tripRequestMeasurementGrants(planner.browser, environment)
+  setConsent(planner.local, true, current)
+  recordTripRequestReceipt(planner.browser, environment, tripLead, grants)
+  const page = documentAt('/', planner.local)
+  page.boot(); page.ready()
+  await flushBookingFunnel(page.browser, environment)
+  expect(page.layer).toEqual([{ ...tripLead, ads_eligible: eligible }])
+})
+
+it.each(['/make-your-trip?token=private', '/make-your-trip#private', '/make-your-trip?utm_source=person%40example.test', '/make-your-trip?tour=a&tour=b', '/account/trip-requests', 'https://qa.example.test/make-your-trip'])(
+  'does not capture a trip lead on an ineligible location: %s', path => {
+    const planner = documentAt(path)
+    setConsent(planner.local, true)
+    recordTripRequestReceipt(planner.browser, environment, tripLead, { analytics: analyticsGrant })
+    expect(planner.local.getItem(FUNNEL_STORAGE_PREFIX + tripLead.event_id)).toBeNull()
+  },
+)
+
+it('keeps successful trip submission usable when measurement storage fails', async () => {
+  const planner = documentAt('/make-your-trip')
+  setConsent(planner.local, true)
+  Object.assign(planner.browser, { fetch: vi.fn().mockResolvedValue(Response.json(tripResponse, { status: 201 })) })
+  vi.spyOn(planner.local, 'setItem').mockImplementation(() => { throw Error('storage blocked') })
+  await expect(submitTripRequest(planner.browser, environment, privateDraft)).resolves.toEqual(tripResponse)
+  expect(planner.layer).toEqual([])
 })
 
 it('queues checkout and receipt across refresh and drains them once on a ready public page', async () => {

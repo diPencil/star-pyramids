@@ -1,5 +1,6 @@
 'use client'
 import { formatCurrency, type Currency } from '@/lib/currency'
+import { submitTripRequest } from '@/lib/trip-request-submission'
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -436,18 +437,7 @@ function PlannerInner() {
   }
 
   const submitDraft = async (raw: MakeYourTripRequestDraft): Promise<TripRequest> => {
-    const url = editRef
-      ? `/api/account/trip-requests/${encodeURIComponent(editRef)}`
-      : '/api/trip-requests'
-    const res = await fetch(url, {
-      method: editRef ? 'PATCH' : 'POST',
-      headers: { 'content-type': 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify(editRef ? { action: 'update', draft: raw } : raw),
-    })
-    const data = (await res.json()) as TripRequest & { error?: string }
-    if (!res.ok) throw new Error(data.error || 'Could not save the request.')
-    return data
+    return submitTripRequest(window, process.env.NODE_ENV, raw, editRef)
   }
 
   const handleSubmit = (e: React.FormEvent) => {

@@ -5,6 +5,8 @@ import { isCurrency, type Currency } from '../currency';
 import 'server-only';
 
 import { randomInt } from 'node:crypto';
+import { tripRequestMeasurement } from './trip-request-measurement';
+import type { TripRequestMeasurement } from '../booking-measurement';
 import { Prisma, TripRequestStatus as DbStatus, TripRequestTimeMode as DbTimeMode } from '@prisma/client';
 
 import { db } from './db';
@@ -434,7 +436,7 @@ const rowInclude = {
 export async function createTripRequestRecord(
   userId: string | null,
   draft: ValidatedTripDraft,
-): Promise<TripRequest> {
+): Promise<TripRequest & { tripRequestMeasurement: TripRequestMeasurement }> {
   let lastError: unknown = null;
   for (let attempt = 0; attempt < REF_ATTEMPTS; attempt += 1) {
     const reference = mintReferenceCandidate();
@@ -502,7 +504,7 @@ export async function createTripRequestRecord(
         reference,
         detailUrl: `/admin/trip-requests/detail?ref=${encodeURIComponent(reference)}`,
       }, { relatedReference: reference, idempotencyKey: `admin_trip_request_submitted:${reference}` });
-      return created;
+      return { ...created, tripRequestMeasurement: tripRequestMeasurement(row.id) };
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         lastError = error;
