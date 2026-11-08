@@ -18,6 +18,7 @@ const analyticsConsent = new WeakMap<Window, boolean>()
 const readyContainers = new WeakSet<Window>()
 const failedContainers = new WeakSet<Window>()
 const loadingScripts = new WeakMap<Window, HTMLScriptElement>()
+const scriptContainers = new WeakMap<Window, string>()
 const appliedGoogleConsent = new WeakMap<Window, TrackingConsent>()
 const startupInteractions = new WeakMap<Window, { analytics: string; events: object[] }>()
 type ConsentListener = (choice: TrackingConsent) => void
@@ -28,6 +29,15 @@ export const GTM_CONSENT_READY_EVENT = 'sp_consent_ready'
 
 export function isGtmReady(browser: Window): boolean {
   return readyContainers.has(browser)
+}
+
+/** Observation only: never initializes tags or changes consent. */
+export function gtmScriptHealth(browser: Window): 'not_loaded' | 'loading' | 'loaded' | 'failed' {
+  return readyContainers.has(browser) ? 'loaded' : failedContainers.has(browser) ? 'failed' : loadingScripts.has(browser) ? 'loading' : 'not_loaded'
+}
+
+export function observedGtmContainerId(browser: Window): string | null {
+  return scriptContainers.get(browser) ?? null
 }
 
 export function subscribeToTrackingLocation(browser: Window, refresh: () => void) {
@@ -322,6 +332,7 @@ export function initializeGtm(browser: TrackingWindow, containerId: string | nul
     script.remove?.()
   }
   loadingScripts.set(browser, script)
+  scriptContainers.set(browser, id)
   failedContainers.delete(browser)
   browser.__spGtmInitialized = true
   if (firstAttempt) browser.dataLayer.push({ 'gtm.start': Date.now(), event: 'gtm.js' })

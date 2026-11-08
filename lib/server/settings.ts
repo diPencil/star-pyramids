@@ -22,6 +22,7 @@ import { ENABLED_LOCALES } from '../locale-config';
 import { readAccessStrip, validateAccessStrip, type AccessStripOverride } from '../access-strip';
 import { validateHeroMedia } from '../website-heroes';
 import { normalizeGtmContainerId } from '../tracking';
+import { normalizeGa4MeasurementId } from '../tracking-health';
 
 export const SETTING_KEYS = {
   siteName: 'site.name',
@@ -68,6 +69,7 @@ export const PUBLIC_SETTING_KEYS = [
   // Tracking and analytics (non-secret configuration only)
   'tracking.gtmEnabled',
   'tracking.gtmContainerId',
+  'tracking.ga4MeasurementId',
   'site.promoText',
   'site.promo2Text',
   // Footer accessibility strip override (JSON document, see lib/access-strip.ts)
@@ -411,6 +413,12 @@ export function validateSettingsPatch(input: {
           break;
         }
         clean[key] = containerId;
+        break;
+      }
+      case 'tracking.ga4MeasurementId': {
+        const measurementId = normalizeGa4MeasurementId(trimmed);
+        if (trimmed && !measurementId) { fail('Enter a valid GA4 Measurement ID, such as G-XXXXXXXXXX, or leave empty.'); break; }
+        clean[key] = measurementId ?? '';
         break;
       }
       case 'site.seoImage':

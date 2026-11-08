@@ -7,6 +7,7 @@ import { canMeasureLocation, sanitizeMeasurementUrl } from '@/lib/tracking'
 import { GTM_READY_EVENT, initializeGtm, readTrackingConsent, subscribeToTrackingConsent, subscribeToTrackingLocation } from '@/lib/tracking-browser'
 import { createPageViewTracker } from '@/lib/tracking-events'
 import { flushBookingFunnel, FUNNEL_STORAGE_PREFIX } from '@/lib/booking-funnel'
+import { installTrackingHealthResponder } from '@/lib/tracking-health-browser'
 
 function PublicPageViews({ enabled, refresh }: { enabled: boolean; refresh: () => void }) {
   const pathname = usePathname()
@@ -57,6 +58,7 @@ export function SiteMeasurement({ containerId, explicitPageViews }: { containerI
 
   useEffect(() => {
     const flush = () => { void flushBookingFunnel(window, process.env.NODE_ENV) }
+    const stopDiagnostics = installTrackingHealthResponder(window, process.env.NODE_ENV, containerId)
     const onStorage = (event: StorageEvent) => {
       if (event.key?.startsWith(FUNNEL_STORAGE_PREFIX)) flush()
     }
@@ -68,6 +70,7 @@ export function SiteMeasurement({ containerId, explicitPageViews }: { containerI
     refresh()
     return () => {
       unsubscribe()
+      stopDiagnostics()
       stopLocation()
       window.removeEventListener(GTM_READY_EVENT, flush)
       window.removeEventListener('storage', onStorage)

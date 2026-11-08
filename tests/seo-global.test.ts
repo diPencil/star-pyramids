@@ -42,6 +42,13 @@ describe('global SEO settings trust boundary', () => {
 });
 
 describe('tracking settings trust boundary', () => {
+  it('stores the nonsecret GA4 ID in the existing settings allowlist with strict validation and optional clearing', () => {
+    expect(PUBLIC_SETTING_KEYS).toContain('tracking.ga4MeasurementId')
+    expect(SECRET_SETTING_KEYS).not.toContain('tracking.ga4MeasurementId')
+    expect(validateSettingsPatch({ values: { 'tracking.ga4MeasurementId': ' g-abc1234567 ' } })).toMatchObject({ clean: { 'tracking.ga4MeasurementId': 'G-ABC1234567' }, errors: [] })
+    expect(validateSettingsPatch({ values: { 'tracking.ga4MeasurementId': '' } })).toMatchObject({ clean: { 'tracking.ga4MeasurementId': '' }, errors: [] })
+    expect(validateSettingsPatch({ values: { 'tracking.ga4MeasurementId': '<script>secret' } }).errors).not.toHaveLength(0)
+  })
   it('accepts a valid GTM container and toggle as public settings', () => {
     const values = { 'tracking.gtmEnabled': 'true', 'tracking.gtmContainerId': '  GTM-KQ8GR36H  ' };
     expect(validateSettingsPatch({ values })).toEqual({

@@ -8,6 +8,7 @@ import { DEFAULT_GTM_CONTAINER_ID } from '@/lib/tracking';
 import { Card } from './admin-ui';
 import { AdminConfirmDialog } from './admin-confirm-dialog';
 import { toast } from './admin-toaster';
+import { TrackingHealthPanel } from './tracking-health';
 
 const fields = [
   ['site.seoTitle', 'Default SEO title', 160],
@@ -21,6 +22,7 @@ const fields = [
 const trackingFields = [
   ['tracking.gtmEnabled', 'Enable Google Tag Manager', 5],
   ['tracking.gtmContainerId', 'Google Tag Manager Container ID', 32],
+  ['tracking.ga4MeasurementId', 'GA4 Measurement ID', 22],
 ] as const;
 
 const allFields = [...fields, ...trackingFields] as const;
@@ -149,8 +151,14 @@ export function SeoGlobalSettings({ canEdit = false }: { canEdit?: boolean }) {
             onChange={event => { setValues(old => ({ ...old, 'tracking.gtmContainerId': event.target.value.toUpperCase() })); }}
           />
         </label>
+        <label>
+          <span>GA4 Measurement ID</span>
+          <input maxLength={22} dir="ltr" pattern="G-[A-Z0-9]{6,20}" placeholder="G-XXXXXXXXXX" value={values['tracking.ga4MeasurementId'] ?? ''} onChange={event => { setValues(old => ({ ...old, 'tracking.ga4MeasurementId': event.target.value.toUpperCase() })); }} />
+          <small>Expected GA4 destination inside GTM. Saving this ID does not install a separate Google tag.</small>
+        </label>
         <p>One container loads on public pages only. Admin, customer account and staff preview pages are excluded. Google Consent Mode v2 starts with non-essential consent denied until a visitor choice is stored.</p>
       </fieldset>
+      <TrackingHealthPanel canVerify={canEdit} blocked={dirty || loading || saving || confirmReload || pendingNavigation !== null || !Object.keys(baseline).length} revision={JSON.stringify(trackingFields.map(([key]) => baseline[key]))} />
       <p>A configured verification token does not mean Google is authenticated or connected.</p>
       <button className="sp-btn" type="submit" disabled={!canEdit || loading || saving || confirmReload || pendingNavigation !== null || !Object.keys(baseline).length || !dirty}><Save size={16} aria-hidden="true" />{saving ? 'Saving...' : 'Save settings'}</button>
       <button className="sp-btn" type="button" disabled={loading || saving || confirmReload || pendingNavigation !== null} onClick={requestReload}><RotateCw size={16} aria-hidden="true" />{error && !Object.keys(baseline).length ? 'Retry' : 'Reload'}</button>
