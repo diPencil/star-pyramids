@@ -45,6 +45,73 @@ function finishLoading(browser: ReturnType<typeof browserAt>['browser']) {
 }
 
 describe('Google Tag Manager configuration', () => {
+  it('preserves old explicit choices and supplies stable category grants across reloads and tabs', () => {
+    const { browser, window } = browserAt(production, '{"analytics":true,"marketing":false}')
+    expect(readTrackingConsent(window)).toEqual({ analytics: true, marketing: false })
+    const grants = readTrackingGrants(window)
+    expect(grants).toEqual({ analytics: expect.stringMatching(/^[a-f0-9-]{36}$/), marketing: undefined })
+    const reload = browserAt(production)
+    reload.browser.localStorage = browser.localStorage
+    expect(readTrackingGrants(reload.window)).toEqual(grants)
+    expect(browser.localStorage.getItem(TRACKING_CONSENT_STORAGE_KEY)).toBe('{"analytics":true,"marketing":false}')
+  })
+
+  it('never overwrites a withdrawal that occurs while old grant metadata is initialized', () => {
+    const { browser, window } = browserAt(production, '{"analytics":true,"marketing":true}')
+    const write = browser.localStorage.setItem.getMockImplementation()!
+    browser.localStorage.setItem.mockImplementation((key, value) => {
+      write(key, value)
+      if (key === 'sp-consent-legacy-grants-v1') write(TRACKING_CONSENT_STORAGE_KEY, '{"analytics":false,"marketing":false}')
+    })
+    expect(readTrackingConsent(window)).toEqual({ analytics: false, marketing: false })
+    const reload = browserAt(production)
+    reload.browser.localStorage = browser.localStorage
+    expect(readTrackingConsent(reload.window)).toEqual({ analytics: false, marketing: false })
+    expect(readTrackingGrants(reload.window)).toEqual({ analytics: undefined, marketing: undefined })
+    expect(browser.localStorage.getItem(TRACKING_CONSENT_STORAGE_KEY)).toBe('{"analytics":false,"marketing":false}')
+  })
+
+  it('fails closed if legacy grant metadata cannot be persisted', () => {
+    const { browser, window } = browserAt(production, '{"analytics":true,"marketing":true}')
+    const write = browser.localStorage.setItem.getMockImplementation()!
+    browser.localStorage.setItem.mockImplementation((key, value) => {
+      if (key === 'sp-consent-legacy-grants-v1') throw Error('storage unavailable')
+      write(key, value)
+    })
+    expect(readTrackingConsent(window)).toEqual({ analytics: false, marketing: false })
+    expect(readTrackingGrants(window)).toEqual({})
+  })
+
+  it('does not repair missing or malformed proofs in modern consent records as legacy consent', () => {
+    for (const grants of [{}, { analytics: 'invalid-proof' }]) {
+      const { browser, window } = browserAt(production, JSON.stringify({ analytics: true, marketing: false, grants }))
+      expect(readTrackingConsent(window)).toEqual({ analytics: false, marketing: false })
+      expect(readTrackingGrants(window)).toEqual({})
+      expect(browser.localStorage.getItem('sp-consent-legacy-grants-v1')).toBeNull()
+    }
+  })
+  it.each([
+    '/make-your-trip', '/make-your-trip?from=2026-11-27&to=2026-11-30',
+    '/make-your-trip?tour=cairo-tour&destination=cairo&guests=2&adults=2&children=0&infants=0&addons=0,1&step=2',
+    '/make-your-trip?src=blog_vip_trip&blog=cairo-guide&utm_source=google&gtm_debug=x',
+  ])('loads the public planner once in Advanced mode on validated entry %s', path => {
+    const { browser, window } = browserAt(production + path)
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production', 'advanced')
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production', 'advanced')
+    expect(browser.document.head.appendChild).toHaveBeenCalledOnce()
+    expect(sanitizeMeasurementUrl(production + path, 'production')).toBe(production + '/make-your-trip')
+  })
+
+  it.each([
+    '?email=private%40example.com', '?notes=private', '?edit=SP-TR-PRIVATE', '?ref=SP-TR-PRIVATE',
+    '?token=secret', '?tour=person%40example.com', '?from=2026-02-30', '?from=2026-13-01',
+    '?from=private', '?from=2026-11-27&from=2026-11-28', '?guests=999', '?addons=private', '#secret',
+  ])('does not admit sensitive/malformed planner URL %s', suffix => {
+    const { browser, window } = browserAt(production + '/make-your-trip' + suffix)
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, { analytics: true, marketing: true }, 'production', 'advanced')
+    expect(browser.document.head.appendChild).not.toHaveBeenCalled()
+    expect(browser.dataLayer).toEqual([])
+  })
   it('retries Advanced load under denial without repeating defaults or startup', () => {
     const { browser, window } = browserAt(production)
     initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production', 'advanced')
@@ -189,7 +256,7 @@ describe('Google Tag Manager configuration', () => {
     '/admin/settings', '/account/bookings', '/website-cms-preview/homepage',
     '/login', '/register', '/forgot-password', '/reset-password?token=secret',
     '/booking/private', '/booking-account#token=secret', '/verify-voucher/private',
-    '/checkout', '/search?q=person%40example.com', '/make-your-trip', '/rent-car/request',
+    '/checkout', '/search?q=person%40example.com', '/make-your-trip?edit=SP-TR-PRIVATE', '/rent-car/request',
     '/trips?%74oken=secret', '/trips?page=1&page=2', '/trips?gclid=person%40example.com',
     '/trips#token=secret', '/egypt-tours/person%40example.com', '/unknown',
     `/blogs/${'a'.repeat(43)}`, '/trips?sort=private', '/trips?destination=person%40example.com',

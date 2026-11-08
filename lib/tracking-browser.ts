@@ -12,6 +12,7 @@ type TrackingWindow = Window & {
 const DENIED: TrackingConsent = { analytics: false, marketing: false }
 const CONSENT_VETO = '__Host-sp-consent-revoked'
 const CONSENT_COOKIE_FLAGS = 'Path=/; Secure; SameSite=Strict'
+const LEGACY_GRANTS_KEY = 'sp-consent-legacy-grants-v1'
 const unresolvedConsent = new WeakSet<Window>()
 const verifiedConsentStorage = new WeakSet<Window>()
 const analyticsConsent = new WeakMap<Window, boolean>()
@@ -85,6 +86,26 @@ function verifyConsentStorage(browser: Window, storage: Storage): boolean {
   return true
 }
 
+function legacyConsentGrants(browser: Window, storage: Storage, stored: string, choice: TrackingConsent, grants: TrackingGrants): TrackingGrants | null {
+  if ((!choice.analytics || grants.analytics) && (!choice.marketing || grants.marketing)) return grants
+  // Old explicit preferences had boolean choices but no category grant IDs.
+  // Bind IDs to those exact bytes in separate metadata. Never rewrite the
+  // choice during a read: doing so could overwrite a concurrent withdrawal.
+  if (stored.length > 2048) return null
+  let saved: { record?: unknown; analytics?: unknown; marketing?: unknown } | null = null
+  try { saved = JSON.parse(storage.getItem(LEGACY_GRANTS_KEY) ?? 'null') } catch { /* Replace malformed metadata only. */ }
+  const continuous = saved?.record === stored
+  const result = {
+    analytics: choice.analytics ? grants.analytics ?? (continuous && isTrackingGrant(saved?.analytics) ? saved.analytics : browser.crypto.randomUUID()) : undefined,
+    marketing: choice.marketing ? grants.marketing ?? (continuous && isTrackingGrant(saved?.marketing) ? saved.marketing : browser.crypto.randomUUID()) : undefined,
+  }
+  const serialized = JSON.stringify({ record: stored, ...result })
+  if (storage.getItem(TRACKING_CONSENT_STORAGE_KEY) !== stored || hasConsentVeto(browser)) return null
+  if (storage.getItem(LEGACY_GRANTS_KEY) !== serialized) storage.setItem(LEGACY_GRANTS_KEY, serialized)
+  if (storage.getItem(LEGACY_GRANTS_KEY) !== serialized || storage.getItem(TRACKING_CONSENT_STORAGE_KEY) !== stored || hasConsentVeto(browser)) return null
+  return result
+}
+
 function readConsentRecord(browser: Window): { choice: TrackingConsent; grants: TrackingGrants } | null {
   try {
     if (unresolvedConsent.has(browser) || hasConsentVeto(browser)) return null
@@ -92,15 +113,18 @@ function readConsentRecord(browser: Window): { choice: TrackingConsent; grants: 
     const stored = storage.getItem(TRACKING_CONSENT_STORAGE_KEY)
     const record = stored ? JSON.parse(stored) : null
     const choice = parseConsent(record)
-    if (!choice || ((choice.analytics || choice.marketing) && !verifyConsentStorage(browser, storage))) return null
+    if (!stored || !choice || ((choice.analytics || choice.marketing) && !verifyConsentStorage(browser, storage))) return null
     if (storage.getItem(TRACKING_CONSENT_STORAGE_KEY) !== stored || hasConsentVeto(browser)) return null
-    return {
-      choice,
-      grants: {
-        analytics: choice.analytics && isTrackingGrant(record.grants?.analytics) ? record.grants.analytics : undefined,
-        marketing: choice.marketing && isTrackingGrant(record.grants?.marketing) ? record.grants.marketing : undefined,
-      },
+    const existing = {
+      analytics: choice.analytics && isTrackingGrant(record.grants?.analytics) ? record.grants.analytics : undefined,
+      marketing: choice.marketing && isTrackingGrant(record.grants?.marketing) ? record.grants.marketing : undefined,
     }
+    const missingGrant = (choice.analytics && !existing.analytics) || (choice.marketing && !existing.marketing)
+    // Compatibility is only for the original boolean-only format, not for a
+    // malformed modern record or unknown consent metadata.
+    if (missingGrant && Object.keys(record).some(key => key !== 'analytics' && key !== 'marketing')) return null
+    const grants = legacyConsentGrants(browser, storage, stored, choice, existing)
+    return grants ? { choice, grants } : null
   } catch {
     return null
   }

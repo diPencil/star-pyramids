@@ -77,6 +77,51 @@ it('projects a stable opaque trip lead ID and rejects raw references or extra pe
   expect(parseBookingFunnelEvent({ ...tripLead, event_id: tripResponse.reference })).toBeNull()
 })
 
+it('dispatches a confirmed trip lead on the planner immediately, once, without private fields or a later page visit', async () => {
+  const planner = documentAt('/make-your-trip?from=2026-11-27&to=2026-11-30')
+  setConsent(planner.local, true, marketingGrant)
+  planner.boot(); planner.ready()
+  let respond!: (response: Response) => void
+  Object.assign(planner.browser, { fetch: vi.fn(() => new Promise<Response>(resolve => { respond = resolve })) })
+  const submission = submitTripRequest(planner.browser, environment, privateDraft)
+  expect(planner.layer).toEqual([])
+  respond(Response.json(tripResponse, { status: 201 }))
+  await submission
+  expect(planner.layer).toEqual([{ ...tripLead, ads_eligible: true }])
+  recordTripRequestReceipt(planner.browser, environment, tripLead, { analytics: analyticsGrant, marketing: marketingGrant })
+  await flushBookingFunnel(planner.browser, environment)
+  const reload = documentAt('/make-your-trip', planner.local)
+  reload.boot(); reload.ready()
+  await flushBookingFunnel(reload.browser, environment)
+  expect(reload.layer).toEqual([])
+  expect(planner.layer).toHaveLength(1)
+  for (const secret of ['Private Name', 'private@example.test', '+12025550123', 'private-note', tripResponse.reference, '2026-11-27']) {
+    expect(JSON.stringify(planner.layer)).not.toContain(secret)
+  }
+})
+
+it('drains a trip lead captured during GTM loading on the same planner once ready', async () => {
+  const planner = documentAt('/make-your-trip')
+  setConsent(planner.local, true)
+  planner.boot()
+  Object.assign(planner.browser, { fetch: vi.fn().mockResolvedValue(Response.json(tripResponse, { status: 201 })) })
+  await submitTripRequest(planner.browser, environment, privateDraft)
+  expect(planner.layer).toEqual([])
+  expect(planner.local.getItem(FUNNEL_STORAGE_PREFIX + tripLead.event_id)).not.toBeNull()
+  planner.ready()
+  await flushBookingFunnel(planner.browser, environment)
+  expect(planner.layer).toEqual([{ ...tripLead, ads_eligible: false }])
+})
+
+it.each([400, 422, 500])('does not emit a lead for a failed request on an initialized planner (%s)', async status => {
+  const planner = documentAt('/make-your-trip')
+  setConsent(planner.local, true)
+  planner.boot(); planner.ready()
+  Object.assign(planner.browser, { fetch: vi.fn().mockResolvedValue(Response.json({ ...tripResponse, error: 'fixture failure' }, { status })) })
+  await expect(submitTripRequest(planner.browser, environment, privateDraft)).rejects.toThrow('fixture failure')
+  expect(planner.layer).toEqual([])
+})
+
 it('captures only a successful persisted creation and dispatches it once on a public page after reload/replay', async () => {
   const planner = documentAt('/make-your-trip?tour=cairo-tour&guests=2&utm_source=google&gclid=abc_123')
   setConsent(planner.local, true)

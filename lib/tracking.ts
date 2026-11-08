@@ -10,7 +10,7 @@ const GTM_CONTAINER_ID_PATTERN = /^GTM-[A-Z0-9]{4,12}$/
 const PRODUCTION_HOSTS = new Set(['starpyramids.com', 'www.starpyramids.com'])
 const PUBLIC_PAGES = new Set([
   '/', '/about', '/accessible-travel', '/egypt-travel-guide', '/faq', '/privacy',
-  '/rent-car', '/terms', '/trips',
+  '/rent-car', '/terms', '/trips', '/make-your-trip',
 ])
 const CATALOGUE_PATH = /^\/(?:blogs|destinations|egypt-tours|events|special-offers)(?:\/[a-z0-9]{1,32}(?:-[a-z0-9]{1,32})*){0,3}$/
 const CLICK_ID = /^[A-Za-z0-9_-]{1,256}$/
@@ -46,6 +46,17 @@ const CATALOGUE_FILTER_VALUES: ReadonlyMap<string, RegExp> = new Map([
   ['duration', /^(?:day|short|long)$/],
   ['price', /^(?:under-200|200-400|over-400)$/],
   ['sort', /^(?:Recommended|Price: low to high|Price: high to low)$/],
+])
+// Public planner entry parameters only. Edit references, contact details,
+// free text and arbitrary query keys must never enter a GTM document.
+const PLANNER_QUERY_VALUES: ReadonlyMap<string, RegExp> = new Map([
+  ['from', /^20\d{2}-\d{2}-\d{2}$/], ['to', /^20\d{2}-\d{2}-\d{2}$/], ['date', /^20\d{2}-\d{2}-\d{2}$/],
+  ['tour', /^[a-z0-9]{1,32}(?:-[a-z0-9]{1,32}){0,5}$/],
+  ['destination', /^[a-z0-9]{1,32}(?:-[a-z0-9]{1,32}){0,3}$/],
+  ['guests', /^(?:[1-9]|[1-4][0-9]|50)$/],
+  ['adults', /^(?:[0-9]|[1-4][0-9]|50)$/], ['children', /^(?:[0-9]|[1-4][0-9]|50)$/], ['infants', /^(?:[0-9]|[1-4][0-9]|50)$/],
+  ['step', /^[12]$/], ['addons', /^(?:0|[1-9][0-9]?)(?:,(?:0|[1-9][0-9]?)){0,19}$/],
+  ['src', /^blog_vip_trip$/], ['blog', /^[a-z0-9]{1,32}(?:-[a-z0-9]{1,32}){0,3}$/],
 ])
 
 export interface TrackingSettings {
@@ -87,8 +98,13 @@ export function isSafeTrackingUrl(url: URL): boolean {
   const isTourListing = path === '/trips' || path.startsWith('/egypt-tours/')
   const seen = new Set<string>()
   for (const [key, value] of url.searchParams) {
-    const pattern = PUBLIC_QUERY_VALUES.get(key) ?? (isTourListing ? CATALOGUE_FILTER_VALUES.get(key) : undefined)
+    const pattern = (path === '/make-your-trip' ? PLANNER_QUERY_VALUES.get(key) : undefined) ??
+      PUBLIC_QUERY_VALUES.get(key) ?? (isTourListing ? CATALOGUE_FILTER_VALUES.get(key) : undefined)
     if (seen.has(key) || value !== value.trim() || !pattern?.test(value)) return false
+    if (path === '/make-your-trip' && ['from', 'to', 'date'].includes(key)) {
+      const parsed = new Date(value + 'T00:00:00.000Z')
+      if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) return false
+    }
     seen.add(key)
   }
   return true

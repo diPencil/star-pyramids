@@ -39,6 +39,10 @@ function fixture(path = '/', consent = granted, id: string | null = 'GTM-KQ8GR36
 }
 
 describe('public page views', () => {
+  it('uses a fixed planner title and canonical URL without dates, source or guest counts', () => {
+    expect(publicPageView(new URL(`${origin}/make-your-trip?from=2026-11-27&to=2026-11-30&guests=2&utm_source=google`), 'production'))
+      .toEqual({ event: 'sp_page_view', page_path: '/make-your-trip', page_location: `${origin}/make-your-trip`, page_title: 'Plan Your Egypt Trip | STAR PYRAMIDS' })
+  })
   it('does not send the Tag Assistant signal or count it as another page view', () => {
     const page = fixture('/trips?gtm_debug=1794000000000')
     const observe = createPageViewTracker()

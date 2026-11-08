@@ -85,23 +85,13 @@ export function recordBookingReceipt(browser: Window, environment: string | unde
   } catch { /* Keep receipt, cart cleanup and attempt recovery independent. */ }
 }
 
-/** Capture only consent proofs on the planner; no Google tag or URL is queued here. */
+/** Capture consent proofs only; planner fields never enter a measurement payload. */
 export function tripRequestMeasurementGrants(browser: Window, environment: string | undefined): BookingMeasurementGrants | undefined {
   try {
     const url = new URL(browser.location.href)
     if (url.protocol !== 'https:' || !isProductionTrackingHost(environment, url.host) ||
         url.pathname !== '/make-your-trip' || url.hash || !readTrackingConsent(browser).analytics) return
-    const allowed = new Set(['destination', 'tour', 'from', 'to', 'date', 'guests', 'addons', 'step', 'src', 'blog'])
-    const seen = new Set<string>()
-    const campaign = new URL(url)
-    campaign.pathname = '/'
-    for (const key of url.searchParams.keys()) {
-      if (seen.has(key)) return
-      seen.add(key)
-      if (allowed.has(key)) campaign.searchParams.delete(key)
-    }
-    // Reuse the existing strict attribution/debug allowlist for remaining parameters.
-    if (!isSafeTrackingUrl(campaign)) return
+    if (!isSafeTrackingUrl(url)) return
     const grants = readTrackingGrants(browser)
     return bookingMeasurementGrants(grants.analytics, grants.marketing)
   } catch { return }
@@ -112,7 +102,12 @@ export function recordTripRequestReceipt(browser: Window, environment: string | 
     const current = tripRequestMeasurementGrants(browser, environment)
     const event = parseBookingFunnelEvent(input)
     const grants = bookingMeasurementGrants(captured?.analytics, captured?.marketing)
-    if (event?.event === 'trip_request_created' && grants && current?.analytics === grants.analytics) remember(browser, event, grants)
+    if (event?.event === 'trip_request_created' && grants && current?.analytics === grants.analytics) {
+      remember(browser, event, grants)
+      // A successful request must not depend on a later catalogue visit.
+      // If GTM is still loading, SiteMeasurement drains the same queue on ready.
+      void flushBookingFunnel(browser, environment)
+    }
   } catch { /* An optional measurement failure must never hide a persisted request. */ }
 }
 

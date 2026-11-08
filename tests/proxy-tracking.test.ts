@@ -9,6 +9,17 @@ const eligibility = 'x-middleware-request-x-sp-tracking-eligible'
 afterEach(() => vi.unstubAllEnvs())
 
 describe('measurement document boundary', () => {
+  it('allows the public planner document and Flight with typed dates while protecting request editing', () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    expect(proxy(new NextRequest(`${origin}/make-your-trip?from=2026-11-27&to=2026-11-30`)).headers.get(eligibility)).toBe('1')
+    expect(proxy(new NextRequest(`${origin}/make-your-trip?from=2026-11-27&_rsc=transport`, {
+      headers: { rsc: '1', referer: `${origin}/trips` },
+    })).headers.get(eligibility)).toBe('1')
+    expect(proxy(new NextRequest(`${origin}/make-your-trip?edit=SP-TR-PRIVATE`)).headers.get(eligibility)).toBe('0')
+    expect(proxy(new NextRequest(`${origin}/make-your-trip?edit=SP-TR-PRIVATE&_rsc=transport`, {
+      headers: { rsc: '1', referer: `${origin}/make-your-trip` },
+    })).status).toBe(204)
+  })
   it('allows a validated Tag Assistant landing and public navigation without admitting private URLs', () => {
     vi.stubEnv('NODE_ENV', 'production')
     expect(proxy(new NextRequest(`${origin}/?gtm_debug=1794000000000`)).headers.get(eligibility)).toBe('1')
