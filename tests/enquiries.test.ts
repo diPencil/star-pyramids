@@ -70,7 +70,7 @@ describe('POST /api/enquiries', () => {
     const response = await post(valid)
 
     expect(response.status).toBe(201)
-    expect(await response.json()).toEqual({ enquiry: { publicId: requestId, createdAt: '2026-01-01T00:00:00.000Z' } })
+    expect(await response.json()).toEqual({ enquiry: { publicId: requestId, createdAt: '2026-01-01T00:00:00.000Z' }, leadMeasurement: { event: 'enquiry_created', event_id: expect.stringMatching(/^enq_[a-f0-9]{32}$/) } })
     expect(mocks.recordAttempt).toHaveBeenCalledWith('nour@example.com', 'unknown')
     expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ name: 'Nour Traveler', email: 'nour@example.com', phone: '+20 100 000 0000', sourcePage: '/' }),
@@ -102,6 +102,7 @@ describe('POST /api/enquiries', () => {
     const response = await post(valid)
 
     expect(response.status).toBe(200)
+    expect((await response.json()).leadMeasurement).toEqual({ event: 'enquiry_created', event_id: expect.stringMatching(/^enq_[a-f0-9]{32}$/) })
     expect(mocks.checkRateLimit).not.toHaveBeenCalled()
     expect(mocks.create).not.toHaveBeenCalled()
   })

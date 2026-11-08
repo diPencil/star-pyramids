@@ -1,5 +1,6 @@
 import { rentCarFailure } from '@/lib/server/rent-car-errors';
 import { NextResponse } from 'next/server';
+import { formLeadMeasurement } from '@/lib/server/form-lead-measurement';
 
 import { getCurrentUser } from '@/lib/server/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
@@ -71,7 +72,7 @@ export async function POST(request: Request) {
   try {
     const created = await createCarRequestRecord(userId, draft);
     await recordCarRequestAttempt(draft.contactEmail, ip);
-    return NextResponse.json(created, { status: 201 });
+    return NextResponse.json({ ...created, leadMeasurement: formLeadMeasurement('car_request_created', created.reference) }, { status: 201 });
   } catch (error) {
     await recordCarRequestAttempt(draft.contactEmail, ip);
     if (error instanceof Error) {

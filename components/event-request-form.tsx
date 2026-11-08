@@ -1,4 +1,5 @@
 'use client'
+import { beginFormLead, confirmFormLead } from '@/lib/form-lead'
 
 import Link from 'next/link'
 import { useState } from 'react'
@@ -105,6 +106,7 @@ const [attendees, setAttendees] = useState(1)
     }
     setErrors(null)
     setSending(true)
+    const measurement = beginFormLead(window, process.env.NODE_ENV, 'event_request')
     fetch('/api/event-requests', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -114,6 +116,7 @@ const [attendees, setAttendees] = useState(1)
       .then(async (res) => {
         const data = (await res.json()) as EventRequest & { error?: string }
         if (!res.ok) throw new Error(customerErrorText(locale, data.error, submitFailed))
+        confirmFormLead(window, process.env.NODE_ENV, measurement, res.status, data)
         setRef(data.reference)
       })
       .catch((error: unknown) => {

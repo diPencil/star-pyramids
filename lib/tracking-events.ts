@@ -110,6 +110,7 @@ const PAGE_TITLES: Readonly<Record<string, string>> = {
   '/accessible-travel': 'Accessible Travel', '/egypt-travel-guide': 'Egypt Travel Guide',
   '/faq': 'Frequently Asked Questions', '/privacy': 'Privacy Policy', '/terms': 'Terms and Conditions',
   '/make-your-trip': 'Plan Your Egypt Trip',
+  '/contact': 'Contact Us', '/rent-car/request': 'Request a Car',
 }
 
 export function publicPageView(url: URL, environment: string | undefined) {

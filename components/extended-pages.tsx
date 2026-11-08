@@ -1,4 +1,5 @@
 'use client'
+import { beginFormLead, confirmFormLead, type FormLeadAttempt } from '@/lib/form-lead'
 import { EmptyFleetHero, EmptyOffersHero } from './empty-fleet-hero'
 import { carTripTypeForKey } from '@/lib/car-request'
 import { CmsPublicLink } from '@/components/cms-public-link'
@@ -141,7 +142,7 @@ export function ContactForm() {
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle')
   const [error, setError] = useState('')
   const submitting = useRef(false)
-  const pendingRequest = useRef<{ payload: string; id: string } | null>(null)
+  const pendingRequest = useRef<{ payload: string; id: string; measurement: FormLeadAttempt } | null>(null)
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -176,7 +177,7 @@ export function ContactForm() {
         bytes[8] = (bytes[8] & 63) | 128
         const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
         const id = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
-        pendingRequest.current = { payload, id }
+        pendingRequest.current = { payload, id, measurement: beginFormLead(window, process.env.NODE_ENV, 'contact') }
       }
       const res = await fetch('/api/enquiries', {
         method: 'POST',
@@ -190,6 +191,7 @@ export function ContactForm() {
         throw new Error(customerErrorText(locale, data?.error, fallback))
       }
       if (typeof data?.enquiry?.publicId !== 'string' || !data.enquiry.publicId || typeof data.enquiry.createdAt !== 'string') throw new Error(fallback)
+      confirmFormLead(window, process.env.NODE_ENV, pendingRequest.current.measurement, res.status, data)
       pendingRequest.current = null
       setStatus('success')
       setFormData({ name: '', email: '', phone: '', subject: '', message: '' })
@@ -693,6 +695,7 @@ function CarRequestContent() {
     const url = editingRef
       ? `/api/account/car-requests/${encodeURIComponent(editingRef)}`
       : '/api/car-requests'
+    const measurement = editingRef ? null : beginFormLead(window, process.env.NODE_ENV, 'car_request')
     fetch(url, {
       method: editingRef ? 'PATCH' : 'POST',
       headers: { 'content-type': 'application/json' },
@@ -702,6 +705,7 @@ function CarRequestContent() {
       .then(async (res) => {
         const data = (await res.json()) as CarRequest & { error?: string }
         if (!res.ok) throw new Error(data.error || 'Could not submit the request.')
+        if (measurement) confirmFormLead(window, process.env.NODE_ENV, measurement, res.status, data)
         setErrors({})
         setSummary('')
         setEditingRef(null)

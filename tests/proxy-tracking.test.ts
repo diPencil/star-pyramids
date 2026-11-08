@@ -9,6 +9,15 @@ const eligibility = 'x-middleware-request-x-sp-tracking-eligible'
 afterEach(() => vi.unstubAllEnvs())
 
 describe('measurement document boundary', () => {
+  it('admits contact and public car forms but never address-bearing or edit car URLs', () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    for (const path of ['/contact', '/rent-car/request', '/rent-car/request?vehicle=van&type=One%20Way&date=2026-11-27']) {
+      expect(proxy(new NextRequest(origin + path)).headers.get(eligibility)).toBe('1')
+    }
+    for (const path of ['/rent-car/request?pickup=private-address', '/rent-car/request?edit=SP-CR-PRIVATE', '/contact?email=private%40example.com', '/rent-car/request?date=2026-02-30']) {
+      expect(proxy(new NextRequest(origin + path)).headers.get(eligibility)).toBe('0')
+    }
+  })
   it('allows the public planner document and Flight with typed dates while protecting request editing', () => {
     vi.stubEnv('NODE_ENV', 'production')
     expect(proxy(new NextRequest(`${origin}/make-your-trip?from=2026-11-27&to=2026-11-30`)).headers.get(eligibility)).toBe('1')

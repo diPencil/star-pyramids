@@ -1,4 +1,5 @@
 'use client'
+import { beginFormLead, confirmFormLead, type FormLeadAttempt } from '@/lib/form-lead'
 import { trackPublicInteraction } from '@/lib/tracking-events'
 import { HomepageHero, type PublicHomeHero } from './homepage-hero'
 import { HorizontalSlider } from './horizontal-slider'
@@ -115,7 +116,7 @@ function HomepageHelpForm() {
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle')
   const [error, setError] = useState('')
   const submitting = useRef(false)
-  const pendingRequest = useRef<{ payload: string; id: string } | null>(null)
+  const pendingRequest = useRef<{ payload: string; id: string; measurement: FormLeadAttempt } | null>(null)
 
   const clearStatus = () => {
     if (status !== 'idle') setStatus('idle')
@@ -150,7 +151,7 @@ function HomepageHelpForm() {
     }
     const payload = JSON.stringify(enquiry)
     if (pendingRequest.current?.payload !== payload) {
-      pendingRequest.current = { payload, id: createEnquiryRequestId() }
+      pendingRequest.current = { payload, id: createEnquiryRequestId(), measurement: beginFormLead(window, process.env.NODE_ENV, 'home_help') }
     }
 
     submitting.current = true
@@ -167,6 +168,7 @@ function HomepageHelpForm() {
       if (!response.ok || typeof data?.enquiry?.publicId !== 'string' || typeof data?.enquiry?.createdAt !== 'string') {
         throw new Error(formCopy.failure)
       }
+      confirmFormLead(window, process.env.NODE_ENV, pendingRequest.current.measurement, response.status, data)
       pendingRequest.current = null
       setName('')
       setEmail('')

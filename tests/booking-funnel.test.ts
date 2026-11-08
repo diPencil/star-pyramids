@@ -7,6 +7,9 @@ import { initializeGtm, readTrackingConsent, updateGoogleConsent } from '@/lib/t
 import { submitTripRequest } from '@/lib/trip-request-submission'
 import { tripRequestMeasurement } from '@/lib/server/trip-request-measurement'
 import type { MakeYourTripRequestDraft } from '@/lib/trip-request'
+import { beginFormLead, confirmFormLead } from '@/lib/form-lead'
+import { formLeadMeasurement } from '@/lib/server/form-lead-measurement'
+import type { FormLeadType, FormLeadName } from '@/lib/booking-measurement'
 
 const origin = 'https://starpyramids.com'
 const environment = 'production'
@@ -67,6 +70,111 @@ function setConsent(local: Storage, analytics: boolean, marketing?: string, anal
 afterEach(() => {
   vi.unstubAllGlobals()
   vi.unstubAllEnvs()
+})
+
+const formCases: [FormLeadType, FormLeadName, string][] = [
+  ['home_help', 'enquiry_created', '/'], ['shared_help', 'enquiry_created', '/egypt-tours/cairo-tour'],
+  ['contact', 'enquiry_created', '/contact'], ['car_request', 'car_request_created', '/rent-car/request?vehicle=van'],
+  ['event_request', 'event_request_created', '/events/cairo-event'],
+]
+
+it.each(formCases)('dispatches a persisted %s lead once with only safe fields', (form, event, path) => {
+  const page = documentAt(path)
+  setConsent(page.local, true, marketingGrant)
+  page.boot(); page.ready()
+  const attempt = beginFormLead(page.browser, environment, form)
+  expect(page.layer).toEqual([])
+  const leadMeasurement = formLeadMeasurement(event, 'private-reference')
+  const data = { ...privateDraft, reference: 'private-reference', leadMeasurement: { ...leadMeasurement, ...privateDraft } }
+  confirmFormLead(page.browser, environment, attempt, 201, data)
+  confirmFormLead(page.browser, environment, attempt, event === 'enquiry_created' ? 200 : 201, data)
+  expect(page.layer).toEqual([{ ...leadMeasurement, form_type: form, ads_eligible: true }])
+  expect(JSON.stringify(page.layer)).not.toMatch(/private|reference|email|phone|notes|purchase|value|currency/)
+})
+
+it.each([400, 403, 422, 429, 500, 503])('does not measure unsuccessful form response %s', status => {
+  const page = documentAt('/contact'); setConsent(page.local, true); page.boot(); page.ready()
+  confirmFormLead(page.browser, environment, beginFormLead(page.browser, environment, 'contact'), status,
+    { leadMeasurement: formLeadMeasurement('enquiry_created', 'persisted-fixture') })
+  expect(page.layer).toEqual([])
+})
+
+it.each(['denied', 'late_grant', 'withdrawal', 'regrant'] as const)('does not promote a form attempt after %s', scenario => {
+  const page = documentAt('/contact')
+  setConsent(page.local, scenario === 'withdrawal' || scenario === 'regrant'); page.boot(); page.ready()
+  const attempt = beginFormLead(page.browser, environment, 'contact')
+  if (scenario === 'late_grant') setConsent(page.local, true)
+  if (scenario === 'withdrawal') setConsent(page.local, false)
+  if (scenario === 'regrant') setConsent(page.local, true, undefined, newAnalyticsGrant)
+  confirmFormLead(page.browser, environment, attempt, 201, { leadMeasurement: formLeadMeasurement('enquiry_created', 'fixture') })
+  expect(page.layer).toEqual([])
+})
+
+it('retains original Marketing eligibility on an enquiry retry and drains only after GTM readiness', async () => {
+  const page = documentAt('/contact'); setConsent(page.local, true); page.boot()
+  const attempt = beginFormLead(page.browser, environment, 'contact')
+  setConsent(page.local, true, marketingGrant)
+  const leadMeasurement = formLeadMeasurement('enquiry_created', 'replayed-fixture')
+  confirmFormLead(page.browser, environment, attempt, 200, { leadMeasurement })
+  expect(page.layer).toEqual([])
+  page.ready(); await flushBookingFunnel(page.browser, environment)
+  expect(page.layer).toEqual([{ ...leadMeasurement, form_type: 'contact', ads_eligible: false }])
+  const reload = documentAt('/contact', page.local); reload.boot(); reload.ready()
+  confirmFormLead(reload.browser, environment, beginFormLead(reload.browser, environment, 'contact'), 200, { leadMeasurement })
+  expect(reload.layer).toEqual([])
+})
+
+it('rejects mismatched/missing receipts, updates and storage failures without breaking the form', () => {
+  const page = documentAt('/contact'); setConsent(page.local, true); page.boot(); page.ready()
+  const attempt = beginFormLead(page.browser, environment, 'contact')
+  confirmFormLead(page.browser, environment, attempt, 201, { leadMeasurement: formLeadMeasurement('car_request_created', 'fixture') })
+  confirmFormLead(page.browser, environment, attempt, 201, {})
+  confirmFormLead(page.browser, environment, beginFormLead(page.browser, environment, 'car_request'), 200, { leadMeasurement: formLeadMeasurement('car_request_created', 'fixture') })
+  expect(page.layer).toEqual([])
+  vi.spyOn(page.local, 'setItem').mockImplementation(() => { throw Error('blocked') })
+  expect(() => confirmFormLead(page.browser, environment, attempt, 201, { leadMeasurement: formLeadMeasurement('enquiry_created', 'fixture') })).not.toThrow()
+  expect(page.layer).toEqual([])
+})
+
+it('keeps address-bearing car URLs untagged while retaining a safe consent-bound receipt for recovery', async () => {
+  const car = documentAt('/rent-car/request?pickup=private%20address&dropoff=private%20hotel&type=One%20Way&date=2026-11-27')
+  setConsent(car.local, true); car.boot(); car.ready()
+  const leadMeasurement = formLeadMeasurement('car_request_created', 'private-reference')
+  confirmFormLead(car.browser, environment, beginFormLead(car.browser, environment, 'car_request'), 201, { leadMeasurement })
+  expect(car.layer).toEqual([])
+  expect(car.local.getItem(FUNNEL_STORAGE_PREFIX + leadMeasurement.event_id)).not.toMatch(/private|address|hotel|2026-11/)
+  const page = documentAt('/rent-car', car.local); page.boot(); page.ready()
+  await flushBookingFunnel(page.browser, environment)
+  expect(page.layer).toEqual([{ ...leadMeasurement, form_type: 'car_request', ads_eligible: false }])
+})
+
+it.each(['private-reference', 'enq_private@example.test', 'enq_' + 'a'.repeat(33)])('rejects malformed form receipt ID %s', event_id => {
+  const page = documentAt('/contact'); setConsent(page.local, true); page.boot(); page.ready()
+  confirmFormLead(page.browser, environment, beginFormLead(page.browser, environment, 'contact'), 201,
+    { leadMeasurement: { event: 'enquiry_created', event_id } })
+  expect(page.layer).toEqual([])
+})
+
+it.each(['withdrawal', 'private_navigation'] as const)('rechecks privacy after waiting for a queue lock: %s', async change => {
+  const page = documentAt('/contact'); setConsent(page.local, true); page.boot(); page.ready()
+  let flush!: () => void
+  Object.assign(page.browser.navigator, { locks: { request: vi.fn((_name: string, task: () => void) => {
+    flush = task
+    return Promise.resolve()
+  }) } })
+  const leadMeasurement = formLeadMeasurement('enquiry_created', 'persisted-fixture')
+  confirmFormLead(page.browser, environment, beginFormLead(page.browser, environment, 'contact'), 201, { leadMeasurement })
+  expect(page.layer).toEqual([])
+  if (change === 'withdrawal') setConsent(page.local, false)
+  else Object.assign(page.browser.location, { href: origin + '/account?token=private' })
+  flush()
+  expect(page.layer).toEqual([])
+  if (change === 'withdrawal') expect(page.local.getItem(FUNNEL_STORAGE_PREFIX + leadMeasurement.event_id)).toBeNull()
+  else {
+    const publicPage = documentAt('/contact', page.local); publicPage.boot(); publicPage.ready()
+    await flushBookingFunnel(publicPage.browser, environment)
+    expect(publicPage.layer).toEqual([{ ...leadMeasurement, form_type: 'contact', ads_eligible: false }])
+  }
 })
 
 it('projects a stable opaque trip lead ID and rejects raw references or extra personal fields', () => {

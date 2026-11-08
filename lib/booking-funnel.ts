@@ -111,6 +111,36 @@ export function recordTripRequestReceipt(browser: Window, environment: string | 
   } catch { /* An optional measurement failure must never hide a persisted request. */ }
 }
 
+export function formLeadMeasurementGrants(browser: Window, environment: string | undefined): BookingMeasurementGrants | undefined {
+  try {
+    const url = new URL(browser.location.href)
+    if (url.protocol !== 'https:' || !isProductionTrackingHost(environment, url.host) || !readTrackingConsent(browser).analytics) return
+    // Free-text transfer addresses stay outside every Google document. Only
+    // the local receipt may be captured here, for a later safe-page drain.
+    if (url.pathname === '/rent-car/request') {
+      for (const key of ['pickup', 'dropoff']) {
+        if (url.searchParams.getAll(key).length > 1) return
+        url.searchParams.delete(key)
+      }
+    }
+    if (!isSafeTrackingUrl(url)) return
+    const grants = readTrackingGrants(browser)
+    return bookingMeasurementGrants(grants.analytics, grants.marketing)
+  } catch { return }
+}
+
+export function recordFormLeadReceipt(browser: Window, environment: string | undefined, input: unknown, captured?: BookingMeasurementGrants) {
+  try {
+    const current = formLeadMeasurementGrants(browser, environment)
+    const event = parseBookingFunnelEvent(input)
+    const grants = bookingMeasurementGrants(captured?.analytics, captured?.marketing)
+    if (event && 'form_type' in event && grants && current?.analytics === grants.analytics) {
+      remember(browser, event, grants)
+      void flushBookingFunnel(browser, environment)
+    }
+  } catch { /* Optional measurement cannot affect a saved form. */ }
+}
+
 function storedKeys(storage: Storage): string[] {
   const keys: string[] = []
   for (let i = 0; i < storage.length; i++) {
@@ -151,7 +181,7 @@ export async function flushBookingFunnel(browser: Window, environment: string | 
       }
       if (canDispatch) pending.push({ key, ...record })
     }
-    const order = { sp_add_to_cart: 0, sp_begin_checkout: 1, sp_booking_created: 2, trip_request_created: 2 }
+    const order = { sp_add_to_cart: 0, sp_begin_checkout: 1, sp_booking_created: 2, trip_request_created: 2, enquiry_created: 2, car_request_created: 2, event_request_created: 2 }
     pending.sort((a, b) => a.capturedAt - b.capturedAt || order[a.event.event] - order[b.event.event])
     for (const { key, event, grants } of pending) {
       if (storage.getItem(key) === null) continue

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { formLeadMeasurement } from '@/lib/server/form-lead-measurement';
 
 import { getCurrentUser } from '@/lib/server/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
@@ -68,7 +69,7 @@ export async function POST(request: Request) {
   try {
     const created = await createEventRequestRecord(userId, draft);
     await recordEventRequestAttempt(draft.contactEmail, ip);
-    return NextResponse.json(created, { status: 201 });
+    return NextResponse.json({ ...created, leadMeasurement: formLeadMeasurement('event_request_created', created.reference) }, { status: 201 });
   } catch (error) {
     await recordEventRequestAttempt(draft.contactEmail, ip);
     if (error instanceof EventRequestInputError) {

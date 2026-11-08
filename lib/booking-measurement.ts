@@ -24,9 +24,15 @@ export type BookingMeasurement = {
   items: (TourItem & { price: number })[]
 }
 export type TripRequestMeasurement = { event: 'trip_request_created'; event_id: string }
-export type BookingFunnelEvent = FunnelIntent | BookingMeasurement | TripRequestMeasurement
+export const FORM_LEAD_TYPES = ['home_help', 'shared_help', 'contact', 'car_request', 'event_request'] as const
+export type FormLeadType = typeof FORM_LEAD_TYPES[number]
+export type FormLeadName = 'enquiry_created' | 'car_request_created' | 'event_request_created'
+export type FormLeadReceipt = { event: FormLeadName; event_id: string }
+export type FormLeadEvent = FormLeadReceipt & { form_type: FormLeadType }
+export type BookingFunnelEvent = FunnelIntent | BookingMeasurement | TripRequestMeasurement | FormLeadEvent
 export const isFunnelLead = (event: BookingFunnelEvent): boolean =>
-  event.event === 'sp_booking_created' || event.event === 'trip_request_created'
+  event.event === 'sp_booking_created' || event.event === 'trip_request_created' ||
+  event.event === 'enquiry_created' || event.event === 'car_request_created' || event.event === 'event_request_created'
 export type BookingMeasurementReceipt = { event: BookingMeasurement; grants: BookingMeasurementGrants }
 
 export const isPublicTourId = (id: unknown): id is string =>
@@ -42,6 +48,14 @@ function usdCents(value: unknown): number | null {
 export function parseBookingFunnelEvent(input: unknown): BookingFunnelEvent | null {
   if (!input || typeof input !== 'object') return null
   const { event, event_id, items, currency, value } = input as Record<string, unknown>
+  const { form_type } = input as Record<string, unknown>
+  const forms = event === 'enquiry_created' ? ['home_help', 'shared_help', 'contact'] :
+    event === 'car_request_created' ? ['car_request'] : event === 'event_request_created' ? ['event_request'] : null
+  if (forms) {
+    const prefix = event === 'enquiry_created' ? 'enq' : event === 'car_request_created' ? 'car' : 'evt'
+    return typeof event_id === 'string' && new RegExp(`^${prefix}_[a-f0-9]{32}$`).test(event_id) &&
+      typeof form_type === 'string' && forms.includes(form_type) ? { event, event_id, form_type } as FormLeadEvent : null
+  }
   if (event === 'trip_request_created') {
     return typeof event_id === 'string' && /^tr_[a-f0-9]{32}$/.test(event_id) ? { event, event_id } : null
   }

@@ -10,7 +10,7 @@ const GTM_CONTAINER_ID_PATTERN = /^GTM-[A-Z0-9]{4,12}$/
 const PRODUCTION_HOSTS = new Set(['starpyramids.com', 'www.starpyramids.com'])
 const PUBLIC_PAGES = new Set([
   '/', '/about', '/accessible-travel', '/egypt-travel-guide', '/faq', '/privacy',
-  '/rent-car', '/terms', '/trips', '/make-your-trip',
+  '/rent-car', '/rent-car/request', '/contact', '/terms', '/trips', '/make-your-trip',
 ])
 const CATALOGUE_PATH = /^\/(?:blogs|destinations|egypt-tours|events|special-offers)(?:\/[a-z0-9]{1,32}(?:-[a-z0-9]{1,32})*){0,3}$/
 const CLICK_ID = /^[A-Za-z0-9_-]{1,256}$/
@@ -58,6 +58,10 @@ const PLANNER_QUERY_VALUES: ReadonlyMap<string, RegExp> = new Map([
   ['step', /^[12]$/], ['addons', /^(?:0|[1-9][0-9]?)(?:,(?:0|[1-9][0-9]?)){0,19}$/],
   ['src', /^blog_vip_trip$/], ['blog', /^[a-z0-9]{1,32}(?:-[a-z0-9]{1,32}){0,3}$/],
 ])
+const CAR_QUERY_VALUES: ReadonlyMap<string, RegExp> = new Map([
+  ['vehicle', /^[a-z0-9]{1,32}(?:-[a-z0-9]{1,32}){0,3}$/],
+  ['type', /^(?:One Way|Round Trip)$/], ['date', /^20\d{2}-\d{2}-\d{2}$/],
+])
 
 export interface TrackingSettings {
   enabled: boolean
@@ -99,9 +103,10 @@ export function isSafeTrackingUrl(url: URL): boolean {
   const seen = new Set<string>()
   for (const [key, value] of url.searchParams) {
     const pattern = (path === '/make-your-trip' ? PLANNER_QUERY_VALUES.get(key) : undefined) ??
+      (path === '/rent-car/request' ? CAR_QUERY_VALUES.get(key) : undefined) ??
       PUBLIC_QUERY_VALUES.get(key) ?? (isTourListing ? CATALOGUE_FILTER_VALUES.get(key) : undefined)
     if (seen.has(key) || value !== value.trim() || !pattern?.test(value)) return false
-    if (path === '/make-your-trip' && ['from', 'to', 'date'].includes(key)) {
+    if ((path === '/make-your-trip' && ['from', 'to', 'date'].includes(key)) || (path === '/rent-car/request' && key === 'date')) {
       const parsed = new Date(value + 'T00:00:00.000Z')
       if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) return false
     }

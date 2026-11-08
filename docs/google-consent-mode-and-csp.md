@@ -16,6 +16,8 @@ Use one Google tag with the intended GA4 destination. An Initialization trigger 
 
 ## Public planner and trip-request lead delivery
 
+For the additional contact/help, car and event forms, see [Public form lead tracking and handoff](google-form-lead-tracking.md), including the intentionally deferred private/address-bearing cases.
+
 The public `/make-your-trip` route is now eligible, including typed public entry dates, tour/destination slugs, bounded traveler counts, add-on indexes and the existing validated campaign/debug parameters. Duplicate keys, invalid dates, free text, contact details, edit/reference/token parameters and fragments remain excluded. Admin/account/preview and booking access links remain excluded. Application page views use the fixed title `Plan Your Egypt Trip | STAR PYRAMIDS` and canonical `/make-your-trip` URL, omitting all planner query values. The explicit page-view flag is unchanged.
 
 Older saved consent choices containing booleans without category grant IDs now receive browser-local grant metadata bound to the exact saved record, so existing explicit choices remain usable for lead measurement. This does not grant a denied category or rewrite the consent choice. A concurrent withdrawal wins; unavailable metadata storage fails closed. The metadata is shared across tabs/reloads and never enters tracking payloads. Current consent records containing grant IDs use their existing IDs unchanged.

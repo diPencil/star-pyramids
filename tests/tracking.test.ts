@@ -256,7 +256,7 @@ describe('Google Tag Manager configuration', () => {
     '/admin/settings', '/account/bookings', '/website-cms-preview/homepage',
     '/login', '/register', '/forgot-password', '/reset-password?token=secret',
     '/booking/private', '/booking-account#token=secret', '/verify-voucher/private',
-    '/checkout', '/search?q=person%40example.com', '/make-your-trip?edit=SP-TR-PRIVATE', '/rent-car/request',
+    '/checkout', '/search?q=person%40example.com', '/make-your-trip?edit=SP-TR-PRIVATE', '/rent-car/request?edit=SP-CR-PRIVATE',
     '/trips?%74oken=secret', '/trips?page=1&page=2', '/trips?gclid=person%40example.com',
     '/trips#token=secret', '/egypt-tours/person%40example.com', '/unknown',
     `/blogs/${'a'.repeat(43)}`, '/trips?sort=private', '/trips?destination=person%40example.com',

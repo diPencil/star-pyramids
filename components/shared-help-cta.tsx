@@ -1,4 +1,5 @@
 'use client'
+import { beginFormLead, confirmFormLead, type FormLeadAttempt } from '@/lib/form-lead'
 import { useRef, useState, type FormEvent } from 'react'
 import { extra } from '@/lib/site-copy'
 import { defaultCountry } from '@/data/countries'
@@ -18,7 +19,7 @@ export function SharedHelpCTA() {
   const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle')
   const [error, setError] = useState('')
   const lock = useRef(false)
-  const pending = useRef<{ payload: string; requestId: string } | null>(null)
+  const pending = useRef<{ payload: string; requestId: string; measurement: FormLeadAttempt } | null>(null)
   const emailLabel = tx(locale, { en: 'Email address', es: 'Correo electrónico', it: 'Indirizzo email', ar: 'البريد الإلكتروني' })
   const submit = async (event: FormEvent) => {
     event.preventDefault()
@@ -27,12 +28,13 @@ export function SharedHelpCTA() {
       setStatus('error'); setError(tx(locale, { en: 'Check your name, email and phone number.', es: 'Revisa tu nombre, correo y teléfono.', it: 'Controlla nome, email e telefono.', ar: 'راجع الاسم والبريد ورقم الهاتف.' })); return
     }
     const payload = JSON.stringify({ name: name.trim(), email: email.trim().toLowerCase(), phone: phone.trim(), subject: 'Trip help request', message: `Please contact me to help plan my Egypt trip. Nationality: ${country}.`, sourcePage: window.location.pathname })
-    if (pending.current?.payload !== payload) pending.current = { payload, requestId: crypto.randomUUID() }
+    if (pending.current?.payload !== payload) pending.current = { payload, requestId: crypto.randomUUID(), measurement: beginFormLead(window, process.env.NODE_ENV, 'shared_help') }
     lock.current = true; setStatus('sending'); setError('')
     try {
       const response = await fetch('/api/enquiries', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...JSON.parse(payload), requestId: pending.current.requestId }) })
       const data = await response.json().catch(() => null)
       if (!response.ok || typeof data?.enquiry?.publicId !== 'string' || typeof data?.enquiry?.createdAt !== 'string') throw new Error()
+      confirmFormLead(window, process.env.NODE_ENV, pending.current.measurement, response.status, data)
       pending.current = null; setStatus('success')
     } catch { setStatus('error'); setError(tx(locale, { en: 'We could not send your request. Please try again.', es: 'No se pudo enviar tu solicitud. Inténtalo de nuevo.', it: 'Non è stato possibile inviare la richiesta. Riprova.', ar: 'تعذر إرسال طلبك. حاول مرة أخرى.' })) }
     finally { lock.current = false }

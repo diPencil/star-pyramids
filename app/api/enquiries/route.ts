@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { formLeadMeasurement } from '@/lib/server/form-lead-measurement';
 import { db } from '@/lib/server/db';
 import { checkEnquiryRateLimit, recordEnquiryAttempt } from '@/lib/server/rate-limit';
 import { notifyStaff } from '@/lib/server/notifications';
@@ -77,7 +78,7 @@ export async function POST(request: Request) {
     if (existing.name !== trimmedName || existing.email !== trimmedEmail || existing.phone !== (trimmedPhone || null) || existing.subject !== trimmedSubject || existing.message !== trimmedMessage || existing.sourcePage !== (trimmedSourcePage || null)) {
       return NextResponse.json({ error: 'Request ID already used for a different enquiry.' }, { status: 409 });
     }
-    return NextResponse.json({ enquiry: { publicId: existing.publicId, createdAt: existing.createdAt } });
+    return NextResponse.json({ enquiry: { publicId: existing.publicId, createdAt: existing.createdAt }, leadMeasurement: formLeadMeasurement('enquiry_created', existing.publicId) });
   };
   try {
     const previous = await replay();
@@ -146,7 +147,7 @@ export async function POST(request: Request) {
     );
 
     return NextResponse.json(
-      { enquiry: { publicId: enquiry.publicId, createdAt: enquiry.createdAt } },
+      { enquiry: { publicId: enquiry.publicId, createdAt: enquiry.createdAt }, leadMeasurement: formLeadMeasurement('enquiry_created', enquiry.publicId) },
       { status: 201 }
     );
   } catch (error) {
