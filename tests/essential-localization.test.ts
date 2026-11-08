@@ -7,9 +7,9 @@ import { customerErrorCopy, customerErrorText } from '@/lib/customer-error-copy'
 describe('essential customer localization', () => {
   it.each([
     ['es', 'hola', '¡Hola!'], ['it', 'ciao', 'Ciao!'],
-    ['es', 'precios', 'por persona'], ['it', 'prezzi', 'a persona'],
+    ['es', 'precios', 'precios y opciones'], ['it', 'prezzi', 'prezzi e opzioni'],
     ['es', 'reservar', 'Reservar es fácil'], ['it', 'prenotare', 'Prenotare è semplice'],
-    ['es', 'cruceros', 'categorías'], ['it', 'crociere', 'categorie'],
+    ['es', 'cruceros', 'itinerarios'], ['it', 'crociere', 'itinerari'],
     ['es', 'agente', 'Por supuesto'], ['it', 'operatore', 'Certamente'],
     ['es', 'gracias', 'De nada'], ['it', 'grazie', 'Prego'],
     ['es', 'xyz', 'Entendido'], ['it', 'xyz', 'Ricevuto'],
@@ -19,13 +19,13 @@ describe('essential customer localization', () => {
     expect(reply.text).not.toBe(getBotReply(prompt, 'en', '$125.40').text)
     expect(reply.chips.length).toBeGreaterThan(0)
     if (prompt === 'precios' || prompt === 'prezzi') {
-      expect(reply.text).toContain('$125.40')
+      expect(reply.text).not.toContain('$125.40')
       expect(reply.text).not.toContain('{price}')
     }
   })
 
-  it('keeps legacy English and Arabic assistant behavior', () => {
-    expect(getBotReply('price', 'en', '$10').text).toContain('from $10 per person')
+  it('does not invent English prices and preserves the disabled legacy Arabic behavior', () => {
+    expect(getBotReply('price', 'en', '$10').text).not.toContain('$10')
     expect(getBotReply('سعر', 'ar', '$10').text).toContain('$10')
     expect(getBotReply('book', 'en', '$10').chips).toEqual(['plan', 'browse'])
   })

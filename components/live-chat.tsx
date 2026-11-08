@@ -8,7 +8,7 @@ import { ArrowLeft, Headset, Send, X } from 'lucide-react'
 import { whatsappHref } from '@/data/company'
 import { useBrandSettings } from '@/lib/admin-store'
 import { tx, useLocale } from './locale'
-import { baseChipHrefs, chipsHome, copy, getBotReply, type ChipId } from '@/lib/live-chat-bot'
+import { baseChipHrefs, botMessageParts, chipsHome, copy, getBotReply, type ChipId } from '@/lib/live-chat-bot'
 import { useLiveChat } from '@/lib/live-chat-client'
 import styles from './live-chat.module.css'
 export { getBotReply } from '@/lib/live-chat-bot'
@@ -66,11 +66,15 @@ export function LiveChatWidget({ open, onOpen, onClose }: { open: boolean; onOpe
       <div className="livechat-body" ref={bodyRef} aria-live="polite">
         {!messages.length && <div className="livechat-row agent"><div className="livechat-bubble">{t.greeting}</div></div>}
         {messages.map((m) => <div key={m.id} className={`livechat-row ${m.senderRole === 'customer' ? 'user' : 'agent'}`}>
-          <div className="livechat-bubble">{m.body}</div>
+          <div className={`livechat-bubble ${styles.message}`}>{m.senderRole === 'bot' ? botMessageParts(m.body).map((part, index) => part.href
+            ? <Link key={index} href={part.href} onClick={mobile ? onClose : undefined}>{part.href === '/trips' ? t.chipLabels.trips : tx(locale, { en: 'View trip', es: 'Ver viaje', it: 'Vedi viaggio' })}</Link>
+            : part.text) : m.body}</div>
           <span className="livechat-time">{m.senderRole === 'bot' ? tx(locale,{en:'Bot',es:'Bot',it:'Bot'}) : m.senderRole === 'staff' ? tx(locale,{en:'Staff',es:'Equipo',it:'Team'}) : tx(locale,{en:'You',es:'Tú',it:'Tu'})} · {new Date(m.createdAt).toLocaleTimeString(lang, {hour:'2-digit',minute:'2-digit'})}</span>
         </div>)}
         {chat.busy && <div className="livechat-row agent"><span className="livechat-typing" aria-label={t.online}><i /><i /><i /></span></div>}
-        {chat.error && <p className={styles.feedback} role="alert">{tx(locale,{en:'Chat could not be updated. Your text is kept. Retry sending, or wait for reconnection.',es:'No se pudo actualizar el chat. Conservamos tu texto. Vuelve a enviarlo o espera a que se restablezca la conexión.',it:'Impossibile aggiornare la chat. Il testo è conservato. Riprova a inviarlo o attendi la riconnessione.'})}</p>}
+        {chat.error && <p className={styles.feedback} role="alert">{chat.errorCode === 'preview_read_only'
+          ? tx(locale,{en:'Chat is read-only while previewing a customer account. Exit customer preview to use the public chat.',es:'El chat es de solo lectura mientras previsualizas una cuenta de cliente. Sal de la vista previa para usar el chat público.',it:'La chat è in sola lettura durante l’anteprima di un account cliente. Esci dall’anteprima per usare la chat pubblica.'})
+          : tx(locale,{en:'Chat could not be updated. Your text is kept. Retry sending, or wait for reconnection.',es:'No se pudo actualizar el chat. Conservamos tu texto. Vuelve a enviarlo o espera a que se restablezca la conexión.',it:'Impossibile aggiornare la chat. Il testo è conservato. Riprova a inviarlo o attendi la riconnessione.'})}</p>}
         {sentHandoff && <p className={styles.feedback} role="status">{tx(locale,{en:'Your request was saved for our team. Replies will appear here.',es:'Tu solicitud se ha guardado para nuestro equipo. Las respuestas aparecerán aquí.',it:'La richiesta è stata salvata per il nostro team. Le risposte appariranno qui.'})}</p>}
         {handoff && <form className={styles.handoff} onSubmit={e => {e.preventDefault();void requestAgent()}}>
           <h3>{t.chipLabels.agent}</h3>

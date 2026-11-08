@@ -1,6 +1,6 @@
 import type { ReactElement, ReactNode } from 'react'
 import { beforeEach, expect, it, vi } from 'vitest'
-const state = vi.hoisted(() => ({ index: 0, values: [] as unknown[], locale: 'en' as 'en' | 'es' | 'it', chat: { thread: null as any, error: false, busy: false, send: vi.fn() } }))
+const state = vi.hoisted(() => ({ index: 0, values: [] as unknown[], locale: 'en' as 'en' | 'es' | 'it', chat: { thread: null as any, error: false, errorCode: null as 'preview_read_only' | null, busy: false, send: vi.fn() } }))
 vi.mock('react', async original => ({
   ...await original<typeof import('react')>(),
   useEffect: vi.fn(),
@@ -20,7 +20,19 @@ function elements(node: ReactNode): Element[] {
 }
 function render() { state.index = 0; return elements(LiveChatWidget({ open: true, onOpen: vi.fn(), onClose: vi.fn() })) }
 function button(nodes: Element[], label: string) { return nodes.find(n => n.type === 'button' && n.props.children === label)! }
-beforeEach(() => { state.index = 0; state.values = []; state.locale = 'en'; state.chat.thread = null; state.chat.busy = false; state.chat.error = false; state.chat.send.mockReset() })
+beforeEach(() => { state.index = 0; state.values = []; state.locale = 'en'; state.chat.thread = null; state.chat.busy = false; state.chat.error = false; state.chat.errorCode = null; state.chat.send.mockReset() })
+it('requests the live catalogue from the All trips chip instead of a fixed cruise answer', async () => {
+  state.chat.send.mockResolvedValue(true)
+  button(render(), 'All trips').props.onClick()
+  await vi.waitFor(() => expect(state.chat.send).toHaveBeenCalledWith({ action: 'message', body: 'All trips', locale: 'en' }))
+  expect(button(render(), 'Nile cruise prices')).toBeUndefined()
+})
+it('explains an actual preview restriction instead of suggesting a connectivity failure', () => {
+  state.chat.error = true; state.chat.errorCode = 'preview_read_only'
+  const alert = render().find(node => node.props.role === 'alert')!
+  expect(alert.props.children).toContain('Exit customer preview')
+  expect(alert.props.children).not.toContain('wait for reconnection')
+})
 it('opens an inline handoff form without claiming delivery, and retains it on failure', async () => {
   button(render(), 'Talk to an agent').props.onClick()
   let nodes = render()

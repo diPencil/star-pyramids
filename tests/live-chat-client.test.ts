@@ -3,6 +3,13 @@ import { LiveChatTransport } from '@/lib/live-chat-client'
 import { parseLiveAction } from '@/lib/live-chat-contract'
 import { randomUUID } from 'node:crypto'
 const input = { action: 'message' as const, body: 'Hello fixture', locale: 'en' as const }
+it('recognizes only the safe preview code on 403 and never exposes raw server diagnostics', async () => {
+  const request = vi.fn<typeof fetch>().mockResolvedValueOnce(Response.json({ code: 'preview_read_only', error: 'private diagnostic' }, { status: 403 }))
+    .mockResolvedValueOnce(new Response('private SQL diagnostic', { status: 403 }))
+  const transport = new LiveChatTransport(request)
+  await expect(transport.read()).rejects.toMatchObject({ status: 403, code: 'preview_read_only', message: 'unavailable' })
+  await expect(transport.read()).rejects.toMatchObject({ status: 403, code: undefined, message: 'unavailable' })
+})
 const store = new Map<string, string>()
 const storage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => { store.set(k, v) }, removeItem: (k: string) => { store.delete(k) } }
 beforeEach(() => { store.clear() })

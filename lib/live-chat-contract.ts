@@ -16,7 +16,7 @@ export type LiveAction = {
 }
 
 export class LiveChatError extends Error {
-  constructor(public status: number, message: string) { super(message) }
+  constructor(public status: number, message: string, public code?: 'preview_read_only') { super(message) }
 }
 
 export function parseLiveAction(value: unknown): LiveAction {

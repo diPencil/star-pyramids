@@ -37,6 +37,14 @@ it('opens and polls with a receiver-sensitive browser fetch without showing a co
   expect(fetchMock).toHaveBeenCalledTimes(2)
   expect(render().error).toBe(false)
 })
+it('reports a read-only preview denial and clears it after successful public reconnection', async () => {
+  fetchMock.mockResolvedValueOnce(Response.json({ code: 'preview_read_only' }, { status: 403 })).mockResolvedValue(Response.json({ thread: null }))
+  render()
+  await vi.advanceTimersByTimeAsync(0)
+  expect(render()).toMatchObject({ error: true, errorCode: 'preview_read_only' })
+  await vi.advanceTimersByTimeAsync(10000)
+  expect(render()).toMatchObject({ error: false, errorCode: null })
+})
 it('polls only an open visible chat, restores staff replies and cleans up when closed', async () => {
   const reply = { reference: 'fixture', messages: [{ id: 'reply', senderRole: 'staff', body: 'Saved reply', createdAt: new Date().toISOString() }] }
   fetchMock.mockImplementation(async () => Response.json({ thread: reply }))

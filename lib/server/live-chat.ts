@@ -1,7 +1,8 @@
 import 'server-only'
 import { Prisma } from '@prisma/client'
 import { hashToken } from '@/lib/core/tokens'
-import { copy, getBotReply } from '@/lib/live-chat-bot'
+import { copy } from '@/lib/live-chat-bot'
+import { catalogueBotReply } from './live-chat-catalogue'
 import { LiveChatError, type LiveAction, type LiveThread } from '@/lib/live-chat-contract'
 import { db } from './db'
 import type { ChatOwner } from './live-chat-session'
@@ -69,11 +70,7 @@ export async function writeLiveThread(owner: ChatOwner, input: LiveAction): Prom
     } })
     if (!human) {
       // No client-supplied bot text, sender role, price, or conversation ID is trusted.
-      const price = { en: 'the current published rate', es: 'la tarifa publicada actual', it: 'la tariffa pubblicata attuale' }[input.locale]
-      const reply = getBotReply(body, input.locale, price).text
-      const answer = reply === copy[input.locale].price.replace('{price}', price)
-        ? { en: 'Prices vary by tour, date and group size. Open a tour page to see current published prices.', es: 'Los precios varían según el viaje, la fecha y el grupo. Abre la página de un viaje para consultar los precios actuales.', it: 'I prezzi variano in base al viaggio, alla data e al gruppo. Apri la pagina di un viaggio per consultare i prezzi attuali.' }[input.locale]
-        : reply
+      const answer = await catalogueBotReply(body, input.locale, tx)
       await tx.supportMessage.create({ data: { conversationId: thread.id, senderRole: 'bot', body: answer, readAt: new Date(), createdAt: new Date(timestamp++) } })
     }
     const row = await tx.supportConversation.update({ where: { id: thread.id }, data: {

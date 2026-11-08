@@ -2,7 +2,8 @@ import { randomUUID } from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { parseLiveAction } from '@/lib/live-chat-contract'
 
-const mock = vi.hoisted(() => ({ db: {} as Record<string, any>, notify: vi.fn(), failBot: false, rows: [] as any[], messages: [] as any[], sequence: 0 }))
+const mock = vi.hoisted(() => ({ db: {} as Record<string, any>, notify: vi.fn(), failBot: false, rows: [] as any[], messages: [] as any[], sequence: 0,
+  tours: [] as { slug: string; title: string; status: string; location: string; duration: string }[] }))
 vi.mock('@/lib/server/db', () => ({ db: mock.db }))
 vi.mock('@/lib/server/notifications', () => ({ notifyStaff: mock.notify, notifyUser: vi.fn(), adminSupportHref: (r: string) => `/admin/inbox?conversation=${r}`, customerSupportHref: (r: string) => `/account/messages?conversation=${r}` }))
 vi.mock('@/lib/server/email', () => ({ sendCustomerEmailSafe: vi.fn(), sendStaffEmailSafe: vi.fn() }))
@@ -20,8 +21,9 @@ const a = { guestSessionId: 'guest-a' }, b = { guestSessionId: 'guest-b' }
 
 beforeEach(() => {
   vi.useFakeTimers()
-  mock.rows = []; mock.messages = []; mock.sequence = 0; mock.failBot = false; mock.notify.mockReset()
+  mock.rows = []; mock.messages = []; mock.sequence = 0; mock.failBot = false; mock.notify.mockReset(); mock.tours = []
   Object.assign(mock.db, {
+    tour: { findMany: vi.fn(async () => mock.tours) },
     $queryRaw: vi.fn(async () => [{ id: 'locked-owner' }]),
     $transaction: vi.fn(async (fn: (db: any) => Promise<any>) => {
       const rows = structuredClone(mock.rows), messages = structuredClone(mock.messages)
@@ -57,6 +59,17 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers())
 
 describe('persistent guest chat, using a transaction double and no database', () => {
+  it('persists actual fresh catalogue answers alongside visitor history without making staff claims', async () => {
+    mock.tours = [{ slug: 'new-cairo-tour', title: 'New Cairo Tour', status: 'published', location: 'Cairo', duration: '1 day' }]
+    const first = await writeLiveThread(a, action('All trips'))
+    expect(first!.messages.at(-1)?.body).toContain('/egypt-tours/new-cairo-tour')
+    mock.tours = [{ slug: 'new-luxor-tour', title: 'New Luxor Tour', status: 'published', location: 'Luxor', duration: '2 days' }]
+    const next = await writeLiveThread(a, action('All trips'))
+    expect(next!.messages.at(-1)?.body).toContain('/egypt-tours/new-luxor-tour')
+    expect(next!.reference).toBe(first!.reference)
+    expect(mock.notify).not.toHaveBeenCalled()
+    expect(next!.needsStaffReply).toBe(false)
+  })
   it('persists greeting, first visitor message and server-generated bot reply, and restores the same history', async () => {
     const saved = await writeLiveThread(a, action())
     expect(saved!.messages.map(m => m.senderRole)).toEqual(['bot', 'customer', 'bot'])

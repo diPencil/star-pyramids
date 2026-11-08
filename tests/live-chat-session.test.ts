@@ -3,7 +3,7 @@ import { generateOpaqueToken, hashToken } from '@/lib/core/tokens'
 const mock = vi.hoisted(() => ({ get: vi.fn(), set: vi.fn(), current: vi.fn(), account: vi.fn(), find: vi.fn(), create: vi.fn(), budget: vi.fn() }))
 vi.mock('next/headers', () => ({ cookies: async () => ({ get: mock.get, set: mock.set }) }))
 vi.mock('@/lib/server/auth', () => ({ getCurrentUser: mock.current }))
-vi.mock('@/lib/server/staff-preview', () => ({ getAccountWriteUser: mock.account }))
+vi.mock('@/lib/server/staff-preview', () => ({ getStaffPreviewCustomer: mock.account }))
 vi.mock('@/lib/server/db', () => ({ db: { chatGuestSession: { findUnique: mock.find, create: mock.create }, chatRateBucket: { upsert: mock.budget } } }))
 import { chatOwner, chatBudget, GUEST_CHAT_COOKIE } from '@/lib/server/live-chat-session'
 beforeEach(() => {
@@ -35,12 +35,25 @@ it('restores only a valid unexpired session and never accepts a raw conversation
   expect(await chatOwner()).toBeNull()
 })
 it('prefers server-authenticated customers and rejects staff/preview writes', async () => {
-  mock.current.mockResolvedValue({ id: 'authenticated' })
-  mock.account.mockResolvedValue({ id: 'authenticated' })
+  mock.current.mockResolvedValue({ id: 'authenticated', roles: ['CUSTOMER'] })
+  mock.account.mockResolvedValue(null)
   expect(await chatOwner(true)).toEqual({ customerId: 'authenticated' })
   expect(mock.find).not.toHaveBeenCalled(); expect(mock.create).not.toHaveBeenCalled()
-  mock.account.mockResolvedValue(null)
+  mock.current.mockResolvedValue({ id: 'staff', roles: ['SUPER_ADMIN'] })
+  mock.account.mockResolvedValue({ id: 'preview-customer' })
   await expect(chatOwner(true)).rejects.toMatchObject({ status: 403 })
+})
+it('allows staff browsing the public site to use a separate guest session without customer impersonation', async () => {
+  mock.current.mockResolvedValue({ id: 'staff', roles: ['SUPER_ADMIN'] })
+  mock.account.mockResolvedValue(null)
+  expect(await chatOwner()).toBeNull()
+  expect(mock.create).not.toHaveBeenCalled()
+  expect(await chatOwner(true)).toEqual({ guestSessionId: 'guest-session' })
+  expect(mock.create.mock.calls[0][0].data).not.toHaveProperty('customerId')
+  const token = generateOpaqueToken()
+  mock.get.mockReturnValue({ value: token })
+  mock.find.mockResolvedValue({ id: 'isolated-guest', expiresAt: new Date(Date.now() + 10000) })
+  expect(await chatOwner()).toEqual({ guestSessionId: 'isolated-guest' })
 })
 it('enforces shared atomic budgets and hashes all identifying keys', async () => {
   await chatBudget('ip:192.0.2.1', 2, 300)

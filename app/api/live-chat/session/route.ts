@@ -12,6 +12,7 @@ export async function POST(request: Request) {
     // Separate bootstrap ensures the browser has the HttpOnly credential BEFORE message submission.
     return NextResponse.json({ ok: true }, { headers })
   } catch (error) {
-    return NextResponse.json({ error: error instanceof LiveChatError ? error.message : 'Chat temporarily unavailable.' }, { status: error instanceof LiveChatError ? error.status : 503, headers })
+    return NextResponse.json({ error: error instanceof LiveChatError ? error.message : 'Chat temporarily unavailable.',
+      ...(error instanceof LiveChatError && error.code ? { code: error.code } : {}) }, { status: error instanceof LiveChatError ? error.status : 503, headers })
   }
 }

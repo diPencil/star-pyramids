@@ -3,13 +3,13 @@ import type { Locale } from '@/lib/locale-config'
 export type ChipId = 'prices' | 'agent' | 'booking' | 'browse' | 'trips' | 'plan' | 'contact' | 'wa'
 
 export const chipsHome: ChipId[] = ['prices', 'agent', 'booking']
-const chipsBrowse: ChipId[] = ['browse', 'trips']
+const chipsBrowse: ChipId[] = ['trips', 'plan']
 const chipsPlan: ChipId[] = ['plan', 'browse']
 const chipsContact: ChipId[] = ['wa', 'contact']
 
 export const baseChipHrefs: Record<ChipId, string | undefined> = {
   prices: undefined, agent: undefined, booking: undefined,
-  browse: '/egypt-tours/nile-cruises', trips: '/trips', plan: '/make-your-trip', contact: '/contact', wa: undefined,
+  browse: '/trips', trips: '/trips', plan: '/make-your-trip', contact: '/contact', wa: undefined,
 }
 
 const baseCopy = {
@@ -17,14 +17,14 @@ const baseCopy = {
     openLabel: 'Open live chat', closeLabel: 'Close live chat', sendLabel: 'Send message',
     name: 'STAR PYRAMIDS', online: 'Automated assistant', inputPh: 'Write a message...',
     teaser: 'Need help planning your Egypt trip? Chat with us!',
-    greeting: "Hi there! I'm Nour from STAR PYRAMIDS. Ask me about Nile cruises, prices, or booking. Or pick a topic:",
-    price: 'Our Nile cruises start from {price} per person, depending on the season and group size. Every cruise page has a season price table (solo, pair and group). Open any cruise and check "Cruise Prices".',
-    cruise: 'We have 4 cruise levels: Standard, Deluxe, Superior, and Luxury, from 3 to 7 nights between Luxor and Aswan, with full board and guided temple visits.',
+    greeting: "Hi there! I'm Nour from STAR PYRAMIDS. Ask me about our trips, destinations, or booking. Or pick a topic:",
+    price: 'Open a published trip page for its current prices and options. The final price depends on your selections and is confirmed during booking.',
+    cruise: 'Browse our currently published Nile cruises for the available itineraries and details.',
     booking: 'Booking is easy: open any trip and press "Book now", or tell us your dates on the Make Your Trip page and we will arrange everything.',
     human: 'Of course! Our team is on WhatsApp and on the Contact page. Choose Talk to an agent to request a reply.',
     thanks: 'You are welcome! I am here if you need anything else.',
     fallback: 'Got it! Choose Talk to an agent if you need our team. Meanwhile, pick a topic so I can help faster:',
-    chipLabels: { prices: 'Nile cruise prices', agent: 'Talk to an agent', booking: 'How do I book?', browse: 'View Nile cruises', trips: 'See all trips', plan: 'Plan my trip', contact: 'Contact page', wa: 'WhatsApp us' },
+    chipLabels: { prices: 'All trips', agent: 'Talk to an agent', booking: 'How do I book?', browse: 'Browse trips', trips: 'See all trips', plan: 'Plan my trip', contact: 'Contact page', wa: 'WhatsApp us' },
   },
   ar: {
     openLabel: 'فتح المحادثة', closeLabel: 'إغلاق المحادثة', sendLabel: 'إرسال الرسالة',
@@ -47,27 +47,27 @@ export const copy = {
     openLabel: 'Abrir chat', closeLabel: 'Cerrar chat', sendLabel: 'Enviar mensaje',
     name: 'STAR PYRAMIDS', online: 'Asistente automático', inputPh: 'Escribe un mensaje...',
     teaser: '¿Necesitas ayuda para planificar tu viaje a Egipto? ¡Chatea con nosotros!',
-    greeting: '¡Hola! Soy Nour de STAR PYRAMIDS. Pregúntame sobre cruceros por el Nilo, precios o reservas. También puedes elegir un tema:',
-    price: 'Nuestros cruceros por el Nilo cuestan desde {price} por persona, según la temporada y el tamaño del grupo. Cada página de crucero tiene una tabla de precios por temporada (individual, pareja y grupo). Abre un crucero y consulta «Precios del crucero».',
-    cruise: 'Tenemos 4 categorías de cruceros: Standard, Deluxe, Superior y Luxury, de 3 a 7 noches entre Lúxor y Asuán, con pensión completa y visitas guiadas a los templos.',
+    greeting: '¡Hola! Soy Nour de STAR PYRAMIDS. Pregúntame sobre nuestros viajes, destinos o reservas. También puedes elegir un tema:',
+    price: 'Abre la página de un viaje publicado para consultar sus precios y opciones actuales. El precio final depende de tus selecciones y se confirma al reservar.',
+    cruise: 'Consulta nuestros cruceros por el Nilo publicados para ver los itinerarios y detalles disponibles.',
     booking: 'Reservar es fácil: abre un viaje y pulsa «Reserva ahora», o indícanos tus fechas en la página «Crea tu viaje» y organizaremos los detalles.',
     human: '¡Por supuesto! Nuestro equipo está disponible en WhatsApp y en la página de contacto. Selecciona Hablar con un agente para solicitar una respuesta.',
     thanks: '¡De nada! Estoy aquí si necesitas algo más.',
     fallback: '¡Entendido! Selecciona Hablar con un agente si necesitas a nuestro equipo. Mientras tanto, elige un tema para que pueda ayudarte más rápido:',
-    chipLabels: { prices: 'Precios de cruceros por el Nilo', agent: 'Hablar con un agente', booking: '¿Cómo reservo?', browse: 'Ver cruceros por el Nilo', trips: 'Ver todos los viajes', plan: 'Planificar mi viaje', contact: 'Página de contacto', wa: 'Escríbenos por WhatsApp' },
+    chipLabels: { prices: 'Todos los viajes', agent: 'Hablar con un agente', booking: '¿Cómo reservo?', browse: 'Explorar viajes', trips: 'Ver todos los viajes', plan: 'Planificar mi viaje', contact: 'Página de contacto', wa: 'Escríbenos por WhatsApp' },
   },
   it: {
     openLabel: 'Apri la chat', closeLabel: 'Chiudi la chat', sendLabel: 'Invia messaggio',
     name: 'STAR PYRAMIDS', online: 'Assistente automatico', inputPh: 'Scrivi un messaggio...',
     teaser: 'Hai bisogno di aiuto per organizzare il tuo viaggio in Egitto? Chatta con noi!',
-    greeting: 'Ciao! Sono Nour di STAR PYRAMIDS. Chiedimi informazioni su crociere sul Nilo, prezzi o prenotazioni. Oppure scegli un argomento:',
-    price: 'Le nostre crociere sul Nilo partono da {price} a persona, in base alla stagione e alle dimensioni del gruppo. Ogni pagina della crociera ha una tabella dei prezzi stagionali (singolo, coppia e gruppo). Apri una crociera e consulta «Prezzi della crociera».',
-    cruise: 'Abbiamo 4 categorie di crociere: Standard, Deluxe, Superior e Luxury, da 3 a 7 notti tra Luxor e Assuan, con pensione completa e visite guidate ai templi.',
+    greeting: 'Ciao! Sono Nour di STAR PYRAMIDS. Chiedimi informazioni sui nostri viaggi, sulle destinazioni o sulle prenotazioni. Oppure scegli un argomento:',
+    price: 'Apri la pagina di un viaggio pubblicato per consultarne prezzi e opzioni aggiornati. Il prezzo finale dipende dalle tue scelte e viene confermato durante la prenotazione.',
+    cruise: 'Consulta le nostre crociere sul Nilo pubblicate per vedere itinerari e dettagli disponibili.',
     booking: 'Prenotare è semplice: apri un viaggio e premi «Prenota ora», oppure indica le tue date nella pagina «Crea il tuo viaggio» e organizzeremo i dettagli.',
     human: 'Certamente! Il nostro team è disponibile su WhatsApp e nella pagina dei contatti. Seleziona Parla con un operatore per richiedere una risposta.',
     thanks: 'Prego! Sono qui se hai bisogno di altro.',
     fallback: 'Ricevuto! Seleziona Parla con un operatore se hai bisogno del nostro team. Nel frattempo, scegli un argomento per aiutarti più rapidamente:',
-    chipLabels: { prices: 'Prezzi delle crociere sul Nilo', agent: 'Parla con un operatore', booking: 'Come posso prenotare?', browse: 'Vedi le crociere sul Nilo', trips: 'Vedi tutti i viaggi', plan: 'Pianifica il mio viaggio', contact: 'Pagina dei contatti', wa: 'Scrivici su WhatsApp' },
+    chipLabels: { prices: 'Tutti i viaggi', agent: 'Parla con un operatore', booking: 'Come posso prenotare?', browse: 'Esplora i viaggi', trips: 'Vedi tutti i viaggi', plan: 'Pianifica il mio viaggio', contact: 'Pagina dei contatti', wa: 'Scrivici su WhatsApp' },
   },
 } as const
 
@@ -88,5 +88,11 @@ export function getBotReply(text: string, lang: Locale, priceStr: string): { tex
   if (has('thank', 'thanks', 'gracias', 'grazie', 'شكرا', 'متشكر', 'ميرسي'))
     return { text: t.thanks, chips: [...chipsHome] }
   return { text: t.fallback, chips: [...chipsHome] }
+}
+
+/** Link only canonical public catalogue paths in server-authored bot messages. */
+export function botMessageParts(body: string): { text: string; href?: string }[] {
+  return body.split(/(\s+)/g).map(text =>
+    /^\/(?:egypt-tours\/[a-z0-9]+(?:-[a-z0-9]+)*|trips)$/.test(text) && text.length <= 100 ? { text, href: text } : { text })
 }
 

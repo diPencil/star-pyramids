@@ -22,3 +22,7 @@
 }
 .handoff :is(input,button):focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .feedback { color: var(--text); background: var(--soft); padding: 10px; border-radius: 10px; font-size: .875rem; }
+.message {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}

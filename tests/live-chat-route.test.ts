@@ -1,5 +1,6 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 import { randomUUID } from 'node:crypto'
+import { LiveChatError } from '@/lib/live-chat-contract'
 const mocks = vi.hoisted(() => ({ owner: vi.fn(), read: vi.fn(), revision: vi.fn(), write: vi.fn(), budget: vi.fn(), ip: vi.fn() }))
 vi.mock('@/lib/server/live-chat-session', () => ({ chatOwner: mocks.owner, chatBudget: mocks.budget, ipChatBudget: mocks.ip }))
 vi.mock('@/lib/server/live-chat', () => ({ readLiveThread: mocks.read, liveThreadRevision: mocks.revision, writeLiveThread: mocks.write }))
@@ -7,6 +8,15 @@ import { GET, POST } from '@/app/api/live-chat/route'
 import { POST as bootstrap } from '@/app/api/live-chat/session/route'
 const request = (body: unknown, origin = 'https://fixture.invalid') => new Request('https://fixture.invalid/api/live-chat', { method: 'POST', headers: { host: 'fixture.invalid', origin }, body: JSON.stringify(body) })
 beforeEach(() => { vi.resetAllMocks(); mocks.owner.mockResolvedValue({ guestSessionId: 'server-owner' }); mocks.read.mockResolvedValue(null); mocks.revision.mockResolvedValue('"fixture"'); mocks.write.mockResolvedValue({ messages: [] }) })
+it('keeps preview forbidden on reads and bootstrap with a safe actionable code', async () => {
+  mocks.owner.mockRejectedValue(new LiveChatError(403, 'Customer chat is unavailable in staff preview.', 'preview_read_only'))
+  for (const response of [await GET(new Request('https://fixture.invalid/api/live-chat')), await bootstrap(request({}))]) {
+    expect(response.status).toBe(403)
+    expect((await response.json()).code).toBe('preview_read_only')
+  }
+  expect(mocks.read).not.toHaveBeenCalled()
+  expect(mocks.write).not.toHaveBeenCalled()
+})
 it('uses only the cookie-derived owner and never accepts forged ownership', async () => {
   const response = await POST(request({ action: 'message', body: 'fixture', locale: 'en', requestId: randomUUID(), conversationId: 'foreign' }))
   expect(response.status).toBe(400); expect(mocks.write).not.toHaveBeenCalled()

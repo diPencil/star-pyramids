@@ -9,7 +9,8 @@ export const dynamic = 'force-dynamic'
 const headers = { 'Cache-Control': 'private, no-store, max-age=0', Vary: 'Cookie' }
 function failure(error: unknown) {
   // Never echo ORM errors, user content, tokens, contact details, or SQL to the browser/logs.
-  return NextResponse.json({ error: error instanceof LiveChatError ? error.message : 'Chat temporarily unavailable. Please try again.' }, { status: error instanceof LiveChatError ? error.status : 503, headers })
+  return NextResponse.json({ error: error instanceof LiveChatError ? error.message : 'Chat temporarily unavailable. Please try again.',
+    ...(error instanceof LiveChatError && error.code ? { code: error.code } : {}) }, { status: error instanceof LiveChatError ? error.status : 503, headers })
 }
 
 export async function GET(request: Request) {

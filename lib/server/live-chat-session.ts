@@ -3,7 +3,7 @@ import { cookies } from 'next/headers'
 import { generateOpaqueToken, hashToken } from '@/lib/core/tokens'
 import { LiveChatError } from '@/lib/live-chat-contract'
 import { getCurrentUser } from './auth'
-import { getAccountWriteUser } from './staff-preview'
+import { getStaffPreviewCustomer } from './staff-preview'
 import { db } from './db'
 
 export const GUEST_CHAT_COOKIE = process.env.NODE_ENV === 'production' ? '__Host-sp-chat' : 'sp_chat'
@@ -13,9 +13,10 @@ export type ChatOwner = { customerId: string; guestSessionId?: never } | { guest
 export async function chatOwner(createGuest = false): Promise<ChatOwner | null> {
   const current = await getCurrentUser()
   if (current) {
-    const account = await getAccountWriteUser()
-    if (!account) throw new LiveChatError(403, 'Customer chat is unavailable in staff preview.')
-    return { customerId: account.id }
+    // Preview must never write as the impersonated customer. A staff member
+    // browsing the public site normally can instead use an isolated guest chat.
+    if (await getStaffPreviewCustomer(current)) throw new LiveChatError(403, 'Customer chat is unavailable in staff preview.', 'preview_read_only')
+    if (current.roles.includes('CUSTOMER')) return { customerId: current.id }
   }
   const jar = await cookies()
   const token = jar.get(GUEST_CHAT_COOKIE)?.value

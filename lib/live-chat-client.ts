@@ -6,7 +6,12 @@ import type { LiveAction, LiveThread } from './live-chat-contract'
 const pendingKey = 'sp-live-chat-pending-request'
 type Submission = Omit<LiveAction, 'requestId'>
 class TransportError extends Error {
-  constructor(public status: number) { super(status === 429 ? 'rate' : 'unavailable') }
+  constructor(public status: number, public code?: 'preview_read_only') { super(status === 429 ? 'rate' : 'unavailable') }
+}
+
+async function responseError(response: Response) {
+  const data = response.status === 403 ? await response.json().catch(() => null) : null
+  return new TransportError(response.status, data?.code === 'preview_read_only' ? 'preview_read_only' : undefined)
 }
 
 /** Persist only an opaque retry ID and fingerprint, never message/contact contents. */
@@ -21,14 +26,14 @@ export class LiveChatTransport {
 
   private async json(url: string, init?: RequestInit) {
     const response = await this.request(url, { ...init, credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(10000) })
-    if (!response.ok) throw new TransportError(response.status)
+    if (!response.ok) throw await responseError(response)
     return response.json()
   }
 
   async read(): Promise<LiveThread> {
     const response = await this.request('/api/live-chat', { credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(10000), headers: this.etag ? { 'If-None-Match': this.etag } : {} })
     if (response.status === 304) return this.history
-    if (!response.ok) throw new TransportError(response.status)
+    if (!response.ok) throw await responseError(response)
     this.history = (await response.json()).thread as LiveThread
     this.etag = response.headers.get('etag')
     return this.history
@@ -72,6 +77,7 @@ export class LiveChatTransport {
 export function useLiveChat(open: boolean) {
   const [thread, setThread] = useState<LiveThread>(null)
   const [error, setError] = useState(false)
+  const [errorCode, setErrorCode] = useState<'preview_read_only' | null>(null)
   const [busy, setBusy] = useState(false)
   const transport = useRef<LiveChatTransport | null>(null)
   const writing = useRef(false)
@@ -99,8 +105,8 @@ export function useLiveChat(open: boolean) {
       const revision = ++version.current
       try {
         const next = await client().read()
-        if (!cancelled && revision === version.current) { setThread(next); setError(false) }
-      } catch { if (!cancelled && revision === version.current) setError(true) }
+        if (!cancelled && revision === version.current) { setThread(next); setError(false); setErrorCode(null) }
+      } catch (error) { if (!cancelled && revision === version.current) { setError(true); setErrorCode(error instanceof TransportError ? error.code ?? null : null) } }
       finally { reading = false }
     }
     void refresh()
@@ -115,12 +121,13 @@ export function useLiveChat(open: boolean) {
     version.current++
     setBusy(true)
     setError(false)
+    setErrorCode(null)
     try {
       const next = await client().submit(input)
       if (active.current) setThread(next)
       return true
-    } catch { if (active.current) setError(true); return false }
+    } catch (error) { if (active.current) { setError(true); setErrorCode(error instanceof TransportError ? error.code ?? null : null) }; return false }
     finally { writing.current = false; if (active.current) setBusy(false) }
   }
-  return { thread, error, busy, send }
+  return { thread, error, errorCode, busy, send }
 }
