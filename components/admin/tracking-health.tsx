@@ -36,16 +36,17 @@ const messages: Record<string, readonly [string, string]> = {
   browser_invalid_observation: ['No fresh, valid browser observation is available.', 'لا توجد ملاحظة حديثة وصالحة من المتصفح.'],
   browser_ineligible: ['The responding page is outside the public measurement boundary.', 'الصفحة المستجيبة خارج حدود القياس العام.'],
   browser_container_mismatch: ['The observed public tab uses a different container. Reload that public page after saving settings.', 'التبويب العام يستخدم حاوية مختلفة. أعد تحميل الصفحة العامة بعد حفظ الإعدادات.'],
-  browser_consent_denied: ['Optional consent is denied in the observed tab. Not loading GTM is expected, not an installation failure.', 'الموافقة الاختيارية مرفوضة في التبويب الملحوظ. عدم تحميل GTM متوقع وليس فشل تثبيت.'],
+  browser_consent_denied: ['Optional consent is denied and GTM has not loaded. Advanced mode should load on an eligible public page without granting consent. Check the deployed version, network and CSP.', 'الموافقة الاختيارية مرفوضة ولم يُحمّل GTM. الوضع المتقدم يحمّله في الصفحة العامة المؤهلة دون منح الموافقة. افحص النسخة المنشورة والشبكة وCSP.'],
   browser_loading: ['The observed public tab is still loading GTM. Retry after it finishes.', 'التبويب العام ما زال يحمّل GTM. أعد الفحص بعد انتهاء التحميل.'],
   browser_not_loaded: ['The observed consented public tab has not loaded GTM. Check its network, extensions and console.', 'لم يحمّل التبويب العام الموافق على التتبع GTM. افحص الشبكة والإضافات ووحدة التحكم فيه.'],
   browser_script_failed: ['A GTM script load failed in an observed public tab. Check connectivity, CSP and blocking extensions.', 'فشل تحميل سكربت GTM في تبويب عام. افحص الاتصال وCSP والإضافات التي تمنع التحميل.'],
-  browser_observed: ['GTM completed loading in the observed public tab(s). This is local browser evidence, not proof for every visitor or GA4 delivery.', 'اكتمل تحميل GTM في التبويبات العامة الملحوظة. هذا دليل محلي وليس إثباتًا لكل الزوار أو لوصول GA4.'],
+  browser_observed: ['GTM completed loading in the observed public tab(s), including when consent is denied in Advanced mode. Loading does not grant consent or prove GA4 reception.', 'اكتمل تحميل GTM في التبويبات العامة الملحوظة، حتى مع رفض الموافقة في الوضع المتقدم. التحميل لا يمنح الموافقة ولا يثبت وصول GA4.'],
 }
 const statuses: Record<TrackingHealthStatus, readonly [string, string]> = {
   verified: ['Verified', 'تم التحقق'], action_required: ['Action Required', 'يلزم إجراء'], not_verified: ['Not Verified', 'غير متحقق'], error: ['Error', 'خطأ'],
 }
 const evidenceLabels: Record<string, readonly [string, string]> = {
+  cspOrigin: ['Observed CSP resource origin', 'نطاق المورد في مخالفة CSP'], cspDirective: ['CSP directive', 'توجيه CSP'], cspDisposition: ['CSP mode', 'وضع CSP'],
   containerId: ['Checked GTM Container ID', 'معرّف حاوية GTM المفحوصة'], measurementId: ['Checked GA4 Measurement ID', 'معرّف قياس GA4 المفحوص'],
   tagCount: ['Published tags', 'العلامات المنشورة'], matchingGoogleTags: ['Matching Google tags', 'علامات Google المطابقة'],
   eventsLast7CompleteDays: ['Events · last 7 complete days', 'الأحداث · آخر ٧ أيام مكتملة'], keyEventsLast7CompleteDays: ['Key events · last 7 complete days', 'الأحداث الرئيسية · آخر ٧ أيام مكتملة'],

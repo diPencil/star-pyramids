@@ -1,3 +1,5 @@
+import { safeTrackingCspEvidence, type TrackingCspEvidence } from './tracking-csp'
+
 export type TrackingHealthStatus = 'verified' | 'action_required' | 'not_verified' | 'error'
 export type TrackingHealthCheck = { status: TrackingHealthStatus; code: string; evidence?: Record<string, string | number | boolean | null> }
 export type TrackingHealthConfig = { enabled: boolean; containerId: string; measurementId: string }
@@ -30,6 +32,7 @@ export type TrackingBrowserSnapshot = {
   analytics: boolean
   marketing: boolean
   script: 'not_loaded' | 'loading' | 'loaded' | 'failed'
+  csp?: TrackingCspEvidence
 }
 
 export function browserTrackingHealth(input: unknown, containerId: string, now = Date.now()): TrackingHealthCheck {
@@ -41,9 +44,11 @@ export function browserTrackingHealth(input: unknown, containerId: string, now =
       !['not_loaded', 'loading', 'loaded', 'failed'].includes(s.script ?? '')) return { status: 'not_verified', code: 'browser_invalid_observation' }
   if (!s.eligible) return { status: 'not_verified', code: 'browser_ineligible' }
   if (s.containerId !== containerId) return { status: 'action_required', code: 'browser_container_mismatch' }
-  const evidence = { analyticsConsent: s.analytics, marketingConsent: s.marketing, observedAt: s.observedAt! }
-  if (!s.analytics && !s.marketing) return { status: 'not_verified', code: 'browser_consent_denied', evidence }
+  const csp = safeTrackingCspEvidence(s.csp)
+  const evidence = { analyticsConsent: s.analytics, marketingConsent: s.marketing, observedAt: s.observedAt!,
+    ...(csp ? { cspOrigin: csp.origin, cspDirective: csp.directive, cspDisposition: csp.disposition } : {}) }
   if (s.script === 'loaded') return { status: 'verified', code: 'browser_observed', evidence }
   if (s.script === 'failed') return { status: 'error', code: 'browser_script_failed', evidence }
+  if (!s.analytics && !s.marketing && s.script === 'not_loaded') return { status: 'not_verified', code: 'browser_consent_denied', evidence }
   return { status: 'not_verified', code: s.script === 'loading' ? 'browser_loading' : 'browser_not_loaded', evidence }
 }

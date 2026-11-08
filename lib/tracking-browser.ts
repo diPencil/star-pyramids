@@ -275,7 +275,7 @@ export function pushPublicInteraction(browser: Window, environment: string | und
   return true
 }
 
-export function initializeGtm(browser: TrackingWindow, containerId: string | null, choice: TrackingConsent, environment: string | undefined) {
+export function initializeGtm(browser: TrackingWindow, containerId: string | null, choice: TrackingConsent, environment: string | undefined, mode: 'basic' | 'advanced' = 'basic') {
   analyticsConsent.delete(browser)
   const id = normalizeGtmContainerId(containerId)
   if (!id || !canMeasureLocation(new URL(browser.location.href), environment)) {
@@ -287,9 +287,9 @@ export function initializeGtm(browser: TrackingWindow, containerId: string | nul
     updateGoogleConsent(browser, choice)
     return
   }
-  if (!choice.analytics && !choice.marketing) return
+  if (mode === 'basic' && !choice.analytics && !choice.marketing) return
   // A retry must not trust a grant captured before a withdrawal/storage failure.
-  if (failedContainers.has(browser)) {
+  if (mode === 'basic' && failedContainers.has(browser)) {
     const current = readTrackingConsent(browser)
     if (!current.analytics && !current.marketing) return
   }
@@ -297,6 +297,13 @@ export function initializeGtm(browser: TrackingWindow, containerId: string | nul
   browser.dataLayer ??= []
   browser.gtag ??= function () { browser.dataLayer?.push(arguments) }
   if (firstAttempt) {
+    // Advanced mode is approved for cookieless Google signals, not arbitrary
+    // third-party code. Runtime restrictions precede every container tag.
+    // Custom/non-Google tags remain blocked even after consent until reviewed.
+    if (mode === 'advanced') browser.dataLayer.push({
+      'gtm.allowlist': ['google'],
+      'gtm.blocklist': ['html', 'customScripts', 'customPixels', 'nonGoogleScripts', 'nonGooglePixels', 'nonGoogleIframes', 'sandboxedScripts'],
+    })
     browser.gtag('consent', 'default', {
       ...consentState(DENIED),
       functionality_storage: 'granted',
@@ -308,6 +315,10 @@ export function initializeGtm(browser: TrackingWindow, containerId: string | nul
   const script = browser.document.createElement('script')
   script.async = true
   script.referrerPolicy = 'no-referrer'
+  // Preserve an upstream nonce-based policy without adding inline code or
+  // weakening script-src. Reading .nonce handles browser nonce hiding.
+  const nonce = browser.document.querySelector?.<HTMLScriptElement>('script[nonce]')?.nonce
+  if (nonce) script.nonce = nonce
   script.src = `https://www.googletagmanager.com/gtm.js?id=${id}`
   script.onload = () => {
     if (loadingScripts.get(browser) !== script) return

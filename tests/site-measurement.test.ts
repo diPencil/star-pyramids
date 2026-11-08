@@ -22,11 +22,11 @@ afterEach(() => {
   vi.unstubAllEnvs()
 })
 
-function mount(path: string, modern: boolean) {
+function mount(path: string, modern: boolean, granted = true) {
   const origin = 'https://starpyramids.com'
   const location = { href: origin + path }
   const navigation = modern ? new EventTarget() : undefined
-  const values = new Map([[TRACKING_CONSENT_STORAGE_KEY, '{"analytics":true,"marketing":false}']])
+  const values = new Map(granted ? [[TRACKING_CONSENT_STORAGE_KEY, '{"analytics":true,"marketing":false}']] : [])
   const script: { onload?: () => void; onerror?: () => void } = {}
   const appendChild = vi.fn()
   const history = {
@@ -62,6 +62,15 @@ function mount(path: string, modern: boolean) {
   }
   return { browser, origin, location, navigation, script, appendChild }
 }
+
+it('mounts one Advanced container before a first-visit choice and leaves optional consent denied', () => {
+  const { browser, script, appendChild } = mount('/trips', false, false)
+  expect(appendChild).toHaveBeenCalledOnce()
+  script.onload?.()
+  expect(browser.dataLayer).not.toContainEqual({ event: GTM_CONSENT_READY_EVENT })
+  browser.dispatchEvent(new Event('hashchange'))
+  expect(appendChild).toHaveBeenCalledOnce()
+})
 
 it('retries a failed container after reconnection while preserving current consent', () => {
   const { browser, script, appendChild } = mount('/trips', false)

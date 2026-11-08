@@ -1,27 +1,29 @@
 import { canMeasureLocation, isTrackingGrant } from './tracking'
 import { gtmScriptHealth, observedGtmContainerId, readTrackingConsent } from './tracking-browser'
 import { browserTrackingHealth, type TrackingHealthCheck, type TrackingBrowserSnapshot } from './tracking-health'
+import { observeTrackingCsp, trackingCspEvidence } from './tracking-csp'
 
 const CHANNEL = 'sp-tracking-health-v1'
 type BrowserWithChannel = Window & { BroadcastChannel?: typeof BroadcastChannel }
 
 /** Respond only to same-origin, ephemeral requests. No URLs, customer data or consent proofs leave this tab. */
 export function installTrackingHealthResponder(browser: BrowserWithChannel, environment: string | undefined, containerId: string | null) {
+  const stopCsp = observeTrackingCsp(browser)
   let channel: BroadcastChannel | undefined
   try {
-    if (!browser.BroadcastChannel) return () => {}
+    if (!browser.BroadcastChannel) return stopCsp
     channel = new browser.BroadcastChannel(CHANNEL)
     channel.onmessage = event => {
       if (event.data?.type !== 'request' || !isTrackingGrant(event.data.nonce)) return
       try {
         const consent = readTrackingConsent(browser)
         const snapshot: TrackingBrowserSnapshot = { observedAt: new Date().toISOString(), containerId: observedGtmContainerId(browser) ?? containerId,
-          eligible: canMeasureLocation(new URL(browser.location.href), environment), analytics: consent.analytics, marketing: consent.marketing, script: gtmScriptHealth(browser) }
+          eligible: canMeasureLocation(new URL(browser.location.href), environment), analytics: consent.analytics, marketing: consent.marketing, script: gtmScriptHealth(browser), csp: trackingCspEvidence(browser) }
         channel?.postMessage({ type: 'response', nonce: event.data.nonce, snapshot })
       } catch { /* Diagnostics are optional and must not affect a public page. */ }
     }
   } catch { /* Unsupported or blocked channels mean no browser evidence. */ }
-  return () => channel?.close()
+  return () => { stopCsp(); channel?.close() }
 }
 
 export function observeTrackingBrowser(browser: BrowserWithChannel, containerId: string): Promise<TrackingHealthCheck> {

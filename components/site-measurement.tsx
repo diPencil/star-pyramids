@@ -50,7 +50,7 @@ export function SiteMeasurement({ containerId, explicitPageViews }: { containerI
     const consent = readTrackingConsent(window)
     const analytics = eligible && consent.analytics
     analyticsAllowed.current = analytics
-    initializeGtm(window, eligible ? containerId : null, consent, process.env.NODE_ENV)
+    initializeGtm(window, eligible ? containerId : null, consent, process.env.NODE_ENV, 'advanced')
     setAnalyticsGranted(analytics)
     if (analytics) setMountAnalytics(true)
     void flushBookingFunnel(window, process.env.NODE_ENV)

@@ -45,6 +45,79 @@ function finishLoading(browser: ReturnType<typeof browserAt>['browser']) {
 }
 
 describe('Google Tag Manager configuration', () => {
+  it('retries Advanced load under denial without repeating defaults or startup', () => {
+    const { browser, window } = browserAt(production)
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production', 'advanced')
+    const first = browser.document.head.appendChild.mock.calls[0][0] as { onerror(): void; onload(): void }
+    first.onerror()
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production', 'advanced')
+    first.onload()
+    expect(isGtmReady(window)).toBe(false)
+    expect(browser.document.head.appendChild).toHaveBeenCalledTimes(2)
+    expect(browser.dataLayer.filter(e => (e as { event?: string }).event === 'gtm.js')).toHaveLength(1)
+    expect(browser.dataLayer.filter(e => Array.from(e as ArrayLike<unknown>)[1] === 'default')).toHaveLength(1)
+  })
+
+  it.each(['development', 'test'])('keeps Advanced disabled in %s', environment => {
+    const { browser, window } = browserAt(production)
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, { analytics: false, marketing: false }, environment, 'advanced')
+    expect(browser.document.head.appendChild).not.toHaveBeenCalled()
+  })
+  it('loads Advanced mode before consent with denied defaults and Google-only restrictions before execution', () => {
+    const { browser, window } = browserAt(production)
+    browser.document.head.appendChild.mockImplementation(() => {
+      expect(browser.dataLayer[0]).toEqual({ 'gtm.allowlist': ['google'], 'gtm.blocklist': expect.arrayContaining(['html', 'nonGoogleScripts', 'sandboxedScripts']) })
+      expect(Array.from(browser.dataLayer[1] as ArrayLike<unknown>)).toEqual(['consent', 'default', expect.objectContaining({
+        analytics_storage: 'denied', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied',
+      })])
+    })
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production', 'advanced')
+    expect(browser.document.head.appendChild).toHaveBeenCalledOnce()
+    finishLoading(browser)
+    expect(isGtmReady(window)).toBe(true)
+    expect(analyticsDataLayer(window, 'production')).toBeUndefined()
+    expect(browser.dataLayer).not.toContainEqual({ event: GTM_CONSENT_READY_EVENT })
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production', 'advanced')
+    expect(browser.document.head.appendChild).toHaveBeenCalledOnce()
+  })
+
+  it.each([
+    { analytics: true, marketing: true }, { analytics: true, marketing: false },
+    { analytics: false, marketing: true }, { analytics: false, marketing: false },
+  ])('applies explicit Advanced preferences without reinjection: %j', choice => {
+    const { browser, window } = browserAt(production)
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production', 'advanced')
+    finishLoading(browser)
+    browser.localStorage.setItem(TRACKING_CONSENT_STORAGE_KEY, JSON.stringify(choice))
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production', 'advanced')
+    expect(Array.from(browser.dataLayer.filter(e => Array.from(e as ArrayLike<unknown>)[1] === 'update').at(-1) as ArrayLike<unknown>))
+      .toEqual(['consent', 'update', expect.objectContaining({ analytics_storage: choice.analytics ? 'granted' : 'denied', ad_storage: choice.marketing ? 'granted' : 'denied' })])
+    browser.localStorage.setItem(TRACKING_CONSENT_STORAGE_KEY, '{"analytics":false,"marketing":false}')
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production', 'advanced')
+    expect(analyticsDataLayer(window, 'production')).toBeUndefined()
+    expect(browser.document.head.appendChild).toHaveBeenCalledOnce()
+  })
+
+  it('does not restore a startup grant withdrawn while Advanced GTM is loading and copies an existing nonce', () => {
+    const { browser, window } = browserAt(production, '{"analytics":true,"marketing":true}')
+    Object.assign(browser.document, { querySelector: () => ({ nonce: 'fixture-nonce' }) })
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production', 'advanced')
+    expect(browser.document.head.appendChild.mock.calls[0][0]).toHaveProperty('nonce', 'fixture-nonce')
+    browser.localStorage.setItem(TRACKING_CONSENT_STORAGE_KEY, '{"analytics":false,"marketing":false}')
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production', 'advanced')
+    finishLoading(browser)
+    expect(analyticsDataLayer(window, 'production')).toBeUndefined()
+    expect(browser.dataLayer).not.toContainEqual({ event: GTM_CONSENT_READY_EVENT })
+    const updates = browser.dataLayer.map(e => Array.from(e as ArrayLike<unknown>)).filter(e => e[1] === 'update')
+    for (const update of updates) expect(update[2]).toMatchObject({ analytics_storage: 'denied', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied' })
+  })
+
+  it.each(['/admin', '/account', '/website-cms-preview/home', '/trips#token', '/trips?token=secret'])('keeps Advanced excluded on %s', path => {
+    const { browser, window } = browserAt(production + path)
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, { analytics: false, marketing: false }, 'production', 'advanced')
+    expect(browser.document.head.appendChild).not.toHaveBeenCalled()
+    expect(browser.dataLayer).toEqual([])
+  })
   it('recovers a failed script without repeating defaults, startup or accepting a stale load callback', () => {
     const { browser, window } = browserAt(production, '{"analytics":true,"marketing":false}')
     initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production')

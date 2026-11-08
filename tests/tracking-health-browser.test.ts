@@ -55,6 +55,19 @@ it('requires an already-loaded consenting public tab and does not create another
   stop()
 })
 
+it('verifies pre-consent Advanced script load without claiming Analytics or Marketing consent', async () => {
+  vi.useFakeTimers()
+  const page = browser()
+  initializeGtm(page.browser, 'GTM-KQ8GR36H', readTrackingConsent(page.browser), 'production', 'advanced')
+  page.scripts[0].onload?.()
+  const stop = installTrackingHealthResponder(page.browser, 'production', 'GTM-KQ8GR36H')
+  const report = observeTrackingBrowser(browser().browser, 'GTM-KQ8GR36H')
+  await vi.advanceTimersByTimeAsync(1200)
+  expect(await report).toMatchObject({ status: 'verified', code: 'browser_observed', evidence: { analyticsConsent: false, marketingConsent: false } })
+  expect(page.result.document.head.appendChild).toHaveBeenCalledOnce()
+  stop()
+})
+
 it('does not verify a private page or a server request without a browser witness', async () => {
   vi.useFakeTimers()
   const privatePage = browser('https://starpyramids.com/account?token=private', true)
