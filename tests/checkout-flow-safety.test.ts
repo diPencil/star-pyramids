@@ -35,6 +35,23 @@ function contact(){let tree=render();find(tree,e=>e.type==='input'&&e.props.type
 const response=(data:unknown,status=201)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json'}})
 beforeEach(()=>{vi.clearAllMocks();harness.index=0;harness.values=[];harness.user=null;harness.items=[{key:'submitted',tourSlug:'db-only',title:'DB only',date:'',adults:2,children:0,infants:0,addons:[],image:'',adultUnit:999,childUnit:999,infantUnit:999,addonTotal:0,total:999}];harness.key.mockResolvedValue('stable-attempt-key');vi.stubGlobal('fetch',harness.fetch)})
 afterEach(()=>{harness.measure=false;vi.unstubAllGlobals();vi.unstubAllEnvs()})
+
+it.each([true, false])('keeps success handling before the acknowledged confirmation handoff: %s', async ready => {
+  const target = '/booking-confirmation?flow=' + 'a'.repeat(32)
+  const assign = vi.fn()
+  const acknowledge = vi.fn(async () => response({ ready }, 200))
+  vi.stubGlobal('window', { location: { href: 'https://starpyramids.com/checkout', assign }, fetch: acknowledge })
+  harness.fetch.mockResolvedValueOnce(response({ reference: 'SP-BK-ABC123', total: 100, guest: true, guestAccessUrl: '/booking/' + 'a'.repeat(43), bookingConfirmationUrl: target }))
+  await find(contact(), element => element.type === 'form')!.props.onSubmit({ preventDefault: vi.fn() })
+  expect(harness.remove).toHaveBeenCalledWith(['submitted'])
+  expect(harness.finish).toHaveBeenCalledWith('stable-attempt-key')
+  expect(acknowledge).toHaveBeenCalledOnce()
+  if (ready) expect(assign).toHaveBeenCalledExactlyOnceWith(target)
+  else {
+    expect(assign).not.toHaveBeenCalled()
+    expect(find(render(), element => element.props.className === 'checkout-receipt')).toBeDefined()
+  }
+})
 const signedInUser=():AuthenticatedUser=>({publicId:'customer-public-id',email:' test@example.com ',firstName:' Test ',lastName:'Customer ',username:'test',countryCode:'EG',phone:' +201234567890 ',status:'ACTIVE',emailVerifiedAt:null,lastLoginAt:null,roles:['CUSTOMER'],permissions:[]})
 function fields(tree:ReactNode){return {name:find(tree,e=>e.props.autoComplete==='name')!,email:find(tree,e=>e.props.autoComplete==='email')!,phone:find(tree,e=>e.props.invalid===false&&typeof e.props.onChange==='function'&&e.props.locale==='en')!}}
 function changedPrice(body:string,extra=2000){const price=JSON.parse(body).acceptedPrice;price.lines[0].base+=extra/2;price.lines[0].units[0]+=extra/2;price.lines[0].originalUnits[0]+=extra/2;price.lines[0].original+=extra;price.lines[0].total+=extra;price.subtotal+=extra;price.total+=extra;return price}

@@ -3,7 +3,8 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { SiteMeasurement } from '@/components/site-measurement'
 import { installEnquiryHistoryTracking } from '@/lib/enquiry-navigation'
 import { TRACKING_CONSENT_STORAGE_KEY } from '@/lib/tracking'
-import { GTM_CONSENT_READY_EVENT } from '@/lib/tracking-browser'
+import { GTM_CONSENT_READY_EVENT, readTrackingGrants } from '@/lib/tracking-browser'
+import { FUNNEL_STORAGE_PREFIX } from '@/lib/booking-funnel'
 import { submitTripRequest } from '@/lib/trip-request-submission'
 import type { MakeYourTripRequestDraft } from '@/lib/trip-request'
 
@@ -72,6 +73,18 @@ it('mounts one Advanced container before a first-visit choice and leaves optiona
   expect(browser.dataLayer).not.toContainEqual({ event: GTM_CONSENT_READY_EVENT })
   browser.dispatchEvent(new Event('hashchange'))
   expect(appendChild).toHaveBeenCalledOnce()
+})
+
+it('drains the existing saved booking once when the clean confirmation container becomes ready', () => {
+  const { browser, script, appendChild } = mount('/booking-confirmation?flow=' + 'a'.repeat(32), false)
+  const event = { event: 'sp_booking_created', event_id: 'bk_' + 'b'.repeat(32), currency: 'USD', value: 100, items: [{ item_id: 'cairo-tour', quantity: 1, price: 100 }] }
+  browser.localStorage.setItem(FUNNEL_STORAGE_PREFIX + event.event_id, JSON.stringify({ event, capturedAt: Date.now(), grants: readTrackingGrants(browser as unknown as Window) }))
+  script.onload?.()
+  browser.dispatchEvent(new Event('online'))
+  browser.dispatchEvent(new Event('hashchange'))
+  expect(browser.dataLayer.filter(entry => (entry as { event?: string }).event === 'sp_booking_created')).toEqual([{ ...event, ads_eligible: false }])
+  expect(appendChild).toHaveBeenCalledOnce()
+  expect(JSON.stringify(browser.dataLayer)).not.toContain('flow=')
 })
 
 it.each(['/contact#contact-enquiry', '/events/cairo-event#event-book', '/egypt-tours/shore-excursions#tour-listing'])(

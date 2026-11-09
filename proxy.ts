@@ -47,6 +47,7 @@ export function proxy(request: NextRequest) {
   requestHeaders.set(TRACKING_ELIGIBLE_HEADER, productionHost && safePage ? '1' : '0');
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   if (!safePage) response.headers.set('Referrer-Policy', 'no-referrer');
+  if (pathname === '/booking-confirmation' || pathname === '/checkout/receipt') response.headers.set('Cache-Control', 'private, no-store');
   return response;
 }
 

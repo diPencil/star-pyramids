@@ -28,6 +28,8 @@ Delivered markers suppress repeated dispatch of the **same persisted record**, i
 
 A new car receipt can be captured locally on an address-bearing car form, without exposing its URL/address to Google. It drains only in an eligible public document, including an already-open same-origin public tab via the existing storage listener. If none exists and the visitor never returns to a safe public page, that lead remains undelivered. Checkout stays protected and its existing booking milestones have the same deliberate deferred-delivery boundary. Do not enable Google on private receipt/account/token pages to remove this limitation. A guaranteed immediate private-page conversion would require a separately designed consent-aware server/isolated relay and external credentials; it is not claimed here.
 
+The later owner-approved [public booking confirmation](google-booking-confirmation.md) automatically provides a safe document after booking success when its HttpOnly handoff is acknowledged. This improves booking lead delivery through the same queue without enabling Google on checkout; the address-bearing car-form limitation above is unchanged.
+
 ## SEO/GTM setup
 
 1. Configure and publish one native Google tag for the correct GA4 Measurement ID. Use the existing Advanced Consent Mode contract. No Custom HTML/extra GA4 loader or second configuration on `sp_consent_ready`.

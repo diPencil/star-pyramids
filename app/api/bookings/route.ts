@@ -10,6 +10,7 @@ import {PriceChanged,QuoteServiceError,TourUnavailable} from '@/lib/server/booki
 import { BOOKING_MARKETING_GRANT_HEADER, BOOKING_MEASUREMENT_HEADER, bookingMeasurementGrants } from '@/lib/booking-measurement';
 import { isProductionTrackingHost } from '@/lib/tracking';
 import { getTrackingSettings } from '@/lib/server/tracking';
+import { bookingConfirmationResponse, confirmationCookieFromHeader } from '@/lib/server/booking-confirmation';
 
 function bodyEmail(body: unknown): string {
   if (typeof body !== 'object' || body === null) return 'unknown';
@@ -99,10 +100,14 @@ export async function POST(request: Request) {
       try { await prepareCheckoutAccount(reference,bodyEmail(body)); }
       catch { await recordCheckoutAccountPreparationFailure(reference).catch(()=>undefined); }
     }
-    if(!booking)return NextResponse.json({success:true,existing:true,reference,guest:true,guestAccessUrl:null,...measurementReply},{status:200,headers:{'Cache-Control':'no-store'}});
+    const confirmation = (payload:Record<string,unknown>,status:number) => bookingConfirmationResponse(payload,status,
+      confirmationCookieFromHeader(request.headers.get('cookie')),userId,
+      {reference,total:booking?booking.total:null,existing:!created,linked:userId!==null,guest:userId===null,
+        email:userId===null?bodyEmail(body):'',guestAccessUrl});
+    if(!booking)return confirmation({success:true,existing:true,reference,guest:true,guestAccessUrl:null,...measurementReply},200);
     // `guestAccessUrl` is the private link minted for a guest checkout; it
     // is null for account bookings, which keep their existing session flow.
-    return NextResponse.json({ ...booking, existing:!created,guestAccessUrl, guest: userId === null, ...measurementReply }, { status: created ? 201 : 200, headers:{'Cache-Control':'no-store'} });
+    return confirmation({ ...booking, existing:!created,guestAccessUrl, guest: userId === null, ...measurementReply },created?201:200);
   } catch (error) {
     return bookingFailure(error);
   }

@@ -46,6 +46,8 @@ SEO owner setup (no Google account changes were made by this code change):
 
 A Tag Assistant “No Google tags found” warning on protected checkout pages is expected under this policy. It does not establish that booking persistence failed. Existing checkout events remain deferred until a safe public document is available; do not solve that delivery limitation by loading arbitrary tags on private pages.
 
+The subsequent owner-approved [safe booking confirmation flow](google-booking-confirmation.md) now establishes that public document automatically after an acknowledged successful booking. Its generic public page drains the same receipt; private details remain in a separate protected document. Optional handoff failures retain the original receipt and deferred fallback.
+
 ### Sitewide URL compatibility review — 9 November 2026
 
 Two ordinary URL producers disagreed with the shared eligibility policy: public section links added fragments that stopped application events, and catalogue filters emitted destination/duration labels that were rejected. This affected successful contact/event leads after their section CTAs as well as ordinary filtered catalogue navigation.

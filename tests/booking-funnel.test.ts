@@ -388,6 +388,28 @@ it('can drain an existing protected checkout receipt on a consented cart without
   expect(checkout.layer).toEqual([])
 })
 
+it.each(['analytics', 'both', 'denied', 'withdrawn'] as const)(
+  'drains a saved multi-tour booking on its clean confirmation once under %s consent', async choice => {
+    const checkout = documentAt('/checkout')
+    setConsent(checkout.local, choice !== 'denied', choice === 'both' ? marketingGrant : undefined)
+    const captured = { ...receipt, grants: { analytics: analyticsGrant, ...(choice === 'both' ? { marketing: marketingGrant } : {}) } }
+    recordBeginCheckout(checkout.browser, environment, ['cairo-tour', 'luxor-tour'])
+    recordBookingReceipt(checkout.browser, environment, captured)
+    if (choice === 'withdrawn') setConsent(checkout.local, false)
+    const confirmation = documentAt('/booking-confirmation?flow=' + 'f'.repeat(32), checkout.local)
+    confirmation.boot(); confirmation.ready()
+    await flushBookingFunnel(confirmation.browser, environment)
+    await flushBookingFunnel(confirmation.browser, environment)
+    const expected = choice === 'analytics' || choice === 'both' ? [{ ...booking, ads_eligible: choice === 'both' }] : []
+    expect(confirmation.layer.filter(entry => (entry as { event?: string }).event === 'sp_booking_created')).toEqual(expected)
+    const reload = documentAt('/booking-confirmation?flow=' + 'f'.repeat(32), checkout.local)
+    reload.boot(); reload.ready(); await flushBookingFunnel(reload.browser, environment)
+    expect(reload.layer).toEqual([])
+    expect(checkout.layer).toEqual([])
+    expect(JSON.stringify(confirmation.layer)).not.toMatch(/SP-BK|email|phone|token|purchase|flow/)
+  },
+)
+
 it('dispatches a single safe cart item only with consent and a production public page', async () => {
   const page = documentAt('/')
   setConsent(page.local, true)

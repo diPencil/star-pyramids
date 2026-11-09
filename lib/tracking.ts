@@ -10,7 +10,7 @@ const GTM_CONTAINER_ID_PATTERN = /^GTM-[A-Z0-9]{4,12}$/
 const PRODUCTION_HOSTS = new Set(['starpyramids.com', 'www.starpyramids.com'])
 const PUBLIC_PAGES = new Set([
   '/', '/about', '/accessible-travel', '/egypt-travel-guide', '/faq', '/privacy',
-  '/rent-car', '/rent-car/request', '/contact', '/terms', '/trips', '/make-your-trip', '/cart',
+  '/rent-car', '/rent-car/request', '/contact', '/terms', '/trips', '/make-your-trip', '/cart', '/booking-confirmation',
 ])
 const CATALOGUE_PATH = /^\/(?:blogs|destinations|egypt-tours|events|special-offers)(?:\/[a-z0-9]{1,32}(?:-[a-z0-9]{1,32})*){0,3}$/
 // Literal section links already rendered by the public site. Unknown fragments
@@ -126,7 +126,8 @@ export function isSafeTrackingUrl(url: URL): boolean {
   const isTourListing = path === '/trips' || path.startsWith('/egypt-tours/')
   const seen = new Set<string>()
   for (const [key, value] of url.searchParams) {
-    const pattern = (path === '/make-your-trip' ? PLANNER_QUERY_VALUES.get(key) : undefined) ??
+    const pattern = (path === '/booking-confirmation' && key === 'flow' ? /^[a-f0-9]{32}$/ : undefined) ??
+      (path === '/make-your-trip' ? PLANNER_QUERY_VALUES.get(key) : undefined) ??
       (path === '/rent-car/request' ? CAR_QUERY_VALUES.get(key) : undefined) ??
       PUBLIC_QUERY_VALUES.get(key) ?? (isTourListing ? CATALOGUE_FILTER_VALUES.get(key) : undefined)
     if (seen.has(key) || value !== value.trim() || !pattern?.test(value)) return false

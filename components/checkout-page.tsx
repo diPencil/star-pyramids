@@ -22,8 +22,9 @@ import { useCurrentUser } from '@/lib/use-current-user'
 import {bookingPriceSnapshot,parseAcceptedPrice,type BookingPriceSnapshot} from '@/lib/booking-price'
 import {CustomerConfirmDialog} from './customer-confirm-dialog'
 import { bookingMeasurementHeaders, recordBeginCheckout, recordBookingReceipt } from '@/lib/booking-funnel'
+import { openBookingConfirmation, type CheckoutReceipt } from '@/lib/booking-confirmation'
 
-type CheckoutReply=Booking&{code?:string;slug?:string;price?:unknown;quote?:string;existing?:boolean;success?:boolean;error?:string;guestAccessUrl?:string|null;guest?:boolean;bookingMeasurement?:unknown}
+type CheckoutReply=Booking&{code?:string;slug?:string;price?:unknown;quote?:string;existing?:boolean;success?:boolean;error?:string;guestAccessUrl?:string|null;guest?:boolean;bookingMeasurement?:unknown;bookingConfirmationUrl?:unknown}
 
 /**
  * Checkout (Phase 2E: real backend).
@@ -33,7 +34,7 @@ type CheckoutReply=Booking&{code?:string;slug?:string;price?:unknown;quote?:stri
  * reference. A per-attempt idempotency key makes double clicks, slow
  * networks, and re-renders create exactly ONE booking.
  */
-export function CheckoutPage({ measureBookings = false }: { measureBookings?: boolean } = {}) {
+export function CheckoutPage({ measureBookings = false, initialReceipt = null }: { measureBookings?: boolean; initialReceipt?: CheckoutReceipt | null } = {}) {
   const { currency, locale } = useLocale()
   const { items } = useCart()
   const catalogue = useCartCatalogue(items)
@@ -56,7 +57,7 @@ export function CheckoutPage({ measureBookings = false }: { measureBookings?: bo
   const pending = useRef(false)
   const [recovery, setRecovery] = useState<'idle' | 'sending' | 'accepted' | 'error'>('idle')
   const [submitError, setSubmitError] = useState('')
-  const [placed, setPlaced] = useState<{ reference: string; total: number|null; existing:boolean;linked: boolean; guest: boolean; email: string; guestAccessUrl: string | null } | null>(null)
+  const [placed, setPlaced] = useState<CheckoutReceipt | null>(initialReceipt)
   const [priceChange,setPriceChange]=useState<{previous:BookingPriceSnapshot;price:BookingPriceSnapshot;quote:string}|null>(null)
   const [unavailable,setUnavailable]=useState<string[]>([])
   const lastRequest=useRef<{body:BookingCheckoutDraft&{acceptedPrice:BookingPriceSnapshot;priceQuote?:string};keys:string[]}|null>(null)
@@ -106,6 +107,9 @@ export function CheckoutPage({ measureBookings = false }: { measureBookings?: bo
         setPlaced({ reference: data.reference, total: safeReplay?null:data.total,existing:data.existing===true, linked, guest: data.guest === true || !!guestAccessUrl, email: draftEmail, guestAccessUrl })
         removeCartItems(submittedKeys)
         finishCheckoutAttempt(idempotencyKey)
+        // Optional handoff happens after all existing success handling. Any
+        // failure preserves the successful private receipt shown above.
+        if (typeof window !== 'undefined') await openBookingConfirmation(window, data.bookingConfirmationUrl)
   }
 
   const placeOrder = async (e: Pick<FormEvent,'preventDefault'>, confirmation?: {price:BookingPriceSnapshot;quote:string}) => {
