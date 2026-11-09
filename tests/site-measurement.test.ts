@@ -74,6 +74,40 @@ it('mounts one Advanced container before a first-visit choice and leaves optiona
   expect(appendChild).toHaveBeenCalledOnce()
 })
 
+it.each(['/contact#contact-enquiry', '/events/cairo-event#event-book', '/egypt-tours/shore-excursions#tour-listing'])(
+  'loads once on a reviewed public anchor without granting optional consent: %s', path => {
+    const { browser, script, appendChild } = mount(path, false, false)
+    script.onload?.()
+    browser.dispatchEvent(new Event('hashchange'))
+    expect(appendChild).toHaveBeenCalledOnce()
+    expect(browser.dataLayer).not.toContainEqual({ event: GTM_CONSENT_READY_EVENT })
+    expect(JSON.stringify(browser.dataLayer)).not.toContain('#')
+  },
+)
+
+it('preserves consented tracking across public anchors but denies unknown fragments', () => {
+  const { browser, origin, script, appendChild } = mount('/contact', false)
+  script.onload?.()
+  browser.history.pushState(null, '', '/contact#contact-enquiry')
+  expect(appendChild).toHaveBeenCalledOnce()
+  browser.history.replaceState(null, '', '/contact#private-token')
+  expect(browser.dataLayer.at(-1)).toMatchObject({ 0: 'consent', 1: 'update', 2: { analytics_storage: 'denied', ad_storage: 'denied' } })
+  browser.history.replaceState(null, '', '/contact#contact-enquiry')
+  expect(browser.location.href).toBe(origin + '/contact#contact-enquiry')
+  expect(appendChild).toHaveBeenCalledOnce()
+  expect(browser.dataLayer.at(-1)).toEqual({ event: GTM_CONSENT_READY_EVENT })
+  expect(JSON.stringify(browser.dataLayer)).not.toContain('private-token')
+})
+it('initializes the cart with denied defaults and preserves denial on a client transition to checkout', () => {
+  const { browser, script, appendChild } = mount('/cart', false, false)
+  script.onload?.()
+  expect(appendChild).toHaveBeenCalledOnce()
+  expect(browser.dataLayer).not.toContainEqual({ event: GTM_CONSENT_READY_EVENT })
+  browser.history.pushState(null, '', '/checkout')
+  expect(appendChild).toHaveBeenCalledOnce()
+  expect(browser.dataLayer).not.toContainEqual({ event: GTM_CONSENT_READY_EVENT })
+})
+
 it.each([false, true])('the real GTM-ready listener drains the planner receipt while respecting withdrawal: %s', async withdraw => {
   const { browser, script, appendChild } = mount('/make-your-trip?from=2026-11-27&to=2026-11-30', false)
   const event = { event: 'trip_request_created', event_id: 'tr_' + 'a'.repeat(32) }

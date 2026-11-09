@@ -39,6 +39,30 @@ function fixture(path = '/', consent = granted, id: string | null = 'GTM-KQ8GR36
 }
 
 describe('public page views', () => {
+  it('keeps public section navigation measured without duplicate page views or fragments', () => {
+    const page = fixture('/contact')
+    const observe = createPageViewTracker()
+    const commit = { pathname: '/contact', search: '', enabled: true }
+    expect(observe(page.browser, 'production', commit)).toBe(true)
+    page.location.href = origin + '/contact#contact-enquiry'
+    expect(observe(page.browser, 'production', commit)).toBe(false)
+    expect(page.dataLayer).toEqual([{ event: 'sp_page_view', page_path: '/contact', page_location: origin + '/contact', page_title: 'Contact Us | STAR PYRAMIDS' }])
+    expect(queuePublicInteraction(page.browser, 'production', { event: 'sp_cta_click', ctaId: 'hero_primary' })).toBe(true)
+    page.location.href = origin + '/contact#private-token'
+    expect(queuePublicInteraction(page.browser, 'production', { event: 'sp_cta_click', ctaId: 'hero_primary' })).toBe(false)
+    expect(JSON.stringify(page.dataLayer)).not.toContain('#')
+  })
+  it('counts the sanitized cart once and blocks private checkout transitions', () => {
+    const page = fixture('/cart?gtm_debug=x&page=2')
+    const observe = createPageViewTracker()
+    const commit = { pathname: '/cart', search: 'gtm_debug=x&page=2', enabled: true }
+    expect(observe(page.browser, 'production', commit)).toBe(true)
+    expect(observe(page.browser, 'production', commit)).toBe(false)
+    expect(page.dataLayer).toEqual([{ event: 'sp_page_view', page_path: '/cart', page_location: `${origin}/cart`, page_title: 'Cart | STAR PYRAMIDS' }])
+    page.location.href = origin + '/checkout'
+    expect(observe(page.browser, 'production', { pathname: '/checkout', search: '', enabled: true })).toBe(false)
+    expect(page.dataLayer).toHaveLength(1)
+  })
   it('uses a fixed planner title and canonical URL without dates, source or guest counts', () => {
     expect(publicPageView(new URL(`${origin}/make-your-trip?from=2026-11-27&to=2026-11-30&guests=2&utm_source=google`), 'production'))
       .toEqual({ event: 'sp_page_view', page_path: '/make-your-trip', page_location: `${origin}/make-your-trip`, page_title: 'Plan Your Egypt Trip | STAR PYRAMIDS' })

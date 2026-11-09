@@ -45,6 +45,26 @@ function finishLoading(browser: ReturnType<typeof browserAt>['browser']) {
 }
 
 describe('Google Tag Manager configuration', () => {
+  it('loads the public cart before acceptance exactly once without granting optional consent', () => {
+    const { browser, window } = browserAt(production + '/cart?gtm_debug=x')
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production', 'advanced')
+    finishLoading(browser)
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production', 'advanced')
+    expect(browser.document.head.appendChild).toHaveBeenCalledOnce()
+    expect(isGtmReady(window)).toBe(true)
+    expect(analyticsDataLayer(window, 'production')).toBeUndefined()
+    expect(browser.dataLayer).not.toContainEqual({ event: GTM_CONSENT_READY_EVENT })
+    expect(sanitizeMeasurementUrl(browser.location.href, 'production')).toBe(production + '/cart')
+  })
+
+  it.each(['/cart?token=private', '/cart?email=private%40example.com', '/cart#private', '/checkout', '/booking/private', '/account/bookings'])(
+    'keeps sensitive cart and booking locations unmeasured: %s', path => {
+      const { browser, window } = browserAt(production + path)
+      initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, { analytics: true, marketing: true }, 'production', 'advanced')
+      expect(browser.document.head.appendChild).not.toHaveBeenCalled()
+      expect(browser.dataLayer).toEqual([])
+    },
+  )
   it('preserves old explicit choices and supplies stable category grants across reloads and tabs', () => {
     const { browser, window } = browserAt(production, '{"analytics":true,"marketing":false}')
     expect(readTrackingConsent(window)).toEqual({ analytics: true, marketing: false })

@@ -18,7 +18,7 @@ Use one Google tag with the intended GA4 destination. An Initialization trigger 
 
 For the additional contact/help, car and event forms, see [Public form lead tracking and handoff](google-form-lead-tracking.md), including the intentionally deferred private/address-bearing cases.
 
-The public `/make-your-trip` route is now eligible, including typed public entry dates, tour/destination slugs, bounded traveler counts, add-on indexes and the existing validated campaign/debug parameters. Duplicate keys, invalid dates, free text, contact details, edit/reference/token parameters and fragments remain excluded. Admin/account/preview and booking access links remain excluded. Application page views use the fixed title `Plan Your Egypt Trip | STAR PYRAMIDS` and canonical `/make-your-trip` URL, omitting all planner query values. The explicit page-view flag is unchanged.
+The public `/make-your-trip` route is now eligible, including typed public entry dates, tour/destination slugs, bounded traveler counts, add-on indexes and the existing validated campaign/debug parameters. Duplicate keys, invalid dates, free text, contact details, edit/reference/token parameters and planner fragments remain excluded. Admin/account/preview and booking access links remain excluded. Application page views use the fixed title `Plan Your Egypt Trip | STAR PYRAMIDS` and canonical `/make-your-trip` URL, omitting all planner query values. The explicit page-view flag is unchanged.
 
 Older saved consent choices containing booleans without category grant IDs now receive browser-local grant metadata bound to the exact saved record, so existing explicit choices remain usable for lead measurement. This does not grant a denied category or rewrite the consent choice. A concurrent withdrawal wins; unavailable metadata storage fails closed. The metadata is shared across tabs/reloads and never enters tracking payloads. Current consent records containing grant IDs use their existing IDs unchanged.
 
@@ -37,6 +37,40 @@ SEO owner setup (no Google account changes were made by this code change):
 5. Preserve one page-view strategy according to the existing explicit-page-view flag. Do not enable additional history/page-view mechanisms as part of this lead setup. Validate in Preview that defaults are denied before loading, saved choices update correctly and the lead dispatches once after a consented successful request. Then review and publish the container. DebugView/Ads delivery and the actual published settings remain external verification steps; use isolated test transactions, never real customer details.
 
 ## CSP findings and narrow fix
+
+### Cart boundary update — 9 November 2026
+
+`/cart` is eligible for the existing production-only loader, including the bounded Tag Assistant signal. It displays selected public tour products without the checkout's name/email/phone fields or private booking links. Application page views use the fixed `Cart | STAR PYRAMIDS` title and canonical `/cart`, stripping query parameters. This does not activate the explicit page-view flag, add conversions or configure Google tags.
+
+`/checkout`, account/authentication and token-bearing booking pages remain excluded. The proxy requires a fresh document when navigating from the now-eligible cart to checkout, so the previous document's GTM cannot follow the SPA into the private form. Sensitive cart query parameters and fragments are also excluded. An already-loaded external tag cannot be cancelled by an application event guard; retain the published-container privacy review and avoid automatic form/user-data collection.
+
+A Tag Assistant “No Google tags found” warning on protected checkout pages is expected under this policy. It does not establish that booking persistence failed. Existing checkout events remain deferred until a safe public document is available; do not solve that delivery limitation by loading arbitrary tags on private pages.
+
+### Sitewide URL compatibility review — 9 November 2026
+
+Two ordinary URL producers disagreed with the shared eligibility policy: public section links added fragments that stopped application events, and catalogue filters emitted destination/duration labels that were rejected. This affected successful contact/event leads after their section CTAs as well as ordinary filtered catalogue navigation.
+
+The shared policy now accepts only reviewed literal section anchors on their owning public routes (for example `/contact#contact-enquiry`, `/events/<slug>#event-book` and the existing catalogue section CTAs). Unknown or modified fragments, anchors on private routes, and unsafe query combinations remain excluded. Every application URL payload strips fragments. A section jump does not create a second explicit page view. Existing tags can still read the actual document; application guards cannot cancel a third-party request or attest its DOM-reading configuration.
+
+Catalogue filters accept reviewed public place names/combinations already present in the reference catalogue, plus bounded numeric hour/day/night labels and the existing fixed duration options. They do not accept arbitrary text. New CMS place names and other unreviewed label formats continue to fail closed until reviewed. The dropdowns and application routing are unchanged; free-text `q` search, transfer addresses and private request-edit URLs remain excluded.
+
+`tests/tracking-route-policy.test.ts` inventories every current `app/**/page.tsx`. New routes must receive an explicit public/private decision. It checks public document/Flight eligibility, protected boundaries, payload sanitization, and compatibility with all reference-catalogue location/duration values. Related loader, page-view and form-receipt tests cover first loads, section navigation, consent and deduplication. This is automated code verification, not browser or Google delivery verification.
+
+| Journey | Intended behavior |
+| --- | --- |
+| Reviewed public pages and static section links | One Advanced GTM loader; denied defaults before execution; application events require verified Analytics consent |
+| Reviewed public catalogue filters, planner, contact and event forms | Safe payloads; leads only after persistence; no raw fields or fragments |
+| Checkout, booking access, login/account/admin/preview | No GTM; fresh document boundary; booking receipts may drain later on an eligible public page/tab |
+| Search text, unknown parameters/fragments or transfer addresses | Fail closed; no promise of tag detection or immediate lead delivery |
+| Reject all or Marketing-only | No application Analytics events; approved Google cookieless signals may still occur |
+| Analytics-only | Application events permitted; lead `ads_eligible` remains false |
+| Withdraw/regrant | Old lead grants are not revived; current consent always applies |
+
+Production sign-off still requires a single published native Google tag with the intended GA4 destination; exact Custom Event tags for `sp_page_view` (only after explicit cutover), `sp_navigation_click`, `sp_select_item`, `sp_book_now_click`, `sp_search_submit`, `sp_cta_click`, `sp_contact_click`, `sp_add_to_cart`, `sp_begin_checkout`, `sp_booking_created`, `trip_request_created`, `enquiry_created`, `car_request_created` and `event_request_created`; and matching version-2 variables. Keep one page-view strategy, built-in Consent Mode checks, Analytics consent for application events, and captured/current Marketing eligibility for Ads leads. Application delivered markers suppress duplicate enqueueing; map the stable lead `event_id` to the Ads tag's transaction/order ID. A GA4 `event_id` parameter alone is not a universal custom-event deduplication guarantee. Disable automatic form/user-provided-data collection. Do not configure unpaid bookings as purchases.
+
+Do not interpret an empty container, missing Google credentials, denied consent, an excluded URL, a blocked browser request, and missing GA4 reception as the same failure. Health Monitor reports these independently. Live publication, destination ownership, Preview/DebugView delivery, CSP console violations and browser blockers remain external verification; local tests do not prove them.
+
+Read-only public-resource inspection repeated on 9 November returned HTTP 200 (333,357 bytes), with empty `tags` and `rules` arrays and no `__googtag`, `__gaawc` or `__gaawe` tag types in that response. The script was not executed and no events were sent. This limited public evidence still requires the SEO owner to inspect the correct account/container's published version; it does not reveal unpublished workspace changes or prove that every visitor receives the same response.
 
 Read-only HTTPS inspection of `/`, `/trips`, and `/privacy` returned only `Content-Security-Policy: upgrade-insecure-requests`, no Report-Only header and no meta CSP. This directive does not block HTTPS Google scripts. There is no page-level CSP builder in `proxy.ts` or `next.config.mjs`. The image optimizer's `script-src 'none'` policy protects SVG/image responses; it must remain unchanged. Iframe-specific policies must likewise not be weakened to address a page-level warning.
 

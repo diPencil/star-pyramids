@@ -9,6 +9,13 @@ const eligibility = 'x-middleware-request-x-sp-tracking-eligible'
 afterEach(() => vi.unstubAllEnvs())
 
 describe('measurement document boundary', () => {
+  it('admits the cart on direct and public Flight loads while forcing a fresh private checkout document', () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    expect(proxy(new NextRequest(`${origin}/cart`)).headers.get(eligibility)).toBe('1')
+    expect(proxy(new NextRequest(`${origin}/cart?gtm_debug=x&_rsc=transport`, { headers: { rsc: '1', referer: `${origin}/trips` } })).headers.get(eligibility)).toBe('1')
+    expect(proxy(new NextRequest(`${origin}/checkout?_rsc=transport`, { headers: { rsc: '1', referer: `${origin}/cart` } })).status).toBe(204)
+    expect(proxy(new NextRequest(`${origin}/cart?email=private%40example.com`)).headers.get(eligibility)).toBe('0')
+  })
   it('admits contact and public car forms but never address-bearing or edit car URLs', () => {
     vi.stubEnv('NODE_ENV', 'production')
     for (const path of ['/contact', '/rent-car/request', '/rent-car/request?vehicle=van&type=One%20Way&date=2026-11-27']) {

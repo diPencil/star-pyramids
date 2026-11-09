@@ -10,9 +10,27 @@ const GTM_CONTAINER_ID_PATTERN = /^GTM-[A-Z0-9]{4,12}$/
 const PRODUCTION_HOSTS = new Set(['starpyramids.com', 'www.starpyramids.com'])
 const PUBLIC_PAGES = new Set([
   '/', '/about', '/accessible-travel', '/egypt-travel-guide', '/faq', '/privacy',
-  '/rent-car', '/rent-car/request', '/contact', '/terms', '/trips', '/make-your-trip',
+  '/rent-car', '/rent-car/request', '/contact', '/terms', '/trips', '/make-your-trip', '/cart',
 ])
 const CATALOGUE_PATH = /^\/(?:blogs|destinations|egypt-tours|events|special-offers)(?:\/[a-z0-9]{1,32}(?:-[a-z0-9]{1,32})*){0,3}$/
+// Literal section links already rendered by the public site. Unknown fragments
+// may contain credentials; never treat a well-formed fragment as safe by itself.
+const PUBLIC_ANCHORS: Readonly<Record<string, readonly string[]>> = {
+  '/about': ['#our-story', '#travel-styles'],
+  '/contact': ['#contact-enquiry'],
+  '/rent-car': ['#fleet'],
+  '/destinations': ['#destinations-catalogue'],
+  '/blogs': ['#blog-stories'],
+  '/special-offers': ['#current-offers'],
+  '/egypt-tours/one-day-tours': ['#one-day-regions'],
+  '/egypt-tours/multi-days-tours': ['#multi-day-categories'],
+  '/egypt-tours/nile-cruises': ['#cruise-types'],
+  '/egypt-tours/shore-excursions': ['#tour-listing'],
+}
+const EVENT_DETAIL = /^\/events\/[a-z0-9]{1,32}(?:-[a-z0-9]{1,32})*$/
+const DESTINATION_DETAIL = /^\/destinations\/[a-z0-9]{1,32}(?:-[a-z0-9]{1,32})*$/
+const REVIEWED_PUBLIC_PLACES = 'Alexandria|Aswan|Cairo|Giza|Hurghada|Luxor|Nile Valley|Port Said|Red Sea|Sharm El Sheikh|White Desert'
+const PUBLIC_DESTINATION_FILTER = new RegExp(`^(?:${REVIEWED_PUBLIC_PLACES})(?:(?:, | & )(?:${REVIEWED_PUBLIC_PLACES})){0,5}$`)
 const CLICK_ID = /^[A-Za-z0-9_-]{1,256}$/
 // Campaign labels are bounded words or slugs. Exclude URLs, email addresses,
 // phone-only strings and control characters after URL decoding.
@@ -43,7 +61,10 @@ const PUBLIC_QUERY_VALUES: ReadonlyMap<string, RegExp> = new Map([
 ])
 const CATALOGUE_FILTER_VALUES: ReadonlyMap<string, RegExp> = new Map([
   ['category', /^(?:one-day-tours|multi-days-tours|nile-cruises|shore-excursions)$/],
-  ['duration', /^(?:day|short|long)$/],
+  // Public dropdown values, not arbitrary location or duration text. New CMS
+  // place names require review; unrecognized values continue to fail closed.
+  ['destination', PUBLIC_DESTINATION_FILTER],
+  ['duration', /^(?:day|short|long|Full Day|Duration on request|(?:About )?[1-9][0-9]? (?:Hours?|Days?|Nights?))$/],
   ['price', /^(?:under-200|200-400|over-400)$/],
   ['sort', /^(?:Recommended|Price: low to high|Price: high to low)$/],
 ])
@@ -96,9 +117,12 @@ export function isProductionTrackingHost(environment: string | undefined, host: 
 /** Allow only public catalogue URLs and typed parameters. A tag can read the
  * actual URL, so dropping a parameter from a payload alone is insufficient. */
 export function isSafeTrackingUrl(url: URL): boolean {
-  if (url.hash || url.username || url.password) return false
+  if (url.username || url.password) return false
   const path = url.pathname.replace(/\/$/, '') || '/'
   if (!PUBLIC_PAGES.has(path) && !CATALOGUE_PATH.test(path)) return false
+  if (url.hash && !PUBLIC_ANCHORS[path]?.includes(url.hash) &&
+      !(EVENT_DETAIL.test(path) && ['#event-book', '#event-program'].includes(url.hash)) &&
+      !(DESTINATION_DETAIL.test(path) && url.hash === '#destination-experiences')) return false
   const isTourListing = path === '/trips' || path.startsWith('/egypt-tours/')
   const seen = new Set<string>()
   for (const [key, value] of url.searchParams) {

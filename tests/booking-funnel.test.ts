@@ -76,6 +76,9 @@ const formCases: [FormLeadType, FormLeadName, string][] = [
   ['home_help', 'enquiry_created', '/'], ['shared_help', 'enquiry_created', '/egypt-tours/cairo-tour'],
   ['contact', 'enquiry_created', '/contact'], ['car_request', 'car_request_created', '/rent-car/request?vehicle=van'],
   ['event_request', 'event_request_created', '/events/cairo-event'],
+  ['contact', 'enquiry_created', '/contact#contact-enquiry'],
+  ['event_request', 'event_request_created', '/events/cairo-event#event-book'],
+  ['event_request', 'event_request_created', '/events/cairo-event#event-program'],
 ]
 
 it.each(formCases)('dispatches a persisted %s lead once with only safe fields', (form, event, path) => {
@@ -373,6 +376,16 @@ it('queues checkout and receipt across refresh and drains them once on a ready p
   later.ready()
   await flushBookingFunnel(later.browser, environment)
   expect(later.layer).toEqual([])
+})
+
+it('can drain an existing protected checkout receipt on a consented cart without loading Google on checkout', async () => {
+  const checkout = documentAt('/checkout'); setConsent(checkout.local, true)
+  recordBookingReceipt(checkout.browser, environment, receipt)
+  const cart = documentAt('/cart', checkout.local); cart.boot(); cart.ready()
+  await flushBookingFunnel(cart.browser, environment)
+  await flushBookingFunnel(cart.browser, environment)
+  expect(cart.layer).toEqual([analyticsLead])
+  expect(checkout.layer).toEqual([])
 })
 
 it('dispatches a single safe cart item only with consent and a production public page', async () => {
