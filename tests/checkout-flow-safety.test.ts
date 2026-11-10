@@ -53,6 +53,41 @@ it.each([true, false])('keeps success handling before the acknowledged confirmat
   }
 })
 const signedInUser=():AuthenticatedUser=>({publicId:'customer-public-id',email:' test@example.com ',firstName:' Test ',lastName:'Customer ',username:'test',countryCode:'EG',phone:' +201234567890 ',status:'ACTIVE',emailVerifiedAt:null,lastLoginAt:null,roles:['CUSTOMER'],permissions:[]})
+it.each([
+  ['en', 'Your price confirmation could not be verified. Review your cart and try again.'],
+  ['es', 'No se pudo verificar la confirmación del precio. Revisa el carrito y vuelve a intentarlo.'],
+  ['it', 'Impossibile verificare la conferma del prezzo. Controlla il carrello e riprova.'],
+] as const)('renders the localized API rejection through the real checkout catch path in %s', async (locale, expected) => {
+  harness.locale = locale
+  harness.user = signedInUser()
+  try {
+    harness.fetch.mockResolvedValue(response({ error: 'Invalid price confirmation. Review your cart and try again.' }, 400))
+    await find(render(), element => element.type === 'form')!.props.onSubmit({ preventDefault: vi.fn() })
+    expect(harness.fetch).toHaveBeenCalledTimes(1)
+    expect(harness.fetch.mock.calls[0][0]).toBe('/api/bookings')
+    expect(harness.fetch.mock.calls[0][1]).toMatchObject({ method: 'POST', credentials: 'same-origin' })
+    expect(find(render(), element => element.props.role === 'alert' && element.props.className === 'co-error')!.props.children).toContain(expected)
+    expect(harness.remove).not.toHaveBeenCalled()
+    expect(harness.finish).not.toHaveBeenCalled()
+  } finally { harness.locale = 'en' }
+})
+
+it.each([
+  ['es', 'No se pudo enviar la solicitud. Inténtalo de nuevo.'],
+  ['it', 'Impossibile inviare la richiesta. Riprova.'],
+] as const)('uses the localized safe fallback for an unknown checkout failure in %s', async (locale, expected) => {
+  harness.locale = locale
+  harness.user = signedInUser()
+  try {
+    harness.fetch.mockResolvedValue(response({ error: 'private internal service diagnostic' }, 503))
+    await find(render(), element => element.type === 'form')!.props.onSubmit({ preventDefault: vi.fn() })
+    const children = find(render(), element => element.props.role === 'alert' && element.props.className === 'co-error')!.props.children
+    expect(children).toContain(expected)
+    expect(children).not.toContain('private internal service diagnostic')
+    expect(harness.remove).not.toHaveBeenCalled()
+    expect(harness.finish).not.toHaveBeenCalled()
+  } finally { harness.locale = 'en' }
+})
 function fields(tree:ReactNode){return {name:find(tree,e=>e.props.autoComplete==='name')!,email:find(tree,e=>e.props.autoComplete==='email')!,phone:find(tree,e=>e.props.invalid===false&&typeof e.props.onChange==='function'&&e.props.locale==='en')!}}
 function changedPrice(body:string,extra=2000){const price=JSON.parse(body).acceptedPrice;price.lines[0].base+=extra/2;price.lines[0].units[0]+=extra/2;price.lines[0].originalUnits[0]+=extra/2;price.lines[0].original+=extra;price.lines[0].total+=extra;price.subtotal+=extra;price.total+=extra;return price}
 it.each([['en','Accept Updated Price'],['es','Aceptar el precio actualizado'],['it','Accetta il prezzo aggiornato']] as const)('offers explicit localized price acceptance in %s',async(locale,label)=>{

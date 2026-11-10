@@ -58,6 +58,8 @@ import { ENABLED_LOCALES, LOCALE_LABELS, LOCALE_SHORT_LABELS, type EnabledLocale
 import { customerErrorText } from '@/lib/customer-error-copy'
 import { useAuthenticatedUser } from '@/components/authenticated-user'
 import { useMobileDrawer } from '@/lib/use-mobile-drawer'
+import { CustomerTripRequestsPage } from '@/components/account-custom-trip'
+import { CustomerEventRequestsPage } from '@/components/account-event-requests'
 
 export type AccountSection = 'overview' | 'bookings' | 'car-requests' | 'event-requests' | 'trip-requests' | 'favorites' | 'payments' | 'messages' | 'profile' | 'settings' | 'change-password'
 
@@ -1892,5 +1894,8 @@ function ChangePasswordSection() {
 }
 
 export function CustomerAccountPage({ section = 'overview' }: { section?: AccountSection }) {
+  // These dedicated pages already own their locale provider and account shell.
+  if (section === 'trip-requests') return <CustomerTripRequestsPage />
+  if (section === 'event-requests') return <CustomerEventRequestsPage />
   return <LocaleProvider><AccountShell section={section}>{section === 'overview' ? <OverviewSection /> : section === 'bookings' ? <BookingsSection /> : section === 'car-requests' ? <CarRequestsSection /> : section === 'favorites' ? <FavoritesSection /> : section === 'payments' ? <PaymentsSection /> : section === 'messages' ? <MessagesSection /> : section === 'settings' ? <SettingsSection /> : section === 'change-password' ? <ChangePasswordSection /> : <PersonalProfileSection />}</AccountShell></LocaleProvider>
 }

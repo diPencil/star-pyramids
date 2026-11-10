@@ -7,9 +7,75 @@
 // 4. Price tampering  -  booking draft rejects client-supplied prices
 // 5. Guest token access control  -  malformed/expired/revoked tokens
 // 6. Server-authoritative booking totals (discount applied server-side)
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createHash } from 'node:crypto';
 
 vi.mock('server-only', () => ({}));
+
+// Mock persistence and the cookie jar only. Auth, ownership checks, token
+// verification, CSRF, rate limits and response projections execute unchanged.
+// Hoisted module mocks survive the resetModules calls below.
+const isolated = vi.hoisted(() => ({
+  db: {
+    booking: { findUnique: vi.fn(), update: vi.fn() },
+    payment: { findUnique: vi.fn() },
+    bookingAccessToken: { findUnique: vi.fn(), updateMany: vi.fn() },
+    bookingAttempt: { count: vi.fn(), findFirst: vi.fn() },
+    session: { findUnique: vi.fn(), update: vi.fn(), delete: vi.fn() },
+    user: { findUnique: vi.fn() },
+    rolePermission: { findMany: vi.fn() },
+    $transaction: vi.fn(),
+  },
+  cookies: { get: vi.fn(), set: vi.fn(), delete: vi.fn() },
+}));
+vi.mock('@/lib/server/db', () => ({ db: isolated.db }));
+vi.mock('next/headers', () => ({ cookies: async () => isolated.cookies, headers: () => new Headers() }));
+
+beforeEach(() => {
+  vi.resetAllMocks();
+  const unexpected = async () => { throw new Error('Unexpected isolated database call; configure the fixture explicitly.'); };
+  for (const delegate of Object.values(isolated.db)) {
+    if (typeof delegate === 'function') delegate.mockImplementation(unexpected);
+    else for (const method of Object.values(delegate)) method.mockImplementation(unexpected);
+  }
+  isolated.cookies.get.mockReturnValue(undefined);
+});
+afterEach(() => vi.useRealTimers());
+
+function bookingRow(userId: string | null = 'user-b-id') {
+  const date = new Date('2026-11-09T12:00:00Z');
+  return {
+    id: 'booking-b', reference: 'SP-BK-ABC123', userId, status: 'PENDING', paymentStatus: 'PENDING',
+    currency: 'USD', subtotal: '100.00', discount: '0.00', total: '100.00',
+    contactName: 'Test Customer', contactEmail: 'customer@example.test', contactPhone: '+12025550123',
+    notes: null, createdAt: date, updatedAt: date, items: [], activities: [], payments: [],
+  };
+}
+function paymentRow(userId: string | null = 'user-b-id') {
+  const date = new Date('2026-11-09T12:00:00Z');
+  return {
+    id: 'payment-b', reference: 'SP-PAY-ABC123', status: 'PENDING', currency: 'USD',
+    provider: 'offline', providerPaymentId: null, amount: '100.00', amountPaid: '0.00', amountRefunded: '0.00',
+    failureCode: null, failureMessage: null, initiatedAt: date, createdAt: date, updatedAt: date,
+    paidAt: null, failedAt: null, cancelledAt: null, refundedAt: null, events: [],
+    booking: { reference: 'SP-BK-ABC123', userId, user: null },
+  };
+}
+function authenticateCustomer() {
+  isolated.cookies.get.mockImplementation((name: string) => name === 'sp_session' ? { value: 'session-token-a' } : undefined);
+  isolated.db.session.findUnique.mockResolvedValue({ id: 'session-a', userId: 'user-a-id', expiresAt: new Date(Date.now() + 3600_000) });
+  isolated.db.session.update.mockResolvedValue({});
+  isolated.db.session.delete.mockResolvedValue({});
+  const user = {
+    id: 'user-a-id', publicId: 'SP-U-AAAAAA', email: 'a@example.test', status: 'ACTIVE',
+    firstName: 'Customer', lastName: 'A', username: null, countryCode: null, phone: null, avatar: null,
+    emailVerifiedAt: null, lastLoginAt: null, createdAt: new Date(), updatedAt: new Date(),
+    roles: [{ role: { key: 'CUSTOMER' } }],
+  };
+  isolated.db.user.findUnique.mockResolvedValue(user);
+  isolated.db.rolePermission.findMany.mockResolvedValue([]);
+  return user;
+}
 
 // ─── CSRF ──────────────────────────────────────────────────────────────────
 
@@ -180,6 +246,7 @@ describe('guest booking access token', () => {
     await expect(resolveGuestBookingToken('')).rejects.toThrow('This booking link is not valid.');
     await expect(resolveGuestBookingToken('short')).rejects.toThrow('This booking link is not valid.');
     await expect(resolveGuestBookingToken('a'.repeat(100))).rejects.toThrow('This booking link is not valid.');
+    expect(isolated.db.bookingAccessToken.findUnique).not.toHaveBeenCalled();
   });
 
   it('rejects tokens with invalid characters', async () => {
@@ -189,9 +256,37 @@ describe('guest booking access token', () => {
   });
 
   it('returns uniform denial for unknown tokens', async () => {
+    isolated.db.bookingAccessToken.findUnique.mockResolvedValue(null);
     const { resolveGuestBookingToken } = await import('@/lib/server/booking-access');
     const unknown = 'a'.repeat(43);
     await expect(resolveGuestBookingToken(unknown)).rejects.toThrow('This booking link is not valid.');
+    expect(isolated.db.bookingAccessToken.findUnique).toHaveBeenCalledWith(expect.objectContaining({
+      where: { tokenHash: createHash('sha256').update(unknown).digest('hex') },
+    }));
+    expect(isolated.db.bookingAccessToken.updateMany).not.toHaveBeenCalled();
+  });
+
+  it.each(['expired', 'revoked', 'account-owned', 'missing-booking'])('denies a %s token through the real verifier', async condition => {
+    const row = {
+      bookingRef: 'SP-BK-ABC123', revokedAt: condition === 'revoked' ? new Date() : null,
+      expiresAt: new Date(Date.now() + (condition === 'expired' ? -1000 : 3600_000)),
+      booking: condition === 'missing-booking' ? null : { userId: condition === 'account-owned' ? 'user-b-id' : null },
+    };
+    isolated.db.bookingAccessToken.findUnique.mockResolvedValue(row);
+    const { resolveGuestBookingToken } = await import('@/lib/server/booking-access');
+    await expect(resolveGuestBookingToken('a'.repeat(43))).rejects.toThrow('This booking link is not valid.');
+    expect(isolated.db.bookingAccessToken.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('accepts a live guest token and stamps only the matching token hash', async () => {
+    isolated.db.bookingAccessToken.findUnique.mockResolvedValue({ bookingRef: 'SP-BK-ABC123', revokedAt: null, expiresAt: new Date(Date.now() + 3600_000), booking: { userId: null } });
+    isolated.db.bookingAccessToken.updateMany.mockResolvedValue({ count: 1 });
+    const { resolveGuestBookingToken } = await import('@/lib/server/booking-access');
+    const token = 'a'.repeat(43);
+    expect(await resolveGuestBookingToken(token)).toEqual({ reference: 'SP-BK-ABC123' });
+    expect(isolated.db.bookingAccessToken.updateMany).toHaveBeenCalledWith({
+      where: { tokenHash: createHash('sha256').update(token).digest('hex') }, data: { lastUsedAt: expect.any(Date) },
+    });
   });
 });
 
@@ -410,24 +505,117 @@ describe('account ownership isolation', () => {
   it('getCustomerBooking returns null for foreign booking', async () => {
     vi.resetModules();
     const { getCustomerBooking } = await import('@/lib/server/bookings');
-    // Mock: booking belongs to user B, requesting user A
-    const result = await getCustomerBooking('user-a-id', 'SP-BK-XXXXXX');
-    // Without DB, returns null (not found)
+    isolated.db.booking.findUnique.mockResolvedValue(bookingRow());
+    const result = await getCustomerBooking('user-a-id', 'SP-BK-ABC123');
     expect(result).toBeNull();
+    expect(isolated.db.booking.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { reference: 'SP-BK-ABC123' } }));
   });
 
   it('cancelCustomerBooking returns null for foreign booking', async () => {
     vi.resetModules();
     const { cancelCustomerBooking } = await import('@/lib/server/bookings');
-    const result = await cancelCustomerBooking('user-a-id', 'SP-BK-XXXXXX');
+    isolated.db.booking.findUnique.mockResolvedValue(bookingRow());
+    const result = await cancelCustomerBooking('user-a-id', 'SP-BK-ABC123');
     expect(result).toBeNull();
+    expect(isolated.db.booking.update).not.toHaveBeenCalled();
+    expect(isolated.db.$transaction).not.toHaveBeenCalled();
   });
 
   it('getCustomerPayment returns null for foreign payment', async () => {
     vi.resetModules();
     const { getCustomerPayment } = await import('@/lib/server/payments');
-    const result = await getCustomerPayment('user-a-id', 'SP-PAY-XXXXXX');
+    isolated.db.payment.findUnique.mockResolvedValue(paymentRow());
+    const result = await getCustomerPayment('user-a-id', 'SP-PAY-ABC123');
     expect(result).toBeNull();
+    expect(isolated.db.payment.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { reference: 'SP-PAY-ABC123' } }));
+  });
+
+  it('returns the real customer-safe views to the matching owner', async () => {
+    isolated.db.booking.findUnique.mockResolvedValue(bookingRow());
+    isolated.db.payment.findUnique.mockResolvedValue(paymentRow());
+    const { getCustomerBooking } = await import('@/lib/server/bookings');
+    const { getCustomerPayment } = await import('@/lib/server/payments');
+    const booking = await getCustomerBooking('user-b-id', 'SP-BK-ABC123');
+    const payment = await getCustomerPayment('user-b-id', 'SP-PAY-ABC123');
+    expect(booking).toMatchObject({ reference: 'SP-BK-ABC123', total: 100 });
+    expect(payment).toMatchObject({ reference: 'SP-PAY-ABC123', bookingReference: 'SP-BK-ABC123', amount: 100 });
+    expect(booking).not.toHaveProperty('userId');
+    expect(payment).not.toHaveProperty('booking.userId');
+  });
+
+  it('does not let an account read or cancel a guest booking by reference', async () => {
+    isolated.db.booking.findUnique.mockResolvedValue(bookingRow(null));
+    isolated.db.payment.findUnique.mockResolvedValue(paymentRow(null));
+    const { getCustomerBooking, cancelCustomerBooking } = await import('@/lib/server/bookings');
+    const { getCustomerPayment } = await import('@/lib/server/payments');
+    expect(await getCustomerBooking('user-a-id', 'SP-BK-ABC123')).toBeNull();
+    expect(await cancelCustomerBooking('user-a-id', 'SP-BK-ABC123')).toBeNull();
+    expect(await getCustomerPayment('user-a-id', 'SP-PAY-ABC123')).toBeNull();
+    expect(isolated.db.$transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe('account API authentication and ownership (real guards and services)', () => {
+  const context = (ref: string) => ({ params: Promise.resolve({ ref }) });
+  const request = (method = 'GET') => new Request('https://starpyramids.com/api/account/bookings/SP-BK-ABC123?userId=user-b-id', {
+    method, headers: { host: 'starpyramids.com', origin: 'https://starpyramids.com', 'content-type': 'application/json' },
+    ...(method === 'PATCH' ? { body: JSON.stringify({ action: 'cancel', userId: 'user-b-id' }) } : {}),
+  });
+
+  it('denies unauthenticated booking reads, cancellation and payment reads before record lookup', async () => {
+    const booking = await import('@/app/api/account/bookings/[ref]/route');
+    const payment = await import('@/app/api/account/payments/[ref]/route');
+    expect((await booking.GET(request(), context('SP-BK-ABC123'))).status).toBe(401);
+    expect((await booking.PATCH(request('PATCH'), context('SP-BK-ABC123'))).status).toBe(401);
+    expect((await payment.GET(request(), context('SP-PAY-ABC123'))).status).toBe(401);
+    expect(isolated.db.booking.findUnique).not.toHaveBeenCalled();
+    expect(isolated.db.payment.findUnique).not.toHaveBeenCalled();
+    expect(isolated.db.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('uses the authenticated session owner, ignoring a forged user ID in URL/body', async () => {
+    authenticateCustomer();
+    isolated.db.booking.findUnique.mockResolvedValue(bookingRow());
+    isolated.db.payment.findUnique.mockResolvedValue(paymentRow());
+    const booking = await import('@/app/api/account/bookings/[ref]/route');
+    const payment = await import('@/app/api/account/payments/[ref]/route');
+    const read = await booking.GET(request(), context('SP-BK-ABC123'));
+    const cancel = await booking.PATCH(request('PATCH'), context('SP-BK-ABC123'));
+    const pay = await payment.GET(request(), context('SP-PAY-ABC123'));
+    expect(read.status).toBe(404); expect(await read.json()).toEqual({ error: 'Booking not found.' });
+    expect(cancel.status).toBe(404); expect(await cancel.json()).toEqual({ error: 'Booking not found.' });
+    expect(pay.status).toBe(404); expect(await pay.json()).toEqual({ error: 'Payment not found.' });
+    expect(isolated.db.user.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'user-a-id' } }));
+    expect(isolated.db.$transaction).not.toHaveBeenCalled();
+    expect(isolated.db.booking.update).not.toHaveBeenCalled();
+  });
+
+  it('serves matching-owner records through the same authenticated routes', async () => {
+    authenticateCustomer();
+    isolated.db.booking.findUnique.mockResolvedValue(bookingRow('user-a-id'));
+    isolated.db.payment.findUnique.mockResolvedValue(paymentRow('user-a-id'));
+    const booking = await import('@/app/api/account/bookings/[ref]/route');
+    const payment = await import('@/app/api/account/payments/[ref]/route');
+    const read = await booking.GET(request(), context('SP-BK-ABC123'));
+    const pay = await payment.GET(request(), context('SP-PAY-ABC123'));
+    expect(read.status).toBe(200); expect(await read.json()).toMatchObject({ reference: 'SP-BK-ABC123' });
+    expect(pay.status).toBe(200); expect(await pay.json()).toMatchObject({ reference: 'SP-PAY-ABC123' });
+  });
+
+  it('denies a staff-only session without customer authorization or preview', async () => {
+    const user = authenticateCustomer();
+    user.roles = [{ role: { key: 'SUPPORT' } }];
+    const { GET } = await import('@/app/api/account/bookings/[ref]/route');
+    expect((await GET(request(), context('SP-BK-ABC123'))).status).toBe(401);
+    expect(isolated.db.booking.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('rejects a cross-origin cancellation before even resolving the session', async () => {
+    const { PATCH } = await import('@/app/api/account/bookings/[ref]/route');
+    const req = new Request('https://starpyramids.com/api/account/bookings/SP-BK-ABC123', { method: 'PATCH', headers: { host: 'starpyramids.com', origin: 'https://evil.example', 'content-type': 'application/json' }, body: JSON.stringify({ action: 'cancel' }) });
+    expect((await PATCH(req, context('SP-BK-ABC123'))).status).toBe(403);
+    expect(isolated.cookies.get).not.toHaveBeenCalled();
+    expect(isolated.db.booking.findUnique).not.toHaveBeenCalled();
   });
 });
 
@@ -450,12 +638,33 @@ describe('session security', () => {
 // ─── Rate limiting ─────────────────────────────────────────────────────────
 
 describe('rate limiting', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-09T12:00:00Z'));
+  });
   it('booking rate limit allows under threshold', async () => {
     const { checkBookingRateLimit } = await import('@/lib/server/rate-limit');
-    // Without DB, the count query would fail  -  but the function catches errors
-    // and returns allowed: true (fail open for availability)
-    const result = await checkBookingRateLimit('test@example.com', '127.0.0.1');
-    expect(result).toHaveProperty('allowed');
-    expect(result).toHaveProperty('retryAfterSeconds');
+    isolated.db.bookingAttempt.count.mockResolvedValue(0);
+    const result = await checkBookingRateLimit(' TEST@Example.com ', '127.0.0.1');
+    expect(result).toEqual({ allowed: true, retryAfterSeconds: 0 });
+    expect(isolated.db.bookingAttempt.count).toHaveBeenCalledWith({ where: {
+      createdAt: { gte: new Date('2026-11-09T11:00:00Z') },
+      OR: [{ email: 'test@example.com' }, { ipAddress: '127.0.0.1' }],
+    } });
+    expect(isolated.db.bookingAttempt.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('blocks the threshold and computes the actual remaining window', async () => {
+    isolated.db.bookingAttempt.count.mockResolvedValue(10);
+    isolated.db.bookingAttempt.findFirst.mockResolvedValue({ createdAt: new Date('2026-11-09T11:30:00Z') });
+    const { checkBookingRateLimit } = await import('@/lib/server/rate-limit');
+    expect(await checkBookingRateLimit('test@example.com', '127.0.0.1')).toEqual({ allowed: false, retryAfterSeconds: 1800 });
+    expect(isolated.db.bookingAttempt.findFirst).toHaveBeenCalledWith(expect.objectContaining({ orderBy: { createdAt: 'asc' } }));
+  });
+
+  it('never turns a failed database count into permission to submit', async () => {
+    isolated.db.bookingAttempt.count.mockRejectedValue(new Error('simulated unavailable count'));
+    const { checkBookingRateLimit } = await import('@/lib/server/rate-limit');
+    await expect(checkBookingRateLimit('test@example.com', '127.0.0.1')).rejects.toThrow('simulated unavailable count');
   });
 });

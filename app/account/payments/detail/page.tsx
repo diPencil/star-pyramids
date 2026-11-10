@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
-import { CustomerAccountPage } from '@/components/account-portal'
+import { notFound } from 'next/navigation'
+import { PaymentDetailPage } from '@/components/account-portal'
+import { isPaymentReference } from '@/lib/payment'
 
 export const metadata: Metadata = {
   title: 'Payment Details',
@@ -7,4 +9,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },
 }
 
-export default function Page() { return <CustomerAccountPage section="payments" /> }
+export default async function Page({ searchParams }: { searchParams: Promise<{ ref?: string | string[] }> }) {
+  const { ref } = await searchParams
+  if (typeof ref !== 'string' || !isPaymentReference(ref)) notFound()
+  return <PaymentDetailPage reference={ref.trim()} />
+}

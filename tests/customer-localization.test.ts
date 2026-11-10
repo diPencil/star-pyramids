@@ -17,10 +17,11 @@ describe('customer localization release checks', () => {
   it('requires non-empty EN/ES/IT error copy without mismatched placeholders', () => {
     const placeholders = (value: string) => [...value.matchAll(/\{\{?([\w]+)\}?\}/g)].map((match) => match[1]).sort()
     for (const [message, copy] of Object.entries(customerErrorCopy)) {
-      expect(copy.en).toBe(message)
       for (const locale of ENABLED_LOCALES) {
         expect(copy[locale].trim(), `${message}: ${locale}`).not.toBe('')
         expect(placeholders(copy[locale])).toEqual(placeholders(copy.en))
+        // API error keys may intentionally map to clearer visitor-facing copy.
+        expect(customerErrorText(locale, message)).toBe(copy[locale])
       }
       expect(copy.es).not.toBe(copy.en)
       expect(copy.it).not.toBe(copy.en)
@@ -89,14 +90,22 @@ describe('customer localization release checks', () => {
     expect(source).not.toContain('setNotice(customerErrorText(')
   })
 
-  it('localizes API failures at checkout and offline proof presentation boundaries', () => {
-    expect(readFileSync('components/checkout-page.tsx', 'utf8')).toContain('customerErrorText(locale, data.error, sendFailed)')
+  // Checkout's response -> throw -> localized catch is exercised by the real
+  // form interaction tests in checkout-flow-safety.test.ts, not a source spelling.
+  it('localizes offline proof and account failure presentation boundaries', () => {
     expect(readFileSync('components/booking-payment.tsx', 'utf8')).toContain('customerErrorText(locale, data.error, tx(locale,')
     const account = readFileSync('components/account-portal.tsx', 'utf8')
     expect(account).toContain('customerErrorText(locale, thread.loadError)')
     expect(account).toContain('customerErrorText(locale, sendError)')
     expect(account).toContain("code === 'BOOKING_FINANCIAL_REVIEW'")
     expect(account).toContain('? financialReviewMessage(locale)')
+  })
+
+  it('maps the existing price-confirmation API key to the intended current copy', () => {
+    const key = 'Invalid price confirmation. Review your cart and try again.'
+    expect(customerErrorText('en', key)).toBe('Your price confirmation could not be verified. Review your cart and try again.')
+    expect(customerErrorText('es', key)).toBe('No se pudo verificar la confirmación del precio. Revisa el carrito y vuelve a intentarlo.')
+    expect(customerErrorText('it', key)).toBe('Impossibile verificare la conferma del prezzo. Controlla il carrello e riprova.')
   })
 
   it.each([

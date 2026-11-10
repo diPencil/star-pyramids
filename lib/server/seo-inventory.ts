@@ -18,7 +18,7 @@ export async function seoInventory(): Promise<SeoInventoryRow[]> {
       const seo = currentSeo(state, page.key)
       return { ...base, kind: 'cms', editor: '/admin/website-cms/seo/' + page.key, title: seo.text.en.title, description: seo.text.en.description, image: seo.image, index: seo.index !== false, canonicalIssue: !!seo.canonical && seo.canonical !== SEO_PAGES[page.key]!.route, translationIssue: ['es', 'it'].some(locale => !seo.text[locale as 'es' | 'it'].title || !seo.text[locale as 'es' | 'it'].description), updatedAt: state.updatedAt }
     }
-    if (/^\/(account|admin|checkout|cart|login|register|forgot-password|reset-password|booking|verify-voucher|search)(\/|$)/.test(page.route)) return { ...base, kind: 'private', index: false, editor: null }
+    if (/^\/(account|admin|checkout|cart|login|register|forgot-password|reset-password|booking(?:-account|-confirmation)?|verify-voucher|search)(\/|$)/.test(page.route)) return { ...base, kind: 'private', index: false, editor: null }
     return base
   }))
   // These repositories apply the same publication policy as the public pages.

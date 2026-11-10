@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
-import { CustomerAccountPage } from '@/components/account-portal'
+import { notFound } from 'next/navigation'
+import { CustomerEventRequestDetailPage } from '@/components/account-event-requests'
+import { isEventReference } from '@/lib/event-request'
 
 export const metadata: Metadata = {
   title: 'Event Request Details',
@@ -7,4 +9,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },
 }
 
-export default function Page() { return <CustomerAccountPage section="event-requests" /> }
+export default async function Page({ searchParams }: { searchParams: Promise<{ ref?: string | string[] }> }) {
+  const { ref } = await searchParams
+  if (typeof ref !== 'string' || !isEventReference(ref)) notFound()
+  return <CustomerEventRequestDetailPage reference={ref.trim()} />
+}

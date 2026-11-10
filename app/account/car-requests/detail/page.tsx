@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
-import { CustomerAccountPage } from '@/components/account-portal'
+import { notFound } from 'next/navigation'
+import { CarRequestDetailPage } from '@/components/account-portal'
+import { isCarReference } from '@/lib/car-request'
 
 export const metadata: Metadata = {
   title: 'Car Request Details',
@@ -7,4 +9,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },
 }
 
-export default function Page() { return <CustomerAccountPage section="car-requests" /> }
+export default async function Page({ searchParams }: { searchParams: Promise<{ ref?: string | string[] }> }) {
+  const { ref } = await searchParams
+  if (typeof ref !== 'string' || !isCarReference(ref)) notFound()
+  return <CarRequestDetailPage reference={ref.trim()} />
+}

@@ -1,9 +1,36 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { readdirSync, existsSync } from 'node:fs'
 import { HOME_SECTIONS, initialPageState, originalPageContent, publicPageContent, transitionPageContent, validatePageContent, selectPageRecords, validateCmsLink } from '@/lib/page-sections'
 import { cmsPageRegistry, cmsRoutePattern, coverageCounts } from '@/lib/cms-coverage'
+import { isPageDocumentId } from '@/lib/additional-page-content'
+import { isSeoPage } from '@/lib/seo-manager'
+
+vi.mock('@/lib/server/record-seo', () => ({ listRecordSeo: vi.fn(async () => []) }))
+vi.mock('@/lib/server/seo-manager', async () => {
+  const { initialPageState } = await import('@/lib/page-sections')
+  return { readSeoState: vi.fn(async () => initialPageState()) }
+})
+import { seoInventory } from '@/lib/server/seo-inventory'
 
 describe('registered page content and lifecycle', () => {
+  it.each([
+    ['booking-account', '/booking-account', 'app/booking-account/page.tsx'],
+    ['booking-confirmation', '/booking-confirmation', 'app/booking-confirmation/page.tsx'],
+    ['checkout-receipt', '/checkout/receipt', 'app/checkout/receipt/page.tsx'],
+  ])('registers %s as a fixed workflow without granting CMS or SEO editing', async (key, route, source) => {
+    const entry = cmsPageRegistry.find(page => page.key === key)!
+    expect(entry).toMatchObject({ route, source, inventory: 'verified', type: 'Application workflow' })
+    expect(entry.sections.length).toBeGreaterThan(0)
+    expect(entry.sections.every(section => section.owner === 'functional' && !section.editor)).toBe(true)
+    expect(isPageDocumentId(key)).toBe(false)
+    expect(isSeoPage(key)).toBe(false)
+    const inventory = await seoInventory()
+    expect(inventory.find(page => page.route === route)).toMatchObject({ kind: 'private', index: false, editor: null })
+    for (const existing of ['/checkout', '/login', '/account']) {
+      expect(inventory.find(page => page.route === existing)).toMatchObject({ kind: 'private', index: false, editor: null })
+    }
+  })
+
   it('matches every actual public route pattern and reports incomplete inventories honestly', () => {
     const routes: string[] = []
     function walk(directory: string) {

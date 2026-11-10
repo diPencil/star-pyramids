@@ -7,4 +7,4 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },
 }
 
-export default function Page() { return <CustomerAccountPage section="settings" /> }
+export default function Page() { return <CustomerAccountPage section="change-password" /> }

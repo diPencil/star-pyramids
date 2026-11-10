@@ -13,7 +13,7 @@ describe('remaining content coverage has actual consumers', () => {
       if (section.owner === 'cms' || section.owner === 'business') expect(section.editor).toMatch(/^\/admin\//)
     }
     expect(cmsSharedRegistry.filter(section => section.owner === 'cms')).toHaveLength(3)
-    expect(counts).toMatchObject({ pages: 56, routePatterns: 53, sections: 166, cms: 81, business: 23, functional: 62, shared: 11 })
+    expect(counts).toMatchObject({ pages: 59, routePatterns: 56, sections: 169, cms: 81, business: 23, functional: 65, shared: 11 })
   })
   it.each(Object.keys(TEMPLATE_PAGES).filter(id => id !== 'shared') as TemplatePageId[])('consumes every registered %s text/media/link field in original public components', id => {
     for (const section of templateSections(id).filter(section => section.id !== 'hero')) {

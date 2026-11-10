@@ -163,8 +163,9 @@ function TripRequestsSection({ startNew = false, editRef = null }: { startNew?: 
   const accountUser = useAuthenticatedUser()
   const [requests, setRequests] = useState<TripRequest[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingEdit, setLoadingEdit] = useState(false)
   const [loadError, setLoadError] = useState('')
-  const [mode, setMode] = useState<'list' | 'form'>(startNew || editRef ? 'form' : 'list')
+  const [mode, setMode] = useState<'list' | 'form'>(startNew && !editRef ? 'form' : 'list')
   const [editingRef, setEditingRef] = useState<string | null>(null)
   const [cancellingRef, setCancellingRef] = useState<string | null>(null)
   const [lastCreated, setLastCreated] = useState<LastCreated>(null)
@@ -227,6 +228,11 @@ function TripRequestsSection({ startNew = false, editRef = null }: { startNew?: 
   useEffect(() => {
     if (editRef) {
       let cancelled = false
+      // Do not expose a blank create form while the owner-only lookup is pending.
+      setMode('list')
+      setLoadingEdit(true)
+      setEditingRef(null)
+      setSummary('')
       apiDetail(editRef)
         .then((record) => {
           if (cancelled) return
@@ -241,15 +247,24 @@ function TripRequestsSection({ startNew = false, editRef = null }: { startNew?: 
         .catch((error: unknown) => {
           if (!cancelled) setSummary(customerErrorText(locale, error instanceof Error ? error.message : 'Could not load the request.'))
         })
-      router.replace('/account/trip-requests', { scroll: false })
+        .finally(() => {
+          // Replacing the query updates these props and runs effect cleanup.
+          // Consume it only after the authorized result (or failure) is handled.
+          if (!cancelled) {
+            setLoadingEdit(false)
+            router.replace('/account/trip-requests', { scroll: false })
+          }
+        })
       return () => { cancelled = true }
     }
-    if (startNew && mode === 'list') {
+    setLoadingEdit(false)
+    if (startNew) {
       blankForm()
       setEditingRef(null)
+      setLastCreated(null)
       setMode('form')
+      router.replace('/account/trip-requests', { scroll: false })
     }
-    router.replace('/account/trip-requests', { scroll: false })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startNew, editRef])
 
@@ -479,7 +494,7 @@ function TripRequestsSection({ startNew = false, editRef = null }: { startNew?: 
     )
   }
 
-  if (loading) {
+  if (loading || loadingEdit) {
     return <section className="customer-account-block customer-full-block"><div className="customer-empty" role="status"><h3>{tx(locale, { en: 'Loading your requests…', es: 'Cargando tus solicitudes…', it: 'Caricamento delle tue richieste…', ar: 'جارٍ تحميل طلباتك…' })}</h3></div></section>
   }
 

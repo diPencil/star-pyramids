@@ -7,6 +7,7 @@
 // files only, so reference-only is the safe design).
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { createHash } from 'node:crypto'
 
 const shared = vi.hoisted(() => {
   type Row = Record<string, any>
@@ -67,12 +68,18 @@ const shared = vi.hoisted(() => {
       },
     },
     bookingAccessToken: {
-      findUnique: async () => {
-        const row = [...shared.store.accessTokens.values()][0]
+      findUnique: async (args: { where: { tokenHash: string } }) => {
+        const row = [...shared.store.accessTokens.values()].find(token => token.tokenHash === args.where.tokenHash)
         if (!row) return null
-        return { bookingRef: row.bookingRef, revokedAt: null, expiresAt: new Date(Date.now() + 3600_000) }
+        const booking = [...shared.store.bookings.values()].find(booking => booking.reference === row.bookingRef)
+        return { bookingRef: row.bookingRef, revokedAt: row.revokedAt, expiresAt: row.expiresAt, booking: booking ? { userId: booking.userId } : null }
       },
-      updateMany: async () => ({ count: 1 }),
+      updateMany: async (args: { where: { tokenHash: string }; data: Record<string, unknown> }) => {
+        const row = [...shared.store.accessTokens.values()].find(token => token.tokenHash === args.where.tokenHash)
+        if (!row) return { count: 0 }
+        Object.assign(row, args.data)
+        return { count: 1 }
+      },
     },
     payment: {
       // Any money write here is a test failure: proofs must never move money.
@@ -132,7 +139,10 @@ function seedAccountBooking(overrides: Record<string, any> = {}) {
 
 function seedGuestBooking() {
   const row = seedAccountBooking({ id: 'bk-guest', reference: 'SP-BK-GUEST1', userId: null })
-  shared.store.accessTokens.set('token-1', { bookingRef: row.reference })
+  shared.store.accessTokens.set('token-1', {
+    tokenHash: createHash('sha256').update(GUEST_TOKEN).digest('hex'),
+    bookingRef: row.reference, revokedAt: null, expiresAt: new Date(Date.now() + 3600_000),
+  })
   return row
 }
 
@@ -231,6 +241,27 @@ describe('submitCustomerPaymentProof', () => {
 })
 
 describe('submitGuestPaymentProof', () => {
+  it('does not resolve another token merely because a valid guest token exists', async () => {
+    seedGuestBooking()
+    await expect(submitGuestPaymentProof('b'.repeat(43), proofInput())).rejects.toBeInstanceOf(GuestBookingAccessError)
+    expect(shared.store.activities).toHaveLength(0)
+    expect(vi.mocked(notifyStaff)).not.toHaveBeenCalled()
+  })
+
+  it.each(['account-owned', 'missing-booking', 'expired', 'revoked'])('rejects a %s token without recording proof or notifying anyone', async condition => {
+    const booking = seedGuestBooking()
+    const token = shared.store.accessTokens.get('token-1')!
+    if (condition === 'account-owned') booking.userId = 'user-1'
+    if (condition === 'missing-booking') shared.store.bookings.delete(booking.id)
+    if (condition === 'expired') token.expiresAt = new Date(Date.now() - 1000)
+    if (condition === 'revoked') token.revokedAt = new Date()
+    await expect(submitGuestPaymentProof(GUEST_TOKEN, proofInput())).rejects.toBeInstanceOf(GuestBookingAccessError)
+    expect(shared.store.activities).toHaveLength(0)
+    expect(shared.db.payment.create).not.toHaveBeenCalled()
+    expect(vi.mocked(notifyStaff)).not.toHaveBeenCalled()
+    expect(vi.mocked(sendCustomerEmailSafe)).not.toHaveBeenCalled()
+  })
+
   it('accepts a valid private-link token without a session', async () => {
     seedGuestBooking()
     const submitted = await submitGuestPaymentProof(GUEST_TOKEN, proofInput({ reference: 'CASH-42', method: 'cash' }))
