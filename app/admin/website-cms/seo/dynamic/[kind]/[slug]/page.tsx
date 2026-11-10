@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { SeoRecordEditor } from '@/components/admin/seo-record-editor'
+import { SeoRecordEditor } from '@/components/admin/seo/seo-record-editor'
 
 export default async function Page({ params }: { params: Promise<{ kind: string; slug: string }> }) {
   const { kind, slug } = await params

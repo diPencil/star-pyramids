@@ -10,8 +10,8 @@ import {
   normalizeGtmContainerId,
   resolveTrackingSettings,
   sanitizeMeasurementUrl,
-} from '@/lib/tracking'
-import { analyticsDataLayer, GTM_CONSENT_READY_EVENT, initializeGtm, isGtmReady, readTrackingConsent, readTrackingGrants, subscribeToTrackingConsent, updateGoogleConsent } from '@/lib/tracking-browser'
+} from '@/lib/tracking/tracking'
+import { analyticsDataLayer, GTM_CONSENT_READY_EVENT, initializeGtm, isGtmReady, readTrackingConsent, readTrackingGrants, subscribeToTrackingConsent, updateGoogleConsent } from '@/lib/tracking/tracking-browser'
 
 const production = 'https://starpyramids.com'
 

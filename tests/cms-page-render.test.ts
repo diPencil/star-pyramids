@@ -2,10 +2,10 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }), usePathname: () => '/', useSearchParams: () => new URLSearchParams() }))
-import { RebuiltHomePage } from '@/components/homepage'
+import { RebuiltHomePage } from '@/components/home/homepage'
 import { InitialLocaleProvider } from '@/components/locale'
-import { originalPageContent, publicPageContent, transitionPageContent, initialPageState, type PublicPageContent } from '@/lib/page-sections'
-import type { EnabledLocale } from '@/lib/locale-config'
+import { originalPageContent, publicPageContent, transitionPageContent, initialPageState, type PublicPageContent } from '@/lib/cms/page-sections'
+import type { EnabledLocale } from '@/lib/i18n/locale-config'
 const render = (state?: PublicPageContent, locale: EnabledLocale = 'en') => renderToStaticMarkup(createElement(InitialLocaleProvider, { locale, preview: true, children: createElement(RebuiltHomePage, { initialLocale: locale, pageContent: state }) }))
 describe('actual homepage components consume CMS publication', () => {
   it('keeps default structure identical when an original document is supplied', () => {

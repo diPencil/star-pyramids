@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import {
   assignConversationToSelf,
@@ -10,8 +10,8 @@ import {
   markStaffThreadRead,
   sendStaffMessage,
   setConversationStatus,
-} from '@/lib/server/support-chat';
-import { adminSupportHref, markNotificationsReadByHref } from '@/lib/server/notifications';
+} from '@/lib/server/support/support-chat';
+import { adminSupportHref, markNotificationsReadByHref } from '@/lib/server/notifications/notifications';
 
 /**
  * Read-sync helper: after a staff user opens/reads a thread, resolve

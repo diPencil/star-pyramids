@@ -1,15 +1,15 @@
-import { isMarketingNotification } from '@/lib/marketing-notifications';
-import { listMarketingNotifications, marketingForUser, markMarketingRead } from '@/lib/server/marketing-notifications';
+import { isMarketingNotification } from '@/lib/marketing/marketing-notifications';
+import { listMarketingNotifications, marketingForUser, markMarketingRead } from '@/lib/server/marketing/marketing-notifications';
 import { NextResponse } from 'next/server';
 
 import { isSameOriginRequest } from '@/lib/server/csrf';
-import { getAccountReadUser, getAccountWriteUser } from '@/lib/server/staff-preview';
+import { getAccountReadUser, getAccountWriteUser } from '@/lib/server/auth/staff-preview';
 import {
   countUnreadNotifications,
   listNotifications,
   markAllNotificationsRead,
   markNotificationRead,
-} from '@/lib/server/notifications';
+} from '@/lib/server/notifications/notifications';
 
 /** Owner-only notification list (newest first) with the unread count. */
 export async function GET() {

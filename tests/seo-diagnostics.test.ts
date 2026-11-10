@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { diagnoseSeo, recordSeoPreview, type DiagnosticPage } from '@/lib/seo-diagnostics'
-import { emptyRecordSeoContent } from '@/lib/record-seo'
+import { diagnoseSeo, recordSeoPreview, type DiagnosticPage } from '@/lib/seo/seo-diagnostics'
+import { emptyRecordSeoContent } from '@/lib/seo/record-seo'
 describe('evidence-based SEO diagnostics', () => {
   it('distinguishes verified defects, recommendations and unmeasured fallbacks', () => {
     const seo = emptyRecordSeoContent(); seo.text.en.title = 'Repeated'; seo.text.en.description = 'Description'

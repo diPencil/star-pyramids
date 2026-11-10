@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 
 import { isSameOriginRequest } from '@/lib/server/csrf';
-import { getAccountWriteUser } from '@/lib/server/staff-preview';
+import { getAccountWriteUser } from '@/lib/server/auth/staff-preview';
 import {
   ProofRateLimitError,
   submitCustomerPaymentProof,
   validateProofInput,
-} from '@/lib/server/payment-proofs';
+} from '@/lib/server/payments/payment-proofs';
 
 /**
  * Owner-only payment-proof submission (reference-only, offline review).

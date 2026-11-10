@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { Tour } from '@/data/types'
-import { selectHomepagePopular } from '@/lib/homepage-popular'
-import { originalPageContent } from '@/lib/page-sections'
-import { readRecommendationSession, RECOMMENDATION_SESSION_KEY } from '@/lib/homepage-recommendation-session'
+import { selectHomepagePopular } from '@/lib/home/homepage-popular'
+import { originalPageContent } from '@/lib/cms/page-sections'
+import { readRecommendationSession, RECOMMENDATION_SESSION_KEY } from '@/lib/home/homepage-recommendation-session'
 
 const categories = ['one-day-tours', 'multi-days-tours', 'nile-cruises', 'shore-excursions'] as const
 const rows = Array.from({ length: 12 }, (_, index) => ({

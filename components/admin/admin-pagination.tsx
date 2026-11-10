@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AdminText } from './admin-ui'
 import { useAdminLocale } from './admin-locale'
-import { SharedSelect } from '@/components/shared-select'
+import { SharedSelect } from '@/components/shared/forms/shared-select'
 
 export function usePagination<T>(rows: readonly T[], initialSize = 10) {
   const [page, setPage] = useState(1)

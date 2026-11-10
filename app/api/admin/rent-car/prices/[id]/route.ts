@@ -1,11 +1,11 @@
-import { rentCarFailure } from '@/lib/server/rent-car-errors';
+import { rentCarFailure } from '@/lib/server/cars/rent-car-errors';
 // Staff-only price edit/delete (Phase 2). Mode switches re-enforce the
 // MANUAL/AUTOMATIC invariants; nothing here is publicly reachable.
 import { NextResponse } from 'next/server';
 
 import { isSameOriginRequest } from '@/lib/server/csrf';
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
-import { deleteCarRoutePrice, updateCarRoutePrice } from '@/lib/server/car-pricing';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
+import { deleteCarRoutePrice, updateCarRoutePrice } from '@/lib/server/cars/car-pricing';
 
 async function requirePermission(request: Request, permission: string) {
   const user = await getCurrentUser();

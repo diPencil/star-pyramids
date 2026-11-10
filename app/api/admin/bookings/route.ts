@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
-import { listStaffBookings } from '@/lib/server/bookings';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
+import { listStaffBookings } from '@/lib/server/booking/bookings';
 
 /** Staff booking inbox (full projection, no activities in list rows). */
 export async function GET() {

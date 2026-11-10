@@ -1,2 +1,10 @@
-cd E:\star-pyramids-nodejs\web-source
-corepack pnpm dev
+$ErrorActionPreference = 'Stop'
+$devExitCode = 1
+Push-Location -LiteralPath $PSScriptRoot
+try {
+    & corepack pnpm dev @args
+    $devExitCode = $LASTEXITCODE
+} finally {
+    Pop-Location
+}
+exit $devExitCode

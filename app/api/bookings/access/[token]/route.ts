@@ -1,4 +1,4 @@
-import {bookingClientIp as clientIp} from '@/lib/server/booking-request-security'
+import {bookingClientIp as clientIp} from '@/lib/server/booking/booking-request-security'
 import { NextResponse } from 'next/server';
 
 import {
@@ -6,8 +6,8 @@ import {
   GuestBookingAccessError,
   checkGuestBookingAccessRateLimit,
   recordGuestBookingAccessFailure,
-} from '@/lib/server/booking-access';
-import { getGuestBooking } from '@/lib/server/bookings';
+} from '@/lib/server/booking/access/booking-access';
+import { getGuestBooking } from '@/lib/server/booking/bookings';
 
 // Always evaluated per request: this route is a token lookup, never cached.
 export const dynamic = 'force-dynamic';

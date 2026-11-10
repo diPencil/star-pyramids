@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({ findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), remove: vi.fn() }))
-vi.mock('@/lib/server/auth', () => ({ getCurrentUser: async () => ({ id: 'staff' }), hasPermission: () => true }))
+vi.mock('@/lib/server/auth/auth', () => ({ getCurrentUser: async () => ({ id: 'staff' }), hasPermission: () => true }))
 vi.mock('@/lib/server/db', () => ({ db: { offer: { findUnique: mocks.findUnique } } }))
-vi.mock('@/lib/server/catalogue-translations', () => ({
+vi.mock('@/lib/server/catalogue/catalogue-translations', () => ({
   catalogueTranslationResponse: async (_kind: string, body: unknown) => body,
   saveWithCatalogueTranslations: async (_kind: string, _translations: unknown, _previous: unknown, mutate: (tx: unknown) => Promise<unknown>) => mutate({ offer: { create: mocks.create, update: mocks.update }, tour: {} }),
   deleteWithCatalogueTranslations: async (_kind: string, _slug: unknown, mutate: (tx: unknown) => Promise<unknown>) => mutate({ offer: { delete: mocks.remove } }),
 }))
 import { POST } from '@/app/api/offers/route'
 import { PUT, DELETE } from '@/app/api/offers/[slug]/route'
-import { readCampaign } from '@/lib/marketing-campaigns'
+import { readCampaign } from '@/lib/marketing/marketing-campaigns'
 const context = { params: Promise.resolve({ slug: 'campaign' }) }
 const campaign = { ...readCampaign(undefined), body: 'Actual details', terms: 'Actual terms', ctaHref: '/make-your-trip', placements: ['offers', 'home', 'trips-sidebar', 'blog-sidebar'] }
 function request(method: string, data?: unknown) {

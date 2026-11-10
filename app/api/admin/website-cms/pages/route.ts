@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server'
-import { getCurrentUser, hasPermission } from '@/lib/server/auth'
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth'
 import { db } from '@/lib/server/db'
-import { cmsPageRegistry, coverageCounts } from '@/lib/cms-coverage'
-import { HERO_SETTING_KEY, originalHomeHero, validateHomeHero } from '@/lib/website-heroes'
-import { isEditorialHeroId, originalEditorialHero, validateEditorialHero } from '@/lib/editorial-hero-definitions'
-import { isShowcaseHeroId, originalShowcaseHero, validateShowcaseHero } from '@/lib/showcase-heroes'
-import { HOME_PAGE_SETTING_KEY } from '@/lib/server/page-sections'
-import { originalPageContent, validatePageContent } from '@/lib/page-sections'
-import { isPageDocumentId } from '@/lib/additional-page-content'
+import { cmsPageRegistry, coverageCounts } from '@/lib/cms/cms-coverage'
+import { HERO_SETTING_KEY, originalHomeHero, validateHomeHero } from '@/lib/cms/heroes/website-heroes'
+import { isEditorialHeroId, originalEditorialHero, validateEditorialHero } from '@/lib/cms/heroes/editorial-hero-definitions'
+import { isShowcaseHeroId, originalShowcaseHero, validateShowcaseHero } from '@/lib/cms/heroes/showcase-heroes'
+import { HOME_PAGE_SETTING_KEY } from '@/lib/server/cms/page-sections'
+import { originalPageContent, validatePageContent } from '@/lib/cms/page-sections'
+import { isPageDocumentId } from '@/lib/cms/additional-page-content'
 
 function documents(pageKey: string): { key: string; original: unknown; scope: string; validate: (content: unknown) => unknown }[] {
   if (pageKey === 'homepage') return [{ key: HERO_SETTING_KEY, original: originalHomeHero(), scope: 'Hero', validate: validateHomeHero }, { key: HOME_PAGE_SETTING_KEY, original: originalPageContent(), scope: 'Page sections', validate: validatePageContent }]

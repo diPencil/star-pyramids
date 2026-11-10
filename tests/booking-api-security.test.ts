@@ -133,13 +133,13 @@ describe('booking draft validation  -  price tampering prevention', () => {
 
   beforeEach(() => {
     vi.resetModules();
-    vi.doMock('@/lib/server/tours', () => ({
+    vi.doMock('@/lib/server/catalogue/tours', () => ({
       findTourBySlug: async () => mockTour,
     }));
   });
 
   it('rejects client-supplied total', async () => {
-    const { validateBookingDraft } = await import('@/lib/server/bookings');
+    const { validateBookingDraft } = await import('@/lib/server/booking/bookings');
     await expect(
       validateBookingDraft({
         lines: [{ tourSlug: 'cairo-day-tour', date: '2026-12-01', adults: 2, children: 0, infants: 0, addons: [] }],
@@ -153,7 +153,7 @@ describe('booking draft validation  -  price tampering prevention', () => {
   });
 
   it('rejects client-supplied discount', async () => {
-    const { validateBookingDraft } = await import('@/lib/server/bookings');
+    const { validateBookingDraft } = await import('@/lib/server/booking/bookings');
     await expect(
       validateBookingDraft({
         lines: [{ tourSlug: 'cairo-day-tour', date: '2026-12-01', adults: 2, children: 0, infants: 0, addons: [] }],
@@ -167,7 +167,7 @@ describe('booking draft validation  -  price tampering prevention', () => {
   });
 
   it('rejects client-supplied subtotal', async () => {
-    const { validateBookingDraft } = await import('@/lib/server/bookings');
+    const { validateBookingDraft } = await import('@/lib/server/booking/bookings');
     await expect(
       validateBookingDraft({
         lines: [{ tourSlug: 'cairo-day-tour', date: '2026-12-01', adults: 2, children: 0, infants: 0, addons: [] }],
@@ -181,7 +181,7 @@ describe('booking draft validation  -  price tampering prevention', () => {
   });
 
   it('rejects non-USD currency', async () => {
-    const { validateBookingDraft } = await import('@/lib/server/bookings');
+    const { validateBookingDraft } = await import('@/lib/server/booking/bookings');
     await expect(
       validateBookingDraft({
         lines: [{ tourSlug: 'cairo-day-tour', date: '2026-12-01', adults: 2, children: 0, infants: 0, addons: [] }],
@@ -194,7 +194,7 @@ describe('booking draft validation  -  price tampering prevention', () => {
   });
 
   it('rejects unknown keys', async () => {
-    const { validateBookingDraft } = await import('@/lib/server/bookings');
+    const { validateBookingDraft } = await import('@/lib/server/booking/bookings');
     await expect(
       validateBookingDraft({
         lines: [{ tourSlug: 'cairo-day-tour', date: '2026-12-01', adults: 2, children: 0, infants: 0, addons: [] }],
@@ -208,7 +208,7 @@ describe('booking draft validation  -  price tampering prevention', () => {
   });
 
   it('rejects malformed idempotency key', async () => {
-    const { validateBookingDraft } = await import('@/lib/server/bookings');
+    const { validateBookingDraft } = await import('@/lib/server/booking/bookings');
     await expect(
       validateBookingDraft({
         lines: [{ tourSlug: 'cairo-day-tour', date: '2026-12-01', adults: 2, children: 0, infants: 0, addons: [] }],
@@ -222,10 +222,10 @@ describe('booking draft validation  -  price tampering prevention', () => {
 
   it('rejects a tour that has been unpublished', async () => {
     vi.resetModules();
-    vi.doMock('@/lib/server/tours', () => ({
+    vi.doMock('@/lib/server/catalogue/tours', () => ({
       findTourBySlug: async () => ({ ...mockTour, status: 'draft' }),
     }));
-    const { validateBookingDraft } = await import('@/lib/server/bookings');
+    const { validateBookingDraft } = await import('@/lib/server/booking/bookings');
     await expect(
       validateBookingDraft({
         lines: [{ tourSlug: 'cairo-day-tour', date: '2026-12-01', adults: 2, children: 0, infants: 0, addons: [] }],
@@ -242,7 +242,7 @@ describe('booking draft validation  -  price tampering prevention', () => {
 
 describe('guest booking access token', () => {
   it('rejects malformed tokens', async () => {
-    const { resolveGuestBookingToken } = await import('@/lib/server/booking-access');
+    const { resolveGuestBookingToken } = await import('@/lib/server/booking/access/booking-access');
     await expect(resolveGuestBookingToken('')).rejects.toThrow('This booking link is not valid.');
     await expect(resolveGuestBookingToken('short')).rejects.toThrow('This booking link is not valid.');
     await expect(resolveGuestBookingToken('a'.repeat(100))).rejects.toThrow('This booking link is not valid.');
@@ -250,14 +250,14 @@ describe('guest booking access token', () => {
   });
 
   it('rejects tokens with invalid characters', async () => {
-    const { resolveGuestBookingToken } = await import('@/lib/server/booking-access');
+    const { resolveGuestBookingToken } = await import('@/lib/server/booking/access/booking-access');
     const bad = 'a'.repeat(42) + '!';
     await expect(resolveGuestBookingToken(bad)).rejects.toThrow('This booking link is not valid.');
   });
 
   it('returns uniform denial for unknown tokens', async () => {
     isolated.db.bookingAccessToken.findUnique.mockResolvedValue(null);
-    const { resolveGuestBookingToken } = await import('@/lib/server/booking-access');
+    const { resolveGuestBookingToken } = await import('@/lib/server/booking/access/booking-access');
     const unknown = 'a'.repeat(43);
     await expect(resolveGuestBookingToken(unknown)).rejects.toThrow('This booking link is not valid.');
     expect(isolated.db.bookingAccessToken.findUnique).toHaveBeenCalledWith(expect.objectContaining({
@@ -273,7 +273,7 @@ describe('guest booking access token', () => {
       booking: condition === 'missing-booking' ? null : { userId: condition === 'account-owned' ? 'user-b-id' : null },
     };
     isolated.db.bookingAccessToken.findUnique.mockResolvedValue(row);
-    const { resolveGuestBookingToken } = await import('@/lib/server/booking-access');
+    const { resolveGuestBookingToken } = await import('@/lib/server/booking/access/booking-access');
     await expect(resolveGuestBookingToken('a'.repeat(43))).rejects.toThrow('This booking link is not valid.');
     expect(isolated.db.bookingAccessToken.updateMany).not.toHaveBeenCalled();
   });
@@ -281,7 +281,7 @@ describe('guest booking access token', () => {
   it('accepts a live guest token and stamps only the matching token hash', async () => {
     isolated.db.bookingAccessToken.findUnique.mockResolvedValue({ bookingRef: 'SP-BK-ABC123', revokedAt: null, expiresAt: new Date(Date.now() + 3600_000), booking: { userId: null } });
     isolated.db.bookingAccessToken.updateMany.mockResolvedValue({ count: 1 });
-    const { resolveGuestBookingToken } = await import('@/lib/server/booking-access');
+    const { resolveGuestBookingToken } = await import('@/lib/server/booking/access/booking-access');
     const token = 'a'.repeat(43);
     expect(await resolveGuestBookingToken(token)).toEqual({ reference: 'SP-BK-ABC123' });
     expect(isolated.db.bookingAccessToken.updateMany).toHaveBeenCalledWith({
@@ -325,7 +325,7 @@ describe('cart estimate  -  deal discount computation', () => {
         return { adult, child: tier?.childPrice ?? adult, infant: tier?.infantPrice ?? 0 };
       },
     }));
-    const { estimateCart } = await import('@/lib/booking');
+    const { estimateCart } = await import('@/lib/booking/booking');
     const items = [{
       key: 'k1',
       tourSlug: 'test-tour',
@@ -355,7 +355,7 @@ describe('cart estimate  -  deal discount computation', () => {
       findTour: () => null,
       dayTourTerms: { addOns: [] },
     }));
-    const { estimateCart } = await import('@/lib/booking');
+    const { estimateCart } = await import('@/lib/booking/booking');
     const items = [{
       key: 'k1',
       tourSlug: 'nonexistent-tour',
@@ -504,7 +504,7 @@ describe('admin API route guards', () => {
 describe('account ownership isolation', () => {
   it('getCustomerBooking returns null for foreign booking', async () => {
     vi.resetModules();
-    const { getCustomerBooking } = await import('@/lib/server/bookings');
+    const { getCustomerBooking } = await import('@/lib/server/booking/bookings');
     isolated.db.booking.findUnique.mockResolvedValue(bookingRow());
     const result = await getCustomerBooking('user-a-id', 'SP-BK-ABC123');
     expect(result).toBeNull();
@@ -513,7 +513,7 @@ describe('account ownership isolation', () => {
 
   it('cancelCustomerBooking returns null for foreign booking', async () => {
     vi.resetModules();
-    const { cancelCustomerBooking } = await import('@/lib/server/bookings');
+    const { cancelCustomerBooking } = await import('@/lib/server/booking/bookings');
     isolated.db.booking.findUnique.mockResolvedValue(bookingRow());
     const result = await cancelCustomerBooking('user-a-id', 'SP-BK-ABC123');
     expect(result).toBeNull();
@@ -523,7 +523,7 @@ describe('account ownership isolation', () => {
 
   it('getCustomerPayment returns null for foreign payment', async () => {
     vi.resetModules();
-    const { getCustomerPayment } = await import('@/lib/server/payments');
+    const { getCustomerPayment } = await import('@/lib/server/payments/payments');
     isolated.db.payment.findUnique.mockResolvedValue(paymentRow());
     const result = await getCustomerPayment('user-a-id', 'SP-PAY-ABC123');
     expect(result).toBeNull();
@@ -533,8 +533,8 @@ describe('account ownership isolation', () => {
   it('returns the real customer-safe views to the matching owner', async () => {
     isolated.db.booking.findUnique.mockResolvedValue(bookingRow());
     isolated.db.payment.findUnique.mockResolvedValue(paymentRow());
-    const { getCustomerBooking } = await import('@/lib/server/bookings');
-    const { getCustomerPayment } = await import('@/lib/server/payments');
+    const { getCustomerBooking } = await import('@/lib/server/booking/bookings');
+    const { getCustomerPayment } = await import('@/lib/server/payments/payments');
     const booking = await getCustomerBooking('user-b-id', 'SP-BK-ABC123');
     const payment = await getCustomerPayment('user-b-id', 'SP-PAY-ABC123');
     expect(booking).toMatchObject({ reference: 'SP-BK-ABC123', total: 100 });
@@ -546,8 +546,8 @@ describe('account ownership isolation', () => {
   it('does not let an account read or cancel a guest booking by reference', async () => {
     isolated.db.booking.findUnique.mockResolvedValue(bookingRow(null));
     isolated.db.payment.findUnique.mockResolvedValue(paymentRow(null));
-    const { getCustomerBooking, cancelCustomerBooking } = await import('@/lib/server/bookings');
-    const { getCustomerPayment } = await import('@/lib/server/payments');
+    const { getCustomerBooking, cancelCustomerBooking } = await import('@/lib/server/booking/bookings');
+    const { getCustomerPayment } = await import('@/lib/server/payments/payments');
     expect(await getCustomerBooking('user-a-id', 'SP-BK-ABC123')).toBeNull();
     expect(await cancelCustomerBooking('user-a-id', 'SP-BK-ABC123')).toBeNull();
     expect(await getCustomerPayment('user-a-id', 'SP-PAY-ABC123')).toBeNull();
@@ -623,12 +623,12 @@ describe('account API authentication and ownership (real guards and services)', 
 
 describe('session security', () => {
   it('session cookie is HttpOnly', async () => {
-    const { SESSION_COOKIE_NAME } = await import('@/lib/server/session');
+    const { SESSION_COOKIE_NAME } = await import('@/lib/server/auth/session');
     expect(SESSION_COOKIE_NAME).toBe('sp_session');
   });
 
   it('session cookie options are secure in production', async () => {
-    const { SESSION_COOKIE_NAME: _name } = await import('@/lib/server/session');
+    const { SESSION_COOKIE_NAME: _name } = await import('@/lib/server/auth/session');
     // The session module sets httpOnly: true and secure: process.env.NODE_ENV === 'production'
     // Verified by code inspection  -  no runtime test needed
     expect(true).toBe(true);

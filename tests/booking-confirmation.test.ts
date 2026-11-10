@@ -1,21 +1,21 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { createElement } from 'react'
-import { openBookingConfirmation, type CheckoutReceipt } from '@/lib/booking-confirmation'
-import { bookingConfirmationResponse, confirmationCookieName, readBookingConfirmation } from '@/lib/server/booking-confirmation'
+import { openBookingConfirmation, type CheckoutReceipt } from '@/lib/booking/booking-confirmation'
+import { bookingConfirmationResponse, confirmationCookieName, readBookingConfirmation } from '@/lib/server/booking/access/booking-confirmation'
 import { POST } from '@/app/api/bookings/confirmation/route'
 import PublicPage from '@/app/booking-confirmation/page'
 import PrivatePage from '@/app/checkout/receipt/page'
-import { BookingConfirmation } from '@/components/booking-confirmation'
-import { canMeasureLocation } from '@/lib/tracking'
-import { publicPageView } from '@/lib/tracking-events'
+import { BookingConfirmation } from '@/components/booking/booking-confirmation'
+import { canMeasureLocation } from '@/lib/tracking/tracking'
+import { publicPageView } from '@/lib/tracking/tracking-events'
 import { NextRequest } from 'next/server'
 import { proxy } from '@/proxy'
 
 const mocks = vi.hoisted(() => ({ cookie: undefined as string | undefined, user: vi.fn(), locale: 'en' as 'en' | 'es' | 'it' }))
 vi.mock('next/headers', () => ({ cookies: async () => ({ get: () => mocks.cookie ? { value: mocks.cookie } : undefined }) }))
 vi.mock('next/navigation', async original => ({ ...await original<typeof import('next/navigation')>(), redirect: (path: string) => { throw Error('redirect:' + path) } }))
-vi.mock('@/lib/server/auth', () => ({ getCurrentUser: mocks.user }))
+vi.mock('@/lib/server/auth/auth', () => ({ getCurrentUser: mocks.user }))
 vi.mock('@/components/locale', async original => ({ ...await original<typeof import('@/components/locale')>(), useLocale: () => ({ locale: mocks.locale, currency: 'USD' }) }))
 
 const origin = 'https://starpyramids.com'

@@ -1,14 +1,14 @@
 import { randomUUID } from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { parseLiveAction } from '@/lib/live-chat-contract'
+import { parseLiveAction } from '@/lib/support/live-chat-contract'
 
 const mock = vi.hoisted(() => ({ db: {} as Record<string, any>, notify: vi.fn(), failBot: false, rows: [] as any[], messages: [] as any[], sequence: 0,
   tours: [] as { slug: string; title: string; status: string; location: string; duration: string }[] }))
 vi.mock('@/lib/server/db', () => ({ db: mock.db }))
-vi.mock('@/lib/server/notifications', () => ({ notifyStaff: mock.notify, notifyUser: vi.fn(), adminSupportHref: (r: string) => `/admin/inbox?conversation=${r}`, customerSupportHref: (r: string) => `/account/messages?conversation=${r}` }))
-vi.mock('@/lib/server/email', () => ({ sendCustomerEmailSafe: vi.fn(), sendStaffEmailSafe: vi.fn() }))
-import { readLiveThread, writeLiveThread } from '@/lib/server/live-chat'
-import { countStaffUnread, getCustomerThread, getStaffConversation, listStaffConversations, sendCustomerMessage, sendStaffMessage } from '@/lib/server/support-chat'
+vi.mock('@/lib/server/notifications/notifications', () => ({ notifyStaff: mock.notify, notifyUser: vi.fn(), adminSupportHref: (r: string) => `/admin/inbox?conversation=${r}`, customerSupportHref: (r: string) => `/account/messages?conversation=${r}` }))
+vi.mock('@/lib/server/email/email', () => ({ sendCustomerEmailSafe: vi.fn(), sendStaffEmailSafe: vi.fn() }))
+import { readLiveThread, writeLiveThread } from '@/lib/server/support/live-chat'
+import { countStaffUnread, getCustomerThread, getStaffConversation, listStaffConversations, sendCustomerMessage, sendStaffMessage } from '@/lib/server/support/support-chat'
 
 function hydrated(row: any) {
   return row && { ...row, customer: row.customerId ? { email: 'fixture@example.invalid', firstName: 'Fixture', lastName: 'Customer' } : null, assignee: null, messages: mock.messages.filter(m => m.conversationId === row.id).sort((a, b) => a.createdAt - b.createdAt) }

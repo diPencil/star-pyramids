@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 
 import { isSameOriginRequest } from '@/lib/server/csrf';
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
-import { GalleryValidationError, reorderGalleryItems } from '@/lib/server/journey-gallery';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
+import { GalleryValidationError, reorderGalleryItems } from '@/lib/server/gallery/journey-gallery';
 
 /** Staff-only atomic reorder: `{ order: [{ id, sortOrder }] }`. */
 export async function POST(request: Request) {

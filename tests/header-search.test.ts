@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import type { SearchResult } from '@/lib/site-search'
+import type { SearchResult } from '@/lib/navigation/site-search'
 const state = vi.hoisted(() => ({ locale: 'en', read: vi.fn() }))
 vi.mock('next/navigation', () => ({ usePathname: () => '/', useRouter: () => ({ push: vi.fn() }) }))
 vi.mock('@/components/locale', () => ({ useLocale: () => ({ locale: state.locale }), tx: (locale: string, text: Record<string, string>) => text[locale] ?? text.en }))
-vi.mock('@/lib/use-public-search', () => ({ usePublicSearch: state.read }))
-import { HeaderSearch, SearchSuggestions } from '@/components/header-search'
+vi.mock('@/lib/navigation/use-public-search', () => ({ usePublicSearch: state.read }))
+import { HeaderSearch, SearchSuggestions } from '@/components/layout/header-search'
 const result: SearchResult = { type: 'Destination', slug: 'cairo', title: 'Cairo', copy: 'Discover the city', image: '/cairo.jpg', href: '/destinations/cairo' }
 const props = { query: 'cair', id: 'suggestions', active: 0, results: [result], loading: false, failed: [], retry: vi.fn(), onClose: vi.fn() }
 describe('header autocomplete without browser or database', () => {

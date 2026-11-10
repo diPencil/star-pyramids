@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { getCurrentUser, hasPermission } from '@/lib/server/auth'
-import { seoInventory } from '@/lib/server/seo-inventory'
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth'
+import { seoInventory } from '@/lib/server/seo/seo-inventory'
 export async function GET() {
   const headers = { 'Cache-Control': 'private, no-store' }
   const user = await getCurrentUser()

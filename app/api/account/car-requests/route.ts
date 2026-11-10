@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
-import { listCustomerCarRequests } from '@/lib/server/car-requests';
-import { getAccountReadUser } from '@/lib/server/staff-preview';
+import { listCustomerCarRequests } from '@/lib/server/cars/car-requests';
+import { getAccountReadUser } from '@/lib/server/auth/staff-preview';
 
 /** Authenticated customer's own car requests (safe projection). */
 export async function GET() {

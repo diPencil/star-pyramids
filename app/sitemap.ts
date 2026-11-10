@@ -1,17 +1,17 @@
 import type { MetadataRoute } from 'next';
-import { listTours } from '@/lib/server/tours';
-import { getPublishedDestinationDetails, getPublishedOneDayDestinations } from '@/lib/server/destinations';
-import { listBlogSlugs } from '@/lib/server/blogs';
-import { getPublishedDbEvents } from '@/lib/server/events';
-import { getPublishedDbOffers } from '@/lib/server/offers';
-import { getPublishedCategories } from '@/lib/server/categories';
+import { listTours } from '@/lib/server/catalogue/tours';
+import { getPublishedDestinationDetails, getPublishedOneDayDestinations } from '@/lib/server/catalogue/destinations';
+import { listBlogSlugs } from '@/lib/server/editorial/blogs';
+import { getPublishedDbEvents } from '@/lib/server/events/events';
+import { getPublishedDbOffers } from '@/lib/server/offers/offers';
+import { getPublishedCategories } from '@/lib/server/catalogue/categories';
 import { cruiseTypes } from '@/data/tours';
-import { isTourPublished } from '@/lib/tour-publish';
-import { getSiteUrl } from '@/lib/seo';
-import { SEO_PAGES, currentSeo, isSeoPage } from '@/lib/seo-manager';
-import { readSeoState } from '@/lib/server/seo-manager';
-import { getPublishedRecordSeo } from '@/lib/server/record-seo';
-import { publicRecordCanonical, type RecordSeoKind } from '@/lib/dynamic-seo';
+import { isTourPublished } from '@/lib/tours/tour-publish';
+import { getSiteUrl } from '@/lib/seo/seo';
+import { SEO_PAGES, currentSeo, isSeoPage } from '@/lib/seo/seo-manager';
+import { readSeoState } from '@/lib/server/seo/seo-manager';
+import { getPublishedRecordSeo } from '@/lib/server/seo/record-seo';
+import { publicRecordCanonical, type RecordSeoKind } from '@/lib/seo/dynamic-seo';
 
 export const dynamic = 'force-dynamic';
 

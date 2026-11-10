@@ -1,5 +1,5 @@
 import { TripBuilder } from '@/components/admin/trip-builder'
-import { readPublishedAppearance } from '@/lib/server/website-appearance'
+import { readPublishedAppearance } from '@/lib/server/cms/website-appearance'
 
 export default async function TripBuilderPage({ searchParams }: { searchParams: Promise<{ slug?: string | string[] }> }) {
   const value = (await searchParams).slug

@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }), usePathname: () => '/destinations', useSearchParams: () => new URLSearchParams() }))
 import { getEgyptTourNavLinks, getNavConfig, NavLinks } from '@/components/site'
-import { copy, extra } from '@/lib/site-copy'
+import { copy, extra } from '@/lib/i18n/site-copy'
 
 const categoryPaths = ['/trips', '/egypt-tours/one-day-tours', '/egypt-tours/multi-days-tours', '/egypt-tours/nile-cruises', '/egypt-tours/shore-excursions']
 describe('Destinations navigation in the existing Egypt Tours group', () => {

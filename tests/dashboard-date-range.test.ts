@@ -7,8 +7,8 @@
 // the DateInput "Today" button selects (no UTC-slice drift).
 import { describe, expect, it } from 'vitest';
 
-import { addDays, toISO, todayYMD } from '@/lib/date-calendar';
-import { AnalyticsValidationError, parseAnalyticsRange } from '@/lib/analytics-range';
+import { addDays, toISO, todayYMD } from '@/lib/core/date-calendar';
+import { AnalyticsValidationError, parseAnalyticsRange } from '@/lib/analytics/analytics-range';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

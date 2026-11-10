@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mock = vi.hoisted(() => ({ findUnique: vi.fn(), updateMany: vi.fn(), create: vi.fn() }))
 vi.mock('@/lib/server/db', () => ({ db: { siteSetting: mock } }))
-import { changeHero, HeroConflictError } from '@/lib/server/website-heroes'
-import { initialHeroState, originalHomeHero } from '@/lib/website-heroes'
+import { changeHero, HeroConflictError } from '@/lib/server/cms/heroes/website-heroes'
+import { initialHeroState, originalHomeHero } from '@/lib/cms/heroes/website-heroes'
 beforeEach(() => { mock.findUnique.mockReset().mockResolvedValue(null); mock.updateMany.mockReset().mockResolvedValue({ count: 1 }); mock.create.mockReset().mockResolvedValue({}) })
 describe('hero compare-and-swap persistence with mocked database', () => {
   it('inserts only after an explicit draft action', async () => {

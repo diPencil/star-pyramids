@@ -1,7 +1,7 @@
 import { destinations } from '@/data/content'
 import { dayTourTerms, findTour } from '@/data/tours'
 import type { Tour } from '@/data/types'
-import { TRIP_SOURCE_BLOG_VIP, type TripSourceInput } from '@/lib/trip-request'
+import { TRIP_SOURCE_BLOG_VIP, type TripSourceInput } from '@/lib/trip-builder/trip-request'
 
 type QueryReader = {
   get(name: string): string | null

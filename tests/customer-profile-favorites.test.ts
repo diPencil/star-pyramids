@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { fetchAccountFavoriteSlugs } from '@/lib/customer-account'
+import { fetchAccountFavoriteSlugs } from '@/lib/account/customer-account'
 
 afterEach(() => vi.unstubAllGlobals())
 it('loads account/preview favorites directly from the owner-scoped endpoint, never auth/me or local storage', async () => {

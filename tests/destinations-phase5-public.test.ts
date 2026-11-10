@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Destination, Tour } from '@/data/types'
-import { destinationTours, listedDestinations } from '@/lib/destination-public'
-import { localizeCatalogue, validateCatalogueTranslations } from '@/lib/catalogue-translations'
+import { destinationTours, listedDestinations } from '@/lib/catalogue/destination-public'
+import { localizeCatalogue, validateCatalogueTranslations } from '@/lib/catalogue/catalogue-translations'
 
 const destination: Destination = { slug: 'cairo', title: 'Cairo', copy: 'Copy', image: '/cairo.jpg', detail: {
   heroImage: '/hero.jpg', heroAlt: 'Cairo view', eyebrow: 'Discover', intro: 'Intro',

@@ -13,9 +13,9 @@ vi.mock('react', async original => ({
   useEffect: () => {},
 }))
 vi.mock('@/components/locale', () => ({ useLocale: () => ({ locale: 'en' }), tx: (_locale: string, copy: { en: string }) => copy.en }))
-import { ProviderReviewsSection } from '@/components/provider-reviews'
-import { WebsiteReviews } from '@/components/website-reviews'
-import { ReviewWriteModal } from '@/components/reviews'
+import { ProviderReviewsSection } from '@/components/reviews/provider-reviews'
+import { WebsiteReviews } from '@/components/reviews/website-reviews'
+import { ReviewWriteModal } from '@/components/reviews/reviews'
 
 type Element = ReactElement<Record<string, unknown>>
 function nodes(tree: ReactNode): Element[] { return Children.toArray(tree).flatMap(child => isValidElement<Record<string, unknown>>(child) ? [child, ...nodes(child.props.children as ReactNode)] : []) }

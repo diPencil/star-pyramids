@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 // Run the real cache through its hooks without a DOM or network.
 vi.mock('react', () => ({ useState: () => [0, vi.fn()], useEffect: (effect: () => unknown) => { effect() }, useMemo: (factory: () => unknown) => factory() }))
-vi.mock('@/lib/use-catalogue-language', () => ({ useCatalogueLanguage: (rows: unknown) => rows }))
+vi.mock('@/lib/catalogue/use-catalogue-language', () => ({ useCatalogueLanguage: (rows: unknown) => rows }))
 const row = (slug: string) => ({ slug, title: slug, isPublished: slug !== 'draft', detail: '{}' })
 beforeEach(() => vi.resetModules())
 afterEach(() => vi.unstubAllGlobals())
@@ -10,7 +10,7 @@ afterEach(() => vi.unstubAllGlobals())
 it('never substitutes bootstrap records when the public database is empty or fails', async () => {
   const fetcher = vi.fn().mockResolvedValueOnce(Response.json({ destinations: [] })).mockResolvedValueOnce(new Response('Unavailable', { status: 503 }))
   vi.stubGlobal('fetch', fetcher)
-  const cache = await import('@/lib/catalogue-client')
+  const cache = await import('@/lib/catalogue/catalogue-client')
   const bootstrap = [{ ...row('bootstrap'), image: '', copy: '', detail: { heroImage: '', heroAlt: '', eyebrow: '', intro: '', facts: [], bestFor: [], experiences: [], rhythm: [], practical: [], tourSlugs: [] } }]
   expect(cache.useDbDestinations(bootstrap)).toEqual([])
   await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1))
@@ -25,7 +25,7 @@ it('never substitutes bootstrap records when the public database is empty or fai
 it('keeps private destination rows separate when navigating to public content', async () => {
   const fetcher = vi.fn().mockImplementation(async (url: string) => Response.json({ destinations: url.includes('admin=1') ? [row('public'), row('draft')] : [row('public')] }))
   vi.stubGlobal('fetch', fetcher)
-  const cache = await import('@/lib/catalogue-client')
+  const cache = await import('@/lib/catalogue/catalogue-client')
   cache.useDbDestinationsStatus()
   await vi.waitFor(() => expect(cache.useDbDestinationsStatus().data).toHaveLength(2))
   cache.useDbDestinations([])
@@ -39,7 +39,7 @@ it('ignores an old response after a publication change invalidates the catalogue
   const fetcher = vi.fn().mockImplementationOnce(() => new Promise<Response>(resolve => { finishOld = resolve }))
     .mockResolvedValueOnce(Response.json({ destinations: [] }))
   vi.stubGlobal('fetch', fetcher)
-  const cache = await import('@/lib/catalogue-client')
+  const cache = await import('@/lib/catalogue/catalogue-client')
   cache.useDbDestinations([])
   cache.invalidateCatalogueCache()
   cache.useDbDestinations([])

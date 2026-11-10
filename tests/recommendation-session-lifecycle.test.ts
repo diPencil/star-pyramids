@@ -17,7 +17,7 @@ it('stores only session randomness and selected slugs, restoring choices immedia
   const values = new Map<string, string>()
   const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value) }
   vi.stubGlobal('window', { sessionStorage: storage, crypto: { getRandomValues: (value: Uint32Array) => { value[0] = 73; return value } } })
-  const { useRecommendationSession, RECOMMENDATION_SESSION_KEY, readRecommendationSession } = await import('@/lib/homepage-recommendation-session')
+  const { useRecommendationSession, RECOMMENDATION_SESSION_KEY, readRecommendationSession } = await import('@/lib/home/homepage-recommendation-session')
   expect(useRecommendationSession().session).toBeNull()
   hooks.effects[0]()
   const ready = useRecommendationSession()
@@ -36,7 +36,7 @@ it('keeps the same in-memory choices when storage reads work but writes are bloc
   vi.resetModules()
   const random = vi.fn((value: Uint32Array) => { value[0] = 123; return value })
   vi.stubGlobal('window', { sessionStorage: { getItem: () => null, setItem: () => { throw Error('Quota exceeded') } }, crypto: { getRandomValues: random } })
-  const { useRecommendationSession } = await import('@/lib/homepage-recommendation-session')
+  const { useRecommendationSession } = await import('@/lib/home/homepage-recommendation-session')
   useRecommendationSession(); hooks.effects[0]()
   useRecommendationSession().remember(['saved-tour'])
   hooks.state = undefined

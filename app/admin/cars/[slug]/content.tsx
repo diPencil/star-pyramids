@@ -6,9 +6,9 @@ import { CarFront, Eye, EyeOff, Pencil } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminIconAction, AdminTableActions, AdminTableWrap, AdminText, Card, StatusPill } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
-import { invalidateEventsCarsCache, useDbCarsStatus } from '@/lib/events-cars-client'
+import { invalidateEventsCarsCache, useDbCarsStatus } from '@/lib/catalogue/events-cars-client'
 import { toast } from '@/components/admin/admin-toaster'
-import type { StaffCarRequest } from '@/lib/car-request'
+import type { StaffCarRequest } from '@/lib/cars/car-request'
 
 /**
  * Fleet vehicle detail. Only honest/computable data: overview, website

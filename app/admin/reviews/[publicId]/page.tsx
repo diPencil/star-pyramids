@@ -2,13 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { WEBSITE_REVIEW_SCOPE } from '@/lib/review-scope'
+import { WEBSITE_REVIEW_SCOPE } from '@/lib/reviews/review-scope'
 import { ArrowLeft, ArrowRight, CheckCircle2, XCircle, CircleAlert } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { Avatar, Card } from '@/components/admin/admin-ui'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { useLocale } from '@/components/locale'
-import { reviewText } from '@/lib/review-copy'
+import { reviewText } from '@/lib/reviews/review-copy'
 import { useCurrentUser } from '@/lib/use-current-user'
 
 type ReviewDetail = {

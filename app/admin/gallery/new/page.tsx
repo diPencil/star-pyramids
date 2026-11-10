@@ -2,10 +2,10 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { GalleryPageHead as PageHead, GalleryText as AdminText, galleryText, useGalleryLocale } from '@/components/admin/gallery-text'
+import { GalleryPageHead as PageHead, GalleryText as AdminText, galleryText, useGalleryLocale } from '@/components/admin/gallery/gallery-text'
 import { Card } from '@/components/admin/admin-ui'
-import { GalleryForm } from '@/components/admin/gallery-form'
-import type { GalleryItem } from '@/lib/journey-gallery'
+import { GalleryForm } from '@/components/admin/gallery/gallery-form'
+import type { GalleryItem } from '@/lib/gallery/journey-gallery'
 
 function isGalleryItem(row: unknown): row is GalleryItem {
   if (!row || typeof row !== 'object') return false

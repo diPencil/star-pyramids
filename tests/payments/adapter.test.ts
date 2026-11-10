@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { validateAdapter, createProviderMetadata, DEFAULT_CAPABILITIES } from '@/lib/payments/adapter'
 import type { ExtendedPaymentProviderAdapter, ProviderMetadata } from '@/lib/payments/adapter'
-import type { PaymentHandoff, ProviderCallbackOutcome } from '@/lib/payment'
+import type { PaymentHandoff, ProviderCallbackOutcome } from '@/lib/payments/payment'
 
 // Mock adapter for testing
 function createMockAdapter(overrides: Partial<ExtendedPaymentProviderAdapter> = {}): ExtendedPaymentProviderAdapter {
@@ -207,8 +207,8 @@ type ExtendedPaymentAdapter = {
     returnUrl: string
     cancelUrl: string
     metadata?: Record<string, string>
-  }) => Promise<import('@/lib/payment').PaymentHandoff>
-  handleCallback: (rawBody: string, headers: Headers) => Promise<import('@/lib/payment').ProviderCallbackOutcome>
+  }) => Promise<import('@/lib/payments/payment').PaymentHandoff>
+  handleCallback: (rawBody: string, headers: Headers) => Promise<import('@/lib/payments/payment').ProviderCallbackOutcome>
   verifyWebhook: (rawBody: string, headers: Headers) => Promise<{
     eventId: string
     eventType: string

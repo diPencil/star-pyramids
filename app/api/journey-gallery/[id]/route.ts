@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { isSameOriginRequest } from '@/lib/server/csrf';
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
 import {
   GalleryNotFoundError,
   GalleryValidationError,
@@ -9,7 +9,7 @@ import {
   getGalleryItem,
   updateGalleryItem,
   publishGalleryItem,
-} from '@/lib/server/journey-gallery';
+} from '@/lib/server/gallery/journey-gallery';
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();

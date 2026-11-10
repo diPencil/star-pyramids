@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { readUploadForm, UploadBodyTooLarge } from '@/lib/server/upload-form'
+import { readUploadForm, UploadBodyTooLarge } from '@/lib/server/media/upload-form'
 
 describe('multipart stream boundary before parsing', () => {
   it.each([undefined, '1'])('rejects an oversized stream with absent or forged length %s', async length => {

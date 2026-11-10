@@ -1,0 +1,221 @@
+'use client';
+import { isCurrency, type Currency } from '../payments/currency';
+
+import { ENABLED_LOCALES, sanitizeLocale } from '../i18n/locale-config';
+import { readAccessStrip, type AccessStripOverride } from './access-strip';
+import type { SocialLink } from '../admin-store';
+
+/**
+ * Single-flight public settings reader. The database is the source of
+ * truth; values live only in memory (never in localStorage) and every
+ * consumer keeps its server-rendered branding seed until fresh values arrive.
+ * Domain hooks keep their existing event subscriptions (`sp-brand`,
+ * `sp-social`, `sp-currency`, `sp-l10n`)  -  this module re-emits those
+ * events when DB values land so every consumer refreshes.
+ */
+
+let inflight: Promise<void> | null = null;
+let requestGeneration = 0;
+let brandSeedFingerprint: string | null = null;
+let brand: Record<string, string> | null = null;
+let social: SocialLink[] | null = null;
+let currency: { eur?: number; egp?: number; defaultCurrency?: Currency } | null = null;
+let localization: { defaultLanguage?: string; timezone?: string } | null = null;
+let seoTitle: string | null = null;
+let promoText: string | null = null;
+let promo2Text: string | null = null;
+let accessStrip: AccessStripOverride | null = null;
+
+function isValidTimezone(tz: string): boolean {
+  if (!tz) return false;
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function cleanString(value: unknown): string {
+  return typeof value === 'string' && value.trim() ? value.trim() : '';
+}
+
+function cleanRate(value: unknown): number {
+  const n = typeof value === 'string' ? Number(value) : Number.NaN;
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function cleanSocial(value: unknown): SocialLink[] | null {
+  if (!Array.isArray(value)) return null;
+  const valid = (value as unknown[]).filter(
+    (entry): entry is SocialLink =>
+      typeof entry === 'object' &&
+      entry !== null &&
+      typeof (entry as SocialLink).id === 'string' &&
+      typeof (entry as SocialLink).url === 'string',
+  );
+  return valid.length > 0 ? valid : null;
+}
+
+type RawSettings = {
+  brand?: Record<string, unknown>;
+  contact?: Record<string, unknown>;
+  social?: unknown;
+  localization?: { defaultLanguage?: unknown; timezone?: unknown };
+  currency?: { defaultCurrency?: unknown };
+  rates?: { eur?: unknown; egp?: unknown };
+  seo?: { title?: unknown };
+  promo?: { text?: unknown; text2?: unknown };
+  accessStrip?: unknown;
+};
+
+const BRAND_FIELDS = [
+  'companyName',
+  'logo',
+  'favicon',
+  'aboutEn',
+  'aboutAr',
+  'phone',
+  'whatsapp',
+  'email',
+  'address',
+  'mapUrl',
+  'copyrightEn',
+  'copyrightAr',
+] as const;
+
+function applySettings(data: { settings?: unknown }): void {
+  const raw = (data.settings ?? {}) as RawSettings;
+  const merged = { ...(raw.brand ?? {}), ...(raw.contact ?? {}) };
+  const nextBrand: Record<string, string> = {};
+  for (const key of BRAND_FIELDS) {
+    const cleaned = cleanString(merged[key]);
+    if (cleaned) nextBrand[key] = cleaned;
+  }
+  brand = nextBrand;
+  window.dispatchEvent(new Event('sp-brand'));
+
+  const nextSocial = cleanSocial(raw.social);
+  if (nextSocial) {
+    social = nextSocial;
+    window.dispatchEvent(new Event('sp-social'));
+  }
+
+  const nextCurrency: NonNullable<typeof currency> = {};
+  const eur = cleanRate(raw.rates?.eur);
+  const egp = cleanRate(raw.rates?.egp);
+  if (eur > 0) nextCurrency.eur = eur;
+  if (egp > 0) nextCurrency.egp = egp;
+  const currencyRaw = cleanString(raw.currency?.defaultCurrency);
+  if (isCurrency(currencyRaw)) {
+    nextCurrency.defaultCurrency = currencyRaw;
+  }
+  // Each response is authoritative: unavailable rates must invalidate stale ones.
+  currency = nextCurrency;
+  window.dispatchEvent(new Event('sp-currency'));
+
+  const nextLocalization: NonNullable<typeof localization> = {};
+  const localeRaw = cleanString(raw.localization?.defaultLanguage);
+  if ((ENABLED_LOCALES as readonly string[]).includes(localeRaw)) {
+    nextLocalization.defaultLanguage = sanitizeLocale(localeRaw);
+  }
+  const timezoneRaw = cleanString(raw.localization?.timezone);
+  if (isValidTimezone(timezoneRaw)) {
+    nextLocalization.timezone = timezoneRaw;
+  }
+  if (Object.keys(nextLocalization).length > 0) {
+    localization = { ...localization, ...nextLocalization };
+    window.dispatchEvent(new Event('sp-l10n'));
+  }
+
+  const seoRaw = cleanString(raw.seo?.title);
+  if (seoRaw) {
+    seoTitle = seoRaw;
+    window.dispatchEvent(new Event('sp-seo'));
+  }
+  const promoRaw = cleanString(raw.promo?.text);
+  if (promoRaw) {
+    promoText = promoRaw;
+    window.dispatchEvent(new Event('sp-promo'));
+  }
+  const promo2Raw = cleanString(raw.promo?.text2);
+  if (promo2Raw) {
+    promo2Text = promo2Raw;
+    window.dispatchEvent(new Event('sp-promo2'));
+  }
+  // The access-strip snapshot is always present (null when unconfigured),
+  // so assign unconditionally: null restores the built-in defaults.
+  accessStrip = readAccessStrip(raw.accessStrip ?? null);
+  window.dispatchEvent(new Event('sp-access'));
+}
+
+export function getDbBrand(): Record<string, string> | null {
+  return brand;
+}
+
+export function getDbSocial(): SocialLink[] | null {
+  return social;
+}
+
+export function getDbCurrency(): NonNullable<typeof currency> | null {
+  return currency;
+}
+
+export function getDbLocalization(): NonNullable<typeof localization> | null {
+  return localization;
+}
+
+export function getDbSeoTitle(): string | null {
+  return seoTitle;
+}
+
+export function getDbPromoText(): string | null {
+  return promoText;
+}
+
+export function getDbPromo2Text(): string | null {
+  return promo2Text;
+}
+
+export function getDbAccessStrip(): AccessStripOverride | null {
+  return accessStrip;
+}
+
+/** Fire-once fetch of the public settings snapshot. Safe to call on every mount. */
+export function ensureStorefrontSettings(): void {
+  if (typeof window === 'undefined' || inflight) return;
+  const generation = ++requestGeneration;
+  inflight = (async () => {
+    try {
+      const res = await fetch('/api/settings', { credentials: 'same-origin', cache: 'no-store' });
+      if (!res.ok) return;
+      const data = (await res.json()) as { settings?: unknown };
+      if (generation === requestGeneration && data && typeof data === 'object') applySettings(data);
+    } catch {
+      // Offline or unreachable: retain server-seeded/last confirmed branding.
+    } finally {
+      if (generation === requestGeneration) inflight = null;
+    }
+  })();
+}
+
+/**
+ * Force a storefront refetch (e.g. right after an admin settings save in
+ * the same tab). Clears the single-flight guard so the next
+ * `ensureStorefrontSettings()` call hits the network again.
+ */
+export function refreshStorefrontSettings(): void {
+  if (typeof window === 'undefined') return;
+  requestGeneration++;
+  inflight = null;
+  ensureStorefrontSettings();
+}
+
+/** A new server seed invalidates older in-flight browser reads once, not per logo. */
+export function ensureStorefrontBrandSeed(seed: Record<string, string>): void {
+  const fingerprint = JSON.stringify(Object.keys(seed).sort().map(key => [key, seed[key]]));
+  if (fingerprint !== brandSeedFingerprint) {
+    brandSeedFingerprint = fingerprint;
+    refreshStorefrontSettings();
+  } else ensureStorefrontSettings();
+}

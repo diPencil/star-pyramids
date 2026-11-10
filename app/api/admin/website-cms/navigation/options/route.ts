@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { getCurrentUser, hasPermission } from '@/lib/server/auth'
-import { navigationKinds, type NavigationKind } from '@/lib/navigation'
-import { recordNavigationOptions, staticNavigationOptions } from '@/lib/server/navigation'
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth'
+import { navigationKinds, type NavigationKind } from '@/lib/navigation/navigation'
+import { recordNavigationOptions, staticNavigationOptions } from '@/lib/server/navigation/navigation'
 export const dynamic = 'force-dynamic'
 export async function GET(request: Request) {
   const headers = { 'Cache-Control': 'private, no-store' }

@@ -6,7 +6,7 @@ const context = vi.hoisted(() => ({ locale: 'es', pathname: '/rent-car' }))
 vi.mock('@/components/locale', () => ({ useLocale: () => ({ locale: context.locale }) }))
 vi.mock('next/navigation', () => ({ usePathname: () => context.pathname }))
 
-import { useCatalogueLanguage } from '@/lib/use-catalogue-language'
+import { useCatalogueLanguage } from '@/lib/catalogue/use-catalogue-language'
 import { ContentLanguageTabs, TranslatedInput } from '@/components/admin/content-language-tabs'
 
 describe('catalogue language consumers', () => {

@@ -3,9 +3,9 @@
 import assert from 'node:assert/strict'
 process.loadEnvFile('.env')
 const { db } = await import('../lib/server/db.ts')
-const { linkedOfferFields, applyLinkedOfferDeals } = await import('../lib/server/special-offers.ts')
-const { isOfferActive } = await import('../lib/special-offers.ts')
-const { findTourBySlug } = await import('../lib/server/tours.ts')
+const { linkedOfferFields, applyLinkedOfferDeals } = await import('../lib/server/offers/special-offers.ts')
+const { isOfferActive } = await import('../lib/offers/special-offers.ts')
+const { findTourBySlug } = await import('../lib/server/catalogue/tours.ts')
 const { getBookingTotal } = await import('../data/tours.ts')
 const marker = new Error('ROLLBACK_SPECIAL_OFFERS_QA')
 const originalFindMany = db.offer.findMany

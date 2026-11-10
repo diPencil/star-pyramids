@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import {
   getCustomerDetail,
   setCustomerStatus,
   updateCustomerProfile,
-} from '@/lib/server/customers';
-import { UserManagementError } from '@/lib/server/users';
+} from '@/lib/server/account/customers';
+import { UserManagementError } from '@/lib/server/auth/users';
 
 function toError(error: unknown) {
   if (error instanceof UserManagementError) {

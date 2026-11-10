@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
 import {
@@ -8,9 +8,9 @@ import {
   addStaffBookingNote,
   getStaffBooking,
   transitionStaffBooking,
-} from '@/lib/server/bookings';
-import { acknowledgePaymentProof } from '@/lib/server/payment-proofs';
-import { BOOKING_STATUSES, type BookingStatus } from '@/lib/booking';
+} from '@/lib/server/booking/bookings';
+import { acknowledgePaymentProof } from '@/lib/server/payments/payment-proofs';
+import { BOOKING_STATUSES, type BookingStatus } from '@/lib/booking/booking';
 
 type StaffPatchBody = {
   status?: unknown;

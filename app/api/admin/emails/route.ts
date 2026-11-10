@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
-import { countEmailDeliveries, getEmailProvider, listEmailDeliveries } from '@/lib/server/email';
-import { describeSmtpConfig, verifySmtpConnection } from '@/lib/server/email-smtp';
+import { countEmailDeliveries, getEmailProvider, listEmailDeliveries } from '@/lib/server/email/email';
+import { describeSmtpConfig, verifySmtpConnection } from '@/lib/server/email/email-smtp';
 
 const STATUSES = new Set(['PENDING', 'SENT', 'FAILED', 'SKIPPED']);
 

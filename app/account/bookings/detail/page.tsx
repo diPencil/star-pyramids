@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { BookingDetailPage } from '@/components/account-portal'
-import { isBookingReference } from '@/lib/booking'
+import { BookingDetailPage } from '@/components/account/account-portal'
+import { isBookingReference } from '@/lib/booking/booking'
 
 export const metadata: Metadata = {
   title: 'Booking Details',

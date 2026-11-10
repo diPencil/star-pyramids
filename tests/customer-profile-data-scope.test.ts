@@ -5,13 +5,13 @@ vi.mock('@/lib/server/db', () => ({ db: {
   carRequest: { findMany: m.car }, eventRequest: { findMany: m.event }, favoriteItem: { findMany: m.favorite },
   payment: { findMany: m.payment }, supportConversation: { findMany: m.conversation },
 } }))
-import { getCustomerDetail } from '@/lib/server/customers'
-import { listCustomerBookings } from '@/lib/server/bookings'
-import { listCustomerTripRequests } from '@/lib/server/trip-requests'
-import { listCustomerCarRequests } from '@/lib/server/car-requests'
-import { listCustomerEventRequests } from '@/lib/server/event-requests'
-import { listCustomerPayments } from '@/lib/server/payments'
-import { listFavoriteSlugs } from '@/lib/server/favorites'
+import { getCustomerDetail } from '@/lib/server/account/customers'
+import { listCustomerBookings } from '@/lib/server/booking/bookings'
+import { listCustomerTripRequests } from '@/lib/server/trip-builder/trip-requests'
+import { listCustomerCarRequests } from '@/lib/server/cars/car-requests'
+import { listCustomerEventRequests } from '@/lib/server/events/event-requests'
+import { listCustomerPayments } from '@/lib/server/payments/payments'
+import { listFavoriteSlugs } from '@/lib/server/account/favorites'
 
 const date = new Date('2026-11-03T10:00:00Z')
 const user = { id: 'owner-a', publicId: 'public-a', email: 'same-as-guest@example.com', firstName: 'Test', lastName: 'Customer', status: 'PENDING', emailVerifiedAt: null, createdAt: date, lastLoginAt: null, roles: [{ role: { key: 'CUSTOMER' } }] }

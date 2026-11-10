@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import ts from 'typescript'
 import { readFileSync } from 'node:fs'
-import { heroCatalogue } from '@/lib/hero-catalogue'
-import { EDITORIAL_HERO_IDS } from '@/lib/editorial-hero-definitions'
-import { showcaseDefaults } from '@/lib/showcase-hero-defaults'
-import { SHOWCASE_HERO_IDS, isShowcaseHeroId, originalShowcaseHero, initialShowcaseState, transitionShowcaseHero, publicShowcaseHero, validateShowcaseHero, readShowcasePreviewMessage } from '@/lib/showcase-heroes'
+import { heroCatalogue } from '@/lib/cms/heroes/hero-catalogue'
+import { EDITORIAL_HERO_IDS } from '@/lib/cms/heroes/editorial-hero-definitions'
+import { showcaseDefaults } from '@/lib/cms/heroes/showcase-hero-defaults'
+import { SHOWCASE_HERO_IDS, isShowcaseHeroId, originalShowcaseHero, initialShowcaseState, transitionShowcaseHero, publicShowcaseHero, validateShowcaseHero, readShowcasePreviewMessage } from '@/lib/cms/heroes/showcase-heroes'
 
 const parse = (path: string) => ts.createSourceFile(path, readFileSync(path, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
 function visit(node: ts.Node, fn: (node: ts.Node) => void) { fn(node); ts.forEachChild(node, (child) => visit(child, fn)) }
@@ -49,7 +49,7 @@ describe('all existing static showcase heroes', () => {
     })
   }
   it('captures exact localized copy from all original PageShowcaseHero instances', () => {
-    for (const [path, ids] of [['components/about-page.tsx', ['about']], ['components/extended-pages.tsx', ['contact', 'cars', 'blogs', 'offers']]] as const) {
+    for (const [path, ids] of [["components/content/about-page.tsx",["about"]],["components/enquiries/contact-page.tsx",["contact"]],["components/cars/car-pages.tsx",["cars"]],["components/content/blog-pages.tsx",["blogs"]],["components/offers/offer-pages.tsx",["offers"]]] as const) {
       const root = parse(path), tags: ts.JsxSelfClosingElement[] = []
       visit(root, (node) => { if (ts.isJsxSelfClosingElement(node) && node.tagName.getText() === 'PageShowcaseHero' && !node.getText().includes('railHref="#destinations-catalogue"')) tags.push(node) })
       for (const [index, id] of ids.entries()) {
@@ -107,7 +107,7 @@ describe('all existing static showcase heroes', () => {
     expect(source).toContain('fill priority sizes="100vw" className="hero-bg-img"')
     expect(source).toContain("content.position !== 'source' ? { objectPosition: content.position } : undefined")
     expect(source).toContain('railTitle = text.railTitle ?? railTitle')
-    expect(readFileSync('components/showcase-hero-preview.tsx', 'utf8')).toContain('<div inert>{children}</div>')
+    expect(readFileSync('components/cms/heroes/showcase-hero-preview.tsx', 'utf8')).toContain('<div inert>{children}</div>')
     expect(readFileSync('app/website-cms-preview/showcase/[id]/page.tsx', 'utf8')).toContain("hasPermission(user, 'settings.view')")
     expect(Object.keys(showcaseDefaults)).toHaveLength(10)
   })

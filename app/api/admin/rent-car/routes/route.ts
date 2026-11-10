@@ -1,11 +1,11 @@
-import { rentCarFailure } from '@/lib/server/rent-car-errors';
+import { rentCarFailure } from '@/lib/server/cars/rent-car-errors';
 // Staff-only route management (Phase 2). Directional identity means A→B and
 // B→A are separate rows; duplicates are rejected with a friendly conflict.
 import { NextResponse } from 'next/server';
 
 import { isSameOriginRequest } from '@/lib/server/csrf';
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
-import { createCarRoute, listAllCarRoutesAdmin } from '@/lib/server/car-pricing';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
+import { createCarRoute, listAllCarRoutesAdmin } from '@/lib/server/cars/car-pricing';
 
 export async function GET(request: Request) {
   const user = await getCurrentUser();

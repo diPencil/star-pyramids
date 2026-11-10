@@ -6,7 +6,7 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminStats, AdminTableTools, AdminTableWrap, AdminText, Card, StatusPill } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
-import { SharedSelect } from '@/components/shared-select'
+import { SharedSelect } from '@/components/shared/forms/shared-select'
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 import { getSiteTimezone } from '@/components/locale'
 

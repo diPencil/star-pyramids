@@ -11,7 +11,7 @@ const db = vi.hoisted(() => ({
   carRequest: { findMany: vi.fn() },
 }))
 
-vi.mock('@/lib/server/auth', () => ({
+vi.mock('@/lib/server/auth/auth', () => ({
   getCurrentUser: async () =>
     state.signedIn
       ? { id: 'admin-1', roles: ['ADMIN'], permissions: state.permissions }
@@ -21,7 +21,7 @@ vi.mock('@/lib/server/auth', () => ({
 vi.mock('@/lib/server/db', () => ({ db }))
 
 import { GET as getCarStats } from '@/app/api/admin/cars/stats/route'
-import { getCarBookingCounts } from '@/lib/server/cars'
+import { getCarBookingCounts } from '@/lib/server/cars/cars'
 
 /** A confirmed transfer: staff assignment present, so it counts as a booking. */
 function fetchRows(overrides: Partial<{ slug: string; status: string; assigned: string | null }> = []) {
@@ -99,7 +99,7 @@ describe('getCarBookingCounts service', () => {
     const statsRoute = readFileSync(path.resolve(__dirname, '../app/api/admin/cars/stats/route.ts'), 'utf8')
     expect(statsRoute).toContain("hasPermission(current, 'cars.view')")
     expect(statsRoute).toContain('getCarBookingCounts')
-    const service = readFileSync(path.resolve(__dirname, '../lib/server/cars.ts'), 'utf8')
+    const service = readFileSync(path.resolve(__dirname, '../lib/server/cars/cars.ts'), 'utf8')
     expect(service).toContain('status: "CONFIRMED"')
     expect(service).toContain('assignedVehicleSlug')
   })

@@ -8,10 +8,10 @@ import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-so
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
 import { destinations } from '@/data/content'
-import { useDbDestinations } from '@/lib/catalogue-client'
+import { useDbDestinations } from '@/lib/catalogue/catalogue-client'
 import { findTour } from '@/data/tours'
-import { SharedSelect } from '@/components/shared-select'
-import { tripRequestStatusLabel, type StaffTripRequest, type TripRequestStatus } from '@/lib/trip-request'
+import { SharedSelect } from '@/components/shared/forms/shared-select'
+import { tripRequestStatusLabel, type StaffTripRequest, type TripRequestStatus } from '@/lib/trip-builder/trip-request'
 
 const statusTabs = [
   { id: 'all', en: 'All', ar: 'الكل' },

@@ -1,12 +1,12 @@
-import { rentCarFailure } from '@/lib/server/rent-car-errors';
+import { rentCarFailure } from '@/lib/server/cars/rent-car-errors';
 // Staff-only location edit/delete (Phase 2). Slugs are immutable
 // (FK targets for routes); DELETE is blocked by the service when routes
 // still reference the location.
 import { NextResponse } from 'next/server';
 
 import { isSameOriginRequest } from '@/lib/server/csrf';
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
-import { deleteCarLocation, updateCarLocation } from '@/lib/server/car-pricing';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
+import { deleteCarLocation, updateCarLocation } from '@/lib/server/cars/car-pricing';
 
 async function requirePermission(request: Request, permission: string) {
   const user = await getCurrentUser();

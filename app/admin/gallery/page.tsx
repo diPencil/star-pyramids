@@ -3,19 +3,19 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowDown, ArrowUp, Eye, EyeOff, Film, Images, Pencil, Plus, Trash2 } from 'lucide-react'
-import { GalleryPageHead as PageHead, GalleryText as AdminText, galleryText, useGalleryLocale } from '@/components/admin/gallery-text'
+import { GalleryPageHead as PageHead, GalleryText as AdminText, galleryText, useGalleryLocale } from '@/components/admin/gallery/gallery-text'
 import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableTools, AdminTableWrap, Card } from '@/components/admin/admin-ui'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
-import { SharedSelect } from '@/components/shared-select'
-import { invalidateJourneyGalleryCache } from '@/lib/journey-gallery-client'
+import { SharedSelect } from '@/components/shared/forms/shared-select'
+import { invalidateJourneyGalleryCache } from '@/lib/gallery/journey-gallery-client'
 import { toast } from '@/components/admin/admin-toaster'
 import {
   galleryPlatformLabel,
   sortGalleryItems,
   type GalleryItem,
-} from '@/lib/journey-gallery'
+} from '@/lib/gallery/journey-gallery'
 
 function payloadOf(item: GalleryItem) {
   return {

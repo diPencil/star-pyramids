@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nextSearchOption, searchHref, searchPublishedContent, type SearchSources } from '@/lib/site-search'
+import { nextSearchOption, searchHref, searchPublishedContent, type SearchSources } from '@/lib/navigation/site-search'
 import type { Blog, Destination, Event, Offer, Tour } from '@/data/types'
 
 const sources = (overrides: Partial<SearchSources> = {}): SearchSources => ({ tours: [], destinations: [], events: [], offers: [], blogs: [], ...overrides })

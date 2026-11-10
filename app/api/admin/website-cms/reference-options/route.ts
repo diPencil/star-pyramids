@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { getCurrentUser, hasPermission } from '@/lib/server/auth'
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth'
 import { db } from '@/lib/server/db'
-import { isOfferActive, offerHref } from '@/lib/special-offers'
+import { isOfferActive, offerHref } from '@/lib/offers/special-offers'
 export async function GET(request: Request) {
   const headers = { 'Cache-Control': 'private, no-store' }
   const user = await getCurrentUser()

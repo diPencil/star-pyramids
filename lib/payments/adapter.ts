@@ -2,7 +2,7 @@
 // Phase 2F-B: Provider-neutral payment gateway foundation
 // Extends the core PaymentProviderAdapter with additional capabilities
 
-import type { PaymentProviderKey, PaymentHandoff, ProviderCallbackOutcome } from '@/lib/payment'
+import type { PaymentProviderKey, PaymentHandoff, ProviderCallbackOutcome } from '@/lib/payments/payment'
 
 /** Extended provider capabilities  -  providers declare what they support */
 export interface ProviderCapabilities {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { initialPageState, originalPageContent, publicPageContent, transitionPageContent } from '@/lib/page-sections'
-import { currentSeo, isSeoPage, transitionSeo } from '@/lib/seo-manager'
-import { seoMetadata, validateSeoContent } from '@/lib/seo-content'
+import { initialPageState, originalPageContent, publicPageContent, transitionPageContent } from '@/lib/cms/page-sections'
+import { currentSeo, isSeoPage, transitionSeo } from '@/lib/seo/seo-manager'
+import { seoMetadata, validateSeoContent } from '@/lib/seo/seo-content'
 
 const seo = () => ({ ...originalPageContent('about').seo, text: { en: { title: 'Egypt journeys', description: 'Explore Egypt.' }, es: { title: 'Viajes a Egipto', description: 'Explora Egipto.' }, it: { title: 'Viaggi in Egitto', description: 'Esplora Egitto.' } } })
 describe('SEO publication shares the existing page owner without publishing its draft', () => {

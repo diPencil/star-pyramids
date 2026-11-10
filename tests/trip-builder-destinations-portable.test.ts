@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
 import type { Destination } from '@/data/types'
-import { tripDestinationOptions } from '@/lib/trip-builder-destinations'
-import { encodeTourJson, decodeTourJson } from '@/lib/tour-json'
+import { tripDestinationOptions } from '@/lib/trip-builder/trip-builder-destinations'
+import { encodeTourJson, decodeTourJson } from '@/lib/tours/tour-json'
 import { editorData } from '@/components/admin/trip-builder'
 import { translationTour } from './fixtures/translation-tour'
 

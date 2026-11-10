@@ -3,15 +3,15 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import ts from 'typescript'
 import { describe, expect, it, vi } from 'vitest'
-import { customerErrorCopy, customerErrorText } from '@/lib/customer-error-copy'
-import { ENABLED_LOCALES, pickLocaleText, sanitizeLocale, type Locale } from '@/lib/locale-config'
+import { customerErrorCopy, customerErrorText } from '@/lib/account/customer-error-copy'
+import { ENABLED_LOCALES, pickLocaleText, sanitizeLocale, type Locale } from '@/lib/i18n/locale-config'
 
 const state = vi.hoisted(() => ({ locale: 'en' as Locale }))
 vi.mock('@/components/locale', () => ({
   useLocale: () => ({ locale: state.locale }),
   tx: (locale: Locale, copy: Parameters<typeof pickLocaleText>[1]) => pickLocaleText(locale, copy),
 }))
-import { LanguageToggle } from '@/components/language-selector'
+import { LanguageToggle } from '@/components/shared/language-selector'
 
 describe('customer localization release checks', () => {
   it('requires non-empty EN/ES/IT error copy without mismatched placeholders', () => {
@@ -93,8 +93,8 @@ describe('customer localization release checks', () => {
   // Checkout's response -> throw -> localized catch is exercised by the real
   // form interaction tests in checkout-flow-safety.test.ts, not a source spelling.
   it('localizes offline proof and account failure presentation boundaries', () => {
-    expect(readFileSync('components/booking-payment.tsx', 'utf8')).toContain('customerErrorText(locale, data.error, tx(locale,')
-    const account = readFileSync('components/account-portal.tsx', 'utf8')
+    expect(readFileSync('components/booking/booking-payment.tsx', 'utf8')).toContain('customerErrorText(locale, data.error, tx(locale,')
+    const account = ["components/account/account-portal.tsx","components/account/shared/account-shell.tsx","components/account/shared/account-hooks.tsx","components/account/shared/account-ui.tsx","components/account/shared/account-notifications.tsx","components/account/bookings/booking-sections.tsx","components/account/cars/car-request-sections.tsx","components/account/favorites/favorites-section.tsx","components/account/overview/overview-section.tsx","components/account/payments/payment-sections.tsx","components/account/support/messages-section.tsx","components/account/profile/profile-settings.tsx"].map(path => readFileSync(path, 'utf8')).join('\n')
     expect(account).toContain('customerErrorText(locale, thread.loadError)')
     expect(account).toContain('customerErrorText(locale, sendError)')
     expect(account).toContain("code === 'BOOKING_FINANCIAL_REVIEW'")

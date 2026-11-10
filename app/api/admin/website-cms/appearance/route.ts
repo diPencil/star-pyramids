@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
-import { getCurrentUser, hasPermission } from '@/lib/server/auth'
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth'
 import { isSameOriginRequest } from '@/lib/server/csrf'
-import { readAppearance, changeAppearance } from '@/lib/server/website-appearance'
-import { AppearanceValidationError, type AppearanceAction } from '@/lib/website-appearance'
-import { HeroConflictError } from '@/lib/server/website-heroes'
+import { readAppearance, changeAppearance } from '@/lib/server/cms/website-appearance'
+import { AppearanceValidationError, type AppearanceAction } from '@/lib/cms/website-appearance'
+import { HeroConflictError } from '@/lib/server/cms/heroes/website-heroes'
 const headers = { 'Cache-Control': 'private, no-store', 'X-Robots-Tag': 'noindex, nofollow' }
 export async function GET() {
   const user = await getCurrentUser()

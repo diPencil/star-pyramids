@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-import { GuestBookingPage } from '@/components/account-portal';
+import { GuestBookingPage } from '@/components/account/account-portal';
 
 // Personal booking data lives in this URL, so it must never be indexed,
 // cached, or prerendered.

@@ -1,6 +1,6 @@
 import { beforeEach, expect, it, vi } from 'vitest'
-import { LiveChatTransport } from '@/lib/live-chat-client'
-import { parseLiveAction } from '@/lib/live-chat-contract'
+import { LiveChatTransport } from '@/lib/support/live-chat-client'
+import { parseLiveAction } from '@/lib/support/live-chat-contract'
 import { randomUUID } from 'node:crypto'
 const input = { action: 'message' as const, body: 'Hello fixture', locale: 'en' as const }
 it('recognizes only the safe preview code on 403 and never exposes raw server diagnostics', async () => {

@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
-import { getCurrentUser, hasPermission } from '@/lib/server/auth'
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth'
 import { isSameOriginRequest } from '@/lib/server/csrf'
-import { changePageContent, readPageState } from '@/lib/server/page-sections'
-import { HeroConflictError } from '@/lib/server/website-heroes'
-import { HeroValidationError, type HeroAction } from '@/lib/website-heroes'
-import { isPageDocumentId, PAGE_DOCUMENTS } from '@/lib/additional-page-content'
+import { changePageContent, readPageState } from '@/lib/server/cms/page-sections'
+import { HeroConflictError } from '@/lib/server/cms/heroes/website-heroes'
+import { HeroValidationError, type HeroAction } from '@/lib/cms/heroes/website-heroes'
+import { isPageDocumentId, PAGE_DOCUMENTS } from '@/lib/cms/additional-page-content'
 const headers = { 'Cache-Control': 'private, no-store' }
 type Context = { params: Promise<{ pageKey: string }> }
 class PageBodyTooLarge extends Error {}

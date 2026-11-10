@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser, hasPermission, hasStaffRole } from '@/lib/server/auth';
+import { getCurrentUser, hasPermission, hasStaffRole } from '@/lib/server/auth/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
-import { beginStaffPreview, clearStaffPreview } from '@/lib/server/staff-preview';
-import { toClientUser } from '@/lib/server/users';
+import { beginStaffPreview, clearStaffPreview } from '@/lib/server/auth/staff-preview';
+import { toClientUser } from '@/lib/server/auth/users';
 
 export async function POST(request: Request) {
   if (!isSameOriginRequest(request)) {

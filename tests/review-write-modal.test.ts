@@ -9,8 +9,8 @@ useEffect:(callback:()=>void|(()=>void),deps:unknown[])=>{const index=h.effect++
 }})
 vi.mock('react-dom',()=>({createPortal:(children:ReactNode)=>children}))
 vi.mock('@/components/locale',()=>({useLocale:()=>({locale:h.locale}),tx:(locale:string,value:{en:string;es?:string;it?:string})=>locale==='es'?value.es??value.en:locale==='it'?value.it??value.en:value.en}))
-import { ReviewWriteModal, type ReviewModalCopy } from '@/components/reviews'
-import { ReviewTripPicker } from '@/components/review-trip-picker'
+import { ReviewWriteModal, type ReviewModalCopy } from '@/components/reviews/reviews'
+import { ReviewTripPicker } from '@/components/reviews/review-trip-picker'
 type Element=ReactElement<Record<string,any>>
 const copy:ReviewModalCopy={heading:'Write a review',reviewTitle:'Title',reviewTitlePh:'Title',rating:'Rating',review:'Your review',reviewPh:'Your experience',cancel:'Cancel',submit:'Submit review'}
 const submitted=vi.fn(),closed=vi.fn()

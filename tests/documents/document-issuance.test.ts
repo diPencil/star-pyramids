@@ -21,12 +21,12 @@
 
 import { describe, it, expect, vi, afterAll } from 'vitest'
 
-vi.mock('@/lib/server/auth', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/server/auth')>()
+vi.mock('@/lib/server/auth/auth', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/server/auth/auth')>()
   return { ...actual, getCurrentUser: vi.fn(async () => null) }
 })
 
-import { getCurrentUser } from '@/lib/server/auth'
+import { getCurrentUser } from '@/lib/server/auth/auth'
 import { db } from '@/lib/server/db'
 import { POST as issue } from '@/app/api/admin/bookings/[ref]/documents/route'
 

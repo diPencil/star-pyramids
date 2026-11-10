@@ -1,5 +1,5 @@
 import {beforeEach,it,expect,vi} from 'vitest'
-import type {StaffBooking} from '@/lib/booking'
+import type {StaffBooking} from '@/lib/booking/booking'
 const m=vi.hoisted(()=>({
   current:vi.fn(),permission:vi.fn(),userMany:vi.fn(),userOne:vi.fn(),bookings:vi.fn(),write:vi.fn(),
   related:vi.fn(),transaction:vi.fn(),
@@ -9,11 +9,11 @@ vi.mock('@/lib/server/db',()=>({db:{
   user:{findMany:m.userMany,findUnique:m.userOne,create:m.write,update:m.write},booking:{findMany:m.bookings,update:m.write,create:m.write},
   tripRequest:{findMany:m.related},carRequest:{findMany:m.related},eventRequest:{findMany:m.related},favoriteItem:{findMany:m.related},conversation:{findMany:m.related},supportConversation:{findMany:m.related},
 }}))
-vi.mock('@/lib/server/auth',()=>({getCurrentUser:m.current,hasPermission:m.permission}))
-import {listCustomers,listGuestBookingContacts,getCustomerDetail} from '@/lib/server/customers'
+vi.mock('@/lib/server/auth/auth',()=>({getCurrentUser:m.current,hasPermission:m.permission}))
+import {listCustomers,listGuestBookingContacts,getCustomerDetail} from '@/lib/server/account/customers'
 import {GET} from '@/app/api/admin/customers/route'
 import {GET as detailGET} from '@/app/api/admin/customers/[publicId]/route'
-import {toAdminBookingRow} from '@/lib/admin-booking-row'
+import {toAdminBookingRow} from '@/lib/admin/admin-booking-row'
 const now=new Date('2026-11-03T10:00:00Z')
 const item=(title:string)=>({tourSlug:title.toLowerCase(),tourTitle:title,travelDate:'',adults:2,children:0,infants:0})
 const booking=()=>({reference:'SP-BK-TEST01',total:620,currency:'USD',status:'PENDING',paymentStatus:'PENDING',createdAt:now,items:[item('Alexandria'),item('Ancient Wonders')],payments:[],_count:{items:2}})

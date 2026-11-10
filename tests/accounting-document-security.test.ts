@@ -9,10 +9,10 @@ const mocks = vi.hoisted(() => {
   return { db }
 })
 vi.mock('@/lib/server/db', () => ({ db: mocks.db }))
-vi.mock('@/lib/server/auth', () => ({ hasPermission: vi.fn() }))
+vi.mock('@/lib/server/auth/auth', () => ({ hasPermission: vi.fn() }))
 vi.mock('@/lib/server/settings', () => ({ getSetting: vi.fn() }))
-vi.mock('@/lib/server/booking-access', () => ({ GuestBookingAccessError: class extends Error {}, resolveGuestBookingToken: vi.fn() }))
-import { issueBookingDocument } from '@/lib/server/documents'
+vi.mock('@/lib/server/booking/access/booking-access', () => ({ GuestBookingAccessError: class extends Error {}, resolveGuestBookingToken: vi.fn() }))
+import { issueBookingDocument } from '@/lib/server/documents/documents'
 const { db } = mocks
 const input = { type: 'PAYMENT_RECEIPT' as const, bookingReference: 'SP-BK-ABC123', paymentReference: 'SP-PAY-ABC123', idempotencyKey: 'receipt-key-123' }
 function document(overrides: Record<string, unknown> = {}) {

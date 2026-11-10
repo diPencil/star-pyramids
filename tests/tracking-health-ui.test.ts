@@ -9,9 +9,9 @@ vi.mock('react', async original => ({ ...await original<typeof import('react')>(
   useRef: (initial: unknown) => { const i = hooks.index++; return hooks.values[i] ??= { current: initial } },
   useState: (initial: unknown) => { const i = hooks.index++; if (!(i in hooks.values)) hooks.values[i] = initial; return [hooks.values[i], (v: unknown) => { hooks.values[i] = v }] },
 }))
-vi.mock('@/lib/tracking-health-browser', () => ({ observeTrackingBrowser: observe }))
+vi.mock('@/lib/tracking/health/tracking-health-browser', () => ({ observeTrackingBrowser: observe }))
 vi.mock('@/components/admin/admin-toaster', () => ({ toast: toasts }))
-import { TrackingHealthPanel } from '@/components/admin/tracking-health'
+import { TrackingHealthPanel } from '@/components/admin/seo/tracking-health'
 type Element = ReactElement<Record<string, unknown>>
 function elements(node: ReactNode): Element[] {
   if (Array.isArray(node)) return node.flatMap(elements)

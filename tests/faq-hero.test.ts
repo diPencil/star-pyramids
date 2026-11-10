@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import ts from 'typescript'
-import { FAQ_HERO_KEY, originalFaqHero, initialFaqHeroState, publicFaqHero, transitionFaqHero, validateFaqHero } from '@/lib/faq-hero'
+import { FAQ_HERO_KEY, originalFaqHero, initialFaqHeroState, publicFaqHero, transitionFaqHero, validateFaqHero } from '@/lib/cms/heroes/faq-hero'
 
 describe('FAQ hero preservation and publishing', () => {
   it('matches every original EN/ES/IT visible hero field exactly', () => {
-    const file = ts.createSourceFile('extended-pages.tsx', readFileSync('components/extended-pages.tsx', 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+    const file = ts.createSourceFile('extended-pages.tsx', readFileSync("components/content/public-content-pages.tsx", 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
     let hero: ts.JsxSelfClosingElement | undefined
     const visit = (node: ts.Node) => {
       if (ts.isFunctionDeclaration(node) && node.name?.text === 'FAQPage') {
@@ -62,7 +62,7 @@ describe('FAQ hero preservation and publishing', () => {
     expect(() => validateFaqHero({ ...originalFaqHero(), image: 'http://unsafe.example/image.jpg' })).toThrow()
   })
   it('keeps the existing editorial layout classes and protected inert preview', () => {
-    const source = readFileSync('components/extended-pages.tsx', 'utf8')
+    const source = readFileSync("components/content/public-content-pages.tsx", 'utf8')
     for (const value of ['className="editorial-hero"', 'className="editorial-overlay"', 'className="container editorial-content"', 'className="primary-btn"']) expect(source).toContain(value)
     const preview = readFileSync('app/website-cms-preview/faq/page.tsx', 'utf8')
     expect(preview).toContain("hasPermission(user, 'settings.view')")

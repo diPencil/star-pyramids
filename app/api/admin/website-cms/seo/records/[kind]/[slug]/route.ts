@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
-import { isRecordSeoKind, validateRecordSeoContent } from '@/lib/record-seo'
-import { changeRecordSeo, readRecordSeo, listRecordSeo } from '@/lib/server/record-seo'
-import { recordSeoAccess, canEditRecordSeo, SEO_PRIVATE_HEADERS, readRecordSeoBody } from '@/lib/server/record-seo-api'
-import { HeroConflictError } from '@/lib/server/website-heroes'
-import { SEO_PAGES } from '@/lib/seo-manager'
+import { isRecordSeoKind, validateRecordSeoContent } from '@/lib/seo/record-seo'
+import { changeRecordSeo, readRecordSeo, listRecordSeo } from '@/lib/server/seo/record-seo'
+import { recordSeoAccess, canEditRecordSeo, SEO_PRIVATE_HEADERS, readRecordSeoBody } from '@/lib/server/seo/record-seo-api'
+import { HeroConflictError } from '@/lib/server/cms/heroes/website-heroes'
+import { SEO_PAGES } from '@/lib/seo/seo-manager'
 type Context = { params: Promise<{ kind: string; slug: string }> }
 const invalidIdentity = (kind: string, slug: string) => !isRecordSeoKind(kind) || !/^[a-z0-9][a-z0-9-]{0,99}$/.test(slug)
 export async function GET(_request: Request, { params }: Context) {

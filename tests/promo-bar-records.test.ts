@@ -11,10 +11,10 @@ import {
   safeCampaignHref,
   toTopBarSlides,
   validateCampaign,
-} from '@/lib/marketing-campaigns'
-import { planPromoBarBackfill, promoBarSeedPayload } from '@/lib/server/promo-bar-backfill-planner'
-import { DEFAULT_ACCESS_ICON, PROMO_BAR_SEEDS, findPromoBarSeed, promoBarSeedTranslations } from '@/lib/promo-bar-defaults'
-import { MAX_PROMO_BAR_ICONS, PROMO_BAR_ICONS } from '@/lib/promo-bar-icons'
+} from '@/lib/marketing/marketing-campaigns'
+import { planPromoBarBackfill, promoBarSeedPayload } from '@/lib/server/cms/promo-bar-backfill-planner'
+import { DEFAULT_ACCESS_ICON, PROMO_BAR_SEEDS, findPromoBarSeed, promoBarSeedTranslations } from '@/lib/cms/promo-bar/promo-bar-defaults'
+import { MAX_PROMO_BAR_ICONS, PROMO_BAR_ICONS } from '@/lib/cms/promo-bar/promo-bar-icons'
 import type { Offer } from '@/data/types'
 
 const allSlugs = PROMO_BAR_SEEDS.map((seed) => seed.slug)

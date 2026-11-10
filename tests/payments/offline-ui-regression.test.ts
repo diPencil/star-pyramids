@@ -25,7 +25,7 @@ function source(relativePath: string): string {
 }
 
 describe('customer UI has no online-payment initiation path', () => {
-  const portal = source('components/account-portal.tsx')
+  const portal = ["components/account/account-portal.tsx","components/account/shared/account-shell.tsx","components/account/shared/account-hooks.tsx","components/account/shared/account-ui.tsx","components/account/shared/account-notifications.tsx","components/account/bookings/booking-sections.tsx","components/account/cars/car-request-sections.tsx","components/account/favorites/favorites-section.tsx","components/account/overview/overview-section.tsx","components/account/payments/payment-sections.tsx","components/account/support/messages-section.tsx","components/account/profile/profile-settings.tsx"].map(source).join('\n')
 
   it('contains no Pay-now call to action', () => {
     expect(portal).not.toMatch(/Pay now/)
@@ -51,7 +51,7 @@ describe('payment APIs and history are preserved', () => {
   })
 
   it('keeps the initiation service creating PENDING-only records', async () => {
-    const service = source('lib/server/payments.ts')
+    const service = source('lib/server/payments/payments.ts')
     // The service still exists and still documents its PENDING-only role.
     expect(service).toMatch(/export async function initiateCustomerPayment/)
     expect(service).toMatch(/initiation never marks money as paid/)

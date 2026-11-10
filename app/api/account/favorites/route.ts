@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 
 import { isSameOriginRequest } from '@/lib/server/csrf';
-import { getAccountReadUser, getAccountWriteUser } from '@/lib/server/staff-preview';
+import { getAccountReadUser, getAccountWriteUser } from '@/lib/server/auth/staff-preview';
 import {
   addFavorite,
   listFavoriteSlugs,
   removeFavorite,
   validateFavorite,
-} from '@/lib/server/favorites';
+} from '@/lib/server/account/favorites';
 
 /** Owner-only saved-trip slugs (catalogue keys only, newest first). */
 export async function GET() {

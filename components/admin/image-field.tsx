@@ -6,7 +6,7 @@ import { AdminText } from './admin-ui'
 import { useAdminLocale } from './admin-locale'
 import { uploadImageFile, type MediaScopeInput } from '@/lib/admin-store'
 import { tx } from '@/components/locale'
-import type { Locale } from '@/lib/locale-config'
+import type { Locale } from '@/lib/i18n/locale-config'
 
 type ImageFieldProps = {
   value: string

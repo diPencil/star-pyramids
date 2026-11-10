@@ -1,11 +1,11 @@
 import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import { OfferDetailPage } from '@/components/extended-pages'
-import { findOfferBySlug, listOfferSlugs } from '@/lib/server/offers'
-import { dynamicSeo } from '@/lib/dynamic-seo'
-import { RecordPageJsonLd } from '@/lib/structured-data'
-import { findTourBySlug } from '@/lib/server/tours'
-import { isTourPublished } from '@/lib/tour-publish'
+import { findOfferBySlug, listOfferSlugs } from '@/lib/server/offers/offers'
+import { dynamicSeo } from '@/lib/seo/dynamic-seo'
+import { RecordPageJsonLd } from '@/lib/seo/structured-data'
+import { findTourBySlug } from '@/lib/server/catalogue/tours'
+import { isTourPublished } from '@/lib/tours/tour-publish'
 
 export async function generateStaticParams() {
   const slugs = await listOfferSlugs()

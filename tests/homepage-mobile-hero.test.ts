@@ -3,14 +3,14 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { readFileSync } from 'node:fs'
 import postcss, { type AtRule } from 'postcss'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { HomepageHero, type PublicHomeHero } from '@/components/homepage-hero'
+import { HomepageHero, type PublicHomeHero } from '@/components/home/homepage-hero'
 import { InitialLocaleProvider, LocaleProvider } from '@/components/locale'
-import { originalHomeHero, validateHomeHero } from '@/lib/website-heroes'
-import type { EnabledLocale } from '@/lib/locale-config'
+import { originalHomeHero, validateHomeHero } from '@/lib/cms/heroes/website-heroes'
+import type { EnabledLocale } from '@/lib/i18n/locale-config'
 import { TripSearchEngine } from '@/components/site'
 
 vi.mock('next/navigation',()=>({useRouter:()=>({push:vi.fn()}),usePathname:()=>'/'}))
-vi.mock('@/lib/tours-client',async()=>({...await vi.importActual<typeof import('@/lib/tours-client')>('@/lib/tours-client'),useDbTours:()=>[]}))
+vi.mock('@/lib/tours/tours-client',async()=>({...await vi.importActual<typeof import('@/lib/tours/tours-client')>('@/lib/tours/tours-client'),useDbTours:()=>[]}))
 beforeEach(()=>vi.stubGlobal('fetch',vi.fn(()=>{throw Error('Hero rendering must not read or write the database')})))
 afterEach(()=>vi.unstubAllGlobals())
 function render(state:PublicHomeHero,locale:EnabledLocale='en',realEngine=false){
@@ -57,7 +57,7 @@ describe('mobile CMS hero frame with unchanged engine',()=>{
   expect(markup).toContain('src="https://cdn.example.test/poster.jpg"')
   expect(markup).toContain('object-position:left')
   expect(markup).not.toContain('<video') // SSR poster; source selection remains in the existing client effect.
-  const source=readFileSync('components/homepage-hero.tsx','utf8')
+  const source=readFileSync('components/home/homepage-hero.tsx','utf8')
   expect(source).toContain('reduced.matches || connection?.saveData')
   expect(source).toContain('mobile.matches && content.mobileUrl ? content.mobileUrl : content.mediaUrl')
   expect(source).toContain('autoPlay muted loop playsInline')

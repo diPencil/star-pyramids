@@ -6,7 +6,7 @@ vi.mock('react', () => ({
   useCallback: (fn: any, deps: unknown[]) => { const slot = h.cursor++; const previous = h.slots[slot]; if (!previous || deps.some((dep, i) => dep !== previous.deps[i])) h.slots[slot] = { value: fn, deps }; return h.slots[slot].value },
   useEffect: (effect: () => (() => void) | undefined, deps: unknown[]) => { const index = h.effect++, previous = h.effects[index]; if (!previous || deps.some((dep, i) => dep !== previous.deps[i])) { previous?.cleanup?.(); h.effects[index] = { deps, cleanup: effect() } } },
 }))
-import { useCustomerNotifications } from '@/lib/customer-notifications'
+import { useCustomerNotifications } from '@/lib/account/customer-notifications'
 const personal = { id: 'booking-event', type: 'booking_created', title: 'Real booking', message: 'Received', createdAt: '2026-10-28T00:00:00Z', href: '/account/bookings', readAt: null }
 const render = () => { h.cursor = 0; h.effect = 0; return useCustomerNotifications() }
 const settle = () => new Promise(resolve => setTimeout(resolve, 0))

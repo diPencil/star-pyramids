@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks=vi.hoisted(()=>({find:vi.fn(),update:vi.fn(),create:vi.fn(),tour:vi.fn(),destination:vi.fn(),blog:vi.fn(),event:vi.fn(),offer:vi.fn(),getSetting:vi.fn(),readShared:vi.fn()}))
 vi.mock('@/lib/server/db',()=>({db:{siteSetting:{findUnique:mocks.find,updateMany:mocks.update,create:mocks.create},tour:{findMany:mocks.tour},destination:{findMany:mocks.destination},blog:{findMany:mocks.blog},event:{findMany:mocks.event},offer:{findMany:mocks.offer}}}))
 vi.mock('@/lib/server/settings',()=>({getSetting:mocks.getSetting}))
-vi.mock('@/lib/server/page-sections',()=>({readPublishedPage:mocks.readShared}))
-import { changeNavigation, readNavigation, publishedNavigation, resolveNavigation, navigationDefaults, recordNavigationOptions } from '@/lib/server/navigation'
-import { defaultNavigation, initialNavigation, NAVIGATION_KEY, type NavigationContent } from '@/lib/navigation'
+vi.mock('@/lib/server/cms/page-sections',()=>({readPublishedPage:mocks.readShared}))
+import { changeNavigation, readNavigation, publishedNavigation, resolveNavigation, navigationDefaults, recordNavigationOptions } from '@/lib/server/navigation/navigation'
+import { defaultNavigation, initialNavigation, NAVIGATION_KEY, type NavigationContent } from '@/lib/navigation/navigation'
 const refContent=():NavigationContent=>({primaryLocale:'en',items:[{id:'trip',type:'link',labels:{en:'A tour',es:'',it:''},enabled:true,visibility:'both',newTab:false,target:{type:'record',kind:'tour',id:'immutable-tour-id'},children:[]}]})
 beforeEach(()=>{vi.resetAllMocks();mocks.find.mockResolvedValue(null);mocks.update.mockResolvedValue({count:1});mocks.create.mockResolvedValue({});for(const method of [mocks.tour,mocks.destination,mocks.blog,mocks.event,mocks.offer])method.mockResolvedValue([]);mocks.getSetting.mockResolvedValue('en');mocks.readShared.mockResolvedValue({content:null})})
 describe('navigation SiteSetting persistence and public resolution',()=>{

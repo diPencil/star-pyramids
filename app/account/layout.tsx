@@ -4,9 +4,9 @@ import './mobile.css'
 import { headers } from 'next/headers'
 import { AuthenticatedUserProvider } from '@/components/authenticated-user'
 import { StaffPreviewBootstrap } from '@/components/staff-preview-bootstrap'
-import { requireCustomerOrStaffPreview } from '@/lib/server/guards'
-import { toClientUser } from '@/lib/server/users'
-import { getAccountRobots } from '@/lib/seo'
+import { requireCustomerOrStaffPreview } from '@/lib/server/auth/guards'
+import { toClientUser } from '@/lib/server/auth/users'
+import { getAccountRobots } from '@/lib/seo/seo'
 
 export const metadata: Metadata = {
   robots: getAccountRobots(),

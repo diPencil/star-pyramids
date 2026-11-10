@@ -21,7 +21,7 @@ import {
   DOCUMENT_CURRENCY,
   DOCUMENT_NUMBER_PATTERN,
   issueBookingDocument,
-} from '@/lib/server/documents'
+} from '@/lib/server/documents/documents'
 
 const reachable: boolean = await db
   .$queryRaw`SELECT 1`

@@ -5,11 +5,11 @@ import { createHash } from 'node:crypto'
 async function main() {
   process.loadEnvFile('.env')
   const { db } = await import('../lib/server/db')
-  const { campaignContent, linkedOfferFields, presentOffer, offerTourSelect } = await import('../lib/server/special-offers')
-  const { readCampaign, placedOffers } = await import('../lib/marketing-campaigns')
-  const { toOffer } = await import('../lib/server/offers')
-  const { toTour } = await import('../lib/server/tours')
-  const { encodeTourJson } = await import('../lib/tour-json')
+  const { campaignContent, linkedOfferFields, presentOffer, offerTourSelect } = await import('../lib/server/offers/special-offers')
+  const { readCampaign, placedOffers } = await import('../lib/marketing/marketing-campaigns')
+  const { toOffer } = await import('../lib/server/offers/offers')
+  const { toTour } = await import('../lib/server/catalogue/tours')
+  const { encodeTourJson } = await import('../lib/tours/tour-json')
   const { writeJsonText, readJsonObject } = await import('../lib/json-text')
   const { getDealPrice } = await import('../data/tours')
   const fingerprint = async () => createHash('sha256').update(JSON.stringify(await Promise.all([

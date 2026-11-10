@@ -14,12 +14,12 @@ vi.mock('@/lib/server/db', () => ({ db: { siteSetting: {
     return { count: 1 }
   },
 } } }))
-vi.mock('@/lib/server/auth', () => ({ getCurrentUser: async () => ({ id: 'test-staff' }), hasPermission: () => true }))
+vi.mock('@/lib/server/auth/auth', () => ({ getCurrentUser: async () => ({ id: 'test-staff' }), hasPermission: () => true }))
 vi.mock('@/lib/server/csrf', () => ({ isSameOriginRequest: () => true }))
 
 import { GET, PATCH } from '@/app/api/admin/website-cms/showcase-heroes/[id]/route'
-import { readPublicShowcase } from '@/lib/server/showcase-heroes'
-import { SHOWCASE_HERO_IDS, originalShowcaseHero, type ShowcaseHeroId } from '@/lib/showcase-heroes'
+import { readPublicShowcase } from '@/lib/server/cms/heroes/showcase-heroes'
+import { SHOWCASE_HERO_IDS, originalShowcaseHero, type ShowcaseHeroId } from '@/lib/cms/heroes/showcase-heroes'
 
 const context = (id: ShowcaseHeroId) => ({ params: Promise.resolve({ id }) })
 const request = (body: object) => new Request('https://example.test/api/admin/website-cms/showcase-heroes', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })

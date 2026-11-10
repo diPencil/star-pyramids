@@ -1,28 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { SeoContent } from '@/lib/seo-content'
+import type { SeoContent } from '@/lib/seo/seo-content'
 import type { Tour, Blog } from '@/data/types'
 
 const state = vi.hoisted(() => ({ locale: 'en', seo: null as (SeoContent & { structuredData?: boolean }) | null, category: 'multi-days-tours', destinationSlug: undefined as string | undefined }))
 vi.mock('@/lib/server/db', () => { throw new Error('Public SEO tests must not access the database') })
 vi.mock('@/lib/server/locale', () => ({ getServerLocale: async () => state.locale, getOgLocale: (locale: string) => ({ en: 'en_US', es: 'es_ES', it: 'it_IT' })[locale] }))
-vi.mock('@/lib/server/record-seo', () => ({ getPublishedRecordSeo: vi.fn(async () => state.seo) }))
-vi.mock('@/lib/server/global-seo', () => ({ getGlobalSeo: async () => ({ openGraph: { images: [{ url: '/global.jpg' }] }, twitter: { images: ['/global.jpg'] } }) }))
-vi.mock('@/lib/server/catalogue-translations', () => ({ attachCatalogueTranslations: async (_kind: string, rows: object[]) => rows }))
-vi.mock('@/lib/server/tours', () => ({ findTourBySlug: async () => ({ ...record, status: 'published', category: state.category, destinationSlug: state.destinationSlug }), getRelatedDbTours: async () => [], listTours: async () => [{ slug: 'live', status: 'published' }, { slug: 'draft', status: 'draft' }] }))
-vi.mock('@/lib/server/destinations', () => ({ findDestinationBySlug: async () => record, getPublishedDestinationDetails: async () => [{ slug: 'giza' }], getPublishedOneDayDestinations: async () => [{ ...record, slug: 'giza' }] }))
-vi.mock('@/lib/server/blogs', () => ({ findBlogBySlug: async () => ({ ...record, category: 'Travel' }), getPublishedDbBlogs: async () => [], listBlogSlugs: async () => ['story'] }))
-vi.mock('@/lib/server/events', () => ({ findEventBySlug: async () => record, getPublishedDbEvents: async () => [{ slug: 'festival' }] }))
-vi.mock('@/lib/server/offers', () => ({ findOfferBySlug: async () => record, getPublishedDbOffers: async () => [{ slug: 'offer' }, { slug: 'linked', tourSlug: 'live' }, { slug: 'hidden', isPublished: false }] }))
-vi.mock('@/lib/server/categories', () => ({ findCategoryBySlug: async () => ({ ...record, active: true }), getPublishedCategories: async () => [{ slug: 'classic' }] }))
-vi.mock('@/lib/server/seo-manager', () => ({ readSeoState: async () => ({}) }))
+vi.mock('@/lib/server/seo/record-seo', () => ({ getPublishedRecordSeo: vi.fn(async () => state.seo) }))
+vi.mock('@/lib/server/seo/global-seo', () => ({ getGlobalSeo: async () => ({ openGraph: { images: [{ url: '/global.jpg' }] }, twitter: { images: ['/global.jpg'] } }) }))
+vi.mock('@/lib/server/catalogue/catalogue-translations', () => ({ attachCatalogueTranslations: async (_kind: string, rows: object[]) => rows }))
+vi.mock('@/lib/server/catalogue/tours', () => ({ findTourBySlug: async () => ({ ...record, status: 'published', category: state.category, destinationSlug: state.destinationSlug }), getRelatedDbTours: async () => [], listTours: async () => [{ slug: 'live', status: 'published' }, { slug: 'draft', status: 'draft' }] }))
+vi.mock('@/lib/server/catalogue/destinations', () => ({ findDestinationBySlug: async () => record, getPublishedDestinationDetails: async () => [{ slug: 'giza' }], getPublishedOneDayDestinations: async () => [{ ...record, slug: 'giza' }] }))
+vi.mock('@/lib/server/editorial/blogs', () => ({ findBlogBySlug: async () => ({ ...record, category: 'Travel' }), getPublishedDbBlogs: async () => [], listBlogSlugs: async () => ['story'] }))
+vi.mock('@/lib/server/events/events', () => ({ findEventBySlug: async () => record, getPublishedDbEvents: async () => [{ slug: 'festival' }] }))
+vi.mock('@/lib/server/offers/offers', () => ({ findOfferBySlug: async () => record, getPublishedDbOffers: async () => [{ slug: 'offer' }, { slug: 'linked', tourSlug: 'live' }, { slug: 'hidden', isPublished: false }] }))
+vi.mock('@/lib/server/catalogue/categories', () => ({ findCategoryBySlug: async () => ({ ...record, active: true }), getPublishedCategories: async () => [{ slug: 'classic' }] }))
+vi.mock('@/lib/server/seo/seo-manager', () => ({ readSeoState: async () => ({}) }))
 vi.mock('@/components/site', () => ({ SiteShell: () => null, OneDayDestinationPage: () => null, MultiDayCategoryPage: () => null }))
-vi.mock('@/components/tour-detail', () => ({ TourDetailPage: () => null }))
-vi.mock('@/components/day-tour-detail', () => ({ DayTourDetailPage: () => null }))
+vi.mock('@/components/tours/detail/tour-detail', () => ({ TourDetailPage: () => null }))
+vi.mock('@/components/tours/detail/day-tour-detail', () => ({ DayTourDetailPage: () => null }))
 vi.mock('@/components/extended-pages', () => ({ BlogDetailPage: () => null, DestinationDetailPage: () => null, EventDetailPage: () => null, OfferDetailPage: () => null }))
 
-import { dynamicSeo, dynamicCategorySeo, publicRecordCanonical, recordStructuredDataEnabled } from '@/lib/dynamic-seo'
-import { RecordPageJsonLd, generateBuiltinRecordSchemaPreview, generateTouristTripJsonLd, generateBlogPostingJsonLd } from '@/lib/structured-data'
-import { getPublishedRecordSeo } from '@/lib/server/record-seo'
+import { dynamicSeo, dynamicCategorySeo, publicRecordCanonical, recordStructuredDataEnabled } from '@/lib/seo/dynamic-seo'
+import { RecordPageJsonLd, generateBuiltinRecordSchemaPreview, generateTouristTripJsonLd, generateBlogPostingJsonLd } from '@/lib/seo/structured-data'
+import { getPublishedRecordSeo } from '@/lib/server/seo/record-seo'
 import sitemap from '@/app/sitemap'
 import TourPage, { generateMetadata as tourMetadata } from '@/app/egypt-tours/[slug]/page'
 import BlogPage, { generateMetadata as blogMetadata } from '@/app/blogs/[slug]/page'

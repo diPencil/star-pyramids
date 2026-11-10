@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server';
 
-import { validateCredentials } from '@/lib/server/auth';
-import { authorizedPostLoginPath } from '@/lib/server/auth-navigation';
+import { validateCredentials } from '@/lib/server/auth/auth';
+import { authorizedPostLoginPath } from '@/lib/server/auth/auth-navigation';
 import { isSameOriginRequest } from '@/lib/server/csrf';
-import { createSession } from '@/lib/server/session';
+import { createSession } from '@/lib/server/auth/session';
 import {
   checkLoginRateLimit,
   recordLoginAttempt,
   clearLoginAttempts,
 } from '@/lib/server/rate-limit';
-import { toClientUser } from '@/lib/server/users';
+import { toClientUser } from '@/lib/server/auth/users';
 
 export async function POST(request: Request) {
   if (!isSameOriginRequest(request)) {

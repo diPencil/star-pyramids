@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { isReviewProvider } from '@/lib/review-integrations'
-import { loadReviewFeed } from '@/lib/server/review-integrations'
+import { isReviewProvider } from '@/lib/reviews/review-integrations'
+import { loadReviewFeed } from '@/lib/server/reviews/review-integrations'
 export async function GET(request: Request) {
   const provider = new URL(request.url).searchParams.get('provider')
   const headers = { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow' }

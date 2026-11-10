@@ -1,15 +1,15 @@
-import { lockTourDestination, TourDestinationConflictError, validateTourPublication, validateTourWrite } from '@/lib/tour-write';
-import { decodeTourJson, encodeTourJson } from '@/lib/tour-json';
-import { preserveRecordSeo } from '@/lib/record-seo';
-import { applyLinkedOfferDeals } from '@/lib/server/special-offers';
+import { lockTourDestination, TourDestinationConflictError, validateTourPublication, validateTourWrite } from '@/lib/tours/tour-write';
+import { decodeTourJson, encodeTourJson } from '@/lib/tours/tour-json';
+import { preserveRecordSeo } from '@/lib/seo/record-seo';
+import { applyLinkedOfferDeals } from '@/lib/server/offers/special-offers';
 import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
 import { readJsonText } from '@/lib/json-text';
-import { normalizeTourRichText, readTourWriteRequest } from '@/lib/tour-rich-text';
-import { isTourPublished } from '@/lib/tour-publish';
-import { findTourDeletionBlockers, type TourDeletionBlocker } from '@/lib/server/tours';
+import { normalizeTourRichText, readTourWriteRequest } from '@/lib/tours/tour-rich-text';
+import { isTourPublished } from '@/lib/tours/tour-publish';
+import { findTourDeletionBlockers, type TourDeletionBlocker } from '@/lib/server/catalogue/tours';
 
 const DELETION_BLOCKER_LABELS: Record<TourDeletionBlocker, string> = {
   bookings: 'bookings',

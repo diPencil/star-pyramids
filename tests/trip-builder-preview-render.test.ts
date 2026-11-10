@@ -3,9 +3,9 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { Tour } from '@/data/types'
 import { editorData, blankTour } from '@/components/admin/trip-builder'
-import { TripBuilderPreview, TripPreviewContent, PreviewDatePrices, PreviewPricing, safePreviewMedia } from '@/components/admin/trip-builder-preview'
-import { buildTripPreview, quoteTripPreview, type TripBuilderDraft } from '@/lib/trip-builder-preview'
-import { toTour } from '@/lib/server/tours'
+import { TripBuilderPreview, TripPreviewContent, PreviewDatePrices, PreviewPricing, safePreviewMedia } from '@/components/admin/tours/trip-builder-preview'
+import { buildTripPreview, quoteTripPreview, type TripBuilderDraft } from '@/lib/trip-builder/trip-builder-preview'
+import { toTour } from '@/lib/server/catalogue/tours'
 vi.mock('@/lib/server/db', () => ({ db: {} }))
 const base: Tour = { slug: 'existing', title: 'Saved title', category: 'multi-days-tours', location: 'Cairo', duration: '2 days', price: 100, image: '/saved.jpg', gallery: ['/saved.jpg'], summary: 'Saved summary', detail: { overview: ['Saved paragraph'], highlights: [], itinerary: [], locations: [], travelerPrices: [{ travelers: 1, adultPrice: 100, childPrice: 30, infantPrice: 0 }, { travelers: 2, adultPrice: 80, childPrice: 20, infantPrice: 0 }] } }
 function editor(tour = base): TripBuilderDraft {

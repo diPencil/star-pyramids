@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { resolveEventRange } from '@/lib/events'
+import { resolveEventRange } from '@/lib/events/events'
 
 it.each(['-', '\u2013', '\u2014'])('preserves legacy event date ranges separated by %s', separator => {
   const range = resolveEventRange({ date: `October 4${separator}7, 2026` })

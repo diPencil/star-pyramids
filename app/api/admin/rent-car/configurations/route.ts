@@ -1,8 +1,8 @@
-import { rentCarFailure } from '@/lib/server/rent-car-errors';
+import { rentCarFailure } from '@/lib/server/cars/rent-car-errors';
 import { NextResponse } from 'next/server';
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
-import { listCarPricingConfigurations, updateCarPricingConfiguration } from '@/lib/server/car-pricing';
+import { listCarPricingConfigurations, updateCarPricingConfiguration } from '@/lib/server/cars/car-pricing';
 
 export async function GET() {
   const user = await getCurrentUser();

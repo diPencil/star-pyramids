@@ -14,7 +14,7 @@
 
 ## Files
 
-`components/homepage-hero.tsx` owns structure; `app/globals.css` contains only the two new base wrapper rules; the new phone layout is isolated to `app/mobile-shell.css` at max-width 760px. Existing unrelated working-tree edits were preserved.
+`components/home/homepage-hero.tsx` owns structure; `app/globals.css` contains only the two new base wrapper rules; the new phone layout is isolated to `app/mobile-shell.css` at max-width 760px. Existing unrelated working-tree edits were preserved.
 
 `tests/homepage-mobile-hero.test.ts` checks actual server markup, EN/ES/IT copy, image/mobile-image and video-poster settings, overlay/crop, hidden/error/default states, maximum text, the real engine's three tabs, and parsed CSS at 320/375/390/430/760 and 761/1024/1440 widths. Those CSS checks verify the breakpoint contract, not real browser pixels or interactive playback.
 

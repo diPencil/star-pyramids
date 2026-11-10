@@ -16,7 +16,7 @@ it('revalidates on foreground/focus with one shared subscription and removes lis
   let rows = [{ slug: 'first', status: 'published' }]
   const request = vi.fn(async () => ({ ok: true, json: async () => ({ tours: rows }) }))
   vi.stubGlobal('fetch', request)
-  const { useDbTours, fetchDbTours } = await import('@/lib/tours-client')
+  const { useDbTours, fetchDbTours } = await import('@/lib/tours/tours-client')
   useDbTours([], { includeNew: true })
   const releaseFirst = effects[0]()!
   useDbTours([], { includeNew: true })

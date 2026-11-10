@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser } from '@/lib/server/auth';
+import { getCurrentUser } from '@/lib/server/auth/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import {
   checkTripRequestRateLimit,
@@ -10,7 +10,7 @@ import {
   createTripRequestRecord,
   isShoreTour,
   validateTripDraft,
-} from '@/lib/server/trip-requests';
+} from '@/lib/server/trip-builder/trip-requests';
 
 function clientIp(request: Request): string {
   const forwarded = request.headers.get('x-forwarded-for');

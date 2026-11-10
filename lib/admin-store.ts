@@ -1,11 +1,11 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { defaultBrandSettings, type BrandSettings } from './brand-settings'
-export { defaultBrandSettings, type BrandSettings } from './brand-settings'
-import { useBrandSeed } from '@/components/brand-context'
-import { ensureStorefrontBrandSeed, ensureStorefrontSettings, getDbAccessStrip, getDbBrand, getDbPromoText, getDbSeoTitle, getDbSocial } from './storefront-settings'
-import type { AccessStripOverride } from './access-strip'
+import { defaultBrandSettings, type BrandSettings } from './cms/brand-settings'
+export { defaultBrandSettings, type BrandSettings } from './cms/brand-settings'
+import { useBrandSeed } from '@/components/branding/brand-context'
+import { ensureStorefrontBrandSeed, ensureStorefrontSettings, getDbAccessStrip, getDbBrand, getDbPromoText, getDbSeoTitle, getDbSocial } from './cms/storefront-settings'
+import type { AccessStripOverride } from './cms/access-strip'
 
 // Slug helper used by catalogue forms. It is no longer prefixed with the
 // former local-override 'custom-' marker, which is gone with the store.

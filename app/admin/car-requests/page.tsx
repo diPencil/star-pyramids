@@ -7,11 +7,11 @@ import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableT
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
-import { useDbCars } from '@/lib/events-cars-client'
+import { useDbCars } from '@/lib/catalogue/events-cars-client'
 import { cars } from '@/data/content'
-import { SharedSelect } from '@/components/shared-select'
+import { SharedSelect } from '@/components/shared/forms/shared-select'
 import { toast } from '@/components/admin/admin-toaster'
-import { carRequestStatusLabel, type CarRequestStatus, type StaffCarRequest } from '@/lib/car-request'
+import { carRequestStatusLabel, type CarRequestStatus, type StaffCarRequest } from '@/lib/cars/car-request'
 
 const statusTabs = [
   { id: 'all', en: 'All', ar: 'الكل' },

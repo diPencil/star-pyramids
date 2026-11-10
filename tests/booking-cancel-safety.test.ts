@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   BOOKING_FINANCIAL_REVIEW_CODE,
   bookingCancelExposure,
-} from '@/lib/booking'
+} from '@/lib/booking/booking'
 
 type Row = Record<string, any>
 
@@ -149,15 +149,15 @@ const helpers = vi.hoisted(() => {
 const { store, bookingApi } = helpers
 
 vi.mock('@/lib/server/db', () => ({ db: helpers.fakeDb }))
-vi.mock('@/lib/server/notifications', () => ({
+vi.mock('@/lib/server/notifications/notifications', () => ({
   notifyUser: vi.fn(),
   notifyStaff: vi.fn(),
 }))
-vi.mock('@/lib/server/email', () => ({
+vi.mock('@/lib/server/email/email', () => ({
   sendCustomerEmailSafe: vi.fn(),
   sendStaffEmailSafe: vi.fn(),
 }))
-vi.mock('@/lib/server/booking-access', () => ({
+vi.mock('@/lib/server/booking/access/booking-access', () => ({
   ownerBookingLink: vi.fn(async () => ({ detailUrl: '/x', accessNote: '' })),
 }))
 
@@ -165,8 +165,8 @@ import {
   BookingFinancialReviewError,
   cancelCustomerBooking,
   transitionStaffBooking,
-} from '@/lib/server/bookings'
-import { notifyUser } from '@/lib/server/notifications'
+} from '@/lib/server/booking/bookings'
+import { notifyUser } from '@/lib/server/notifications/notifications'
 
 // ---- Fixtures ----
 let seq = 0

@@ -18,19 +18,19 @@
 
 import { describe, it, expect, vi, afterAll } from 'vitest'
 
-vi.mock('@/lib/server/email', () => ({
+vi.mock('@/lib/server/email/email', () => ({
   sendCustomerEmailSafe: vi.fn(async () => undefined),
   sendStaffEmailSafe: vi.fn(async () => undefined),
 }))
-vi.mock('@/lib/server/notifications', () => ({
+vi.mock('@/lib/server/notifications/notifications', () => ({
   notifyUser: vi.fn(async () => undefined),
   notifyStaff: vi.fn(async () => undefined),
 }))
 
 import { db } from '@/lib/server/db'
-import { issueGuestBookingToken } from '@/lib/server/booking-access'
-import { acknowledgePaymentProof, submitGuestPaymentProof } from '@/lib/server/payment-proofs'
-import { notifyStaff } from '@/lib/server/notifications'
+import { issueGuestBookingToken } from '@/lib/server/booking/access/booking-access'
+import { acknowledgePaymentProof, submitGuestPaymentProof } from '@/lib/server/payments/payment-proofs'
+import { notifyStaff } from '@/lib/server/notifications/notifications'
 
 const reachable: boolean = await db
   .$queryRaw`SELECT 1`

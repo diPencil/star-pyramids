@@ -8,9 +8,9 @@ import { AdminText, Card } from '@/components/admin/admin-ui'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { destinations } from '@/data/content'
-import { useDbDestinations } from '@/lib/catalogue-client'
+import { useDbDestinations } from '@/lib/catalogue/catalogue-client'
 import { countryByDialCode, countryDisplayName } from '@/data/countries'
-import { displayInternationalPhone, telLink } from '@/lib/phone'
+import { displayInternationalPhone, telLink } from '@/lib/core/phone'
 import { findTour } from '@/data/tours'
 import {
   canTransitionTripRequest,
@@ -18,7 +18,7 @@ import {
   tripRequestStatusLabel,
   type StaffTripRequest,
   type TripRequestStatus,
-} from '@/lib/trip-request'
+} from '@/lib/trip-builder/trip-request'
 
 const ACTIONS: { from: TripRequestStatus[]; to: TripRequestStatus; tone: 'primary' | 'danger' }[] = [
   { from: ['new'], to: 'reviewing', tone: 'primary' },

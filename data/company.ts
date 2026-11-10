@@ -1,4 +1,4 @@
-import { toInternational, whatsappDigits } from '@/lib/phone'
+import { toInternational, whatsappDigits } from '@/lib/core/phone'
 
 export const COMPANY_PHONE_DISPLAY = '01288222962'
 export const COMPANY_PHONE_E164 = '+201288222962'

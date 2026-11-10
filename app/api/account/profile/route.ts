@@ -9,8 +9,8 @@ import {
   isValidUsername,
 } from '@/lib/core/validation';
 import { isSameOriginRequest } from '@/lib/server/csrf';
-import { getAccountWriteUser } from '@/lib/server/staff-preview';
-import { toClientUser, updateCustomerIdentity } from '@/lib/server/users';
+import { getAccountWriteUser } from '@/lib/server/auth/staff-preview';
+import { toClientUser, updateCustomerIdentity } from '@/lib/server/auth/users';
 
 type ProfileBody = {
   firstName?: unknown;

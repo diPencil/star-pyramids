@@ -11,13 +11,13 @@ import {
   findPaymentByProviderId,
   PaidOnCancelledBooking,
   transitionPayment,
-} from '@/lib/server/payments'
+} from '@/lib/server/payments/payments'
 import {
   checkWebhookMoney,
   mapProviderOutcomeToStatus,
   type PaymentActor,
   type PaymentStatus,
-} from '@/lib/payment'
+} from '@/lib/payments/payment'
 import { logPaymentWebhook } from '@/lib/server/logging'
 import { WebhookError } from '@/lib/server/errors'
 

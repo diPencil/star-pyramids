@@ -1,14 +1,14 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 const m = vi.hoisted(() => ({ user: vi.fn(), permission: vi.fn(), homepage: vi.fn(), tours: vi.fn(), list: vi.fn(), choices: vi.fn(), get: vi.fn(), create: vi.fn(), update: vi.fn(), publish: vi.fn(), remove: vi.fn(), reorder: vi.fn(), upload: vi.fn(), video: vi.fn(), limit: vi.fn() }))
-vi.mock('@/lib/server/auth', () => ({ getCurrentUser: m.user, hasPermission: m.permission }))
-vi.mock('@/lib/server/journey-gallery', () => ({ GalleryValidationError: class extends Error {}, GalleryNotFoundError: class extends Error {}, listPublishedGallery: m.homepage, listTourGalleryItems: m.tours, listGalleryItems: m.list, listGalleryTourChoices: m.choices, getGalleryItem: m.get, createGalleryItem: m.create, updateGalleryItem: m.update, publishGalleryItem: m.publish, deleteGalleryItem: m.remove, reorderGalleryItems: m.reorder }))
-vi.mock('@/lib/server/media', () => ({ MediaUploadError: class extends Error {}, checkMediaUploadRateLimit: m.limit, storeUploadedImage: m.upload, maxUploadBytes: () => 5 * 1024 * 1024 }))
-vi.mock('@/lib/server/journey-video-storage', () => ({ VideoUploadError: class extends Error {}, storeUploadedVideo: m.video }))
+vi.mock('@/lib/server/auth/auth', () => ({ getCurrentUser: m.user, hasPermission: m.permission }))
+vi.mock('@/lib/server/gallery/journey-gallery', () => ({ GalleryValidationError: class extends Error {}, GalleryNotFoundError: class extends Error {}, listPublishedGallery: m.homepage, listTourGalleryItems: m.tours, listGalleryItems: m.list, listGalleryTourChoices: m.choices, getGalleryItem: m.get, createGalleryItem: m.create, updateGalleryItem: m.update, publishGalleryItem: m.publish, deleteGalleryItem: m.remove, reorderGalleryItems: m.reorder }))
+vi.mock('@/lib/server/media/media', () => ({ MediaUploadError: class extends Error {}, checkMediaUploadRateLimit: m.limit, storeUploadedImage: m.upload, maxUploadBytes: () => 5 * 1024 * 1024 }))
+vi.mock('@/lib/server/gallery/journey-video-storage', () => ({ VideoUploadError: class extends Error {}, storeUploadedVideo: m.video }))
 import { GET, POST } from '@/app/api/journey-gallery/route'
 import { GET as one, PUT, PATCH, DELETE } from '@/app/api/journey-gallery/[id]/route'
 import { POST as reorder } from '@/app/api/journey-gallery/reorder/route'
 import { POST as upload } from '@/app/api/media/route'
-import { GalleryValidationError } from '@/lib/server/journey-gallery'
+import { GalleryValidationError } from '@/lib/server/gallery/journey-gallery'
 const url = 'http://localhost:3000/api/journey-gallery'
 const params = { params: Promise.resolve({ id: 'item-id' }) }
 const request = (method: string, body: unknown, origin = 'http://localhost:3000') => new Request(url, { method, headers: { host: 'localhost:3000', origin, 'content-type': 'application/json' }, body: JSON.stringify(body) })

@@ -1,4 +1,4 @@
-import { authPageMetadata } from '@/lib/auth-page-metadata'
+import { authPageMetadata } from '@/lib/seo/auth-page-metadata'
 import { getServerLocale } from '@/lib/server/locale'
 import { ForgotPasswordPage } from '@/components/extended-pages'
 

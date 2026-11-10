@@ -9,8 +9,8 @@ vi.mock('react', async original => ({
 }))
 vi.mock('@/components/locale', () => ({ useLocale: () => ({ locale: state.locale }), tx: (locale: string, values: Record<string, string>) => values[locale] }))
 vi.mock('@/lib/admin-store', () => ({ useBrandSettings: () => ({ whatsapp: '+12025550123' }) }))
-vi.mock('@/lib/live-chat-client', () => ({ useLiveChat: () => state.chat }))
-import { LiveChatWidget } from '@/components/live-chat'
+vi.mock('@/lib/support/live-chat-client', () => ({ useLiveChat: () => state.chat }))
+import { LiveChatWidget } from '@/components/support/live-chat'
 type Element = ReactElement<Record<string, any>>
 function elements(node: ReactNode): Element[] {
   if (Array.isArray(node)) return node.flatMap(elements)

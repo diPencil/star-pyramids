@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { sanitizeTourHtml, safeRichLink, normalizeTourPaste, normalizeTourRichText, richTextPlain, writeNarrative, resolveNarrative, overviewFromEditor, overviewToEditor, legacyEditorHtml, readTourWriteRequest, RICH_LIMITS, type RichOwner } from '@/lib/tour-rich-text'
-import { encodeTourJson, decodeTourJson } from '@/lib/tour-json'
-import { validateTourWrite, validateTourPublication } from '@/lib/tour-write'
-import { localizePublicTour } from '@/lib/tour-public-locale'
-import { buildTripPreview } from '@/lib/trip-builder-preview'
+import { sanitizeTourHtml, safeRichLink, normalizeTourPaste, normalizeTourRichText, richTextPlain, writeNarrative, resolveNarrative, overviewFromEditor, overviewToEditor, legacyEditorHtml, readTourWriteRequest, RICH_LIMITS, type RichOwner } from '@/lib/tours/tour-rich-text'
+import { encodeTourJson, decodeTourJson } from '@/lib/tours/tour-json'
+import { validateTourWrite, validateTourPublication } from '@/lib/tours/tour-write'
+import { localizePublicTour } from '@/lib/tours/tour-public-locale'
+import { buildTripPreview } from '@/lib/trip-builder/trip-builder-preview'
 import { editorData } from '@/components/admin/trip-builder'
-import { generateTouristTripJsonLd } from '@/lib/structured-data'
+import { generateTouristTripJsonLd } from '@/lib/seo/structured-data'
 import type { Tour } from '@/data/types'
 
 export const richFixture = (): Tour => ({ slug: 'rich-trip', title: 'Plain title', category: 'one-day-tours', location: 'Cairo', duration: 'Full day', image: '/fixture.jpg', gallery: ['/fixture.jpg'], summary: 'Plain summary', price: 1, destinationSlug: 'cairo', status: 'draft',

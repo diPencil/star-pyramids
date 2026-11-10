@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
 
-const { renderEmailTemplate } = await import('@/lib/server/email');
+const { renderEmailTemplate } = await import('@/lib/server/email/email');
 
 const GUEST_NOTE =
   'You booked as a guest, so this private link is your access to the booking. ';

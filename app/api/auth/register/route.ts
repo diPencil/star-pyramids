@@ -10,15 +10,15 @@ import {
   normalizeEmail,
   validatePasswordStrength,
 } from '@/lib/core/validation';
-import { authorizedPostLoginPath } from '@/lib/server/auth-navigation';
+import { authorizedPostLoginPath } from '@/lib/server/auth/auth-navigation';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import {
   checkRegistrationRateLimit,
   recordRegistrationAttempt,
 } from '@/lib/server/rate-limit';
-import { createSession } from '@/lib/server/session';
-import { createCustomerUser, toClientUser } from '@/lib/server/users';
-import { sendCustomerEmailSafe } from '@/lib/server/email';
+import { createSession } from '@/lib/server/auth/session';
+import { createCustomerUser, toClientUser } from '@/lib/server/auth/users';
+import { sendCustomerEmailSafe } from '@/lib/server/email/email';
 
 type RegistrationBody = {
   email?: unknown;

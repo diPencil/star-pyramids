@@ -1,8 +1,8 @@
-import { rentCarFailure } from '@/lib/server/rent-car-errors';
+import { rentCarFailure } from '@/lib/server/cars/rent-car-errors';
 import { NextResponse } from 'next/server';
-import { formLeadMeasurement } from '@/lib/server/form-lead-measurement';
+import { formLeadMeasurement } from '@/lib/server/tracking/leads/form-lead-measurement';
 
-import { getCurrentUser } from '@/lib/server/auth';
+import { getCurrentUser } from '@/lib/server/auth/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import {
   checkCarRequestRateLimit,
@@ -11,7 +11,7 @@ import {
 import {
   createCarRequestRecord,
   validateCarDraft,
-} from '@/lib/server/car-requests';
+} from '@/lib/server/cars/car-requests';
 
 function clientIp(request: Request): string {
   const forwarded = request.headers.get('x-forwarded-for');

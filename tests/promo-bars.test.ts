@@ -11,7 +11,7 @@ import {
   toTopBarSlides,
   placedOffers,
   validateCampaign,
-} from '@/lib/marketing-campaigns'
+} from '@/lib/marketing/marketing-campaigns'
 import {
   ACCESS_STRIP_DEFAULT_CTA_LABEL,
   ACCESS_STRIP_DEFAULT_HREF,
@@ -19,8 +19,8 @@ import {
   readAccessStrip,
   resolveAccessStrip,
   validateAccessStrip,
-} from '@/lib/access-strip'
-import { localizeCatalogue, validateCatalogueTranslations } from '@/lib/catalogue-translations'
+} from '@/lib/cms/access-strip'
+import { localizeCatalogue, validateCatalogueTranslations } from '@/lib/catalogue/catalogue-translations'
 import type { Offer } from '@/data/types'
 
 const topBarCampaign = (extra: Record<string, unknown> = {}) =>

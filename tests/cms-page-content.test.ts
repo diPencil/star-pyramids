@@ -1,16 +1,16 @@
 import { describe, expect, it, vi } from 'vitest'
 import { readdirSync, existsSync } from 'node:fs'
-import { HOME_SECTIONS, initialPageState, originalPageContent, publicPageContent, transitionPageContent, validatePageContent, selectPageRecords, validateCmsLink } from '@/lib/page-sections'
-import { cmsPageRegistry, cmsRoutePattern, coverageCounts } from '@/lib/cms-coverage'
-import { isPageDocumentId } from '@/lib/additional-page-content'
-import { isSeoPage } from '@/lib/seo-manager'
+import { HOME_SECTIONS, initialPageState, originalPageContent, publicPageContent, transitionPageContent, validatePageContent, selectPageRecords, validateCmsLink } from '@/lib/cms/page-sections'
+import { cmsPageRegistry, cmsRoutePattern, coverageCounts } from '@/lib/cms/cms-coverage'
+import { isPageDocumentId } from '@/lib/cms/additional-page-content'
+import { isSeoPage } from '@/lib/seo/seo-manager'
 
-vi.mock('@/lib/server/record-seo', () => ({ listRecordSeo: vi.fn(async () => []) }))
-vi.mock('@/lib/server/seo-manager', async () => {
-  const { initialPageState } = await import('@/lib/page-sections')
+vi.mock('@/lib/server/seo/record-seo', () => ({ listRecordSeo: vi.fn(async () => []) }))
+vi.mock('@/lib/server/seo/seo-manager', async () => {
+  const { initialPageState } = await import('@/lib/cms/page-sections')
   return { readSeoState: vi.fn(async () => initialPageState()) }
 })
-import { seoInventory } from '@/lib/server/seo-inventory'
+import { seoInventory } from '@/lib/server/seo/seo-inventory'
 
 describe('registered page content and lifecycle', () => {
   it.each([

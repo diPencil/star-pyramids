@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
 import {
   addStaffTripNote,
   getStaffTripRequest,
   transitionStaffTripRequest,
-} from '@/lib/server/trip-requests';
-import type { TripRequestStatus } from '@/lib/trip-request';
+} from '@/lib/server/trip-builder/trip-requests';
+import type { TripRequestStatus } from '@/lib/trip-builder/trip-request';
 
 const STATUSES: TripRequestStatus[] = [
   'new',

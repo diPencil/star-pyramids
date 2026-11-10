@@ -1,25 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-vi.mock('@/lib/server/record-seo', () => ({ getPublishedRecordSeo: vi.fn(async () => null) }))
-vi.mock('@/lib/server/global-seo', () => ({ getGlobalSeo: vi.fn(async () => ({})) }))
+vi.mock('@/lib/server/seo/record-seo', () => ({ getPublishedRecordSeo: vi.fn(async () => null) }))
+vi.mock('@/lib/server/seo/global-seo', () => ({ getGlobalSeo: vi.fn(async () => ({})) }))
 
 const state = vi.hoisted(() => ({ cookie: undefined as string | undefined, record: null as Record<string, unknown> | null, linkedTour: undefined as Record<string, unknown> | null | undefined, translations: {} as Record<string, Record<string, string>> }))
 vi.mock('next/headers', () => ({ cookies: async () => ({ get: (key: string) => key === 'star-locale' && state.cookie ? { value: state.cookie } : undefined }) }))
 vi.mock('@/lib/server/settings', () => ({ getSetting: async () => 'Star Pyramids' }))
-vi.mock('@/lib/server/catalogue-translations', () => ({ attachCatalogueTranslations: vi.fn(async (_kind: string, rows: object[]) => rows.map((row) => ({ ...row, translations: state.translations }))) }))
-vi.mock('@/lib/server/tours', () => ({ listTours: vi.fn(async () => []), findTourBySlug: vi.fn(async () => state.linkedTour === undefined ? state.record : state.linkedTour) }))
-vi.mock('@/lib/server/blogs', () => ({ findBlogBySlug: async () => state.record }))
-vi.mock('@/lib/server/destinations', () => ({
+vi.mock('@/lib/server/catalogue/catalogue-translations', () => ({ attachCatalogueTranslations: vi.fn(async (_kind: string, rows: object[]) => rows.map((row) => ({ ...row, translations: state.translations }))) }))
+vi.mock('@/lib/server/catalogue/tours', () => ({ listTours: vi.fn(async () => []), findTourBySlug: vi.fn(async () => state.linkedTour === undefined ? state.record : state.linkedTour) }))
+vi.mock('@/lib/server/editorial/blogs', () => ({ findBlogBySlug: async () => state.record }))
+vi.mock('@/lib/server/catalogue/destinations', () => ({
   findDestinationBySlug: async () => state.record,
   getPublishedOneDayDestinations: vi.fn(async () => state.record?.showInOneDayTours === true && state.record?.isPublished !== false ? [state.record] : []),
 }))
-vi.mock('@/lib/server/categories', () => ({ findCategoryBySlug: vi.fn(async () => state.record) }))
-vi.mock('@/lib/server/events', () => ({ findEventBySlug: async () => state.record }))
-vi.mock('@/lib/server/offers', () => ({ findOfferBySlug: async () => state.record }))
+vi.mock('@/lib/server/catalogue/categories', () => ({ findCategoryBySlug: vi.fn(async () => state.record) }))
+vi.mock('@/lib/server/events/events', () => ({ findEventBySlug: async () => state.record }))
+vi.mock('@/lib/server/offers/offers', () => ({ findOfferBySlug: async () => state.record }))
 vi.mock('@/components/site', () => ({ SiteShell: () => null }))
-vi.mock('@/components/tour-detail', () => ({ TourDetailPage: () => null }))
-vi.mock('@/components/day-tour-detail', () => ({ DayTourDetailPage: () => null }))
+vi.mock('@/components/tours/detail/tour-detail', () => ({ TourDetailPage: () => null }))
+vi.mock('@/components/tours/detail/day-tour-detail', () => ({ DayTourDetailPage: () => null }))
 vi.mock('@/components/extended-pages', () => ({ DestinationDetailPage: () => null, EventDetailPage: () => null }))
-vi.mock('@/lib/structured-data', () => ({ RecordPageJsonLd: () => null }))
+vi.mock('@/lib/seo/structured-data', () => ({ RecordPageJsonLd: () => null }))
 
 import { generateMetadata as tour } from '@/app/egypt-tours/[slug]/page'
 import { generateMetadata as blog } from '@/app/blogs/[slug]/page'
@@ -28,10 +28,10 @@ import EventPage, { generateMetadata as event } from '@/app/events/[slug]/page'
 import { generateMetadata as offer } from '@/app/special-offers/[slug]/page'
 import RegionPage, { generateMetadata as regionMetadata } from '@/app/egypt-tours/one-day-tours/[region]/page'
 import CategoryPage, { generateMetadata as categoryMetadata } from '@/app/egypt-tours/multi-days-tours/[category]/page'
-import { attachCatalogueTranslations } from '@/lib/server/catalogue-translations'
-import { getPublishedOneDayDestinations } from '@/lib/server/destinations'
-import { findCategoryBySlug } from '@/lib/server/categories'
-import { findTourBySlug } from '@/lib/server/tours'
+import { attachCatalogueTranslations } from '@/lib/server/catalogue/catalogue-translations'
+import { getPublishedOneDayDestinations } from '@/lib/server/catalogue/destinations'
+import { findCategoryBySlug } from '@/lib/server/catalogue/categories'
+import { findTourBySlug } from '@/lib/server/catalogue/tours'
 
 const routes = [
   ['egypt-tours', tour], ['blogs', blog], ['destinations', destination], ['events', event], ['special-offers', offer],

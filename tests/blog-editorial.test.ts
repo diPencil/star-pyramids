@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { blogs } from '@/data/content'
-import { BlogEditorialInputError, validateBlogEditorial } from '@/lib/blog-editorial'
-import { localizeCatalogue, moveTranslationRow, removeTranslationRow, validateCatalogueTranslations } from '@/lib/catalogue-translations'
+import { BlogEditorialInputError, validateBlogEditorial } from '@/lib/editorial/blog-editorial'
+import { localizeCatalogue, moveTranslationRow, removeTranslationRow, validateCatalogueTranslations } from '@/lib/catalogue/catalogue-translations'
 
 const source = (path: string) => readFileSync(join(process.cwd(), path), 'utf8')
 
@@ -74,18 +74,18 @@ describe('blog release guards', () => {
   it('keeps drafts out of public API, static params and metadata routes', () => {
     expect(source('app/api/blogs/route.ts')).toMatch(/where: \{ isPublished: true \}/)
     expect(source('app/api/blogs/[slug]/route.ts')).toMatch(/if \(!blog\.isPublished\)/)
-    expect(source('lib/server/blogs.ts')).toMatch(/where: \{ slug, isPublished: true \}/)
-    expect(source('lib/server/blogs.ts')).toMatch(/where: \{ isPublished: true \}, select: \{ slug: true \}/)
+    expect(source('lib/server/editorial/blogs.ts')).toMatch(/where: \{ slug, isPublished: true \}/)
+    expect(source('lib/server/editorial/blogs.ts')).toMatch(/where: \{ isPublished: true \}, select: \{ slug: true \}/)
   })
 
   it('renders blog routes from server-provided database records instead of the static catalogue', () => {
     expect(source('app/blogs/page.tsx')).toMatch(/getPublishedDbBlogs/)
     expect(source('app/blogs/[slug]/page.tsx')).toMatch(/initialBlogs=\{publishedBlogs\}/)
-    expect(source('components/extended-pages.tsx')).toMatch(/useDbBlogs\(initialBlogs\)/)
+    expect(source("components/content/blog-pages.tsx")).toMatch(/useDbBlogs\(initialBlogs\)/)
   })
 
   it('does not render fabricated generic article copy', () => {
-    const page = source('components/extended-pages.tsx')
+    const page = source("components/content/blog-pages.tsx")
     expect(page).not.toContain('Egypt rewards travelers who look a little closer')
     expect(page).not.toContain('Travel slowly enough to notice what makes a place itself')
   })

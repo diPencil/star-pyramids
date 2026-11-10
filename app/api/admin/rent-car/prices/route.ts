@@ -1,12 +1,12 @@
-import { rentCarFailure } from '@/lib/server/rent-car-errors';
+import { rentCarFailure } from '@/lib/server/cars/rent-car-errors';
 // Staff-only vehicle/route price management (Phase 2). These mutations are
 // never publicly exposed: read requires cars.edit and writes split across
 // cars.create/cars.edit/cars.delete, with same-origin CSRF on every mutation.
 import { NextResponse } from 'next/server';
 
 import { isSameOriginRequest } from '@/lib/server/csrf';
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
-import { createCarRoutePrice, listAllCarPricesAdmin } from '@/lib/server/car-pricing';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
+import { createCarRoutePrice, listAllCarPricesAdmin } from '@/lib/server/cars/car-pricing';
 
 export async function GET(request: Request) {
   const user = await getCurrentUser();

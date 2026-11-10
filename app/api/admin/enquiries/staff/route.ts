@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/server/db';
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
-import { enquiryStaffWhere } from '@/lib/server/enquiries';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
+import { enquiryStaffWhere } from '@/lib/server/enquiries/enquiries';
 
 export async function GET() {
   const user = await getCurrentUser();

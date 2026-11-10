@@ -1,8 +1,8 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { BrandProvider } from '@/components/brand-context'
-import { BrandMark } from '@/components/brand-mark'
+import { BrandProvider } from '@/components/branding/brand-context'
+import { BrandMark } from '@/components/branding/brand-mark'
 import { defaultBrandSettings, useBrandSettings } from '@/lib/admin-store'
 function Identity(){const brand=useBrandSettings();return createElement('img',{src:brand.logo,alt:brand.companyName})}
 describe('server-seeded branding first paint',()=>{

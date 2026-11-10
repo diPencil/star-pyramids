@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
-import {bookingSameOrigin,bookingClientIp,reserveSetupAttempt} from '@/lib/server/booking-request-security'
+import {bookingSameOrigin,bookingClientIp,reserveSetupAttempt} from '@/lib/server/booking/booking-request-security'
 import { readBoundedJson } from '@/lib/server/request-json'
-import { inspectCheckoutAccount, completeCheckoutAccount } from '@/lib/server/checkout-account'
+import { inspectCheckoutAccount, completeCheckoutAccount } from '@/lib/server/booking/checkout/checkout-account'
 import { recordPasswordResetAttempt } from '@/lib/server/rate-limit'
-import { getCurrentUser } from '@/lib/server/auth'
-import { createSession } from '@/lib/server/session'
-import { OFFICIAL_BOOKING_REF_PATTERN } from '@/lib/booking'
+import { getCurrentUser } from '@/lib/server/auth/auth'
+import { createSession } from '@/lib/server/auth/session'
+import { OFFICIAL_BOOKING_REF_PATTERN } from '@/lib/booking/booking'
 import {validatePasswordStrength} from '@/lib/core/validation'
 
 export async function POST(request:Request) {

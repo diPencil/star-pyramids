@@ -1,7 +1,7 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 import type { Tour } from '@/data/types'
 import { getBookingTotal } from '@/data/tours'
-import { buildTripPreview, cleanTravelerPriceRows, previewAmount, previewCount, previewTextKey, quoteTripPreview, type TripBuilderDraft } from '@/lib/trip-builder-preview'
+import { buildTripPreview, cleanTravelerPriceRows, previewAmount, previewCount, previewTextKey, quoteTripPreview, type TripBuilderDraft } from '@/lib/trip-builder/trip-builder-preview'
 
 const source: Tour = { slug: 'saved', title: 'Saved title', category: 'multi-days-tours', location: 'Saved location', duration: 'Saved duration', price: 999, image: '/old.jpg', gallery: ['/old.jpg'], summary: 'Saved summary', detail: { overview: ['Saved overview'], highlights: [], itinerary: [], locations: [], travelerPrices: [{ travelers: 1, adultPrice: 999 }] } }
 export function draft(): TripBuilderDraft {

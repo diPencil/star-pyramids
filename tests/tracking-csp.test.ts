@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
-import { observeTrackingCsp, safeTrackingCspEvidence, trackingCspEvidence } from '@/lib/tracking-csp'
-import { browserTrackingHealth } from '@/lib/tracking-health'
+import { observeTrackingCsp, safeTrackingCspEvidence, trackingCspEvidence } from '@/lib/tracking/tracking-csp'
+import { browserTrackingHealth } from '@/lib/tracking/health/tracking-health'
 
 it('captures only Google origin, directive and disposition, omitting tokens, nonces and page details', () => {
   const browser = new EventTarget() as Window

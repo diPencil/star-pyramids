@@ -1,0 +1,233 @@
+{
+  "phase": "Phase 1: Safe Documentation Organization",
+  "date": "2026-11-04",
+  "project_root": "D:/Development/star-pyramids-nodejs",
+  "application_root": "D:/Development/star-pyramids-nodejs/web-source",
+  "policy": "Preserve moved report bytes; leave historical citations and preservation manifests unchanged; resolve documentation navigation through docs/README.md.",
+  "relocations": [
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/web-source/AGENT_SKILLS_INSTALLATION_REPORT.md",
+      "destination_path": "D:/Development/star-pyramids-nodejs/web-source/docs/history/tooling/AGENT_SKILLS_INSTALLATION_REPORT.md",
+      "sha256": "26db82e3f052d7690af8333c2e36f3fa736a0b5a6cce8c0507f357f28cfd1f8c",
+      "original_git_status": "untracked"
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/web-source/APPLE_LOADING_INCIDENT.md",
+      "destination_path": "D:/Development/star-pyramids-nodejs/web-source/docs/history/incidents/APPLE_LOADING_INCIDENT.md",
+      "sha256": "fc696e34b0811069058d14a74e65577fc67a579e8a9587ed6c8a8eebdc764c01",
+      "original_git_status": "untracked"
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/web-source/BRANDING_REFRESH_VERIFICATION.md",
+      "destination_path": "D:/Development/star-pyramids-nodejs/web-source/docs/history/implementation/BRANDING_REFRESH_VERIFICATION.md",
+      "sha256": "1e7e9736bb28237c412bed3686877eb0934835b4a87cef4ee2c0e24461656fa6",
+      "original_git_status": "tracked"
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/web-source/CMS_PUBLIC_CONTENT_INTEGRATION_AUDIT.md",
+      "destination_path": "D:/Development/star-pyramids-nodejs/web-source/docs/audits/CMS_PUBLIC_CONTENT_INTEGRATION_AUDIT.md",
+      "sha256": "f93be788607464e69bd7c135828ce55b86783c53c009f0e054ac05ac2f5cce6d",
+      "original_git_status": "tracked"
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/web-source/CURRENCY_PHASE10_VERIFICATION.md",
+      "destination_path": "D:/Development/star-pyramids-nodejs/web-source/docs/history/implementation/CURRENCY_PHASE10_VERIFICATION.md",
+      "sha256": "a0c31997c288e20f211c1488aeb8eae600429c5362805610e03ba0075c505c4a",
+      "original_git_status": "tracked"
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/web-source/DESTINATION_BUILDER_PARITY_VERIFICATION.md",
+      "destination_path": "D:/Development/star-pyramids-nodejs/web-source/docs/history/implementation/DESTINATION_BUILDER_PARITY_VERIFICATION.md",
+      "sha256": "b3334646ad5920d3407ad2292bc16d82d45dac5c1edc5144049d4356af295eaf",
+      "original_git_status": "tracked"
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/web-source/DESTINATIONS_PHASE5_COMPLETION.md",
+      "destination_path": "D:/Development/star-pyramids-nodejs/web-source/docs/history/implementation/DESTINATIONS_PHASE5_COMPLETION.md",
+      "sha256": "3a8bc151f404277ec00d8e2b42ac791eb043887175791e93541d75ff82212ffb",
+      "original_git_status": "tracked"
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/web-source/FINAL_INTEGRATION_AUDIT.md",
+      "destination_path": "D:/Development/star-pyramids-nodejs/web-source/docs/audits/FINAL_INTEGRATION_AUDIT.md",
+      "sha256": "52db6359c10286a1e3a91f4fa0305f1f9a53eff454567954b499454c7741bc48",
+      "original_git_status": "tracked"
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/web-source/GALLERY_PHASE7_VERIFICATION.md",
+      "destination_path": "D:/Development/star-pyramids-nodejs/web-source/docs/history/implementation/GALLERY_PHASE7_VERIFICATION.md",
+      "sha256": "d5cf749d0285a8a0929a7ee8f7b0660fcc87f16297fbbcc3697616ba38e3d733",
+      "original_git_status": "tracked"
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/web-source/LOCALIZATION_PROGRESS.md",
+      "destination_path": "D:/Development/star-pyramids-nodejs/web-source/docs/features/LOCALIZATION_PROGRESS.md",
+      "sha256": "735d283ca4781060cf4f9f4787ec4d86c01495c082490b7c255ed9ee1fb16126",
+      "original_git_status": "tracked"
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/web-source/MOBILE_UX_PROGRESS.md",
+      "destination_path": "D:/Development/star-pyramids-nodejs/web-source/docs/features/MOBILE_UX_PROGRESS.md",
+      "sha256": "a907e723ec7336006c9ec5224e330a0dd1279bff2100f57b50426785ed90490d",
+      "original_git_status": "tracked"
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/web-source/NAVIGATION_MANAGER_VERIFICATION.md",
+      "destination_path": "D:/Development/star-pyramids-nodejs/web-source/docs/history/implementation/NAVIGATION_MANAGER_VERIFICATION.md",
+      "sha256": "b643d120365a0323fd59e4c09160902cdffb95d6371e117334a655c1cac55a57",
+      "original_git_status": "tracked"
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/web-source/OFFERS_NOTIFICATIONS_AND_CREATION_TIMELINES.md",
+      "destination_path": "D:/Development/star-pyramids-nodejs/web-source/docs/features/OFFERS_NOTIFICATIONS_AND_CREATION_TIMELINES.md",
+      "sha256": "818a301039bf4c0d6dba096243f32460797b7427f28aa05da747aa8b31a37abf",
+      "original_git_status": "tracked"
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/web-source/PAYMENT_GATEWAY_FOUNDATION.md",
+      "destination_path": "D:/Development/star-pyramids-nodejs/web-source/docs/features/PAYMENT_GATEWAY_FOUNDATION.md",
+      "sha256": "4a5bbf40ecd9cd07c5bcb7b4fe84d5ad2a178bc9086906c80d2135899494f608",
+      "original_git_status": "tracked"
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/web-source/PAYMENT_INTEGRATION_READINESS.md",
+      "destination_path": "D:/Development/star-pyramids-nodejs/web-source/docs/audits/PAYMENT_INTEGRATION_READINESS.md",
+      "sha256": "1a5b21c2bef081355e256d1a271c5531be069f50a6c3cb474c5eca990d849063",
+      "original_git_status": "tracked"
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/web-source/PHASE_2F_B_FINALIZATION_REPORT.md",
+      "destination_path": "D:/Development/star-pyramids-nodejs/web-source/docs/history/implementation/PHASE_2F_B_FINALIZATION_REPORT.md",
+      "sha256": "4c26697e20aef303e3d888a5c0d6182ff5b91a41f1f70cc40125a4e926bada0a",
+      "original_git_status": "tracked"
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/web-source/RENT_CAR_DUAL_PRICING_PHASE1.md",
+      "destination_path": "D:/Development/star-pyramids-nodejs/web-source/docs/history/implementation/RENT_CAR_DUAL_PRICING_PHASE1.md",
+      "sha256": "ecc8bec539ca3d753625cd3942d58363a0e90cbecce50b56e087450c8dfb9986",
+      "original_git_status": "tracked"
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/web-source/RENT_CAR_DUAL_PRICING_PHASE3.md",
+      "destination_path": "D:/Development/star-pyramids-nodejs/web-source/docs/history/implementation/RENT_CAR_DUAL_PRICING_PHASE3.md",
+      "sha256": "59b88892ccc09c9ee45099b558d12d49b1d9b9b508d3cfe0435f03134e1928fd",
+      "original_git_status": "tracked"
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/web-source/RENT_CAR_FINAL_VERIFICATION.md",
+      "destination_path": "D:/Development/star-pyramids-nodejs/web-source/docs/history/implementation/RENT_CAR_FINAL_VERIFICATION.md",
+      "sha256": "3dc51de515f59609dfe564b4bbd440acdbfdb35005d1a34ff48f226e49b66e34",
+      "original_git_status": "tracked"
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/web-source/REVENUE_TREND_FIX_REPORT.md",
+      "destination_path": "D:/Development/star-pyramids-nodejs/web-source/docs/history/implementation/REVENUE_TREND_FIX_REPORT.md",
+      "sha256": "9a58e6577e404e455bf2cdfc566b0acc2bee602717a5fe813ec17f132852a5b7",
+      "original_git_status": "tracked"
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/web-source/REVIEWS_PHASE6_VERIFICATION.md",
+      "destination_path": "D:/Development/star-pyramids-nodejs/web-source/docs/history/implementation/REVIEWS_PHASE6_VERIFICATION.md",
+      "sha256": "ea31d8b8bf7e130b4c414659730928e0cec9391ede984717c4d6f31fa524bedb",
+      "original_git_status": "tracked"
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/web-source/SEO_IMPLEMENTATION_PROGRESS.md",
+      "destination_path": "D:/Development/star-pyramids-nodejs/web-source/docs/features/SEO_IMPLEMENTATION_PROGRESS.md",
+      "sha256": "8a302d8404a43adabe60a2be337066313dfce8aec57a4651c9349c738846ba34",
+      "original_git_status": "tracked"
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/web-source/SUSTAINABILITY_PHASE9_VERIFICATION.md",
+      "destination_path": "D:/Development/star-pyramids-nodejs/web-source/docs/history/implementation/SUSTAINABILITY_PHASE9_VERIFICATION.md",
+      "sha256": "99676f19aade03d006caf3c2c5d09c12682c3623800a59cf0361d307e79e8524",
+      "original_git_status": "tracked"
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/web-source/TRIP_BUILDER_PHASE8_VERIFICATION.md",
+      "destination_path": "D:/Development/star-pyramids-nodejs/web-source/docs/history/implementation/TRIP_BUILDER_PHASE8_VERIFICATION.md",
+      "sha256": "8806e3305315ab06bd18e4b5f87e13ee64c801d23df585a252cc51e8c7b2e137",
+      "original_git_status": "tracked"
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/web-source/WEBSITE_APPEARANCE_PROGRESS.md",
+      "destination_path": "D:/Development/star-pyramids-nodejs/web-source/docs/features/WEBSITE_APPEARANCE_PROGRESS.md",
+      "sha256": "ec46d6edc6bb74470be62a732076592af61bb1e41e2e5e9c32c34800ffc43a8a",
+      "original_git_status": "tracked"
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/web-source/WEBSITE_CMS_PROGRESS.md",
+      "destination_path": "D:/Development/star-pyramids-nodejs/web-source/docs/features/WEBSITE_CMS_PROGRESS.md",
+      "sha256": "6a8aab10a5dc642ee68266718a6057f8771c7d0f72da770926a278e169aef526",
+      "original_git_status": "tracked"
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/web-source/WEBSITE_CMS_VALIDATION.md",
+      "destination_path": "D:/Development/star-pyramids-nodejs/web-source/docs/history/implementation/WEBSITE_CMS_VALIDATION.md",
+      "sha256": "f09e8a36444af34d177111986194a4567f3c233ac9ce73ed23a9dd9814cb0e1c",
+      "original_git_status": "tracked"
+    }
+  ],
+  "skipped": [
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/FIX_REPORT.md",
+      "proposed_destination_path": "D:/Development/star-pyramids-nodejs/project-history/implementation/FIX_REPORT.md",
+      "status": "not_moved",
+      "reason": "No active literal references found in the inspected non-excluded working tree, but destination privacy and exclusion from external deployment could not be confirmed. Configuration changes and external deployment operations are outside this phase."
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/FIX_SUMMARY.md",
+      "proposed_destination_path": "D:/Development/star-pyramids-nodejs/project-history/implementation/FIX_SUMMARY.md",
+      "status": "not_moved",
+      "reason": "No active literal references found in the inspected non-excluded working tree, but destination privacy and exclusion from external deployment could not be confirmed. Configuration changes and external deployment operations are outside this phase."
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/PHASE4D_QA_REPORT.md",
+      "proposed_destination_path": "D:/Development/star-pyramids-nodejs/project-history/implementation/PHASE4D_QA_REPORT.md",
+      "status": "not_moved",
+      "reason": "No active literal references found in the inspected non-excluded working tree, but destination privacy and exclusion from external deployment could not be confirmed. Configuration changes and external deployment operations are outside this phase."
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/phase4e-audit-report.md",
+      "proposed_destination_path": "D:/Development/star-pyramids-nodejs/project-history/implementation/phase4e-audit-report.md",
+      "status": "not_moved",
+      "reason": "No active literal references found in the inspected non-excluded working tree, but destination privacy and exclusion from external deployment could not be confirmed. Configuration changes and external deployment operations are outside this phase."
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/phase4e-inspection-report.md",
+      "proposed_destination_path": "D:/Development/star-pyramids-nodejs/project-history/implementation/phase4e-inspection-report.md",
+      "status": "not_moved",
+      "reason": "No active literal references found in the inspected non-excluded working tree, but destination privacy and exclusion from external deployment could not be confirmed. Configuration changes and external deployment operations are outside this phase."
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/TRIP_BUILDER_REAL_TOURS_READINESS_AUDIT.md",
+      "proposed_destination_path": "D:/Development/star-pyramids-nodejs/project-history/audits/TRIP_BUILDER_REAL_TOURS_READINESS_AUDIT.md",
+      "status": "not_moved",
+      "reason": "No active literal references found in the inspected non-excluded working tree, but destination privacy and exclusion from external deployment could not be confirmed. Configuration changes and external deployment operations are outside this phase."
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/TRIP_BUILDER_RICH_TEXT_AUDIT.md",
+      "proposed_destination_path": "D:/Development/star-pyramids-nodejs/project-history/audits/TRIP_BUILDER_RICH_TEXT_AUDIT.md",
+      "status": "not_moved",
+      "reason": "No active literal references found in the inspected non-excluded working tree, but destination privacy and exclusion from external deployment could not be confirmed. Configuration changes and external deployment operations are outside this phase."
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/TRIP_BUILDER_RICH_TEXT_IMPLEMENTATION_REPORT.md",
+      "proposed_destination_path": "D:/Development/star-pyramids-nodejs/project-history/implementation/TRIP_BUILDER_RICH_TEXT_IMPLEMENTATION_REPORT.md",
+      "status": "not_moved",
+      "reason": "No active literal references found in the inspected non-excluded working tree, but destination privacy and exclusion from external deployment could not be confirmed. Configuration changes and external deployment operations are outside this phase."
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/check_jsx.py",
+      "proposed_destination_path": "D:/Development/star-pyramids-nodejs/project-history/tooling/check_jsx.py",
+      "status": "not_moved",
+      "reason": "No active literal references found in the inspected non-excluded working tree, but destination privacy and exclusion from external deployment could not be confirmed. Configuration changes and external deployment operations are outside this phase."
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/fix_homepage.py",
+      "proposed_destination_path": "D:/Development/star-pyramids-nodejs/project-history/tooling/fix_homepage.py",
+      "status": "not_moved",
+      "reason": "No active literal references found in the inspected non-excluded working tree, but destination privacy and exclusion from external deployment could not be confirmed. Configuration changes and external deployment operations are outside this phase."
+    }
+  ]
+}

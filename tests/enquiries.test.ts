@@ -17,8 +17,8 @@ vi.mock('@/lib/server/rate-limit', () => ({
   checkEnquiryRateLimit: mocks.checkRateLimit,
   recordEnquiryAttempt: mocks.recordAttempt,
 }))
-vi.mock('@/lib/server/notifications', () => ({ notifyStaff: mocks.notifyStaff }))
-vi.mock('@/lib/server/email', () => ({
+vi.mock('@/lib/server/notifications/notifications', () => ({ notifyStaff: mocks.notifyStaff }))
+vi.mock('@/lib/server/email/email', () => ({
   sendCustomerEmailSafe: mocks.sendCustomerEmail,
   sendStaffEmailSafe: mocks.sendStaffEmail,
 }))

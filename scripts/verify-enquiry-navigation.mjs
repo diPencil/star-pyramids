@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { installEnquiryHistoryTracking, protectEnquiryNavigation } from '../lib/enquiry-navigation.ts'
+import { installEnquiryHistoryTracking, protectEnquiryNavigation } from '../lib/enquiries/enquiry-navigation.ts'
 
 function fixture(modern, uuid = true) {
   const browser = new EventTarget()

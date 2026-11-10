@@ -3,11 +3,11 @@
 import { Analytics, type BeforeSend } from '@vercel/analytics/next'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
-import { canMeasureLocation, sanitizeMeasurementUrl } from '@/lib/tracking'
-import { GTM_READY_EVENT, initializeGtm, readTrackingConsent, subscribeToTrackingConsent, subscribeToTrackingLocation } from '@/lib/tracking-browser'
-import { createPageViewTracker } from '@/lib/tracking-events'
-import { flushBookingFunnel, FUNNEL_STORAGE_PREFIX } from '@/lib/booking-funnel'
-import { installTrackingHealthResponder } from '@/lib/tracking-health-browser'
+import { canMeasureLocation, sanitizeMeasurementUrl } from '@/lib/tracking/tracking'
+import { GTM_READY_EVENT, initializeGtm, readTrackingConsent, subscribeToTrackingConsent, subscribeToTrackingLocation } from '@/lib/tracking/tracking-browser'
+import { createPageViewTracker } from '@/lib/tracking/tracking-events'
+import { flushBookingFunnel, FUNNEL_STORAGE_PREFIX } from '@/lib/tracking/leads/booking-funnel'
+import { installTrackingHealthResponder } from '@/lib/tracking/health/tracking-health-browser'
 
 function PublicPageViews({ enabled, refresh }: { enabled: boolean; refresh: () => void }) {
   const pathname = usePathname()

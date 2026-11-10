@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 
 import { isSameOriginRequest } from '@/lib/server/csrf';
-import { getAccountReadUser, getAccountWriteUser } from '@/lib/server/staff-preview';
+import { getAccountReadUser, getAccountWriteUser } from '@/lib/server/auth/staff-preview';
 import {
   BOOKING_FINANCIAL_REVIEW_CODE,
   cancelCustomerBooking,
   getCustomerBooking,
-} from '@/lib/server/bookings';
+} from '@/lib/server/booking/bookings';
 
 /** Owner-only booking detail (customer-safe projection). */
 export async function GET(

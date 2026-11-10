@@ -5,12 +5,12 @@ vi.mock('@/lib/server/db', () => ({ db: { siteSetting: {
   create: async ({ data }: { data: { key: string; value: string } }) => { memory.rows.set(data.key, data.value); return data },
   updateMany: async ({ where, data }: { where: { key: string; value: string }; data: { value: string } }) => { if (memory.conflict || memory.rows.get(where.key) !== where.value) return { count: 0 }; memory.rows.set(where.key, data.value); return { count: 1 } },
 } } }))
-vi.mock('@/lib/server/auth', () => ({ getCurrentUser: async () => memory.auth ? { id: 'staff' } : null, hasPermission: () => memory.allowed }))
+vi.mock('@/lib/server/auth/auth', () => ({ getCurrentUser: async () => memory.auth ? { id: 'staff' } : null, hasPermission: () => memory.allowed }))
 vi.mock('@/lib/server/csrf', () => ({ isSameOriginRequest: () => memory.origin }))
 vi.mock('next/cache', () => ({ revalidatePath: memory.revalidate }))
 import { GET, PATCH } from '@/app/api/admin/website-cms/seo/[pageKey]/route'
-import { originalPageContent, publicPageContent } from '@/lib/page-sections'
-import { SEO_PAGES, currentSeo, originalSeoPage, type SeoPageId } from '@/lib/seo-manager'
+import { originalPageContent, publicPageContent } from '@/lib/cms/page-sections'
+import { SEO_PAGES, currentSeo, originalSeoPage, type SeoPageId } from '@/lib/seo/seo-manager'
 const context = { params: Promise.resolve({ pageKey: 'about' }) }
 const request = (body: unknown) => new Request('https://starpyramids.com/api/admin/website-cms/seo/about', { method: 'PATCH', body: JSON.stringify(body) })
 beforeEach(() => { memory.rows.clear(); memory.auth = true; memory.allowed = true; memory.origin = true; memory.conflict = false; memory.revalidate.mockReset() })

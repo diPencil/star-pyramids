@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
-import { getCustomerPayment } from '@/lib/server/payments';
-import { getAccountReadUser } from '@/lib/server/staff-preview';
+import { getCustomerPayment } from '@/lib/server/payments/payments';
+import { getAccountReadUser } from '@/lib/server/auth/staff-preview';
 
 /** Owner-only payment detail (customer-safe projection). */
 export async function GET(

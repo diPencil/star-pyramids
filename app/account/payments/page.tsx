@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { CustomerAccountPage } from '@/components/account-portal'
+import { CustomerAccountPage } from '@/components/account/account-portal'
 
 export const metadata: Metadata = {
   title: 'My Payments',

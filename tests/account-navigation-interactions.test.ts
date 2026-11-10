@@ -28,11 +28,11 @@ vi.mock('@/components/locale', async () => ({
   useLocale: () => ({ locale: h.locale, currency: 'USD' }),
 }))
 vi.mock('@/components/authenticated-user', () => ({ useAuthenticatedUser: () => ({ firstName: 'Test', lastName: 'Customer', email: 'customer@example.test', countryCode: 'US', phone: '' }) }))
-vi.mock('@/lib/catalogue-client', () => ({ useDbDestinations: () => [] }))
+vi.mock('@/lib/catalogue/catalogue-client', () => ({ useDbDestinations: () => [] }))
 vi.mock('@/components/admin/admin-pagination', () => ({ usePagination: (rows: unknown[]) => ({ pageRows: rows, total: rows.length, page: 1, pageCount: 1, pageSize: 10, from: 1, to: rows.length, setPage: vi.fn(), setPageSize: vi.fn() }) }))
 
-import { CustomerTripRequestsPage } from '@/components/account-custom-trip'
-import { CustomerAccountPage } from '@/components/account-portal'
+import { CustomerTripRequestsPage } from '@/components/account/account-custom-trip'
+import { CustomerAccountPage } from '@/components/account/account-portal'
 
 type Props = { startNew?: boolean; editRef?: string | null }
 type Element = ReactElement<Record<string, any>>

@@ -6,7 +6,7 @@ import type { Destination } from '@/data/types'
 const m = vi.hoisted(() => ({ permissions: [] as string[], loading: false, error: null as string | null, fetch: vi.fn() }))
 const destination: Destination = { slug: 'cairo', title: 'Cairo', image: '/cairo.jpg', copy: 'Published but excluded from the listing', isPublished: true, showInDestinations: false, showInOneDayTours: true, detail: { heroImage: '/hero.jpg', heroAlt: 'Cairo', eyebrow: '', intro: '', facts: [], bestFor: [], experiences: [], rhythm: [], practical: [], tourSlugs: [] } }
 vi.mock('@/lib/use-current-user', () => ({ useCurrentUser: () => ({ user: { id: 'staff', roles: ['STAFF'], permissions: m.permissions } }) }))
-vi.mock('@/lib/catalogue-client', () => ({
+vi.mock('@/lib/catalogue/catalogue-client', () => ({
   useDbDestinationsStatus: () => ({ data: m.loading || m.error ? null : [destination], loading: m.loading, error: m.error, retry: vi.fn(), refresh: vi.fn() }),
   invalidateCatalogueCache: vi.fn(), dbSlugify: (value: string) => value.toLowerCase(),
 }))

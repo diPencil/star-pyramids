@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
-import { pageContentMetadata } from '@/lib/server/page-content-metadata'
-import { ServerShowcaseHero } from '@/components/server-showcase-hero'
+import { pageContentMetadata } from '@/lib/server/cms/page-content-metadata'
+import { ServerShowcaseHero } from '@/components/cms/heroes/server-showcase-hero'
 import { CarsPage } from '@/components/extended-pages'
-import { getSiteUrl, getHreflangEntries } from '@/lib/seo'
+import { getSiteUrl, getHreflangEntries } from '@/lib/seo/seo'
 
 export async function generateMetadata(): Promise<Metadata> {
   const siteUrl = await getSiteUrl()

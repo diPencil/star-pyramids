@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import {
   MediaUploadError,
@@ -8,10 +8,10 @@ import {
   storeUploadedImage,
   maxUploadBytes,
   type MediaScope,
-} from '@/lib/server/media';
-import { VideoUploadError, storeUploadedVideo } from '@/lib/server/journey-video-storage';
-import { MAX_GALLERY_VIDEO_BYTES } from '@/lib/journey-gallery';
-import { readUploadForm, UploadBodyTooLarge } from '@/lib/server/upload-form';
+} from '@/lib/server/media/media';
+import { VideoUploadError, storeUploadedVideo } from '@/lib/server/gallery/journey-video-storage';
+import { MAX_GALLERY_VIDEO_BYTES } from '@/lib/gallery/journey-gallery';
+import { readUploadForm, UploadBodyTooLarge } from '@/lib/server/media/upload-form';
 
 // Multipart uploads are read by the Node.js stream parser; the Edge runtime
 // has no `File`/`FormData` body support for this path.

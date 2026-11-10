@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/server/db';
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
-import { enquirySelect } from '@/lib/server/enquiries';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
+import { enquirySelect } from '@/lib/server/enquiries/enquiries';
 
 /**
  * GET /api/admin/enquiries

@@ -5,7 +5,7 @@
 // notifications are mocked by the importing test file (these helpers
 // never send anything themselves).
 import { db } from '@/lib/server/db';
-import { recordOfflineRefund } from '@/lib/server/payments';
+import { recordOfflineRefund } from '@/lib/server/payments/payments';
 
 const REF_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 

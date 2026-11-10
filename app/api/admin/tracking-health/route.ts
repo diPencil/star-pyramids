@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
-import { getCurrentUser, hasPermission, hasStaffRole } from '@/lib/server/auth'
+import { getCurrentUser, hasPermission, hasStaffRole } from '@/lib/server/auth/auth'
 import { isSameOriginRequest } from '@/lib/server/csrf'
 import { getSetting } from '@/lib/server/settings'
-import { resolveTrackingSettings } from '@/lib/tracking'
-import { admitTrackingHealthCheck, verifyTrackingHealth } from '@/lib/server/tracking-health'
+import { resolveTrackingSettings } from '@/lib/tracking/tracking'
+import { admitTrackingHealthCheck, verifyTrackingHealth } from '@/lib/server/tracking/health/tracking-health'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

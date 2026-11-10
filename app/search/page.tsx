@@ -1,7 +1,7 @@
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
 import { SearchPage } from '@/components/extended-pages'
-import { resolveSiteUrl } from '@/lib/seo'
+import { resolveSiteUrl } from '@/lib/seo/seo'
 
 const SITE_URL = resolveSiteUrl()
 

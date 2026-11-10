@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { alignTranslationRows, localizeCatalogue, removeTranslationRow, validateCatalogueTranslations, type CatalogueKind } from '@/lib/catalogue-translations'
+import { alignTranslationRows, localizeCatalogue, removeTranslationRow, validateCatalogueTranslations, type CatalogueKind } from '@/lib/catalogue/catalogue-translations'
 
 describe('catalogue translation boundaries', () => {
   it.each([

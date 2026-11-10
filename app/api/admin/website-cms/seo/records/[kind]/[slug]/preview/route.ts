@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server'
-import { isRecordSeoKind, emptyRecordSeoContent } from '@/lib/record-seo'
-import { readRecordSeo } from '@/lib/server/record-seo'
-import { recordSeoAccess, SEO_PRIVATE_HEADERS } from '@/lib/server/record-seo-api'
-import { recordSeoPreview } from '@/lib/seo-diagnostics'
-import { ENABLED_LOCALES, type EnabledLocale } from '@/lib/locale-config'
-import { getSiteUrl } from '@/lib/seo'
-import { findTourBySlug } from '@/lib/server/tours'
-import { findBlogBySlug } from '@/lib/server/blogs'
-import { generateTouristTripJsonLd, generateBlogPostingJsonLd, generateRecordPageJsonLd } from '@/lib/structured-data'
+import { isRecordSeoKind, emptyRecordSeoContent } from '@/lib/seo/record-seo'
+import { readRecordSeo } from '@/lib/server/seo/record-seo'
+import { recordSeoAccess, SEO_PRIVATE_HEADERS } from '@/lib/server/seo/record-seo-api'
+import { recordSeoPreview } from '@/lib/seo/seo-diagnostics'
+import { ENABLED_LOCALES, type EnabledLocale } from '@/lib/i18n/locale-config'
+import { getSiteUrl } from '@/lib/seo/seo'
+import { findTourBySlug } from '@/lib/server/catalogue/tours'
+import { findBlogBySlug } from '@/lib/server/editorial/blogs'
+import { generateTouristTripJsonLd, generateBlogPostingJsonLd, generateRecordPageJsonLd } from '@/lib/seo/structured-data'
 export async function GET(request: Request, { params }: { params: Promise<{ kind: string; slug: string }> }) {
   const { kind, slug } = await params
   if (!isRecordSeoKind(kind) || !/^[a-z0-9][a-z0-9-]{0,99}$/.test(slug)) return NextResponse.json({ error: 'Unknown SEO record.' }, { status: 404, headers: SEO_PRIVATE_HEADERS })

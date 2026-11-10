@@ -1,12 +1,12 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 
 const m = vi.hoisted(() => ({ user: vi.fn(), permission: vi.fn(), list: vi.fn(), count: vi.fn(), stats: vi.fn(), tour: vi.fn(), tours: vi.fn(), one: vi.fn(), update: vi.fn() }))
-vi.mock('@/lib/server/auth', () => ({ getCurrentUser: m.user, hasPermission: m.permission }))
+vi.mock('@/lib/server/auth/auth', () => ({ getCurrentUser: m.user, hasPermission: m.permission }))
 vi.mock('@/lib/server/db', () => ({ db: { tour: { findUnique: m.tour, findMany: m.tours }, review: { findMany: m.list, count: m.count, aggregate: m.stats, findUnique: m.one, updateMany: m.update } } }))
 import { GET as publicList } from '@/app/api/reviews/route'
 import { GET as adminList } from '@/app/api/admin/reviews/route'
 import { GET as detail, PATCH } from '@/app/api/admin/reviews/[publicId]/route'
-import { parseReviewScope, reviewPage } from '@/lib/review-scope'
+import { parseReviewScope, reviewPage } from '@/lib/reviews/review-scope'
 
 const rows = [
   { publicId: 'a', tourSlug: '@website', status: 'PUBLISHED', rating: 4, text: 'Website experience', title: null, publishedAt: new Date('2026-10-20'), user: { firstName: 'Actual', lastName: 'Customer', email: 'private@example.com' } },

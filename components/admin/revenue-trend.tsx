@@ -6,9 +6,9 @@ import { Card } from './admin-ui'
 import { AdminText } from './admin-ui'
 import { useAdminLocale } from './admin-locale'
 import { useAdminCurrency } from './admin-currency'
-import { SharedSelect } from '@/components/shared-select'
-import type { RevenuePoint } from '@/lib/analytics'
-import { revenueRange } from '@/lib/revenue-periods'
+import { SharedSelect } from '@/components/shared/forms/shared-select'
+import type { RevenuePoint } from '@/lib/analytics/analytics'
+import { revenueRange } from '@/lib/analytics/revenue-periods'
 
 const scopes = [
   { id: 'months', en: 'Months', ar: 'شهور' },

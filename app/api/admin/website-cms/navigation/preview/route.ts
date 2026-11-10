@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
-import { getCurrentUser, hasPermission } from '@/lib/server/auth'
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth'
 import { isSameOriginRequest } from '@/lib/server/csrf'
-import { resolveNavigation } from '@/lib/server/navigation'
-import { NavigationValidationError } from '@/lib/navigation'
-import { readNavigationBody } from '@/lib/server/navigation-request'
+import { resolveNavigation } from '@/lib/server/navigation/navigation'
+import { NavigationValidationError } from '@/lib/navigation/navigation'
+import { readNavigationBody } from '@/lib/server/navigation/navigation-request'
 export const dynamic = 'force-dynamic'
 export async function POST(request: Request) {
   const headers = { 'Cache-Control': 'private, no-store', 'X-Robots-Tag': 'noindex, nofollow' }

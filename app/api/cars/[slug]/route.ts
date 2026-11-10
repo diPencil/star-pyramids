@@ -1,13 +1,13 @@
-import { parseVehicleCapacity } from '@/lib/car-request';
-import { catalogueTranslationResponse, saveWithCatalogueTranslations, deleteWithCatalogueTranslations } from '@/lib/server/catalogue-translations';
-import { validateCatalogueTranslations } from '@/lib/catalogue-translations';
+import { parseVehicleCapacity } from '@/lib/cars/car-request';
+import { catalogueTranslationResponse, saveWithCatalogueTranslations, deleteWithCatalogueTranslations } from '@/lib/server/catalogue/catalogue-translations';
+import { validateCatalogueTranslations } from '@/lib/catalogue/catalogue-translations';
 import { NextResponse } from 'next/server';
 import { readJsonText, writeJsonText } from '@/lib/json-text';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
-import { validateCarCapacityChange } from '@/lib/server/car-pricing';
-import { rentCarFailure } from '@/lib/server/rent-car-errors';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
+import { validateCarCapacityChange } from '@/lib/server/cars/car-pricing';
+import { rentCarFailure } from '@/lib/server/cars/rent-car-errors';
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 

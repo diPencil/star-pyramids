@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { cmsPageRegistry, cmsSharedRegistry, coverageCounts } from '@/lib/cms-coverage'
-import { TEMPLATE_PAGES, templateSections, type TemplatePageId } from '@/lib/template-presentation'
-import { originalPageContent, validatePageContent } from '@/lib/page-sections'
+import { cmsPageRegistry, cmsSharedRegistry, coverageCounts } from '@/lib/cms/cms-coverage'
+import { TEMPLATE_PAGES, templateSections, type TemplatePageId } from '@/lib/cms/templates/template-presentation'
+import { originalPageContent, validatePageContent } from '@/lib/cms/page-sections'
 import postcss from 'postcss'
-const sources = ['components/about-page.tsx', 'components/extended-pages.tsx', 'components/offer-campaigns.tsx'].map(path => readFileSync(path, 'utf8')).join('\n')
+const sources = ['components/content/about-page.tsx', 'components/extended-pages.tsx', "components/cars/car-pages.tsx", "components/enquiries/contact-page.tsx", "components/account/password-recovery-pages.tsx", "components/content/public-content-pages.tsx", "components/events/event-pages.tsx", "components/content/blog-pages.tsx", "components/content/destination-pages.tsx", "components/offers/offer-pages.tsx", "components/account/legacy-account-page.tsx", 'components/offers/offer-campaigns.tsx'].map(path => readFileSync(path, 'utf8')).join('\n')
 describe('remaining content coverage has actual consumers', () => {
   it('accounts for every registered block with explicit original-source ownership', () => {
     const counts = coverageCounts()
@@ -33,7 +33,7 @@ describe('remaining content coverage has actual consumers', () => {
     expect(() => validatePageContent(content, 'shared')).toThrow()
   })
   it('keeps shared form submission real, deduplicated and success dependent on API acceptance', () => {
-    const source = readFileSync('components/shared-help-cta.tsx', 'utf8')
+    const source = readFileSync('components/shared/shared-help-cta.tsx', 'utf8')
     expect(source).toContain("fetch('/api/enquiries'")
     expect(source).toContain('if (lock.current) return')
     expect(source).toContain('requestId: pending.current.requestId')
@@ -42,7 +42,7 @@ describe('remaining content coverage has actual consumers', () => {
     expect(source).not.toContain('alert(')
   })
   it('retains scoped desktop/tablet/mobile form tracks even when an error message is present', () => {
-    const root = postcss.parse(readFileSync('components/shared-help-cta.css', 'utf8'))
+    const root = postcss.parse(readFileSync('components/shared/shared-help-cta.css', 'utf8'))
     const columns: string[] = []
     root.walkDecls('grid-template-columns', declaration => { columns.push(declaration.value) })
     expect(columns).toEqual(['repeat(4,minmax(0,1fr)) auto', 'repeat(2,minmax(0,1fr))', 'minmax(0,1fr)'])

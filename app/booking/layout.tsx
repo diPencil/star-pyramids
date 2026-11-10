@@ -6,7 +6,7 @@ import '../account/account.css';
  * Guest booking layout.
  *
  * The guest booking view (`GuestBookingSection` in
- * `components/account-portal.tsx`) reuses the exact same `customer-*`
+ * `components/account/account-portal.tsx`) reuses the exact same `customer-*`
  * presentational classes as the account booking detail so guests and
  * customers read the same booking identically. Those classes live in
  * `app/account/account.css`, which the `/account` layout loads  -  but

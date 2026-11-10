@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { remainingBookingBalance } from '@/lib/payment'
+import { remainingBookingBalance } from '@/lib/payments/payment'
 
 describe('remaining booking balance', () => {
   it('adds verified refunds back to the outstanding balance', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildQuestionMessage, buildQuestionSubject } from '@/lib/enquiry-message'
+import { buildQuestionMessage, buildQuestionSubject } from '@/lib/enquiries/enquiry-message'
 
 describe('contextual trip and offer enquiries', () => {
   it('includes the campaign title in WhatsApp and email content', () => {

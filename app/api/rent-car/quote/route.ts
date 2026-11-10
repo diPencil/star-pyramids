@@ -1,4 +1,4 @@
-import { rentCarFailure } from '@/lib/server/rent-car-errors';
+import { rentCarFailure } from '@/lib/server/cars/rent-car-errors';
 // Public: resolve a price quote for a published vehicle on an active route
 // (Phase 2, read-only, no auth required; nothing here is mutable).
 // Outcomes:
@@ -9,7 +9,7 @@ import { rentCarFailure } from '@/lib/server/rent-car-errors';
 //  - 200 { quote } → exact integer-cents amounts for the requested trip.
 import { NextResponse } from 'next/server';
 
-import { resolveCarRouteQuote } from '@/lib/server/car-pricing';
+import { resolveCarRouteQuote } from '@/lib/server/cars/car-pricing';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);

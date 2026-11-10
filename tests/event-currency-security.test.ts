@@ -11,16 +11,16 @@ vi.mock('@/lib/server/db', () => {
   const db = { event: mocks.event, eventRequest: mocks.eventRequest, $queryRaw: mocks.lock }
   return { db: { ...db, $transaction: async (fn: (tx: typeof db) => Promise<unknown>) => fn(db) } }
 })
-vi.mock('@/lib/server/auth', () => ({ getCurrentUser: async () => mocks.user, hasPermission: () => mocks.allowed }))
+vi.mock('@/lib/server/auth/auth', () => ({ getCurrentUser: async () => mocks.user, hasPermission: () => mocks.allowed }))
 vi.mock('@/lib/server/csrf', () => ({ isSameOriginRequest: () => true }))
 vi.mock('@/lib/server/rate-limit', () => ({ checkEventRequestRateLimit: async () => ({ allowed: true }), recordEventRequestAttempt: vi.fn() }))
-vi.mock('@/lib/server/notifications', () => ({ notifyUser: vi.fn(), notifyStaff: vi.fn() }))
-vi.mock('@/lib/server/email', () => ({ sendCustomerEmailSafe: vi.fn(), sendStaffEmailSafe: vi.fn() }))
-vi.mock('@/lib/server/catalogue-translations', () => ({ catalogueTranslationResponse: async (_kind: unknown, value: unknown) => value }))
+vi.mock('@/lib/server/notifications/notifications', () => ({ notifyUser: vi.fn(), notifyStaff: vi.fn() }))
+vi.mock('@/lib/server/email/email', () => ({ sendCustomerEmailSafe: vi.fn(), sendStaffEmailSafe: vi.fn() }))
+vi.mock('@/lib/server/catalogue/catalogue-translations', () => ({ catalogueTranslationResponse: async (_kind: unknown, value: unknown) => value }))
 import { GET as list } from '@/app/api/events/route'
 import { GET as detail } from '@/app/api/events/[slug]/route'
 import { POST as submit } from '@/app/api/event-requests/route'
-import { cancelCustomerEventRequest, createEventRequestRecord, transitionStaffEventRequest, validateEventDraft, type ValidatedEventDraft } from '@/lib/server/event-requests'
+import { cancelCustomerEventRequest, createEventRequestRecord, transitionStaffEventRequest, validateEventDraft, type ValidatedEventDraft } from '@/lib/server/events/event-requests'
 
 const event = { slug: 'festival', title: 'Canonical festival', date: 'Canonical date', location: 'Cairo', isPublished: true }
 const draft: ValidatedEventDraft = { eventSlug: event.slug, eventTitle: 'Forged title', eventDate: 'Forged date', eventLocation: 'Forged location', attendees: 2, note: '', contactName: 'Test Guest', contactEmail: 'guest@example.com', contactPhone: '1234567890', dialCode: '+20', nationality: 'EG' }

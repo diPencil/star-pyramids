@@ -1,16 +1,16 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 import type { Tour } from '@/data/types'
-import { bookingAddonCatalog, bookingAddons, bookingCents, validBookingTravelers } from '@/lib/booking-selection'
-import { estimateCart } from '@/lib/booking'
-import { sanitizeCartItem } from '@/lib/cart'
+import { bookingAddonCatalog, bookingAddons, bookingCents, validBookingTravelers } from '@/lib/booking/booking-selection'
+import { estimateCart } from '@/lib/booking/booking'
+import { sanitizeCartItem } from '@/lib/booking/cart'
 
 const mocks = vi.hoisted(() => ({ find: vi.fn(), findBooking: vi.fn(), create: vi.fn(), notify: vi.fn(), mail: vi.fn(), token: vi.fn() }))
 vi.mock('@/lib/server/db', () => ({ db: { booking: {findUnique: mocks.findBooking, create: mocks.create} } }))
-vi.mock('@/lib/server/tours', () => ({ findTourBySlug: mocks.find }))
-vi.mock('@/lib/server/notifications', () => ({notifyUser: mocks.notify, notifyStaff: mocks.notify}))
-vi.mock('@/lib/server/email', () => ({sendCustomerEmailSafe: mocks.mail, sendStaffEmailSafe: mocks.mail}))
-vi.mock('@/lib/server/booking-access', () => ({issueGuestBookingToken: mocks.token, revokeGuestBookingTokens: vi.fn(), guestBookingPath: (token: string) => `/booking/${token}`}))
-import { createBookingRecord, validateBookingDraft } from '@/lib/server/bookings'
+vi.mock('@/lib/server/catalogue/tours', () => ({ findTourBySlug: mocks.find }))
+vi.mock('@/lib/server/notifications/notifications', () => ({notifyUser: mocks.notify, notifyStaff: mocks.notify}))
+vi.mock('@/lib/server/email/email', () => ({sendCustomerEmailSafe: mocks.mail, sendStaffEmailSafe: mocks.mail}))
+vi.mock('@/lib/server/booking/access/booking-access', () => ({issueGuestBookingToken: mocks.token, revokeGuestBookingTokens: vi.fn(), guestBookingPath: (token: string) => `/booking/${token}`}))
+import { createBookingRecord, validateBookingDraft } from '@/lib/server/booking/bookings'
 
 const tour = (): Tour => ({slug: 'current-tour', status: 'published', category: 'one-day-tours', title: 'Current tour', price: 100, image: '', summary: '', duration: 'Full day', location: 'Cairo', dayDetail: { overview: [], travelerPrices: [{travelers: 2, adultPrice: 100, childPrice: 50, infantPrice: 0}], addOns: [{title: 'Ticket', price: 12.34}, {title: 'Transfer on request'}] }})
 const draft = (selection: Record<string, unknown> = {}) => ({lines: [{tourSlug: 'old-alias', date: '', adults: 2, children: 0, infants: 0, addons: [], ...selection}], contact: {name: 'Test Customer', email: 'test@example.com', phone: '+201234567890'}, notes: 'A customer note', currency: 'USD', idempotencyKey: 'safety-attempt-key'})

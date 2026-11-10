@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { originalHomeHero, readHeroPreviewMessage } from '@/lib/website-heroes'
+import { originalHomeHero, readHeroPreviewMessage } from '@/lib/cms/heroes/website-heroes'
 
 const origin = 'https://example.com'
 const parent = {} as Window
@@ -23,7 +23,7 @@ describe('protected live homepage preview', () => {
     }
   })
   it('keeps real homepage search inert and avoids draft writes for preview', () => {
-    const preview = readFileSync('components/homepage-hero-preview.tsx', 'utf8')
+    const preview = readFileSync('components/home/homepage-hero-preview.tsx', 'utf8')
     expect(preview).toContain('<div inert><RebuiltHomePage')
     expect(preview).not.toMatch(/fetch\(|localStorage|sessionStorage/)
     expect(preview).toContain("type: 'star-hero-preview-ready'")

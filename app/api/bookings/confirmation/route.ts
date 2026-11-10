@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { bookingSameOrigin } from '@/lib/server/booking-request-security'
-import { confirmationCookieFromHeader, readBookingConfirmation } from '@/lib/server/booking-confirmation'
+import { bookingSameOrigin } from '@/lib/server/booking/booking-request-security'
+import { confirmationCookieFromHeader, readBookingConfirmation } from '@/lib/server/booking/access/booking-confirmation'
 import { readBoundedJson } from '@/lib/server/request-json'
 
 export async function POST(request: Request) {

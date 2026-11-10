@@ -2,7 +2,7 @@
 // Phase 2F-B: Provider-neutral payment gateway foundation
 // No provider is enabled by default. All require explicit opt-in via env.
 
-import type { PaymentProviderKey } from '@/lib/payment'
+import type { PaymentProviderKey } from '@/lib/payments/payment'
 
 /** Runtime provider configuration  -  all values from environment */
 export interface ProviderConfig {

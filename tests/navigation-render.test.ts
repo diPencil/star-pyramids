@@ -1,8 +1,8 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
-import { NavigationMenu } from '@/components/navigation-menu'
-import { defaultNavigation, type PublicNavigation } from '@/lib/navigation'
+import { NavigationMenu } from '@/components/layout/navigation-menu'
+import { defaultNavigation, type PublicNavigation } from '@/lib/navigation/navigation'
 const menu=():PublicNavigation=>({revision:1,primaryLocale:'en',items:defaultNavigation().items.map(row=>({...row,href:row.target?.type==='internal'?row.target.href:undefined,children:row.children.map(child=>({...child,href:child.target?.type==='internal'?child.target.href:undefined,children:[]}))}))})
 const render=(navigation=menu(),mobile=false,locale='en',preview=false,actions=false)=>renderToStaticMarkup(createElement(NavigationMenu,{navigation,mobile,locale,preview,actions,pathname:'/rent-car',idPrefix:'test'}))
 describe('published navigation public markup',()=>{

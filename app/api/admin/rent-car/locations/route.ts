@@ -1,4 +1,4 @@
-import { rentCarFailure } from '@/lib/server/rent-car-errors';
+import { rentCarFailure } from '@/lib/server/cars/rent-car-errors';
 // Staff-only rent-car location management (Phase 2). RBAC reuses the fleet
 // catalogue permissions (read via cars.edit; writes split across
 // cars.create/cars.edit/cars.delete) + same-origin CSRF, so no
@@ -6,8 +6,8 @@ import { rentCarFailure } from '@/lib/server/rent-car-errors';
 import { NextResponse } from 'next/server';
 
 import { isSameOriginRequest } from '@/lib/server/csrf';
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
-import { createCarLocation, listAllCarLocationsAdmin } from '@/lib/server/car-pricing';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
+import { createCarLocation, listAllCarLocationsAdmin } from '@/lib/server/cars/car-pricing';
 
 export async function GET(request: Request) {
   const user = await getCurrentUser();

@@ -1,11 +1,11 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { CarQuoteSummary } from '@/components/car-quote-summary'
-import { readCarPricingMetadata, type CarPricingMetadata } from '@/lib/car-pricing'
-import { formatQuoteAmount } from '@/lib/car-request'
-import { CarInputError } from '@/lib/rent-car-errors'
-import { rentCarFailure } from '@/lib/server/rent-car-errors'
+import { CarQuoteSummary } from '@/components/cars/car-quote-summary'
+import { readCarPricingMetadata, type CarPricingMetadata } from '@/lib/cars/car-pricing'
+import { formatQuoteAmount } from '@/lib/cars/car-request'
+import { CarInputError } from '@/lib/cars/rent-car-errors'
+import { rentCarFailure } from '@/lib/server/cars/rent-car-errors'
 
 const metadata: CarPricingMetadata = { version: 1, passengers: 3, outbound: { tierId: 'tier', minPassengers: 3, maxPassengers: 6, unitCents: 1025, pricingMode: 'PER_PERSON', currency: 'USD' }, returnPricing: null }
 const quote = { cents: 3075, currency: 'USD', quotedAt: '', basis: 'multiplier' as const, pricingMetadata: metadata }

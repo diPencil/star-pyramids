@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/server/db';
-import { getCurrentUser } from '@/lib/server/auth';
+import { getCurrentUser } from '@/lib/server/auth/auth';
 import { Prisma } from '@prisma/client';
-import { WEBSITE_REVIEW_SCOPE, parseReviewScope, reviewScopeFilter, reviewPage } from '@/lib/review-scope';
-import { reviewTrips } from '@/lib/server/review-trips';
+import { WEBSITE_REVIEW_SCOPE, parseReviewScope, reviewScopeFilter, reviewPage } from '@/lib/reviews/review-scope';
+import { reviewTrips } from '@/lib/server/reviews/review-trips';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 
 const REVIEW_ATTEMPT_WINDOW_MS = 60 * 60 * 1000; // 1 hour

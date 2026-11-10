@@ -1,11 +1,11 @@
-import { listTours } from '@/lib/server/tours'
-import { destinationTours } from '@/lib/destination-public'
+import { listTours } from '@/lib/server/catalogue/tours'
+import { destinationTours } from '@/lib/catalogue/destination-public'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { DestinationDetailPage } from '@/components/extended-pages'
-import { findDestinationBySlug, listDestinationSlugs } from '@/lib/server/destinations'
-import { dynamicSeo } from '@/lib/dynamic-seo'
-import { RecordPageJsonLd } from '@/lib/structured-data'
+import { findDestinationBySlug, listDestinationSlugs } from '@/lib/server/catalogue/destinations'
+import { dynamicSeo } from '@/lib/seo/dynamic-seo'
+import { RecordPageJsonLd } from '@/lib/seo/structured-data'
 
 export async function generateStaticParams() {
   try {

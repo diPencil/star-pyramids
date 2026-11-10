@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { formLeadMeasurement } from '@/lib/server/form-lead-measurement';
+import { formLeadMeasurement } from '@/lib/server/tracking/leads/form-lead-measurement';
 import { db } from '@/lib/server/db';
 import { checkEnquiryRateLimit, recordEnquiryAttempt } from '@/lib/server/rate-limit';
-import { notifyStaff } from '@/lib/server/notifications';
-import { sendCustomerEmailSafe, sendStaffEmailSafe } from '@/lib/server/email';
+import { notifyStaff } from '@/lib/server/notifications/notifications';
+import { sendCustomerEmailSafe, sendStaffEmailSafe } from '@/lib/server/email/email';
 import { Prisma } from '@prisma/client';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 

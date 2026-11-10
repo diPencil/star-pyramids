@@ -1,8 +1,8 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
-@import '../components/campaigns.css';
-@import '../components/checkout-receipt.css';
+@import '../components/offers/campaigns.css';
+@import '../components/booking/checkout/checkout-receipt.css';
 @custom-variant dark (&:is(.dark *));
 @theme inline { --color-background: var(--surface); --color-foreground: var(--text); --color-border: var(--border); --radius-lg: var(--radius-card); --radius-xl: var(--radius-large); }
 :root { color-scheme: light; --primary:#f7951d; --primary-hover:#e88410; --yellow:#ffc531; --blue:#1d4ed8; --text:#1d1f1f; --muted:#737983; --surface:#fff; --soft:#f7f7f7; --border:#dedede; --radius-xs:4px; --radius-sm:8px; --radius-md:16px; --radius-card:22px; --radius-large:32px; --page:1530px; --content:1450px; --page-gutter:48px; --public-sticky-header-height:65px; --public-sticky-content-gap:16px; --public-sticky-top:calc(var(--public-sticky-header-height) + var(--public-sticky-content-gap)); }

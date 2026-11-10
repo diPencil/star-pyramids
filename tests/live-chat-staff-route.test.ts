@@ -1,8 +1,8 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 import { randomUUID } from 'node:crypto'
 const mock = vi.hoisted(() => ({ current: vi.fn(), permission: vi.fn(), send: vi.fn(), log: vi.fn() }))
-vi.mock('@/lib/server/auth', () => ({ getCurrentUser: mock.current, hasPermission: mock.permission }))
-vi.mock('@/lib/server/support-chat', () => ({ sendStaffMessage: mock.send, logSupportError: mock.log, supportFailure: () => ({ error: 'Support temporarily unavailable.', status: 503 }) }))
+vi.mock('@/lib/server/auth/auth', () => ({ getCurrentUser: mock.current, hasPermission: mock.permission }))
+vi.mock('@/lib/server/support/support-chat', () => ({ sendStaffMessage: mock.send, logSupportError: mock.log, supportFailure: () => ({ error: 'Support temporarily unavailable.', status: 503 }) }))
 import { POST } from '@/app/api/admin/conversations/[ref]/messages/route'
 const request = (body: unknown, origin = 'https://fixture.invalid') => new Request('https://fixture.invalid/api/admin/conversations/SP-CV-ABC123/messages', { method: 'POST', headers: { host: 'fixture.invalid', origin }, body: JSON.stringify(body) })
 const context = () => ({ params: Promise.resolve({ ref: 'SP-CV-ABC123' }) })

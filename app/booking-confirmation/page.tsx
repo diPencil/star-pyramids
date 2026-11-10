@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
-import { BookingConfirmation } from '@/components/booking-confirmation'
-import { confirmationCookieName, readBookingConfirmation } from '@/lib/server/booking-confirmation'
+import { BookingConfirmation } from '@/components/booking/booking-confirmation'
+import { confirmationCookieName, readBookingConfirmation } from '@/lib/server/booking/access/booking-confirmation'
 
 export const metadata: Metadata = {
   title: 'Booking request confirmation',

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
-import { listCustomerBookings } from '@/lib/server/bookings';
-import { getAccountReadUser } from '@/lib/server/staff-preview';
+import { listCustomerBookings } from '@/lib/server/booking/bookings';
+import { getAccountReadUser } from '@/lib/server/auth/staff-preview';
 
 /** Owner-only booking list (customer-safe projection). */
 export async function GET() {

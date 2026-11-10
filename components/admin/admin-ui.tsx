@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Search, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { isLocaleEnabled } from '@/lib/locale-config'
+import { isLocaleEnabled } from '@/lib/i18n/locale-config'
 
 const palette = ['#163A96', '#F7951D', '#0E9F6E', '#7C3AED', '#DB2777', '#0EA5E9']
 

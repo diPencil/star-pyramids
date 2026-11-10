@@ -1,0 +1,56 @@
+.seo-manager .seo-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;align-items:start}.seo-manager .seo-copy{min-width:220px;max-width:360px;white-space:normal;overflow-wrap:anywhere}.seo-manager .seo-preview{min-width:0}.seo-manager .seo-devices{display:flex;gap:6px}.seo-manager .seo-devices .sp-btn{min-width:44px;min-height:44px;display:grid;place-items:center;padding:8px}.seo-manager .seo-devices [aria-pressed=true]{background:var(--sp-blue);color:#fff}.seo-manager .seo-google{width:100%;min-height:180px;overflow-wrap:anywhere;line-height:1.6}.seo-manager .seo-google.mobile{max-width:360px}.seo-manager .seo-google h3{font-size:20px;line-height:1.35;color:var(--sp-blue);margin:10px 0}.seo-manager .seo-google p{font-size:14px;margin:0}.seo-manager .seo-google>div,.seo-manager .seo-google>small{font-size:13px}.seo-manager .seo-public{margin:0;overflow-wrap:anywhere}.seo-manager .seo-public dt{font-weight:650;margin-top:12px}.seo-manager .seo-public dd{margin:4px 0;color:var(--sp-muted)}.seo-manager .cms-field-panel small{font-weight:400;color:var(--sp-muted);line-height:1.6}.seo-manager button:focus-visible,.seo-manager input:focus-visible,.seo-manager textarea:focus-visible{outline:2px solid var(--sp-blue);outline-offset:2px}@media(max-width:900px){.seo-manager .seo-layout{grid-template-columns:minmax(0,1fr)}}
+.seo-manager .seo-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-block:16px 24px}.seo-manager .seo-tabs [aria-pressed=true]{background:var(--sp-blue);color:#fff}.seo-manager .seo-social{overflow-wrap:anywhere}.seo-manager .seo-social img{width:100%;aspect-ratio:1.91;object-fit:cover;display:block;margin-bottom:12px}.seo-manager .seo-social strong{display:block}.seo-manager .cms-editor-toolbar{flex-wrap:wrap}.seo-manager .cms-editor-toolbar>div,.seo-manager .cms-editor-toolbar>nav{display:flex;flex-wrap:wrap;gap:8px}
+.seo-manager .seo-layout.seo-fields-only{grid-template-columns:minmax(0,1fr)}
+.seo-manager .seo-saved-preview{min-width:0;margin-block:16px}.seo-manager .seo-saved-preview pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:420px;overflow:auto;font-size:13px}.seo-manager .seo-saved-preview summary{cursor:pointer;font-weight:600;padding-block:10px}.seo-manager .seo-saved-preview summary:focus-visible{outline:2px solid var(--sp-blue);outline-offset:2px}
+
+/* Shared CMS form primitives, refined only inside SEO screens. */
+.seo-manager .cms-field-panel fieldset {
+  gap: 16px;
+}
+.seo-manager form.cms-field-panel > fieldset + fieldset {
+  margin-block-start: 24px;
+}
+.seo-manager .cms-field-panel label {
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--sp-text);
+  color: color-mix(in srgb, var(--sp-text) 75%, var(--sp-muted));
+}
+.seo-manager .cms-field-panel .cms-checkbox {
+  gap: 9px;
+}
+.seo-manager .cms-field-panel :is(input:not([type=checkbox]):not([type=radio]), textarea, select),
+.seo-manager .sp-table-search input,
+.seo-manager .cselect-trigger,
+.seo-manager .cselect-current-name {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--sp-text);
+}
+.seo-manager .cms-field-panel legend,
+.seo-manager .sp-card-head h3 {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.seo-manager .cms-field-panel legend {
+  padding: 0;
+  margin-block-end: 16px;
+}
+.seo-manager .cms-field-panel :is(small, p),
+.seo-manager .cms-coverage-note,
+.seo-manager .sp-card > p:not([role]) {
+  font-size: 12.5px;
+  font-weight: 400;
+  line-height: 1.6;
+  color: var(--sp-muted);
+}
+.seo-manager .cms-field-panel fieldset > p {
+  margin: 0;
+}
+.seo-manager .cms-field-panel > p {
+  margin-block: 12px;
+}

@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({ user: vi.fn(), permission: vi.fn(), origin: vi.fn(), get: vi.fn(), save: vi.fn(), load: vi.fn(), audit: vi.fn() }))
-vi.mock('@/lib/server/auth', () => ({ getCurrentUser: mocks.user, hasPermission: mocks.permission }))
+vi.mock('@/lib/server/auth/auth', () => ({ getCurrentUser: mocks.user, hasPermission: mocks.permission }))
 vi.mock('@/lib/server/csrf', () => ({ isSameOriginRequest: mocks.origin }))
-vi.mock('@/lib/server/review-integrations', () => ({ getReviewIntegrations: mocks.get, saveReviewIntegration: mocks.save, loadReviewFeed: mocks.load }))
+vi.mock('@/lib/server/reviews/review-integrations', () => ({ getReviewIntegrations: mocks.get, saveReviewIntegration: mocks.save, loadReviewFeed: mocks.load }))
 vi.mock('@/lib/server/db', () => ({ db: { staffActionAudit: { create: mocks.audit } } }))
 import { GET, POST } from '@/app/api/admin/review-integrations/route'
 beforeEach(() => { vi.clearAllMocks(); mocks.user.mockResolvedValue({ id: 'staff' }); mocks.permission.mockReturnValue(true); mocks.origin.mockReturnValue(true); mocks.get.mockResolvedValue([]); mocks.audit.mockResolvedValue({}) })

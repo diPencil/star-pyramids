@@ -12,7 +12,7 @@
 //   document content, only in the download URL the browser requests.
 import type { BookingDocumentType } from '@prisma/client';
 
-import type { Locale } from './locale-config';
+import type { Locale } from './i18n/locale-config';
 
 /** What the document list endpoints return (JSON-safe: ISO date strings). */
 export interface DocumentListItem {

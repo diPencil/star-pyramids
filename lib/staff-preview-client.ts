@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-import type { Booking, BookingPaymentStatus, BookingStatus } from '@/lib/booking';
+import type { Booking, BookingPaymentStatus, BookingStatus } from '@/lib/booking/booking';
 
 /**
  * Staff preview of a customer's account.

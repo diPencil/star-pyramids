@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { revenueSeries, revenueRange } from '../lib/revenue-periods.ts'
+import { revenueSeries, revenueRange } from '../lib/analytics/revenue-periods.ts'
 
 const rows = [
   { at: Date.parse('2022-01-01T23:59:59Z'), cents: 100 },

@@ -1,19 +1,19 @@
 import { NextResponse } from 'next/server';
 
 import { isSameOriginRequest } from '@/lib/server/csrf';
-import { getAccountReadUser, getAccountWriteUser } from '@/lib/server/staff-preview';
+import { getAccountReadUser, getAccountWriteUser } from '@/lib/server/auth/staff-preview';
 import {
   countCustomerUnread,
   getCustomerThread,
   listCustomerThreadReferences,
   markCustomerThreadRead,
   sendCustomerMessage,
-} from '@/lib/server/support-chat';
+} from '@/lib/server/support/support-chat';
 import {
   customerSupportHref,
   LEGACY_CUSTOMER_SUPPORT_HREF,
   markNotificationsReadByHref,
-} from '@/lib/server/notifications';
+} from '@/lib/server/notifications/notifications';
 
 /**
  * Owner-only support thread (latest conversation with chronological

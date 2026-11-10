@@ -16,7 +16,7 @@ beforeEach(() => {
 })
 afterEach(() => { cleanups.forEach((cleanup) => cleanup()); vi.unstubAllGlobals() })
 async function mount() {
-  const { useCustomerFavorites } = await import('@/lib/customer-account')
+  const { useCustomerFavorites } = await import('@/lib/account/customer-account')
   const render = () => { h.index = 0; return useCustomerFavorites({ accountOnly: true }) }
   render()
   for (const effect of h.effects.splice(0)) { const cleanup = effect(); if (cleanup) cleanups.push(cleanup) }

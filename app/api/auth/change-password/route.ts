@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 
 import {
   changePassword,
-} from '@/lib/server/auth';
-import { getSession } from '@/lib/server/session';
+} from '@/lib/server/auth/auth';
+import { getSession } from '@/lib/server/auth/session';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import {
   checkPasswordResetRateLimit,
@@ -14,7 +14,7 @@ import {
   MIN_PASSWORD_LENGTH,
   MAX_PASSWORD_LENGTH,
 } from '@/lib/core/validation';
-import { getAccountWriteUser } from '@/lib/server/staff-preview';
+import { getAccountWriteUser } from '@/lib/server/auth/staff-preview';
 
 function requestIp(request: Request): string {
   return (

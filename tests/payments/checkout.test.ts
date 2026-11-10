@@ -15,13 +15,13 @@ vi.mock('@/lib/server/db', () => ({
   },
 }))
 
-vi.mock('@/lib/server/payments', () => ({
+vi.mock('@/lib/server/payments/payments', () => ({
   initiateCustomerPayment: vi.fn(),
   validatePaymentInitiation: vi.fn(),
   getCustomerPayment: vi.fn(),
 }))
 
-vi.mock('@/lib/server/auth', () => ({
+vi.mock('@/lib/server/auth/auth', () => ({
   getCurrentUser: vi.fn(),
 }))
 
@@ -33,8 +33,8 @@ vi.mock('@/lib/payments/providers/index', () => ({
 }))
 
 import { db } from '@/lib/server/db'
-import { initiateCustomerPayment, validatePaymentInitiation, getCustomerPayment } from '@/lib/server/payments'
-import { getCurrentUser } from '@/lib/server/auth'
+import { initiateCustomerPayment, validatePaymentInitiation, getCustomerPayment } from '@/lib/server/payments/payments'
+import { getCurrentUser } from '@/lib/server/auth/auth'
 import { hasEnabledProvider, getDefaultProvider, getProviderAdapterOrThrow, getEnabledProviders } from '@/lib/payments/providers/index'
 
 describe('Checkout Orchestration', () => {

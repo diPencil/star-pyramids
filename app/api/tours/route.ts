@@ -1,15 +1,15 @@
-import { lockTourDestination, TourDestinationConflictError, validateTourPublication, validateTourWrite } from '@/lib/tour-write';
-import { decodeTourJson, encodeTourJson } from '@/lib/tour-json';
-import { preserveRecordSeo } from '@/lib/record-seo';
-import { applyLinkedOfferDeals } from '@/lib/server/special-offers';
+import { lockTourDestination, TourDestinationConflictError, validateTourPublication, validateTourWrite } from '@/lib/tours/tour-write';
+import { decodeTourJson, encodeTourJson } from '@/lib/tours/tour-json';
+import { preserveRecordSeo } from '@/lib/seo/record-seo';
+import { applyLinkedOfferDeals } from '@/lib/server/offers/special-offers';
 import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
 import { readJsonText } from '@/lib/json-text';
-import { readTourWriteRequest } from '@/lib/tour-rich-text';
-import { isTourPublished } from '@/lib/tour-publish';
-import { getTourBookingCounts } from '@/lib/server/tours';
+import { readTourWriteRequest } from '@/lib/tours/tour-rich-text';
+import { isTourPublished } from '@/lib/tours/tour-publish';
+import { getTourBookingCounts } from '@/lib/server/catalogue/tours';
 
 export async function GET(request: Request) {
   // Public: list published tours. Staff with tours.view may pass ?all=1 to

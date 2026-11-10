@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { isEditorialHeroId } from '@/lib/editorial-hero-definitions'
-import { readEditorialHeroApi, updateEditorialHeroApi } from '@/lib/server/editorial-hero-api'
+import { isEditorialHeroId } from '@/lib/cms/heroes/editorial-hero-definitions'
+import { readEditorialHeroApi, updateEditorialHeroApi } from '@/lib/server/cms/heroes/editorial-hero-api'
 type Context = { params: Promise<{ id: string }> }
 export async function GET(_request: Request, { params }: Context) {
   const { id } = await params

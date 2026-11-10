@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { ENABLED_LOCALES, DEFAULT_LOCALE, sanitizeLocale, type EnabledLocale } from '@/lib/locale-config';
+import { ENABLED_LOCALES, DEFAULT_LOCALE, sanitizeLocale, type EnabledLocale } from '@/lib/i18n/locale-config';
 
 /**
  * Server-side locale detection from cookies.

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fetchDbTours, invalidateToursCache } from '@/lib/tours-client'
+import { fetchDbTours, invalidateToursCache } from '@/lib/tours/tours-client'
 afterEach(() => { vi.unstubAllGlobals(); invalidateToursCache() })
 describe('public tour catalogue cache generation', () => {
   it('never lets a late pre-unpublish response overwrite the refreshed catalogue', async () => {

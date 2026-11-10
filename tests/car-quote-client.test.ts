@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { currentCarQuoteState, quoteSelectionKey, startCarQuote, type QuoteSelection } from '@/lib/car-quote-client'
+import { currentCarQuoteState, quoteSelectionKey, startCarQuote, type QuoteSelection } from '@/lib/cars/car-quote-client'
 
 const selection: QuoteSelection = { vehicle: 'van', from: 'cairo', to: 'giza', trip: 'one-way', passengers: 3 }
 const response = () => Response.json({ quote: { currency: 'USD', oneWayCents: 3075, roundTripCents: 6150, roundTripBasis: 'multiplier' } })

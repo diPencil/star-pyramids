@@ -1,6 +1,6 @@
 // STAR PYRAMIDS  -  Unified Journey Gallery regression suite.
 //
-// Database-independent: pure domain logic (lib/journey-gallery.ts,
+// Database-independent: pure domain logic (lib/gallery/journey-gallery.ts,
 // lib/core/video-signature.ts) plus source-level guards pinning the
 // preserved homepage marquee mechanics, the tour carousel behavior, API
 // permission conventions, and legacy-content preservation. No database
@@ -22,7 +22,7 @@ import {
   sortGalleryItems,
   validateGalleryPayload,
   type GalleryItem,
-} from '@/lib/journey-gallery';
+} from '@/lib/gallery/journey-gallery';
 import {
   VIDEO_STORAGE_KEY_PATTERN,
   VIDEO_URL_PREFIX,
@@ -263,9 +263,9 @@ describe('admin payload validation', () => {
 });
 
 describe('preserved animation and carousel behavior (source guards)', () => {
-  const homepage = read('components/homepage.tsx');
+  const homepage = read('components/home/homepage.tsx');
   const css = read('app/globals.css');
-  const tourGallery = read('components/tour-video-gallery.tsx');
+  const tourGallery = read('components/tours/detail/tour-video-gallery.tsx');
 
   it('keeps two independently animated marquee rows with original directions and speeds', () => {
     expect(homepage).toMatch(/className="gal-marquee"/);
@@ -280,7 +280,7 @@ describe('preserved animation and carousel behavior (source guards)', () => {
 
   it('pauses the video row while playback is active and never autoplays sound', () => {
     expect(homepage).toMatch(/is-paused/);
-    expect(read('components/gallery-lightbox.tsx')).toMatch(/role="dialog" aria-modal="true"/);
+    expect(read('components/shared/gallery/gallery-lightbox.tsx')).toMatch(/role="dialog" aria-modal="true"/);
     expect(homepage).not.toMatch(/autoPlay/);
   });
 
@@ -296,7 +296,7 @@ describe('preserved animation and carousel behavior (source guards)', () => {
 
 describe('fully dynamic content  -  no placeholders (source guards)', () => {
   it('drives the homepage photo row only from the admin database', () => {
-    const homepage = read('components/homepage.tsx');
+    const homepage = read('components/home/homepage.tsx');
     // No hardcoded photo array anywhere in the storefront component.
     expect(homepage).not.toMatch(/const galItems=\[/);
     expect(homepage).not.toMatch(/galItems\.filter/);
@@ -305,7 +305,7 @@ describe('fully dynamic content  -  no placeholders (source guards)', () => {
   });
 
   it('renders the tour section only for real videos  -  no mock reels', () => {
-    const tourGallery = read('components/tour-video-gallery.tsx');
+    const tourGallery = read('components/tours/detail/tour-video-gallery.tsx');
     expect(tourGallery).not.toMatch(/previewPosters/);
     expect(tourGallery).not.toMatch(/tour-video-dashboard-note/);
     expect(tourGallery).not.toMatch(/tour-video-preview/);
@@ -313,7 +313,7 @@ describe('fully dynamic content  -  no placeholders (source guards)', () => {
   });
 
   it('keeps the tour section visible with an honest empty message (no internal jargon)', () => {
-    const tourGallery = read('components/tour-video-gallery.tsx');
+    const tourGallery = read('components/tours/detail/tour-video-gallery.tsx');
     expect(tourGallery).toMatch(/tour-video-empty/);
     expect(tourGallery).toMatch(/No journey videos available right now/);
     expect(tourGallery).toMatch(/لا توجد فيديوهات حالياً/);
@@ -348,7 +348,7 @@ describe('admin API and permission conventions (source guards)', () => {
   const byId = read('app/api/journey-gallery/[id]/route.ts');
   const reorder = read('app/api/journey-gallery/reorder/route.ts');
   const admin = read('app/admin/gallery/page.tsx');
-  const form = read('components/admin/gallery-form.tsx');
+  const form = read('components/admin/gallery/gallery-form.tsx');
   const newPage = read('app/admin/gallery/new/page.tsx');
 
   it('enforces gallery RBAC server-side with same-origin protection', () => {

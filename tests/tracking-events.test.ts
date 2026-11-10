@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import { describe, expect, it, vi } from 'vitest'
-import { GTM_CONSENT_READY_EVENT, initializeGtm, isGtmReady } from '@/lib/tracking-browser'
-import { createPageViewTracker, navigationInteraction, publicPageView, queueBookingFunnelEvent, queuePublicInteraction, type PublicInteraction } from '@/lib/tracking-events'
-import { TRACKING_CONSENT_STORAGE_KEY } from '@/lib/tracking'
+import { GTM_CONSENT_READY_EVENT, initializeGtm, isGtmReady } from '@/lib/tracking/tracking-browser'
+import { createPageViewTracker, navigationInteraction, publicPageView, queueBookingFunnelEvent, queuePublicInteraction, type PublicInteraction } from '@/lib/tracking/tracking-events'
+import { TRACKING_CONSENT_STORAGE_KEY } from '@/lib/tracking/tracking'
 
 const origin = 'https://starpyramids.com'
 const denied = { analytics: false, marketing: false }

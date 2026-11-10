@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mock = vi.hoisted(() => ({ findUnique: vi.fn(), updateMany: vi.fn(), create: vi.fn() }))
 vi.mock('@/lib/server/db', () => ({ db: { siteSetting: mock } }))
-import { readShowcaseState, changeShowcaseHero, readPublicShowcase } from '@/lib/server/showcase-heroes'
-import { initialShowcaseState, originalShowcaseHero, SHOWCASE_HERO_IDS } from '@/lib/showcase-heroes'
+import { readShowcaseState, changeShowcaseHero, readPublicShowcase } from '@/lib/server/cms/heroes/showcase-heroes'
+import { initialShowcaseState, originalShowcaseHero, SHOWCASE_HERO_IDS } from '@/lib/cms/heroes/showcase-heroes'
 beforeEach(() => { mock.findUnique.mockReset().mockResolvedValue(null); mock.updateMany.mockReset().mockResolvedValue({ count: 1 }); mock.create.mockReset().mockResolvedValue({}) })
 describe('showcase persistence with mocked Prisma only', () => {
   it('does not insert defaults on reads for any hero', async () => {

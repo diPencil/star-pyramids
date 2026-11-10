@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
-import {bookingSameOrigin,bookingClientIp,reserveBookingAttempt} from '@/lib/server/booking-request-security'
+import {bookingSameOrigin,bookingClientIp,reserveBookingAttempt} from '@/lib/server/booking/booking-request-security'
 import { isValidEmail, normalizeEmail } from '@/lib/core/validation'
-import { OFFICIAL_BOOKING_REF_PATTERN } from '@/lib/booking'
-import { emailGuestBookingAccess } from '@/lib/server/booking-recovery'
+import { OFFICIAL_BOOKING_REF_PATTERN } from '@/lib/booking/booking'
+import { emailGuestBookingAccess } from '@/lib/server/booking/access/booking-recovery'
 import { readBoundedJson } from '@/lib/server/request-json'
 
 // Identical response for missing, account-owned, mismatched and guest bookings.

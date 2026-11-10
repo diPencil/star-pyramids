@@ -5,9 +5,9 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { Card } from '@/components/admin/admin-ui'
 import { toast } from '@/components/admin/admin-toaster'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
-import { SharedSelect } from '@/components/shared-select'
-import { ENABLED_LOCALES, type EnabledLocale } from '@/lib/locale-config'
-import { originalHomeHero, type HomeHero, type HeroState, type HeroAction } from '@/lib/website-heroes'
+import { SharedSelect } from '@/components/shared/forms/shared-select'
+import { ENABLED_LOCALES, type EnabledLocale } from '@/lib/i18n/locale-config'
+import { originalHomeHero, type HomeHero, type HeroState, type HeroAction } from '@/lib/cms/heroes/website-heroes'
 import './hero-editor.css'
 
 export default function HomepageHeroEditor() {

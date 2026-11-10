@@ -4,16 +4,16 @@ const mocks = vi.hoisted(() => ({
   event: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
 }))
 vi.mock('@/lib/server/db', () => ({ db: { event: mocks.event } }))
-vi.mock('@/lib/server/auth', () => ({ getCurrentUser: vi.fn(async () => ({ id: 'staff' })), hasPermission: () => true }))
+vi.mock('@/lib/server/auth/auth', () => ({ getCurrentUser: vi.fn(async () => ({ id: 'staff' })), hasPermission: () => true }))
 vi.mock('@/lib/server/csrf', () => ({ isSameOriginRequest: () => true }))
-vi.mock('@/lib/server/catalogue-translations', () => ({
+vi.mock('@/lib/server/catalogue/catalogue-translations', () => ({
   catalogueTranslationResponse: async (_kind: unknown, value: unknown) => value,
   saveWithCatalogueTranslations: async (_kind: unknown, _translations: unknown, _slug: unknown, mutate: (tx: { event: typeof mocks.event }) => Promise<unknown>) => mutate({ event: mocks.event }),
 }))
 import { POST } from '@/app/api/events/route'
 import { PUT } from '@/app/api/events/[slug]/route'
-import { eventPriceLabel, sanitizeEvent } from '@/lib/events'
-import { formatCurrency } from '@/lib/currency'
+import { eventPriceLabel, sanitizeEvent } from '@/lib/events/events'
+import { formatCurrency } from '@/lib/payments/currency'
 
 const base = { slug: 'festival', title: 'Festival', location: 'Cairo', date: 'Tomorrow', copy: 'Festival details', image: '', pricingType: 'paid' as const, price: 125.5 }
 const context = { params: Promise.resolve({ slug: base.slug }) }

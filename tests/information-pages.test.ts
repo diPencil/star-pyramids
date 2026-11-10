@@ -6,13 +6,13 @@ vi.mock('@/components/site', async () => {
   const { LocaleProvider } = await vi.importActual<typeof import('@/components/locale')>('@/components/locale')
   return { ...actual, SiteShell: ({ children }: { children: ReactNode }) => createElement(LocaleProvider, { children }) }
 })
-import { InformationPage } from '@/components/information-page'
-import { FaqHeroProvider } from '@/components/faq-hero-context'
+import { InformationPage } from '@/components/content/information-page'
+import { FaqHeroProvider } from '@/components/cms/heroes/faq-hero-context'
 import { InitialLocaleProvider } from '@/components/locale'
-import { initialFaqHeroState, transitionFaqHero, type PublicFaqHero } from '@/lib/faq-hero'
-import { publicEditorialHero, validateEditorialHero } from '@/lib/editorial-hero-definitions'
-import { INFORMATION_PAGE_IDS, originalInformationPage, type InformationPageId } from '@/lib/information-pages'
-import type { EnabledLocale } from '@/lib/locale-config'
+import { initialFaqHeroState, transitionFaqHero, type PublicFaqHero } from '@/lib/cms/heroes/faq-hero'
+import { publicEditorialHero, validateEditorialHero } from '@/lib/cms/heroes/editorial-hero-definitions'
+import { INFORMATION_PAGE_IDS, originalInformationPage, type InformationPageId } from '@/lib/cms/information-pages'
+import type { EnabledLocale } from '@/lib/i18n/locale-config'
 
 const render = (id: InformationPageId, locale: EnabledLocale, state: PublicFaqHero) => renderToStaticMarkup(
   createElement(InitialLocaleProvider, { locale, preview: true, children: createElement(FaqHeroProvider, { state, children: createElement(InformationPage, { id }) }) }),

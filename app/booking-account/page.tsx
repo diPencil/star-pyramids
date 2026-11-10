@@ -1,3 +1,3 @@
-import { BookingAccountSetup } from '@/components/booking-account-setup'
+import { BookingAccountSetup } from '@/components/booking/booking-account-setup'
 export const metadata={title:'Booking account | STAR PYRAMIDS',robots:{index:false,follow:false},referrer:'no-referrer'}
 export default function Page(){return <BookingAccountSetup/>}

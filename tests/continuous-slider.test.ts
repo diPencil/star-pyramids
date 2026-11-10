@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { bindContinuousSlider } from '@/lib/continuous-slider'
+import { bindContinuousSlider } from '@/lib/ui/continuous-slider'
 
 const releases: Array<() => void> = []
 afterEach(() => { releases.splice(0).forEach(release => release()); vi.unstubAllGlobals() })

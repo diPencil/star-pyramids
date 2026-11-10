@@ -10,8 +10,8 @@ import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-so
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { useAdminCurrency } from '@/components/admin/admin-currency'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
-import { invalidateToursCache } from '@/lib/tours-client'
-import { isTourPublished } from '@/lib/tour-publish'
+import { invalidateToursCache } from '@/lib/tours/tours-client'
+import { isTourPublished } from '@/lib/tours/tour-publish'
 import { toast } from '@/components/admin/admin-toaster'
 
 type TripRow = {

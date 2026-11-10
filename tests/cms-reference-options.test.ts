@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mock = vi.hoisted(() => ({ authenticated: true, allowed: true, findMany: vi.fn() }))
-vi.mock('@/lib/server/auth', () => ({ getCurrentUser: async () => mock.authenticated ? { id: 'staff' } : null, hasPermission: () => mock.allowed }))
+vi.mock('@/lib/server/auth/auth', () => ({ getCurrentUser: async () => mock.authenticated ? { id: 'staff' } : null, hasPermission: () => mock.allowed }))
 vi.mock('@/lib/server/db', () => ({ db: { tour: { findMany: mock.findMany }, destination: { findMany: mock.findMany }, blog: { findMany: mock.findMany }, offer: { findMany: mock.findMany } } }))
 import { GET } from '@/app/api/admin/website-cms/reference-options/route'
 beforeEach(() => { mock.authenticated = true; mock.allowed = true; mock.findMany.mockReset().mockResolvedValue([{ slug: 'published-record', title: 'Published record' }]) })

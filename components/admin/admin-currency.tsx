@@ -1,10 +1,10 @@
 'use client'
-import { isCurrency, formatCurrency } from '@/lib/currency'
+import { isCurrency, formatCurrency } from '@/lib/payments/currency'
 
 import { useCallback, useEffect, useState } from 'react'
 import { formatPrice, getCurrencyRates, type Currency } from '@/components/locale'
-import { ensureStorefrontSettings } from '@/lib/storefront-settings'
-import { sanitizeLocale, type EnabledLocale } from '@/lib/locale-config'
+import { ensureStorefrontSettings } from '@/lib/cms/storefront-settings'
+import { sanitizeLocale, type EnabledLocale } from '@/lib/i18n/locale-config'
 
 /**
  * Shared admin currency conversion (display-only).

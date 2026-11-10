@@ -5,7 +5,7 @@ vi.mock('@/lib/server/db', () => ({ db: { siteSetting: {
   create: vi.fn(async ({ data }: { data: { key: string; value: string } }) => { if (store.rows.has(data.key)) throw Error('Duplicate'); store.rows.set(data.key, data.value); return data }),
   updateMany: vi.fn(async ({ where, data }: { where: { key: string; value: string }; data: { value: string } }) => { if (store.conflict || store.rows.get(where.key) !== where.value) return { count: 0 }; store.rows.set(where.key, data.value); return { count: 1 } }),
 } } }))
-import { getReviewIntegrations, saveReviewIntegration, loadReviewFeed } from '@/lib/server/review-integrations'
+import { getReviewIntegrations, saveReviewIntegration, loadReviewFeed } from '@/lib/server/reviews/review-integrations'
 const config = { enabled: false, resourceId: 'ChIJexample', profileUrl: '', widgetId: '' }
 beforeEach(() => { store.rows.clear(); store.conflict = false; vi.stubEnv('REVIEW_INTEGRATIONS_KEY', 'a'.repeat(64)) })
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals() })

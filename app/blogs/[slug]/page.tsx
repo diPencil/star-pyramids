@@ -1,10 +1,10 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { BlogDetailPage } from '@/components/extended-pages'
-import { findBlogBySlug, getPublishedDbBlogs, listBlogSlugs } from '@/lib/server/blogs'
-import { generateBlogPostingJsonLd, generateBreadcrumbJsonLd, renderJsonLd } from '@/lib/structured-data'
-import { getSiteUrl } from '@/lib/seo'
-import { dynamicSeo, recordStructuredDataEnabled } from '@/lib/dynamic-seo'
+import { findBlogBySlug, getPublishedDbBlogs, listBlogSlugs } from '@/lib/server/editorial/blogs'
+import { generateBlogPostingJsonLd, generateBreadcrumbJsonLd, renderJsonLd } from '@/lib/seo/structured-data'
+import { getSiteUrl } from '@/lib/seo/seo'
+import { dynamicSeo, recordStructuredDataEnabled } from '@/lib/seo/dynamic-seo'
 
 export async function generateStaticParams() {
   const slugs = await listBlogSlugs()

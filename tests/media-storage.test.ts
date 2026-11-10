@@ -32,7 +32,7 @@ let root: string;
 
 async function loadMedia() {
   vi.resetModules();
-  return import('@/lib/server/media');
+  return import('@/lib/server/media/media');
 }
 
 async function loadDb() {

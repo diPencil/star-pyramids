@@ -8,7 +8,7 @@ vi.mock('react', async importOriginal => ({
   useEffect: (callback: () => void | (() => void)) => { effects.push(callback) },
   startTransition: (callback: () => void) => callback(),
 }))
-vi.mock('@/lib/storefront-settings', () => ({ ensureStorefrontSettings: vi.fn(), getDbCurrency: () => null, getDbLocalization: () => null }))
+vi.mock('@/lib/cms/storefront-settings', () => ({ ensureStorefrontSettings: vi.fn(), getDbCurrency: () => null, getDbLocalization: () => null }))
 import { LocaleProvider } from '@/components/locale'
 const addEventListener = vi.fn(); const removeEventListener = vi.fn()
 beforeEach(() => {

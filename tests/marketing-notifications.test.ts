@@ -7,14 +7,14 @@ vi.mock('@/lib/server/db', () => ({ db: {
     upsert: async ({ where, create, update }: any) => { m.writes(create); const row = m.receipts.get(where.id) ?? create; Object.assign(row, update); m.receipts.set(where.id, row); return row },
   },
 } }))
-vi.mock('@/lib/server/catalogue-translations', () => ({ attachCatalogueTranslations: async (_kind: string, rows: any[]) => rows }))
-vi.mock('@/lib/server/staff-preview', () => ({ getAccountReadUser: async () => m.user ? { id: m.user } : null, getAccountWriteUser: async () => m.user && m.writable ? { id: m.user } : null }))
+vi.mock('@/lib/server/catalogue/catalogue-translations', () => ({ attachCatalogueTranslations: async (_kind: string, rows: any[]) => rows }))
+vi.mock('@/lib/server/auth/staff-preview', () => ({ getAccountReadUser: async () => m.user ? { id: m.user } : null, getAccountWriteUser: async () => m.user && m.writable ? { id: m.user } : null }))
 vi.mock('@/lib/server/csrf', () => ({ isSameOriginRequest: () => m.origin }))
-vi.mock('@/lib/server/notifications', () => ({ listNotifications: m.personal, countUnreadNotifications: m.personalCount, markNotificationRead: m.personalRead, markAllNotificationsRead: m.personalAll }))
-import { buildMarketingFeed, listMarketingNotifications, marketingForUser, markMarketingRead } from '@/lib/server/marketing-notifications'
+vi.mock('@/lib/server/notifications/notifications', () => ({ listNotifications: m.personal, countUnreadNotifications: m.personalCount, markNotificationRead: m.personalRead, markAllNotificationsRead: m.personalAll }))
+import { buildMarketingFeed, listMarketingNotifications, marketingForUser, markMarketingRead } from '@/lib/server/marketing/marketing-notifications'
 import { GET as publicFeed } from '@/app/api/marketing-notifications/route'
 import { GET as accountFeed, PATCH } from '@/app/api/account/notifications/route'
-import { localizedNotification, MARKETING_READ_TYPE } from '@/lib/marketing-notifications'
+import { localizedNotification, MARKETING_READ_TYPE } from '@/lib/marketing/marketing-notifications'
 type Offer = Parameters<typeof buildMarketingFeed>[0][number]
 type Tour = Parameters<typeof buildMarketingFeed>[1][number]
 const now = Date.parse('2026-10-28T12:00:00Z')

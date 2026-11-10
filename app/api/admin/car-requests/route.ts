@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
-import { listStaffCarRequests } from '@/lib/server/car-requests';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
+import { listStaffCarRequests } from '@/lib/server/cars/car-requests';
 
 /** Staff car-request inbox (full operational projection). */
 export async function GET() {

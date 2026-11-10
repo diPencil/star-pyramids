@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { tourWritePayload } from '@/lib/tour-write'
+import { tourWritePayload } from '@/lib/tours/tour-write'
 import { blankTour, editorData } from '@/components/admin/trip-builder'
-import { buildTripPreview } from '@/lib/trip-builder-preview'
-import { decodeTourJson } from '@/lib/tour-json'
+import { buildTripPreview } from '@/lib/trip-builder/trip-builder-preview'
+import { decodeTourJson } from '@/lib/tours/tour-json'
 const memory = vi.hoisted(() => ({ rows: new Map<string, any>(), destinations: new Set<string>(), trace: [] as string[], beforeLock: undefined as undefined | (() => void), allowed: true, authenticated: true, origin: true, now: 0, conflict: false }))
-vi.mock('@/lib/server/auth', () => ({ getCurrentUser: async () => memory.authenticated ? { id: 'staff' } : null, hasPermission: () => memory.allowed }))
+vi.mock('@/lib/server/auth/auth', () => ({ getCurrentUser: async () => memory.authenticated ? { id: 'staff' } : null, hasPermission: () => memory.allowed }))
 vi.mock('@/lib/server/csrf', () => ({ isSameOriginRequest: () => memory.origin }))
-vi.mock('@/lib/server/special-offers', () => ({ applyLinkedOfferDeals: async (rows: unknown[]) => rows }))
-vi.mock('@/lib/server/tours', () => ({ getTourBookingCounts: vi.fn(), findTourDeletionBlockers: async () => [] }))
+vi.mock('@/lib/server/offers/special-offers', () => ({ applyLinkedOfferDeals: async (rows: unknown[]) => rows }))
+vi.mock('@/lib/server/catalogue/tours', () => ({ getTourBookingCounts: vi.fn(), findTourDeletionBlockers: async () => [] }))
 vi.mock('@/lib/server/db', () => { const db = { tour: {
   findUnique: async ({ where }: any) => memory.rows.get(where.slug) ?? null,
   findMany: async () => [...memory.rows.values()],

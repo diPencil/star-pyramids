@@ -14,10 +14,10 @@ vi.mock('react', async () => {
     useState: (initial: unknown) => state.direct ? [state.selected ?? initial, (value: string) => { state.selected = value }] : actual.useState(initial),
   }
 })
-vi.mock('@/lib/tours-client', () => ({ useDbToursStatus: () => ({ data: [], loading: false, error: null, retry: vi.fn() }) }))
+vi.mock('@/lib/tours/tours-client', () => ({ useDbToursStatus: () => ({ data: [], loading: false, error: null, retry: vi.fn() }) }))
 import { CreationTimeline, type CreationTimelineProps } from '@/components/admin/creation-timeline'
 import { BlogEditorialForm, type BlogEditorialFormSection } from '@/components/admin/blog-editorial-form'
-import { emptyBlogEditorial } from '@/lib/blog-editorial'
+import { emptyBlogEditorial } from '@/lib/editorial/blog-editorial'
 
 type ElementProps = { children?: ReactNode; onClick?: () => void; disabled?: boolean; hidden?: boolean; id?: string; 'aria-current'?: string; 'aria-controls'?: string; 'aria-labelledby'?: string; className?: string }
 function elements(node: ReactNode): ReactElement<ElementProps>[] {

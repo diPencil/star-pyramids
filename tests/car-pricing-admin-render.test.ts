@@ -1,8 +1,8 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { TierEditor } from '@/components/admin/car-pricing-manager'
-import type { PricingTier } from '@/lib/car-pricing-admin'
+import { TierEditor } from '@/components/admin/cars/car-pricing-manager'
+import type { PricingTier } from '@/lib/cars/car-pricing-admin'
 
 const route = { id: 'route-id', isActive: true, origin: { nameEn: 'Cairo' }, destination: { nameEn: 'Giza' } }
 const vehicle = { slug: 'van', title: 'Van', seats: '6 seats' }

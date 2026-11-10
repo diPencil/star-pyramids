@@ -4,8 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const state = vi.hoisted(() => ({ favicon: '/media/2026/10/' + 'a'.repeat(32) + '.webp' }))
 vi.mock('@/lib/admin-store', () => ({ defaultBrandSettings: { favicon: '/favicon.png' }, useBrandSettings: () => state }))
 vi.mock('react', async original => ({ ...await original<typeof import('react')>(), useEffect: (effect: () => void) => effect() }))
-import { BrandMark } from '@/components/brand-mark'
-import { BrandFavicon } from '@/components/brand-favicon'
+import { BrandMark } from '@/components/branding/brand-mark'
+import { BrandFavicon } from '@/components/branding/brand-favicon'
 beforeEach(() => { state.favicon = '/media/2026/10/' + 'a'.repeat(32) + '.webp'; vi.unstubAllGlobals() })
 describe('saved branding shared across dashboards and browser icons', () => {
   it('uses the saved compact image, preserves layout attributes and updates on replacement', () => {

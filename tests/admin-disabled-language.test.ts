@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AdminText } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
-import { ENABLED_LOCALES, isLocaleEnabled } from '@/lib/locale-config'
+import { ENABLED_LOCALES, isLocaleEnabled } from '@/lib/i18n/locale-config'
 
 afterEach(() => vi.unstubAllGlobals())
 describe('disabled Arabic cannot leak through admin display styles or old preferences', () => {

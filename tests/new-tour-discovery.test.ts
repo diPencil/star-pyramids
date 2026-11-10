@@ -4,17 +4,17 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import type { Tour } from '@/data/types'
 import { InitialLocaleProvider, LocaleProvider } from '@/components/locale'
 import { OneDayToursRegions, TourListing } from '@/components/site'
-import { TripsPage } from '@/components/trips-page'
-import { RebuiltHomePage } from '@/components/homepage'
-import { originalPageContent } from '@/lib/page-sections'
+import { TripsPage } from '@/components/tours/trips-page'
+import { RebuiltHomePage } from '@/components/home/homepage'
+import { originalPageContent } from '@/lib/cms/page-sections'
 
 const state = vi.hoisted(() => ({ rows: [] as Tour[], page: '' }))
 vi.mock('next/navigation', () => ({ useRouter: () => ({ replace: vi.fn(), push: vi.fn() }), usePathname: () => '/trips', useSearchParams: () => new URLSearchParams(state.page) }))
-vi.mock('@/lib/tours-client', async importOriginal => {
-  const actual = await importOriginal<typeof import('@/lib/tours-client')>()
-  return { ...actual, useDbTours: (base: readonly Tour[], options?: import('@/lib/tours-client').DbToursOptions) => actual.resolveTours(base, new Map(state.rows.map(row => [row.slug, row])), options) }
+vi.mock('@/lib/tours/tours-client', async importOriginal => {
+  const actual = await importOriginal<typeof import('@/lib/tours/tours-client')>()
+  return { ...actual, useDbTours: (base: readonly Tour[], options?: import('@/lib/tours/tours-client').DbToursOptions) => actual.resolveTours(base, new Map(state.rows.map(row => [row.slug, row])), options) }
 })
-vi.mock('@/lib/catalogue-client', () => ({
+vi.mock('@/lib/catalogue/catalogue-client', () => ({
   useDbDestinations: () => [{ slug: 'cairo', title: 'Cairo', copy: 'Cairo experiences', isPublished: true, showInOneDayTours: true }],
   useDbCategories: (base: unknown[]) => base,
 }))

@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next';
-import { getSiteUrl } from '@/lib/seo';
+import { getSiteUrl } from '@/lib/seo/seo';
 
 /**
  * robots.txt  -  allows all public routes, disallows admin/account/checkout/cart/auth.

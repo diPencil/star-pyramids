@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
-import { listStaffEventRequests } from '@/lib/server/event-requests';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
+import { listStaffEventRequests } from '@/lib/server/events/event-requests';
 
 /** Staff request inbox (full projection incl. internal markers, no activities). */
 export async function GET() {

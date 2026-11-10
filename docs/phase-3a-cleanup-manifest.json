@@ -1,0 +1,106 @@
+{
+  "phase": "Phase 3A: Approved Minimal Cleanup",
+  "date": "2026-11-04",
+  "authorization": "The owner explicitly authorized deletion of only the two exact paths below, after identity and dependency checks, and creation of this manifest.",
+  "operation_status": "completed",
+  "deletions": [
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/dir_next.txt",
+      "original_sha256": "ed0ecd3e6f92d8c0a4f4441173367f1773ec0500461f8376d85bd98af29c6a3e",
+      "original_size_bytes": 1038,
+      "original_git_status": "outside_application_git_repository",
+      "reason": "Obsolete captured dependency-directory lookup failure; no current consumers found in the inspected source, tooling, configuration, documentation or historical preservation records."
+    },
+    {
+      "original_path": "D:/Development/star-pyramids-nodejs/web-source/ts_original.txt",
+      "original_sha256": "ce24f11dc59307c41a56c2240655646afdff1b056b9fcf35c65ade96d7b4e12a",
+      "original_size_bytes": 712,
+      "original_git_status": "untracked",
+      "reason": "Redundant diagnostic capture, verified byte-identical to the retained web-source/ts_errors.txt. Owner approved disposition despite historical preservation references."
+    }
+  ],
+  "retained_diagnostic": {
+    "path": "D:/Development/star-pyramids-nodejs/web-source/ts_errors.txt",
+    "sha256": "ce24f11dc59307c41a56c2240655646afdff1b056b9fcf35c65ade96d7b4e12a",
+    "requirement": "Preserve unchanged."
+  },
+  "dependency_verification": {
+    "new_consumers_found": 0,
+    "scope": "Application source, tests, scripts, Prisma source/configuration, package/build/test configuration, documentation, agent/tool text files and outer working-tree tooling; excluded dependency/build trees, recovery, backup/storage contents and temporary snapshots. The five known preservation manifests were inspected read-only.",
+    "stop_condition": "Abort if either identity differs or new consumers are found."
+  },
+  "historical_preservation_reconciliation": [
+    {
+      "path": "D:/Development/star-pyramids-nodejs/temp/dash-protected.json",
+      "sha256": "1b1d2a17b8a64e49a315dda6d8d4b7522a3d0de0a6b5b57f91c3e217f47e2e23",
+      "entry_paths": [
+        "$.ts_original.txt"
+      ],
+      "interpretation": "Historical snapshot remains valid for its recorded time. The owner authorized deletion of the redundant ts_original.txt in Phase 3A; identical diagnostic bytes remain at web-source/ts_errors.txt. Do not rewrite or revalidate the historical snapshot as a current inventory."
+    },
+    {
+      "path": "D:/Development/star-pyramids-nodejs/temp/push-protected-worktree.json",
+      "sha256": "ac941d3850c1390793591945fef01974d7c3ad7f5969601a1e963aa1ba0906ce",
+      "entry_paths": [
+        "$.ts_original.txt"
+      ],
+      "interpretation": "Historical snapshot remains valid for its recorded time. The owner authorized deletion of the redundant ts_original.txt in Phase 3A; identical diagnostic bytes remain at web-source/ts_errors.txt. Do not rewrite or revalidate the historical snapshot as a current inventory."
+    },
+    {
+      "path": "D:/Development/star-pyramids-nodejs/temp/recommended-eight-push.json",
+      "sha256": "2d91a6c14e861b19e097867ab1cd4ebc994e85c694f679c825aa7252de2be2f5",
+      "entry_paths": [
+        "$.protected.ts_original.txt"
+      ],
+      "interpretation": "Historical snapshot remains valid for its recorded time. The owner authorized deletion of the redundant ts_original.txt in Phase 3A; identical diagnostic bytes remain at web-source/ts_errors.txt. Do not rewrite or revalidate the historical snapshot as a current inventory."
+    },
+    {
+      "path": "D:/Development/star-pyramids-nodejs/temp/recommended-push.json",
+      "sha256": "34105abcfb7b9079ceb5213294beb3680b7d11f844dc095e099a02b35dafba90",
+      "entry_paths": [
+        "$.protected.ts_original.txt"
+      ],
+      "interpretation": "Historical snapshot remains valid for its recorded time. The owner authorized deletion of the redundant ts_original.txt in Phase 3A; identical diagnostic bytes remain at web-source/ts_errors.txt. Do not rewrite or revalidate the historical snapshot as a current inventory."
+    },
+    {
+      "path": "D:/Development/star-pyramids-nodejs/temp/hero-push/protected-worktree.json",
+      "sha256": "f347e9f9135b3c937e79a9edfae117925895c281f2d59c1b8752fc49a5860351",
+      "entry_paths": [
+        "$.ts_original.txt"
+      ],
+      "interpretation": "Historical snapshot remains valid for its recorded time. The owner authorized deletion of the redundant ts_original.txt in Phase 3A; identical diagnostic bytes remain at web-source/ts_errors.txt. Do not rewrite or revalidate the historical snapshot as a current inventory."
+    }
+  ],
+  "phase_1": {
+    "relocation_manifest": "D:/Development/star-pyramids-nodejs/web-source/docs/relocation-manifest.json",
+    "reports_verified": 27,
+    "policy": "Preserve every existing docs file, including the index and relocation manifest, byte-for-byte."
+  },
+  "verification_baseline": {
+    "eligible_existing_files": 1089,
+    "tracked_untracked_sha256": "beca3cf99e5288493fee1e9546466e852f9d7dbcdb10325b71b0f0f4a575bc59",
+    "root_files_sha256": "320b5ad276a2f87a8e30800ef1f3f7c527eb0a2906471c892e7f81483eb82af4",
+    "existing_docs_sha256": "21348a6d96d8ae83943d499e54e0f05ccb58879ef62473f97386383775c29dff",
+    "tracked_diff_sha256": "58c4b340e2f7a71c0d45d21b1fd03f0ebefb509e407494a5d289a13ac28848fd",
+    "index_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "exclusions": "No other file may be deleted, moved or modified. No build, database operation, dependency change, commit, push or deployment.",
+  "verification_results": {
+    "authorized_paths_absent": 2,
+    "retained_diagnostic_sha256_matches": true,
+    "phase_1_reports_verified": 27,
+    "existing_docs_unchanged": true,
+    "index_links_verified": 51,
+    "historical_manifests_unchanged": 5,
+    "eligible_unrelated_files_hash_verified": 1089,
+    "unrelated_root_files_unchanged": true,
+    "all_other_untracked_paths_preserved": true,
+    "tracked_diff_unchanged": true,
+    "staged_diff_unchanged": true,
+    "git_diff_check": "passed",
+    "git_status_counts": {
+      "existing_phase_1_tracked_deletions": 25,
+      "untracked": 105
+    }
+  }
+}

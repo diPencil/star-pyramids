@@ -21,17 +21,17 @@
 
 import { describe, it, expect, vi, afterAll } from 'vitest'
 
-vi.mock('@/lib/server/auth', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/server/auth')>()
+vi.mock('@/lib/server/auth/auth', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/server/auth/auth')>()
   return { ...actual, getCurrentUser: vi.fn(async () => null) }
 })
 
-import { getCurrentUser } from '@/lib/server/auth'
-import { issueGuestBookingToken } from '@/lib/server/booking-access'
-import { issueBookingDocument } from '@/lib/server/documents'
+import { getCurrentUser } from '@/lib/server/auth/auth'
+import { issueGuestBookingToken } from '@/lib/server/booking/access/booking-access'
+import { issueBookingDocument } from '@/lib/server/documents/documents'
 import { db } from '@/lib/server/db'
 import { recordTestRefund } from './probe-helpers'
-import { loadBookingDocumentPdfModel } from '@/lib/server/document-pdf'
+import { loadBookingDocumentPdfModel } from '@/lib/server/documents/document-pdf'
 import { GET as ownerPdf } from '@/app/api/account/bookings/[ref]/documents/[documentId]/pdf/route'
 import { GET as staffPdf } from '@/app/api/admin/bookings/[ref]/documents/[documentId]/pdf/route'
 import { GET as guestPdf } from '@/app/api/bookings/access/[token]/documents/[documentId]/pdf/route'

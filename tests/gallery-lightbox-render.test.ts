@@ -2,7 +2,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
-import type { GalleryItem } from '@/lib/journey-gallery'
+import type { GalleryItem } from '@/lib/gallery/journey-gallery'
 
 const state = vi.hoisted(() => ({ calls: 0 }))
 vi.mock('react', async () => {
@@ -10,7 +10,7 @@ vi.mock('react', async () => {
   return { ...actual, useState: (initial: unknown) => actual.useState(state.calls++ === 0 ? true : initial) }
 })
 vi.mock('react-dom', async () => ({ ...await vi.importActual<typeof import('react-dom')>('react-dom'), createPortal: (children: unknown) => children }))
-import { GalleryLightbox, GalleryLightboxMedia } from '@/components/gallery-lightbox'
+import { GalleryLightbox, GalleryLightboxMedia } from '@/components/shared/gallery/gallery-lightbox'
 const item = (id: string, video = false): GalleryItem => ({ id, mediaType: video ? 'VIDEO' : 'IMAGE', mediaUrl: video ? '/legacy/clip.mp4' : `/photos/${id}.jpg`, title: `Actual ${id}`, caption: `Caption ${id}`, thumbnail: video ? '/poster.jpg' : null, platform: video ? 'direct' : null, showOnHomepage: true, showOnTours: false, tourScope: 'ALL_TOURS', tourSlugs: [], isPublished: true, sortOrder: 1, createdAt: '', updatedAt: '' })
 beforeEach(() => { state.calls = 0; vi.stubGlobal('document', { body: {} }) })
 it('opens the selected image, caption and collection counter in a semantic dialog', () => {
@@ -27,6 +27,6 @@ it('renders native video controls and poster with no autoplay', () => {
   expect(html).toContain('<video'); expect(html).toContain('controls=""'); expect(html).toContain('playsInline=""'); expect(html).toContain('poster="/poster.jpg"'); expect(html).not.toMatch(/autoplay/i)
 })
 it('contains portrait and landscape originals without next/image fill or distortion', () => {
-  const css = readFileSync('components/gallery-lightbox.css', 'utf8')
+  const css = readFileSync('components/shared/gallery/gallery-lightbox.css', 'utf8')
   expect(css).toContain('object-fit:contain'); expect(css).toContain('width:auto'); expect(css).toContain('height:auto'); expect(css).toContain('safe-area-inset-top'); expect(css).toContain('prefers-reduced-motion')
 })

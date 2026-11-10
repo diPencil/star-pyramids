@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-import { SESSION_COOKIE_NAME } from '@/lib/server/session';
-import { isProductionTrackingHost, isSafeTrackingUrl, TRACKING_ELIGIBLE_HEADER } from '@/lib/tracking';
+import { SESSION_COOKIE_NAME } from '@/lib/server/auth/session';
+import { isProductionTrackingHost, isSafeTrackingUrl, TRACKING_ELIGIBLE_HEADER } from '@/lib/tracking/tracking';
 
 function hasSafeReferrer(request: NextRequest, host: string): boolean {
   try {

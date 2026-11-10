@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { APPEARANCE_FIELDS, appearanceCss, contrastRatio, decodeAppearance, initialAppearance, isPublicAppearancePath, transitionAppearance, validateAppearance, type AppearanceToken } from '@/lib/website-appearance'
+import { APPEARANCE_FIELDS, appearanceCss, contrastRatio, decodeAppearance, initialAppearance, isPublicAppearancePath, transitionAppearance, validateAppearance, type AppearanceToken } from '@/lib/cms/website-appearance'
 
 describe('public appearance token contracts', () => {
   it('leaves every original component unchanged without explicit overrides', () => {

@@ -32,7 +32,7 @@ Clipboard normalization keeps supported semantic text and finite alignment; conv
 
 ## Security and validation
 
-`lib/tour-rich-text.ts` is the shared policy boundary. API POST/PUT bound the streamed request to 1 MiB before parsing. Per-rich-field/per-locale limit: 64 KiB UTF-8, depth <=8, <=2,000 parsed nodes. Normalized size is checked too. Current prepared 26-tour package: maximum string 634 bytes, maximum serialized record 10,970 bytes; the new limits preserve all 26 unchanged in an offline test.
+`lib/tours/tour-rich-text.ts` is the shared policy boundary. API POST/PUT bound the streamed request to 1 MiB before parsing. Per-rich-field/per-locale limit: 64 KiB UTF-8, depth <=8, <=2,000 parsed nodes. Normalized size is checked too. Current prepared 26-tour package: maximum string 634 bytes, maximum serialized record 10,970 bytes; the new limits preserve all 26 unchanged in an offline test.
 
 Server writes reject executable tags/event attributes and unsafe anchors, sanitize supported markup, and validate format paths/locales/value shapes. Status-only publication checks merged stored content. The same sanitizer runs at the rendering boundary to protect against API-bypassing imports. Client paste cleanup and a ProseMirror transaction guard are usability protections, not substitutes for the server.
 

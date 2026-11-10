@@ -3,7 +3,7 @@ import postcss from 'postcss'
 import { expect, it } from 'vitest'
 const css = postcss.parse(readFileSync('app/mobile-shell.css', 'utf8'))
 it('keeps mobile search outside the sticky header so it scrolls with the page', () => {
-  const source = readFileSync('components/site.tsx', 'utf8')
+  const source = readFileSync('components/layout/site-header.tsx', 'utf8')
   const headerStart = source.indexOf('<header ref={primaryHeaderRef}')
   const headerEnd = source.indexOf('</header>', headerStart)
   const searchStart = source.indexOf('<HeaderSearch mobile')
@@ -32,14 +32,14 @@ function mobileRule(selector: string) {
 }
 it('hides the mobile header cart without removing desktop cart access', () => {
   expect(mobileRule('.site-header .header-actions .icon-btn.header-cart').display).toBe('none')
-  expect(readFileSync('components/site.tsx', 'utf8')).toContain('href="/cart"')
+  expect(readFileSync('components/layout/site-header.tsx', 'utf8')).toContain('href="/cart"')
 })
 it('provides five mobile slots and hides duplicate floating support buttons', () => {
   expect(mobileRule('.mobile-bottom-nav')['grid-template-columns']).toBe('repeat(5,minmax(0,1fr))')
   for (const selector of ['body:has(.mobile-bottom-nav) .livechat-fab', 'body:has(.mobile-bottom-nav) .wa-fab', 'body:has(.mobile-bottom-nav) .livechat-teaser']) {
     expect(mobileRule(selector).display).toBe('none')
   }
-  for (const [file, target] of [['components/live-chat.tsx', 'mobile-livechat-trigger'], ['components/whatsapp-chat.tsx', 'mobile-whatsapp-trigger']]) {
+  for (const [file, target] of [['components/support/live-chat.tsx', 'mobile-livechat-trigger'], ['components/support/whatsapp-chat.tsx', 'mobile-whatsapp-trigger']]) {
     const source = readFileSync(file, 'utf8')
     expect(source).toContain(`document.getElementById('${target}')`)
     expect(source).toContain('createPortal(<button')

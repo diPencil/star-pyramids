@@ -4,14 +4,14 @@ import { readFileSync } from 'node:fs'
 import postcss from 'postcss'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { InitialLocaleProvider, LocaleProvider } from '@/components/locale'
-import { LiveChatWidget } from '@/components/live-chat'
-import { WhatsAppWidget } from '@/components/whatsapp-chat'
+import { LiveChatWidget } from '@/components/support/live-chat'
+import { WhatsAppWidget } from '@/components/support/whatsapp-chat'
 
 const state=vi.hoisted(()=>({mobile:true}))
 // Exercise the real widget content for both presentations without a browser.
 // Portal/focus/keyboard lifecycle is tested directly in mobile-chat-screen.test.
-vi.mock('@/components/support-chat-panel',()=>({SupportChatPanel:({className,label,children}:{className:string;label:string;children:(mobile:boolean)=>React.ReactNode})=>createElement('section',{className:className+' support-chat-screen',role:'dialog','aria-label':label,'aria-modal':state.mobile},children(state.mobile))}))
-vi.mock('@/lib/tours-client',()=>({useDbTours:()=>[]}))
+vi.mock('@/components/support/support-chat-panel',()=>({SupportChatPanel:({className,label,children}:{className:string;label:string;children:(mobile:boolean)=>React.ReactNode})=>createElement('section',{className:className+' support-chat-screen',role:'dialog','aria-label':label,'aria-modal':state.mobile},children(state.mobile))}))
+vi.mock('@/lib/tours/tours-client',()=>({useDbTours:()=>[]}))
 beforeEach(()=>{state.mobile=true;vi.stubGlobal('fetch',vi.fn(()=>{throw Error('Rendering chat must not send messages or write the database')}))})
 afterEach(()=>vi.unstubAllGlobals())
 
@@ -43,7 +43,7 @@ describe('existing chats presented as mobile conversation screens',()=>{
   expect(render('wa')).not.toContain('Back to page')
  })
  it('uses the same shared panel without changing routes or duplicating widget state',()=>{
-  const panel=readFileSync('components/support-chat-panel.tsx','utf8')
+  const panel=readFileSync('components/support/support-chat-panel.tsx','utf8')
   expect(panel).toContain('createPortal(<PublicAppearancePortal>')
   expect(panel).toContain('bindMobileChatScreen(window,document,panel.current')
   expect(panel).toContain('bindDesktopChatPanel(document,panel.current')

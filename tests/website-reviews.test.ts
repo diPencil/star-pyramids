@@ -2,10 +2,10 @@ import { beforeEach, expect, it, vi } from 'vitest'
 vi.unmock('@prisma/client')
 import { Prisma } from '@prisma/client'
 const m = vi.hoisted(() => ({ user: vi.fn(), attempts: vi.fn(), attempt: vi.fn(), tour: vi.fn(), existing: vi.fn(), create: vi.fn(), list: vi.fn(), count: vi.fn(), stats: vi.fn() }))
-vi.mock('@/lib/server/auth', () => ({ getCurrentUser: m.user }))
+vi.mock('@/lib/server/auth/auth', () => ({ getCurrentUser: m.user }))
 vi.mock('@/lib/server/db', () => ({ db: { reviewAttempt: { count: m.attempts, create: m.attempt }, tour: { findUnique: m.tour }, review: { findUnique: m.existing, create: m.create, findMany: m.list, count: m.count, aggregate: m.stats } } }))
 import { GET, POST } from '@/app/api/reviews/route'
-import { WEBSITE_REVIEW_SCOPE } from '@/lib/review-scope'
+import { WEBSITE_REVIEW_SCOPE } from '@/lib/reviews/review-scope'
 const valid = { scope: 'website', rating: 4, title: 'Good trip', text: 'An enjoyable experience in Egypt.' }
 const post = (body: unknown) => POST(new Request('http://localhost:3000/api/reviews', { method: 'POST', headers: { host: 'localhost:3000', origin: 'http://localhost:3000' }, body: JSON.stringify(body) }))
 beforeEach(() => { vi.clearAllMocks(); m.user.mockResolvedValue({ id: 'customer' }); m.attempts.mockResolvedValue(0); m.attempt.mockResolvedValue({}); m.tour.mockResolvedValue({ slug: 'real-tour', status: 'published' }); m.existing.mockResolvedValue(null); m.create.mockResolvedValue({ publicId: 'review', status: 'PENDING' }); m.list.mockResolvedValue([]); m.count.mockResolvedValue(0); m.stats.mockResolvedValue({ _avg: { rating: null }, _count: { rating: 0 } }) })

@@ -35,6 +35,10 @@ The application is structured to handle a comprehensive travel booking and infor
 
 ## 📂 Project Structure
 
+Feature ownership is documented in [components/README.md](components/README.md) and
+[lib/README.md](lib/README.md). See the [source organization map](docs/source-organization.md)
+for the complete before/after trees and exact relocation list.
+
 ```text
 web-source/
 ├── app/                      # Next.js 16 App Router pages and layouts

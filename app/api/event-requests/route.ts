@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { formLeadMeasurement } from '@/lib/server/form-lead-measurement';
+import { formLeadMeasurement } from '@/lib/server/tracking/leads/form-lead-measurement';
 
-import { getCurrentUser } from '@/lib/server/auth';
+import { getCurrentUser } from '@/lib/server/auth/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import {
   checkEventRequestRateLimit,
@@ -11,7 +11,7 @@ import {
   createEventRequestRecord,
   EventRequestInputError,
   validateEventDraft,
-} from '@/lib/server/event-requests';
+} from '@/lib/server/events/event-requests';
 
 function clientIp(request: Request): string {
   const forwarded = request.headers.get('x-forwarded-for');

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { AdminShell } from '@/components/admin/admin-shell';
-import { requireStaff } from '@/lib/server/guards';
+import { requireStaff } from '@/lib/server/auth/guards';
 import './admin.css';
 import './mobile.css';
 

@@ -2,8 +2,8 @@
 
 import { createContext, useContext, useState, type InputHTMLAttributes, type TextareaHTMLAttributes, type ReactNode, type Dispatch, type SetStateAction } from 'react'
 import { Tabs } from '@base-ui/react/tabs'
-import { ENABLED_LOCALES, LOCALE_LABELS, type EnabledLocale } from '@/lib/locale-config'
-import { removeTranslationRow, type CatalogueTranslations } from '@/lib/catalogue-translations'
+import { ENABLED_LOCALES, LOCALE_LABELS, type EnabledLocale } from '@/lib/i18n/locale-config'
+import { removeTranslationRow, type CatalogueTranslations } from '@/lib/catalogue/catalogue-translations'
 
 type LanguageContext = { locale: EnabledLocale; translations: CatalogueTranslations; setTranslations: Dispatch<SetStateAction<CatalogueTranslations>> }
 const Context = createContext<LanguageContext | null>(null)

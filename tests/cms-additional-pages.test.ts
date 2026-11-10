@@ -1,9 +1,9 @@
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
-import { originalPageContent, validatePageContent, initialPageState, transitionPageContent, publicPageContent } from '@/lib/page-sections'
-import { isPageDocumentId, type PageDocumentId } from '@/lib/additional-page-content'
-import { CmsFaqBody, CmsPolicyPage } from '@/components/cms-additional-pages'
+import { originalPageContent, validatePageContent, initialPageState, transitionPageContent, publicPageContent } from '@/lib/cms/page-sections'
+import { isPageDocumentId, type PageDocumentId } from '@/lib/cms/additional-page-content'
+import { CmsFaqBody, CmsPolicyPage } from '@/components/cms/cms-additional-pages'
 
 vi.mock('@/components/locale', () => ({ useLocale: () => ({ locale: 'it' }) }))
 

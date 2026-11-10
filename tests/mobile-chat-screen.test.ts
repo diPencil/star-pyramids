@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { bindDesktopChatPanel, bindMobileChatScreen, chatViewport } from '@/lib/mobile-chat-screen'
+import { bindDesktopChatPanel, bindMobileChatScreen, chatViewport } from '@/lib/support/mobile-chat-screen'
 
 function fixture(withVisualViewport=true){
  const viewport=Object.assign(new EventTarget(),{height:780,width:390,offsetTop:0,offsetLeft:0})

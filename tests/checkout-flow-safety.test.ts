@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { randomUUID } from 'node:crypto'
 import type { ReactElement, ReactNode } from 'react'
-import type { CartItem } from '@/lib/cart'
+import type { CartItem } from '@/lib/booking/cart'
 import type { Tour } from '@/data/types'
 import type { AuthenticatedUser } from '@/lib/auth-types'
-import {CustomerConfirmDialog} from '@/components/customer-confirm-dialog'
-import { FUNNEL_STORAGE_PREFIX } from '@/lib/booking-funnel'
-import { BOOKING_MEASUREMENT_HEADER } from '@/lib/booking-measurement'
-import { TRACKING_CONSENT_STORAGE_KEY } from '@/lib/tracking'
+import {CustomerConfirmDialog} from '@/components/account/customer-confirm-dialog'
+import { FUNNEL_STORAGE_PREFIX } from '@/lib/tracking/leads/booking-funnel'
+import { BOOKING_MEASUREMENT_HEADER } from '@/lib/tracking/leads/booking-measurement'
+import { TRACKING_CONSENT_STORAGE_KEY } from '@/lib/tracking/tracking'
 
 const harness=vi.hoisted(()=>({index:0,values:[] as unknown[],items:[] as CartItem[],locale:'en' as 'en'|'es'|'it',user:null as AuthenticatedUser|null,fetch:vi.fn(),remove:vi.fn(),finish:vi.fn(),key:vi.fn(),measure:false}))
 vi.mock('@/lib/use-current-user',()=>({useCurrentUser:()=>({user:harness.user,loading:false})}))
@@ -15,15 +15,15 @@ vi.mock('react',async()=>{
   const actual=await vi.importActual<typeof import('react')>('react')
   return {...actual,useEffect:vi.fn(),useState:(initial:unknown)=>{const index=harness.index++;if(!(index in harness.values))harness.values[index]=typeof initial==='function'?initial():initial;return[harness.values[index],(next:unknown)=>{harness.values[index]=typeof next==='function'?next(harness.values[index]):next}]},useRef:(initial:unknown)=>{const index=harness.index++;if(!(index in harness.values))harness.values[index]={current:initial};return harness.values[index]}}
 })
-vi.mock('@/lib/cart',()=>({useCart:()=>({items:harness.items}),removeCartItems:harness.remove,clearCart:vi.fn(),removeFromCart:vi.fn(),removeCartAddons:vi.fn()}))
-vi.mock('@/lib/checkout-attempt',()=>({checkoutAttemptKey:harness.key,finishCheckoutAttempt:harness.finish}))
+vi.mock('@/lib/booking/cart',()=>({useCart:()=>({items:harness.items}),removeCartItems:harness.remove,clearCart:vi.fn(),removeFromCart:vi.fn(),removeCartAddons:vi.fn()}))
+vi.mock('@/lib/booking/checkout-attempt',()=>({checkoutAttemptKey:harness.key,finishCheckoutAttempt:harness.finish}))
 vi.mock('@/components/locale',async()=>({...await vi.importActual<typeof import('@/components/locale')>('@/components/locale'),useLocale:()=>({locale:harness.locale,currency:'USD'})}))
-vi.mock('@/lib/cart-catalogue',async()=>{
-  const {estimateCart}=await import('@/lib/booking')
+vi.mock('@/lib/booking/cart-catalogue',async()=>{
+  const {estimateCart}=await import('@/lib/booking/booking')
   const tour:Tour={slug:'db-only',status:'published',category:'one-day-tours',title:'DB only',price:100,summary:'',image:'',location:'Cairo',duration:'Full day',dayDetail:{overview:[],addOns:[],travelerPrices:[{travelers:2,adultPrice:100,childPrice:0,infantPrice:0}]}}
   return {useCartCatalogue:()=>({ready:true,error:null,retry:vi.fn(),estimate:estimateCart(harness.items,[tour])})}
 })
-import { CheckoutPage } from '@/components/checkout-page'
+import { CheckoutPage } from '@/components/booking/checkout/checkout-page'
 function render(){harness.index=0;return CheckoutPage({measureBookings:harness.measure})}
 function find(node:ReactNode,test:(element:ReactElement<Record<string,any>>)=>boolean):ReactElement<Record<string,any>>|undefined {
   if(Array.isArray(node)){for(const child of node){const result=find(child,test);if(result)return result}return}

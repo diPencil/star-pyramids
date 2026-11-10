@@ -1,8 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 const mocks = vi.hoisted(() => ({ findMany: vi.fn() }))
 vi.mock('@/lib/server/db', () => ({ db: { offer: { findMany: mocks.findMany } } }))
-import { isOfferActive, offerDeadline, offerHref } from '@/lib/special-offers'
-import { applyLinkedOfferDeals, offerBody, offerError, OfferInputError, presentOffer } from '@/lib/server/special-offers'
+import { isOfferActive, offerDeadline, offerHref } from '@/lib/offers/special-offers'
+import { applyLinkedOfferDeals, offerBody, offerError, OfferInputError, presentOffer } from '@/lib/server/offers/special-offers'
 
 beforeEach(() => mocks.findMany.mockResolvedValue([]))
 describe('Special Offers lifecycle and pricing', () => {

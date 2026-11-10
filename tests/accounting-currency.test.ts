@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { formatCurrency } from '@/lib/currency'
+import { formatCurrency } from '@/lib/payments/currency'
 
 const mocks = vi.hoisted(() => ({
   booking: { findUnique: vi.fn() },
@@ -14,14 +14,14 @@ vi.mock('@/lib/server/db', () => ({ db: {
   }),
   user: { findUnique: vi.fn(async () => null) },
 } }))
-vi.mock('@/lib/server/notifications', () => ({ notifyUser: vi.fn(), notifyStaff: vi.fn() }))
-vi.mock('@/lib/server/email', () => ({ sendCustomerEmailSafe: vi.fn(), sendStaffEmailSafe: vi.fn() }))
-vi.mock('@/lib/server/booking-access', () => ({
+vi.mock('@/lib/server/notifications/notifications', () => ({ notifyUser: vi.fn(), notifyStaff: vi.fn() }))
+vi.mock('@/lib/server/email/email', () => ({ sendCustomerEmailSafe: vi.fn(), sendStaffEmailSafe: vi.fn() }))
+vi.mock('@/lib/server/booking/access/booking-access', () => ({
   guestBookingPath: vi.fn(), issueGuestBookingToken: vi.fn(), revokeGuestBookingTokens: vi.fn(),
   resolveGuestBookingToken: vi.fn(),
 }))
-import { deriveBookingPaymentSummary, initiateCustomerPayment, recordOfflinePayment, recordOfflineRefund, toCustomerPaymentView, toStaffPaymentView } from '@/lib/server/payments'
-import { toCustomerView, toStaffView } from '@/lib/server/bookings'
+import { deriveBookingPaymentSummary, initiateCustomerPayment, recordOfflinePayment, recordOfflineRefund, toCustomerPaymentView, toStaffPaymentView } from '@/lib/server/payments/payments'
+import { toCustomerView, toStaffView } from '@/lib/server/booking/bookings'
 
 const date = new Date('2026-01-01T00:00:00Z')
 function booking(currency = 'USD') {

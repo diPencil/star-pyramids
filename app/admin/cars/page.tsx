@@ -8,8 +8,8 @@ import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableT
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
-import { SharedSelect } from '@/components/shared-select'
-import { invalidateEventsCarsCache, useDbCarsStatus } from '@/lib/events-cars-client'
+import { SharedSelect } from '@/components/shared/forms/shared-select'
+import { invalidateEventsCarsCache, useDbCarsStatus } from '@/lib/catalogue/events-cars-client'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { toast } from '@/components/admin/admin-toaster'
 

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { CarRequestDetailPage } from '@/components/account-portal'
-import { isCarReference } from '@/lib/car-request'
+import { CarRequestDetailPage } from '@/components/account/account-portal'
+import { isCarReference } from '@/lib/cars/car-request'
 
 export const metadata: Metadata = {
   title: 'Car Request Details',

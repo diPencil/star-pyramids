@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
-import { countStaffUnread, listStaffConversations } from '@/lib/server/support-chat';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
+import { countStaffUnread, listStaffConversations } from '@/lib/server/support/support-chat';
 
 async function requireStaff(permission: string) {
   const current = await getCurrentUser();

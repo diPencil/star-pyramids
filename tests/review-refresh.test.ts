@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest'
 const hooks = vi.hoisted(() => ({ setup: null as null | (() => () => void), ref: { current: () => {} } }))
 vi.mock('react', () => ({ useRef: () => hooks.ref, useEffect: (setup: () => () => void) => { hooks.setup ??= setup } }))
-import { useReviewRefresh } from '@/lib/use-review-refresh'
+import { useReviewRefresh } from '@/lib/reviews/use-review-refresh'
 afterEach(() => { hooks.setup = null; vi.unstubAllGlobals() })
 it('reloads published reviews on visible return, uses the latest callback and cleans up listeners', () => {
   const win = new EventTarget(), doc = Object.assign(new EventTarget(), { visibilityState: 'visible' })

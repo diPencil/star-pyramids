@@ -2,13 +2,13 @@
 
 import { ArrowDown, ArrowUp, ListChecks, Plus, Trash2 } from 'lucide-react'
 import type { BlogEditorial, BlogGuideSection } from '@/data/types'
-import { BLOG_GUIDE_ICONS } from '@/lib/blog-editorial'
-import { moveTranslationRow, removeTranslationRow } from '@/lib/catalogue-translations'
+import { BLOG_GUIDE_ICONS } from '@/lib/editorial/blog-editorial'
+import { moveTranslationRow, removeTranslationRow } from '@/lib/catalogue/catalogue-translations'
 import { AdminText, Card } from './admin-ui'
 import { ImageField } from './image-field'
-import { TourCtaPicker } from './tour-cta-picker'
+import { TourCtaPicker } from './tours/tour-cta-picker'
 import { TranslatedInput, TranslatedTextarea, useContentLanguage } from './content-language-tabs'
-import { SharedSelect } from '../shared-select'
+import { SharedSelect } from '../shared/forms/shared-select'
 import { useAdminLocale } from './admin-locale'
 
 export type BlogEditorialFormSection = 'hero' | 'facts' | 'sections' | 'navigation' | 'practical' | 'cta'

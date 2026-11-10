@@ -104,15 +104,15 @@ const shared = vi.hoisted(() => {
 const { store } = shared
 
 vi.mock('@/lib/server/db', () => ({ db: shared.db }))
-vi.mock('@/lib/server/email', () => ({
+vi.mock('@/lib/server/email/email', () => ({
   sendCustomerEmailSafe: vi.fn(async () => undefined),
   sendStaffEmailSafe: vi.fn(async () => undefined),
 }))
-vi.mock('@/lib/server/notifications', () => ({
+vi.mock('@/lib/server/notifications/notifications', () => ({
   notifyUser: vi.fn(async () => undefined),
   notifyStaff: vi.fn(async () => undefined),
 }))
-vi.mock('@/lib/server/booking-access', () => ({
+vi.mock('@/lib/server/booking/access/booking-access', () => ({
   revokeGuestBookingTokens: vi.fn(async () => undefined),
   issueGuestBookingToken: vi.fn(async () => ({ token: 'guest-payment-token', expiresAt: new Date() })),
   guestBookingPath: (token: string) => `/booking/${token}`,
@@ -122,7 +122,7 @@ import {
   DuplicateWebhookEvent,
   PaidOnCancelledBooking,
   transitionPayment,
-} from '@/lib/server/payments'
+} from '@/lib/server/payments/payments'
 
 function seedPayment(overrides: Record<string, any> = {}) {
   const row: Record<string, any> = {
@@ -272,7 +272,7 @@ describe('cancel-vs-settle interleavings (conditional-write semantics)', () => {
     // Settle commits PAID; the later cancel exposure read must block.
     seedPayment({ status: 'PAID', amountPaid: 100 })
     seedBooking({ status: 'CONFIRMED' })
-    const { bookingCancelExposure } = await import('@/lib/booking')
+    const { bookingCancelExposure } = await import('@/lib/booking/booking')
     const exposure = bookingCancelExposure([
       { status: 'paid', amountPaidCents: 10000, amountRefundedCents: 0 },
     ])
@@ -295,7 +295,7 @@ describe('cancel-vs-settle interleavings (conditional-write semantics)', () => {
       row.status === 'PENDING' || row.status === 'PROCESSING' ? 1 : 0
     expect(claimed).toBe(0)
     expect(row.amountPaid).toBe(100)
-    const { bookingCancelExposure } = await import('@/lib/booking')
+    const { bookingCancelExposure } = await import('@/lib/booking/booking')
     expect(
       bookingCancelExposure([{ status: 'paid', amountPaidCents: 10000, amountRefundedCents: 0 }]),
     ).toBe('captured')

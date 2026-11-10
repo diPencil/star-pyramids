@@ -19,7 +19,7 @@ const db = vi.hoisted(() => ({
   journeyGalleryTour: { findFirst: vi.fn() },
 }))
 
-vi.mock('@/lib/server/auth', () => ({
+vi.mock('@/lib/server/auth/auth', () => ({
   getCurrentUser: async () =>
     state.signedIn
       ? { id: 'staff-1', roles: ['ADMIN'], permissions: state.permissions }
@@ -27,7 +27,7 @@ vi.mock('@/lib/server/auth', () => ({
   hasPermission: (_user: unknown, key: string) => state.permissions.includes(key),
 }))
 vi.mock('@/lib/server/db', () => ({ db }))
-vi.mock('@/lib/server/special-offers', () => ({
+vi.mock('@/lib/server/offers/special-offers', () => ({
   applyLinkedOfferDeals: async (rows: unknown[]) => rows,
 }))
 

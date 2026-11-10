@@ -7,19 +7,19 @@ import type { Tour } from '@/data/types'
 const state = vi.hoisted(() => ({ locale: 'es' as 'en' | 'es' | 'it' }))
 vi.mock('next/navigation', () => ({ useRouter:()=>({push:vi.fn()}), usePathname:()=>'/egypt-tours/test' }))
 vi.mock('@/components/locale', async () => ({ ...await vi.importActual<typeof import('@/components/locale')>('@/components/locale'), useLocale:()=>({locale:state.locale,currency:'USD'}) }))
-vi.mock('@/lib/customer-account',()=>({useCustomerFavorites:()=>({has:()=>false,toggle:vi.fn()})}))
-vi.mock('@/lib/catalogue-client',()=>({useDbDestinations:()=>[]}))
-vi.mock('@/components/reviews',()=>({TourReviewsSection:()=>null}))
-vi.mock('@/components/tour-video-gallery',()=>({TourVideoGallery:()=>null}))
-vi.mock('@/components/ask-question',()=>({AskQuestionButton:()=>null}))
-vi.mock('@/components/mobile-booking-shortcut',()=>({MobileBookingShortcut:()=>null}))
+vi.mock('@/lib/account/customer-account',()=>({useCustomerFavorites:()=>({has:()=>false,toggle:vi.fn()})}))
+vi.mock('@/lib/catalogue/catalogue-client',()=>({useDbDestinations:()=>[]}))
+vi.mock('@/components/reviews/reviews',()=>({TourReviewsSection:()=>null}))
+vi.mock('@/components/tours/detail/tour-video-gallery',()=>({TourVideoGallery:()=>null}))
+vi.mock('@/components/enquiries/ask-question',()=>({AskQuestionButton:()=>null}))
+vi.mock('@/components/booking/mobile-booking-shortcut',()=>({MobileBookingShortcut:()=>null}))
 
-import { DayTourDetailPage } from '@/components/day-tour-detail'
-import { TourRichText } from '@/components/tour-rich-text'
-import { TripPreviewContent } from '@/components/admin/trip-builder-preview'
-import { buildTripPreview } from '@/lib/trip-builder-preview'
+import { DayTourDetailPage } from '@/components/tours/detail/day-tour-detail'
+import { TourRichText } from '@/components/tours/detail/tour-rich-text'
+import { TripPreviewContent } from '@/components/admin/tours/trip-builder-preview'
+import { buildTripPreview } from '@/lib/trip-builder/trip-builder-preview'
 import { editorData } from '@/components/admin/trip-builder'
-import { TourDetailPage, TourLocationMap } from '@/components/tour-detail'
+import { TourDetailPage, TourLocationMap } from '@/components/tours/detail/tour-detail'
 
 const records = [translationTour]
 

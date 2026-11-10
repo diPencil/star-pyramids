@@ -1,15 +1,15 @@
-import { rentCarFailure } from '@/lib/server/rent-car-errors';
+import { rentCarFailure } from '@/lib/server/cars/rent-car-errors';
 import { NextResponse } from 'next/server';
-import { isCarReference } from '@/lib/car-request';
+import { isCarReference } from '@/lib/cars/car-request';
 
 import { isSameOriginRequest } from '@/lib/server/csrf';
-import { getAccountReadUser, getAccountWriteUser } from '@/lib/server/staff-preview';
+import { getAccountReadUser, getAccountWriteUser } from '@/lib/server/auth/staff-preview';
 import {
   cancelCustomerCarRequest,
   getCustomerCarRequest,
   updateCustomerCarRequest,
   validateCarDraft,
-} from '@/lib/server/car-requests';
+} from '@/lib/server/cars/car-requests';
 
 function refOf(ctx: { params: Promise<{ ref: string }> }): Promise<string> {
   return ctx.params.then((p) => p.ref);

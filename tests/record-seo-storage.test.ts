@@ -5,13 +5,13 @@ const mocks = vi.hoisted(() => {
   return { tour: entity(), blog: entity(), destination: entity(), event: entity(), offer: entity(), multiDayCategory: entity(), catalogueTranslation: { ...entity(), create: vi.fn() }, $queryRaw: vi.fn(), $executeRaw: vi.fn(), $transaction: vi.fn() }
 })
 vi.mock('@/lib/server/db', () => ({ db: mocks }))
-vi.mock('@/lib/server/auth', () => ({ getCurrentUser: async () => ({ id: 'staff' }), hasPermission: () => true }))
-vi.mock('@/lib/blog-editorial', () => ({ BlogEditorialInputError: class extends Error {}, validateBlogEditorial: (value: unknown) => value }))
-import { emptyRecordSeoContent, initialRecordSeoState, isRecordSeoKind, preserveRecordSeo, recordSeoStateFromPayload, remapRecordSeoCanonical, stripRecordSeo, transitionRecordSeo, validateRecordSeoState, type RecordSeoKind } from '@/lib/record-seo'
-import { changeRecordSeo, getPublishedRecordSeo, listRecordSeo, readRecordSeo, RecordSeoNotEligibleError, RecordSeoNotFoundError } from '@/lib/server/record-seo'
-import { HeroConflictError } from '@/lib/server/website-heroes'
-import { attachCatalogueTranslations, catalogueTranslationResponse, saveWithCatalogueTranslations } from '@/lib/server/catalogue-translations'
-import { decodeTourJson } from '@/lib/tour-json'
+vi.mock('@/lib/server/auth/auth', () => ({ getCurrentUser: async () => ({ id: 'staff' }), hasPermission: () => true }))
+vi.mock('@/lib/editorial/blog-editorial', () => ({ BlogEditorialInputError: class extends Error {}, validateBlogEditorial: (value: unknown) => value }))
+import { emptyRecordSeoContent, initialRecordSeoState, isRecordSeoKind, preserveRecordSeo, recordSeoStateFromPayload, remapRecordSeoCanonical, stripRecordSeo, transitionRecordSeo, validateRecordSeoState, type RecordSeoKind } from '@/lib/seo/record-seo'
+import { changeRecordSeo, getPublishedRecordSeo, listRecordSeo, readRecordSeo, RecordSeoNotEligibleError, RecordSeoNotFoundError } from '@/lib/server/seo/record-seo'
+import { HeroConflictError } from '@/lib/server/cms/heroes/website-heroes'
+import { attachCatalogueTranslations, catalogueTranslationResponse, saveWithCatalogueTranslations } from '@/lib/server/catalogue/catalogue-translations'
+import { decodeTourJson } from '@/lib/tours/tour-json'
 import { PUT as updateTour } from '@/app/api/tours/[slug]/route'
 import { PUT as updateBlog } from '@/app/api/blogs/[slug]/route'
 import { PUT as updateDestination } from '@/app/api/destinations/[slug]/route'

@@ -2,18 +2,18 @@ import { createElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { beforeEach, expect, it, vi } from 'vitest'
 import type { Tour } from '@/data/types'
-import type { CartItem } from '@/lib/cart'
-import { estimateCart } from '@/lib/booking'
+import type { CartItem } from '@/lib/booking/cart'
+import { estimateCart } from '@/lib/booking/booking'
 
 const state = vi.hoisted(() => ({ data: null as Tour[] | null, error: null as string | null, locale: 'en' as 'en' | 'es' | 'it', items: [] as CartItem[], retry: vi.fn(), clear: vi.fn() }))
-vi.mock('@/lib/tours-client', () => ({ useDbToursStatus: () => ({ data: state.data, loading: state.data === null && !state.error, error: state.error, retry: state.retry }) }))
-vi.mock('@/lib/cart', () => ({ useCart: () => ({ items: state.items }), clearCart: () => state.clear(), removeFromCart: vi.fn() }))
+vi.mock('@/lib/tours/tours-client', () => ({ useDbToursStatus: () => ({ data: state.data, loading: state.data === null && !state.error, error: state.error, retry: state.retry }) }))
+vi.mock('@/lib/booking/cart', () => ({ useCart: () => ({ items: state.items }), clearCart: () => state.clear(), removeFromCart: vi.fn() }))
 vi.mock('@/components/site', () => ({ SiteShell: ({ children }: { children: ReactNode }) => children, Breadcrumb: () => null }))
 vi.mock('@/components/locale', async () => ({ ...await vi.importActual<typeof import('@/components/locale')>('@/components/locale'), useLocale: () => ({ currency: 'USD', locale: state.locale }) }))
-vi.mock('@/components/international-phone-input', () => ({ InternationalPhoneInput: () => null }))
-vi.mock('@/components/booking-payment', () => ({ PaymentInstructions: () => null }))
-import { CartPage } from '@/components/cart-page'
-import { CheckoutPage } from '@/components/checkout-page'
+vi.mock('@/components/shared/forms/international-phone-input', () => ({ InternationalPhoneInput: () => null }))
+vi.mock('@/components/booking/booking-payment', () => ({ PaymentInstructions: () => null }))
+import { CartPage } from '@/components/booking/cart/cart-page'
+import { CheckoutPage } from '@/components/booking/checkout/checkout-page'
 
 const liveTour = (category: Tour['category'] = 'one-day-tours'): Tour => ({ slug: 'alexandria-full-day-tour', aliases: ['old-alexandria'], status: 'published', title: 'Alexandria Full Day Tour', category, location: 'Alexandria', duration: 'Full day', price: 125, image: '/live.jpg', summary: 'A current DB-only trip', dayDetail: { overview: ['Visit Alexandria'], priceRows: [], travelerPrices: [{ travelers: 2, adultPrice: 125, childPrice: 70, infantPrice: 0 }], addOns: [{ title: 'Extra', price: 20 }] } })
 const line = (slug = 'alexandria-full-day-tour'): CartItem => ({ key: 'original-key', tourSlug: slug, title: 'Alexandria Full Day Tour', image: '/snapshot.jpg', date: '', adults: 2, children: 0, infants: 0, addons: [], addonTotal: 9999, adultUnit: 9999, childUnit: 9999, infantUnit: 9999, total: 9999 })

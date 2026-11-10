@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 const settings = vi.hoisted(() => ({ value: null as null | { eur?: number; egp?: number; defaultCurrency?: 'USD' | 'EUR' | 'EGP' } }))
-vi.mock('@/lib/storefront-settings', () => ({ getDbCurrency: () => settings.value, getDbLocalization: () => null, ensureStorefrontSettings: vi.fn() }))
-import { SUPPORTED_CURRENCIES, CURRENCY_OPTIONS, isCurrency, normalizeCurrency, formatCurrency, currencyChoices, TOUR_BOOKING_CURRENCY } from '@/lib/currency'
-import { SUPPORTED_CURRENCIES as carCurrencies, normalizeCurrency as normalizeCarCurrency, passengerAmount } from '@/lib/car-pricing'
-import { formatQuoteAmount } from '@/lib/car-request'
+vi.mock('@/lib/cms/storefront-settings', () => ({ getDbCurrency: () => settings.value, getDbLocalization: () => null, ensureStorefrontSettings: vi.fn() }))
+import { SUPPORTED_CURRENCIES, CURRENCY_OPTIONS, isCurrency, normalizeCurrency, formatCurrency, currencyChoices, TOUR_BOOKING_CURRENCY } from '@/lib/payments/currency'
+import { SUPPORTED_CURRENCIES as carCurrencies, normalizeCurrency as normalizeCarCurrency, passengerAmount } from '@/lib/cars/car-pricing'
+import { formatQuoteAmount } from '@/lib/cars/car-request'
 import { formatPrice, readCurrencySettings } from '@/components/locale'
 
 beforeEach(() => { settings.value = null })

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { checkoutAttemptKey, finishCheckoutAttempt } from '@/lib/checkout-attempt'
-import { addToCart, cartKey, clearCart, removeCartAddons, removeCartItems, sanitizeCartItem } from '@/lib/cart'
-import type { BookingCheckoutDraft } from '@/lib/booking'
+import { checkoutAttemptKey, finishCheckoutAttempt } from '@/lib/booking/checkout-attempt'
+import { addToCart, cartKey, clearCart, removeCartAddons, removeCartItems, sanitizeCartItem } from '@/lib/booking/cart'
+import type { BookingCheckoutDraft } from '@/lib/booking/booking'
 const stored = new Map<string,string>()
 const storage={getItem:(key:string)=>stored.get(key)??null,setItem:(key:string,value:string)=>stored.set(key,value),removeItem:(key:string)=>stored.delete(key)}
 const intent:Omit<BookingCheckoutDraft,'idempotencyKey'>={lines:[{tourSlug:'current-tour',date:'',adults:2,children:0,infants:0,addons:['Ticket','Transfer']}],contact:{name:'Test Customer',email:'test@example.com',phone:'+201234567890'},notes:'A note',currency:'USD'}

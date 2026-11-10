@@ -1,7 +1,7 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 const mock = vi.hoisted(() => ({ user: { id: 'staff-owner' } as { id: string } | null, allowed: true, findMany: vi.fn(), count: vi.fn() }))
-vi.mock('@/lib/server/auth', () => ({ getCurrentUser: async () => mock.user, hasPermission: () => mock.allowed }))
+vi.mock('@/lib/server/auth/auth', () => ({ getCurrentUser: async () => mock.user, hasPermission: () => mock.allowed }))
 vi.mock('@/lib/server/db', () => ({ db: { notification: { findMany: mock.findMany, count: mock.count } } }))
 import { GET } from '@/app/api/admin/notifications/history/route'
 beforeEach(() => { mock.user = { id: 'staff-owner' }; mock.allowed = true; mock.findMany.mockReset().mockResolvedValue([]); mock.count.mockReset().mockResolvedValue(101) })

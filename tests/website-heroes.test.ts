@@ -2,9 +2,9 @@ import { readFileSync } from 'node:fs'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { heroCatalogue } from '@/lib/hero-catalogue'
-import { originalHomeHero, initialHeroState, transitionHero, validateHomeHero, validateHeroMedia, publicHeroState } from '@/lib/website-heroes'
-import { HomepageHero } from '@/components/homepage-hero'
+import { heroCatalogue } from '@/lib/cms/heroes/hero-catalogue'
+import { originalHomeHero, initialHeroState, transitionHero, validateHomeHero, validateHeroMedia, publicHeroState } from '@/lib/cms/heroes/website-heroes'
+import { HomepageHero } from '@/components/home/homepage-hero'
 import { InitialLocaleProvider, LocaleProvider } from '@/components/locale'
 
 describe('Website CMS hero lifecycle', () => {
@@ -78,8 +78,8 @@ describe('Website CMS hero lifecycle', () => {
     for (const hero of heroCatalogue) expect(readFileSync(hero.source, 'utf8').length).toBeGreaterThan(0)
   })
   it('keeps real homepage search composition and private draft previews', () => {
-    expect(readFileSync('components/homepage.tsx', 'utf8')).toContain('<TripSearchEngine/></HomepageHero>')
-    expect(readFileSync('components/homepage-hero-preview.tsx', 'utf8')).toContain('<div inert>')
+    expect(readFileSync('components/home/homepage.tsx', 'utf8')).toContain('<TripSearchEngine/></HomepageHero>')
+    expect(readFileSync('components/home/homepage-hero-preview.tsx', 'utf8')).toContain('<div inert>')
     expect(readFileSync('app/website-cms-preview/homepage/page.tsx', 'utf8')).toContain('<HomepageHeroPreview')
     expect(readFileSync('app/website-cms-preview/homepage/page.tsx', 'utf8')).toContain("hasPermission(user, 'settings.view')")
   })

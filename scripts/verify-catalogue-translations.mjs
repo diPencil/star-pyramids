@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict'
 process.loadEnvFile('.env')
 const { db } = await import('../lib/server/db.ts')
-const { saveWithCatalogueTranslations, deleteWithCatalogueTranslations } = await import('../lib/server/catalogue-translations.ts')
+const { saveWithCatalogueTranslations, deleteWithCatalogueTranslations } = await import('../lib/server/catalogue/catalogue-translations.ts')
 const runTransaction = db.$transaction.bind(db)
 const originalTransaction = db.$transaction
 const marker = new Error('verification rollback')

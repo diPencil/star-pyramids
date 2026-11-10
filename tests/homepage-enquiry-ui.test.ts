@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-const homepage = readFileSync(join(process.cwd(), 'components', 'homepage.tsx'), 'utf8')
+const homepage = readFileSync(join(process.cwd(), 'components', 'home', 'homepage.tsx'), 'utf8')
 
 describe('homepage help form regression guard', () => {
   it('submits to the real enquiry workflow with same-origin credentials', () => {

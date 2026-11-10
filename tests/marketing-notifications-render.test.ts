@@ -2,8 +2,8 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import { NotificationDropdown } from '@/components/site'
-import type { useMarketingNotifications } from '@/lib/marketing-notifications-client'
-import type { MarketingNotification } from '@/lib/marketing-notifications'
+import type { useMarketingNotifications } from '@/lib/marketing/marketing-notifications-client'
+import type { MarketingNotification } from '@/lib/marketing/marketing-notifications'
 vi.mock('@/lib/server/db', () => { throw Error('No database access in rendering tests') })
 const item: MarketingNotification = { id: 'marketing:offer:' + 'a'.repeat(32), type: 'offer_available', title: 'Real saved offer', message: 'Saved offer description', href: '/special-offers/saved-offer', createdAt: '2026-10-28T09:00:00Z', expiresAt: null, readAt: null, localized: { es: { title: 'Oferta guardada', message: 'Descripción guardada' }, it: { title: 'Offerta salvata', message: 'Descrizione salvata' } } }
 const state = (extra: Partial<ReturnType<typeof useMarketingNotifications>> = {}): ReturnType<typeof useMarketingNotifications> => ({ owner: null, items: [item], unreadCount: 1, loading: false, error: '', busy: false, refresh: vi.fn(), markRead: vi.fn(async () => {}), markAllRead: vi.fn(async () => {}), ...extra })

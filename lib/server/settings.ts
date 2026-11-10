@@ -1,4 +1,4 @@
-import { isCurrency } from '../currency';
+import { isCurrency } from '../payments/currency';
 // Authoritative site-settings service. Server owns company identity,
 // locale/currency/timezone defaults and brand/social/configuration values.
 // Browser-local prototype settings MUST NOT override these after
@@ -17,12 +17,12 @@ import 'server-only';
 import { Prisma } from '@prisma/client';
 
 import { db } from './db';
-import { getActiveRate } from './fx';
-import { ENABLED_LOCALES } from '../locale-config';
-import { readAccessStrip, validateAccessStrip, type AccessStripOverride } from '../access-strip';
-import { validateHeroMedia } from '../website-heroes';
-import { normalizeGtmContainerId } from '../tracking';
-import { normalizeGa4MeasurementId } from '../tracking-health';
+import { getActiveRate } from './payments/fx';
+import { ENABLED_LOCALES } from '../i18n/locale-config';
+import { readAccessStrip, validateAccessStrip, type AccessStripOverride } from '../cms/access-strip';
+import { validateHeroMedia } from '../cms/heroes/website-heroes';
+import { normalizeGtmContainerId } from '../tracking/tracking';
+import { normalizeGa4MeasurementId } from '../tracking/health/tracking-health';
 
 export const SETTING_KEYS = {
   siteName: 'site.name',
@@ -72,7 +72,7 @@ export const PUBLIC_SETTING_KEYS = [
   'tracking.ga4MeasurementId',
   'site.promoText',
   'site.promo2Text',
-  // Footer accessibility strip override (JSON document, see lib/access-strip.ts)
+  // Footer accessibility strip override (JSON document, see lib/cms/access-strip.ts)
   'site.accessStrip',
   // Google Maps (non-secret configuration only)
   'maps.mapId',

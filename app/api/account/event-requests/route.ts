@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
-import { listCustomerEventRequests } from '@/lib/server/event-requests';
-import { getAccountReadUser } from '@/lib/server/staff-preview';
+import { listCustomerEventRequests } from '@/lib/server/events/event-requests';
+import { getAccountReadUser } from '@/lib/server/auth/staff-preview';
 
 /** Owner-only request list (customer-safe projection, no activities). */
 export async function GET() {

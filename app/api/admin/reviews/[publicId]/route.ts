@@ -1,7 +1,7 @@
-import { reviewTrips } from '@/lib/server/review-trips';
+import { reviewTrips } from '@/lib/server/reviews/review-trips';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/server/db';
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 
 /**

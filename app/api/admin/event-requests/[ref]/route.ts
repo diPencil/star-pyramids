@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
 import {
   addStaffEventNote,
   getStaffEventRequest,
   transitionStaffEventRequest,
-} from '@/lib/server/event-requests';
-import { EVENT_REQUEST_STATUSES, type EventRequestStatus } from '@/lib/event-request';
+} from '@/lib/server/events/event-requests';
+import { EVENT_REQUEST_STATUSES, type EventRequestStatus } from '@/lib/events/event-request';
 
 type StaffPatchBody = {
   status?: unknown;

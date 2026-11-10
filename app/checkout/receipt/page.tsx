@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { CheckoutPage } from '@/components/checkout-page'
-import { getCurrentUser } from '@/lib/server/auth'
-import { confirmationCookieName, readBookingConfirmation } from '@/lib/server/booking-confirmation'
+import { CheckoutPage } from '@/components/booking/checkout/checkout-page'
+import { getCurrentUser } from '@/lib/server/auth/auth'
+import { confirmationCookieName, readBookingConfirmation } from '@/lib/server/booking/access/booking-confirmation'
 
 export const metadata: Metadata = {
   title: 'Private booking details',

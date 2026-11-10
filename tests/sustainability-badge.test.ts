@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 const state = vi.hoisted(() => ({ failed: null as string | null, set: vi.fn() }))
 vi.mock('react', async (original) => ({ ...await original<typeof import('react')>(), useState: () => [state.failed, state.set] }))
-import { SustainabilityBadge, sustainabilityImage } from '@/components/sustainability-badge'
+import { SustainabilityBadge, sustainabilityImage } from '@/components/home/sustainability-badge'
 const props = { image: 'https://images.example.com/purpose.jpg', first: 'Travel', second: 'Responsibly', caption: 'People, Places, Planet' }
 beforeEach(() => { state.failed = null; state.set.mockReset() })
 describe('sustainability badge loading', () => {

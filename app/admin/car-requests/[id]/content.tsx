@@ -1,18 +1,18 @@
 'use client'
 
 import Link from 'next/link'
-import { CarQuoteSummary } from '@/components/car-quote-summary'
-import { useCarLocale } from '@/lib/use-car-locale'
+import { CarQuoteSummary } from '@/components/cars/car-quote-summary'
+import { useCarLocale } from '@/lib/cars/use-car-locale'
 import { useEffect, useState } from 'react'
 import { CalendarDays, CarFront, FlaskConical, Mail, MapPin, MessageCircle, Phone, Users } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { AdminEmpty, AdminText, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
-import { useDbCars } from '@/lib/events-cars-client'
+import { useDbCars } from '@/lib/catalogue/events-cars-client'
 import { cars } from '@/data/content'
 import { phoneHref, whatsappHref } from '@/data/company'
-import { SharedSelect } from '@/components/shared-select'
+import { SharedSelect } from '@/components/shared/forms/shared-select'
 import {
   canTransitionCarRequest,
   carActivityLabel,
@@ -20,7 +20,7 @@ import {
   fleetVehicleTitle,
   type CarRequestStatus,
   type StaffCarRequest,
-} from '@/lib/car-request'
+} from '@/lib/cars/car-request'
 
 const ACTIONS: { from: CarRequestStatus[]; to: CarRequestStatus; tone: 'primary' | 'danger' }[] = [
   { from: ['new'], to: 'reviewing', tone: 'primary' },

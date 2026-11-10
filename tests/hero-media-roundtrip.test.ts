@@ -8,7 +8,7 @@ vi.mock('@/lib/server/db', () => ({ db: { mediaAsset: {
   create: async ({ data }: { data: Record<string, unknown> }) => { const row = { ...data, id: 'asset-' + memory.assets.size, publicId: 'public-' + memory.assets.size }; memory.assets.set(String(data.storageKey), row); return row },
   findUnique: async ({ where }: { where: { storageKey: string } }) => memory.assets.get(where.storageKey) ?? null,
 } } }))
-vi.mock('@/lib/server/auth', () => ({ getCurrentUser: async () => memory.authorized ? { id: 'isolated-staff' } : null, hasPermission: () => true }))
+vi.mock('@/lib/server/auth/auth', () => ({ getCurrentUser: async () => memory.authorized ? { id: 'isolated-staff' } : null, hasPermission: () => true }))
 vi.mock('@/lib/server/csrf', () => ({ isSameOriginRequest: () => true }))
 import { POST } from '@/app/api/admin/website-cms/hero-media/route'
 import { GET as imageGET } from '@/app/media/[...path]/route'

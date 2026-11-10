@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest'
 vi.mock('@/lib/server/db',()=>({db:{}}))
-import { renderEmailTemplate } from '@/lib/server/email'
+import { renderEmailTemplate } from '@/lib/server/email/email'
 it('escapes recovery content and never describes a new or paid booking',()=>{
   const template=renderEmailTemplate('booking_access_requested',{name:'<img src=x onerror=alert(1)>',reference:'SP-BK-ABC123',detailUrl:'/booking/'+'a'.repeat(43)})
   expect(template.html).toContain('&lt;img');expect(template.html).not.toContain('<img src=x')

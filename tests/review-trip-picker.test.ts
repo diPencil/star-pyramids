@@ -2,9 +2,9 @@ import { Children, isValidElement, type ReactElement, type ReactNode } from 'rea
 import { readFileSync } from 'node:fs'
 import postcss from 'postcss'
 import { beforeEach, expect, it, vi } from 'vitest'
-import { ReviewTripPicker } from '@/components/review-trip-picker'
-import { filterReviewTrips, REVIEW_TRIP_TYPES, reviewTripTypeLabel, type ReviewTripChoice } from '@/lib/review-trip-options'
-import type { Locale } from '@/lib/locale-config'
+import { ReviewTripPicker } from '@/components/reviews/review-trip-picker'
+import { filterReviewTrips, REVIEW_TRIP_TYPES, reviewTripTypeLabel, type ReviewTripChoice } from '@/lib/reviews/review-trip-options'
+import type { Locale } from '@/lib/i18n/locale-config'
 
 const hooks = vi.hoisted(() => ({ cells: [] as unknown[], cursor: 0 }))
 vi.mock('react', async original => ({
@@ -82,7 +82,7 @@ it('keeps unknown categories honest and never turns search text into a fabricate
   expect(reviewTripTypeLabel('nile-cruises', 'ar')).toBe('Nile Cruises')
 })
 it('bounds the inline result list and wraps long titles instead of rendering a native or floating popup', () => {
-  const root = postcss.parse(readFileSync('components/reviews-phase6.css', 'utf8'))
+  const root = postcss.parse(readFileSync('components/reviews/reviews-phase6.css', 'utf8'))
   const rules = new Map<string, Record<string, string>>()
   root.walkRules(rule => { const values: Record<string, string> = {}; rule.walkDecls(decl => { values[decl.prop] = decl.value }); rules.set(rule.selector, values); if (rule.selector.includes('.rev-trip')) expect(['absolute', 'fixed']).not.toContain(values.position) })
   expect(rules.get('.rev-trip-results')).toMatchObject({ 'max-width': '100%', 'max-height': 'min(220px,28dvh)', 'overflow-y': 'auto', 'overflow-x': 'hidden' })

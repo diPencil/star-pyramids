@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto'
 import { afterEach, expect, it, vi } from 'vitest'
 import { SiteMeasurement } from '@/components/site-measurement'
-import { installEnquiryHistoryTracking } from '@/lib/enquiry-navigation'
-import { TRACKING_CONSENT_STORAGE_KEY } from '@/lib/tracking'
-import { GTM_CONSENT_READY_EVENT, readTrackingGrants } from '@/lib/tracking-browser'
-import { FUNNEL_STORAGE_PREFIX } from '@/lib/booking-funnel'
-import { submitTripRequest } from '@/lib/trip-request-submission'
-import type { MakeYourTripRequestDraft } from '@/lib/trip-request'
+import { installEnquiryHistoryTracking } from '@/lib/enquiries/enquiry-navigation'
+import { TRACKING_CONSENT_STORAGE_KEY } from '@/lib/tracking/tracking'
+import { GTM_CONSENT_READY_EVENT, readTrackingGrants } from '@/lib/tracking/tracking-browser'
+import { FUNNEL_STORAGE_PREFIX } from '@/lib/tracking/leads/booking-funnel'
+import { submitTripRequest } from '@/lib/trip-builder/trip-request-submission'
+import type { MakeYourTripRequestDraft } from '@/lib/trip-builder/trip-request'
 
 const effects = vi.hoisted(() => [] as Array<() => void | (() => void)>)
 vi.mock('react', async original => ({

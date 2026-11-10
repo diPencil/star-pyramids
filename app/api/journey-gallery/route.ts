@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { isSameOriginRequest } from '@/lib/server/csrf';
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
 import {
   GalleryValidationError,
   createGalleryItem,
@@ -9,7 +9,7 @@ import {
   listGalleryItems,
   listTourGalleryItems,
   listGalleryTourChoices,
-} from '@/lib/server/journey-gallery';
+} from '@/lib/server/gallery/journey-gallery';
 
 /**
  * Public gallery feeds (read-only, no auth required):

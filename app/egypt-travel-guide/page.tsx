@@ -1,12 +1,12 @@
 import type { Metadata } from 'next'
-import { readPublishedPage } from '@/lib/server/page-sections'
-import { pageContentMetadata } from '@/lib/server/page-content-metadata'
-import { getSiteUrl, getHreflangEntries } from '@/lib/seo'
-import { InformationPage } from '@/components/information-page'
-import { FaqHeroProvider } from '@/components/faq-hero-context'
-import { readFaqHeroState } from '@/lib/server/faq-hero'
-import { publicEditorialHero } from '@/lib/editorial-hero-definitions'
-import type { PublicFaqHero } from '@/lib/faq-hero'
+import { readPublishedPage } from '@/lib/server/cms/page-sections'
+import { pageContentMetadata } from '@/lib/server/cms/page-content-metadata'
+import { getSiteUrl, getHreflangEntries } from '@/lib/seo/seo'
+import { InformationPage } from '@/components/content/information-page'
+import { FaqHeroProvider } from '@/components/cms/heroes/faq-hero-context'
+import { readFaqHeroState } from '@/lib/server/cms/heroes/faq-hero'
+import { publicEditorialHero } from '@/lib/cms/heroes/editorial-hero-definitions'
+import type { PublicFaqHero } from '@/lib/cms/heroes/faq-hero'
 
 export async function generateMetadata(): Promise<Metadata> {
   const siteUrl = await getSiteUrl()

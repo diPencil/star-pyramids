@@ -5,10 +5,10 @@ const state = vi.hoisted(() => {
   return {db,tokens,mail:vi.fn(),check:vi.fn(),record:vi.fn()}
 })
 vi.mock('@/lib/server/db',()=>({db:state.db}))
-vi.mock('@/lib/server/email',()=>({sendCustomerEmailSafe:state.mail}))
-vi.mock('@/lib/server/booking-access',()=>({DEFAULT_ACCESS_TTL_DAYS:90,guestBookingPath:(raw:string)=>`/booking/${raw}`}))
+vi.mock('@/lib/server/email/email',()=>({sendCustomerEmailSafe:state.mail}))
+vi.mock('@/lib/server/booking/access/booking-access',()=>({DEFAULT_ACCESS_TTL_DAYS:90,guestBookingPath:(raw:string)=>`/booking/${raw}`}))
 vi.mock('@/lib/server/rate-limit',()=>({checkBookingRateLimit:state.check,recordBookingAttempt:state.record}))
-import { emailGuestBookingAccess } from '@/lib/server/booking-recovery'
+import { emailGuestBookingAccess } from '@/lib/server/booking/access/booking-recovery'
 import { POST } from '@/app/api/bookings/request-access/route'
 import { hashToken } from '@/lib/core/tokens'
 import { readBoundedJson } from '@/lib/server/request-json'

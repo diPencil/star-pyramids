@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import {
   createRole,
@@ -8,7 +8,7 @@ import {
   listRolesDetailed,
   SUPER_ADMIN_ONLY_PERMISSIONS,
   UserManagementError,
-} from '@/lib/server/users';
+} from '@/lib/server/auth/users';
 
 function toError(error: unknown) {
   if (error instanceof UserManagementError) {

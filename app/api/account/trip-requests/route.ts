@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
-import { listCustomerTripRequests } from '@/lib/server/trip-requests';
-import { getAccountReadUser } from '@/lib/server/staff-preview';
+import { listCustomerTripRequests } from '@/lib/server/trip-builder/trip-requests';
+import { getAccountReadUser } from '@/lib/server/auth/staff-preview';
 
 /** Authenticated customer's own trip requests (safe projection). */
 export async function GET() {

@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mock = vi.hoisted(() => ({ user: { id: 'staff' } as { id: string } | null, allowed: true, origin: true, video: vi.fn(), image: vi.fn() }))
-vi.mock('@/lib/server/auth', () => ({ getCurrentUser: async () => mock.user, hasPermission: () => mock.allowed }))
+vi.mock('@/lib/server/auth/auth', () => ({ getCurrentUser: async () => mock.user, hasPermission: () => mock.allowed }))
 vi.mock('@/lib/server/csrf', () => ({ isSameOriginRequest: () => mock.origin }))
-vi.mock('@/lib/server/media', () => ({ checkMediaUploadRateLimit: async () => ({ allowed: true }), storeUploadedImage: mock.image, MediaUploadError: class extends Error {} }))
-vi.mock('@/lib/server/journey-video-storage', () => ({ storeUploadedVideo: mock.video, VideoUploadError: class extends Error {} }))
+vi.mock('@/lib/server/media/media', () => ({ checkMediaUploadRateLimit: async () => ({ allowed: true }), storeUploadedImage: mock.image, MediaUploadError: class extends Error {} }))
+vi.mock('@/lib/server/gallery/journey-video-storage', () => ({ storeUploadedVideo: mock.video, VideoUploadError: class extends Error {} }))
 import { POST } from '@/app/api/admin/website-cms/hero-media/route'
-import { MAX_HERO_VIDEO_BYTES } from '@/lib/website-heroes'
+import { MAX_HERO_VIDEO_BYTES } from '@/lib/cms/heroes/website-heroes'
 beforeEach(() => { mock.user = { id: 'staff' }; mock.allowed = true; mock.origin = true; mock.video.mockReset().mockResolvedValue({ url: '/gallery-videos/example.mp4' }); mock.image.mockReset().mockResolvedValue({ url: '/media/example.jpg' }) })
 describe('CMS media boundary with no filesystem writes', () => {
   it('rejects an oversized request before multipart parsing or storage', async () => {

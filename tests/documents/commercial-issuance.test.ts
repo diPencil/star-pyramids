@@ -20,17 +20,17 @@
 
 import { describe, it, expect, vi, afterAll } from 'vitest';
 
-vi.mock('@/lib/server/email', () => ({
+vi.mock('@/lib/server/email/email', () => ({
   sendCustomerEmailSafe: vi.fn(async () => undefined),
   sendStaffEmailSafe: vi.fn(async () => undefined),
 }));
-vi.mock('@/lib/server/notifications', () => ({
+vi.mock('@/lib/server/notifications/notifications', () => ({
   notifyUser: vi.fn(async () => undefined),
   notifyStaff: vi.fn(async () => undefined),
 }));
 
 import { db } from '@/lib/server/db';
-import { issueBookingDocument } from '@/lib/server/documents';
+import { issueBookingDocument } from '@/lib/server/documents/documents';
 import {
   cleanupProbe,
   createProbeBooking,

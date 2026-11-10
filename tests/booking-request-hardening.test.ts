@@ -1,8 +1,8 @@
 import {beforeEach,afterEach,it,expect,vi} from 'vitest'
 const m=vi.hoisted(()=>({count:0,check:vi.fn(),record:vi.fn()}))
 vi.mock('@/lib/server/rate-limit',()=>({checkBookingRateLimit:m.check,recordBookingAttempt:m.record,checkResetSubmitRateLimit:m.check,recordPasswordResetAttempt:m.record}))
-import {bookingClientIp,bookingSameOrigin,reserveBookingAttempt,reserveSetupAttempt} from '@/lib/server/booking-request-security'
-import {setupFailureText,readSetupResponse} from '@/lib/account-setup-feedback'
+import {bookingClientIp,bookingSameOrigin,reserveBookingAttempt,reserveSetupAttempt} from '@/lib/server/booking/booking-request-security'
+import {setupFailureText,readSetupResponse} from '@/lib/account/account-setup-feedback'
 beforeEach(()=>{vi.resetAllMocks();m.count=0;vi.stubEnv('BOOKING_TRUST_PROXY_HEADERS','');m.check.mockImplementation(async()=>{const allowed=m.count<1;await Promise.resolve();return {allowed,retryAfterSeconds:17}});m.record.mockImplementation(async()=>{m.count++})})
 afterEach(()=>vi.unstubAllEnvs())
 it('demonstrates the old check/record race and closes it within this process',async()=>{

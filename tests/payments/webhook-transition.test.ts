@@ -4,11 +4,11 @@
 // All provider/DB boundaries are mocked  -  no production records touched.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { mapProviderOutcomeToStatus } from '@/lib/payment'
+import { mapProviderOutcomeToStatus } from '@/lib/payments/payment'
 
 vi.mock('@/lib/server/db', () => ({ db: {} }))
 vi.mock('@/lib/server/logging', () => ({ logPaymentWebhook: vi.fn() }))
-vi.mock('@/lib/server/payments', () => ({
+vi.mock('@/lib/server/payments/payments', () => ({
   transitionPayment: vi.fn(),
   findPaymentByProviderId: vi.fn(),
   DuplicateWebhookEvent: class DuplicateWebhookEvent extends Error {
@@ -36,7 +36,7 @@ import {
   PaidOnCancelledBooking,
   transitionPayment,
   findPaymentByProviderId,
-} from '@/lib/server/payments'
+} from '@/lib/server/payments/payments'
 import { getProviderAdapterOrThrow } from '@/lib/payments/providers/index'
 
 const nowSec = () => Math.floor(Date.now() / 1000)

@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowLeft, Check, ChevronLeft, ChevronRight, Copy, RefreshCw, Search, Save } from 'lucide-react'
-import { SharedSelect } from '@/components/shared-select'
+import { SharedSelect } from '@/components/shared/forms/shared-select'
 import { useRouter } from 'next/navigation'
 import { AdminConfirmDialog } from './admin-confirm-dialog'
 import { useCurrentUser } from '@/lib/use-current-user'
-import { pickLocaleText, sanitizeLocale, type Locale } from '@/lib/locale-config'
+import { pickLocaleText, sanitizeLocale, type Locale } from '@/lib/i18n/locale-config'
 import { AdminEmpty } from './admin-ui'
-import { protectEnquiryNavigation } from '@/lib/enquiry-navigation'
+import { protectEnquiryNavigation } from '@/lib/enquiries/enquiry-navigation'
 
 type Status = 'NEW' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED'
 type StaffRole = { role: { key: string; name: string } }

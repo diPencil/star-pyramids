@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
-import { recordSeoAccess, canReadRecordSeo, SEO_PRIVATE_HEADERS } from '@/lib/server/record-seo-api'
-import { listRecordSeo } from '@/lib/server/record-seo'
-import { readSeoState } from '@/lib/server/seo-manager'
-import { SEO_PAGES, isSeoPage, currentSeo } from '@/lib/seo-manager'
-import { diagnoseSeo, type DiagnosticPage } from '@/lib/seo-diagnostics'
+import { recordSeoAccess, canReadRecordSeo, SEO_PRIVATE_HEADERS } from '@/lib/server/seo/record-seo-api'
+import { listRecordSeo } from '@/lib/server/seo/record-seo'
+import { readSeoState } from '@/lib/server/seo/seo-manager'
+import { SEO_PAGES, isSeoPage, currentSeo } from '@/lib/seo/seo-manager'
+import { diagnoseSeo, type DiagnosticPage } from '@/lib/seo/seo-diagnostics'
 export async function GET() {
   const access = await recordSeoAccess()
   if (access.response) return access.response

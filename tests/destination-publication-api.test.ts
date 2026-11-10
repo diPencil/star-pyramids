@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const m = vi.hoisted(() => ({ user: vi.fn(), permission: vi.fn(), many: vi.fn(), one: vi.fn(), translations: vi.fn(), tours: vi.fn() }))
-vi.mock('@/lib/server/auth', () => ({ getCurrentUser: m.user, hasPermission: m.permission }))
+vi.mock('@/lib/server/auth/auth', () => ({ getCurrentUser: m.user, hasPermission: m.permission }))
 vi.mock('@/lib/server/db', () => ({ db: { destination: { findMany: m.many, findUnique: m.one }, tour: { findMany: m.tours }, $queryRaw: m.translations } }))
 import { GET as list } from '@/app/api/destinations/route'
 import { GET as detail } from '@/app/api/destinations/[slug]/route'

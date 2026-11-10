@@ -10,13 +10,13 @@ vi.mock('@/lib/server/db', () => ({ db: { siteSetting: {
     return { count: 1 }
   },
 } } }))
-vi.mock('@/lib/server/auth', () => ({ getCurrentUser: async () => ({ id: 'test-staff' }), hasPermission: () => true }))
+vi.mock('@/lib/server/auth/auth', () => ({ getCurrentUser: async () => ({ id: 'test-staff' }), hasPermission: () => true }))
 vi.mock('@/lib/server/csrf', () => ({ isSameOriginRequest: () => true }))
 
 import { GET, PATCH } from '@/app/api/admin/website-cms/editorial-heroes/[id]/route'
-import { readFaqHeroState } from '@/lib/server/faq-hero'
-import { publicEditorialHero } from '@/lib/editorial-hero-definitions'
-import { INFORMATION_PAGE_IDS, originalInformationPage } from '@/lib/information-pages'
+import { readFaqHeroState } from '@/lib/server/cms/heroes/faq-hero'
+import { publicEditorialHero } from '@/lib/cms/heroes/editorial-hero-definitions'
+import { INFORMATION_PAGE_IDS, originalInformationPage } from '@/lib/cms/information-pages'
 
 const request = (body: object) => new Request('https://example.test', { method: 'PATCH', body: JSON.stringify(body) })
 beforeEach(() => memory.rows.clear())

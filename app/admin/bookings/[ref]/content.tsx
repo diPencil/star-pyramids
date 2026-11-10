@@ -7,14 +7,14 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Card } from '@/components/admin/admin-ui'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { useAdminLocale } from '@/components/admin/admin-locale'
-import { formatCurrency, TOUR_BOOKING_CURRENCY } from '@/lib/currency'
+import { formatCurrency, TOUR_BOOKING_CURRENCY } from '@/lib/payments/currency'
 import { useAdminCurrency } from '@/components/admin/admin-currency'
 import { toast } from '@/components/admin/admin-toaster'
 import { useCurrentUser } from '@/lib/use-current-user'
-import { SharedSelect } from '@/components/shared-select'
-import { bookingActivityLabel, bookingPaymentStatusLabel, bookingStatusLabel, canTransitionBooking, type BookingStatus, type StaffBooking } from '@/lib/booking'
+import { SharedSelect } from '@/components/shared/forms/shared-select'
+import { bookingActivityLabel, bookingPaymentStatusLabel, bookingStatusLabel, canTransitionBooking, type BookingStatus, type StaffBooking } from '@/lib/booking/booking'
 import { documentTypeLabel, formatDocumentIssuedAt, staffDocumentPdfUrl, type DocumentListItem, type VerifiedPaymentOption } from '@/lib/documents'
-import { remainingBookingBalance } from '@/lib/payment'
+import { remainingBookingBalance } from '@/lib/payments/payment'
 
 /** Client-safe mirror of the server refund-event option (admin list endpoint). */
 type RefundEventOption = {

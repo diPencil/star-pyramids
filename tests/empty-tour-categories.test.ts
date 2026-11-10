@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams(), usePathname: () => '/egypt-tours/nile-cruises', useRouter: () => ({ replace: vi.fn() }) }))
-vi.mock('@/lib/tours-client', () => ({ useDbTours: () => [] }))
-vi.mock('@/lib/catalogue-client', () => ({ useDbDestinations: () => [], useDbCategories: () => [] }))
+vi.mock('@/lib/tours/tours-client', () => ({ useDbTours: () => [] }))
+vi.mock('@/lib/catalogue/catalogue-client', () => ({ useDbDestinations: () => [], useDbCategories: () => [] }))
 import { OneDayToursRegions, MultiDayToursCategories, TourListing } from '@/components/site'
 import { InitialLocaleProvider, LocaleProvider } from '@/components/locale'
 

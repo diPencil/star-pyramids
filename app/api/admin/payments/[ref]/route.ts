@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
-import { getStaffPayment } from '@/lib/server/payments';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
+import { getStaffPayment } from '@/lib/server/payments/payments';
 
 /** Staff payment detail (staff projection with linked account). */
 export async function GET(

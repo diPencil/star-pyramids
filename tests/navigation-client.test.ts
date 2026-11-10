@@ -4,8 +4,8 @@ vi.mock('react',async()=>{const actual=await vi.importActual<typeof import('reac
  useState:(initial:unknown)=>{const slot=h.cursor++;if(!(slot in h.slots))h.slots[slot]=initial;return[h.slots[slot],(next:unknown)=>{h.slots[slot]=typeof next==='function'?(next as (value:unknown)=>unknown)(h.slots[slot]):next}]},
  useEffect:(effect:()=>void|(()=>void),deps:unknown[])=>{const index=h.effect++,old=h.effects[index];if(!old||deps.some((dep,i)=>dep!==old.deps[i])){old?.cleanup?.();h.effects[index]={deps,cleanup:effect()||undefined}}}
 }})
-import { NavigationProvider } from '@/components/navigation-context'
-import type { PublicNavigation } from '@/lib/navigation'
+import { NavigationProvider } from '@/components/layout/navigation-context'
+import type { PublicNavigation } from '@/lib/navigation/navigation'
 const initial:PublicNavigation={revision:3,primaryLocale:'en',items:[]}
 const render=(seed:PublicNavigation|null=initial)=>{h.cursor=0;h.effect=0;return NavigationProvider({initial:seed,children:null}).props.value as PublicNavigation|null}
 const settle=()=>new Promise(resolve=>setTimeout(resolve,0))

@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { protectEnquiryNavigation } from '@/lib/enquiry-navigation';
+import { protectEnquiryNavigation } from '@/lib/enquiries/enquiry-navigation';
 
 const read = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/server/db', () => ({ db: { siteSetting: { findUnique: read } } }));
-vi.mock('@/lib/server/fx', () => ({ getActiveRate: vi.fn() }));
+vi.mock('@/lib/server/payments/fx', () => ({ getActiveRate: vi.fn() }));
 
 import { PUBLIC_SETTING_KEYS, SECRET_SETTING_KEYS, validateSettingsPatch } from '@/lib/server/settings';
-import { getGlobalSeo } from '@/lib/server/global-seo';
+import { getGlobalSeo } from '@/lib/server/seo/global-seo';
 
 beforeEach(() => { read.mockReset(); read.mockResolvedValue(null); });
 
@@ -122,7 +122,7 @@ describe('global SEO unsaved navigation', () => {
   });
 
   it('wires custom discard dialogs, reload, and a shared synchronous request lock', () => {
-    const source = readFileSync(new URL('../components/admin/seo-global-settings.tsx', import.meta.url), 'utf8');
+    const source = readFileSync(new URL('../components/admin/seo/seo-global-settings.tsx', import.meta.url), 'utf8');
     expect(source).toContain('protectEnquiryNavigation(window, () => dirtyRef.current || busy.current, navigate)');
     expect(source).toMatch(/const load = useCallback\(async \(\) => \{\s*if \(busy.current\) return;\s*busy.current = true;/);
     expect(source).toContain('if (!canEdit || loading || busy.current || pendingRef.current) return;');

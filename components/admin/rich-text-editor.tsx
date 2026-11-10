@@ -8,9 +8,9 @@ import TextAlign from '@tiptap/extension-text-align'
 import { Plugin } from '@tiptap/pm/state'
 import { DOMSerializer } from '@tiptap/pm/model'
 import { AlignCenter, AlignLeft, AlignRight, Bold, Italic, Underline, List, ListOrdered, Link, Unlink, Undo2, Redo2, RemoveFormatting } from 'lucide-react'
-import { legacyEditorHtml, normalizeTourPaste, richTextPlain, safeRichLink, sanitizeTourHtml, type RichLocale } from '@/lib/tour-rich-text'
+import { legacyEditorHtml, normalizeTourPaste, richTextPlain, safeRichLink, sanitizeTourHtml, type RichLocale } from '@/lib/tours/tour-rich-text'
 import { tx } from '@/components/locale'
-import '@/components/tour-rich-text.css'
+import '@/components/tours/detail/tour-rich-text.css'
 import './rich-text-editor.css'
 
 // Persist a finite alignment class, never arbitrary inline CSS.

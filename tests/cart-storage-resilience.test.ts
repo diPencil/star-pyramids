@@ -1,9 +1,9 @@
 import {afterEach,beforeEach,expect,it,vi} from 'vitest'
 vi.mock('react',()=>({useSyncExternalStore:(_subscribe:unknown,get:()=>unknown)=>get()}))
-vi.mock('@/lib/booking-funnel',()=>({recordCartAddition:vi.fn()}))
-import {addToCart,clearCart,removeCartItems,sanitizeCartItem,useCart} from '@/lib/cart'
-import {recordCartAddition} from '@/lib/booking-funnel'
-import {customerErrorText} from '@/lib/customer-error-copy'
+vi.mock('@/lib/tracking/leads/booking-funnel',()=>({recordCartAddition:vi.fn()}))
+import {addToCart,clearCart,removeCartItems,sanitizeCartItem,useCart} from '@/lib/booking/cart'
+import {recordCartAddition} from '@/lib/tracking/leads/booking-funnel'
+import {customerErrorText} from '@/lib/account/customer-error-copy'
 it.each(['en','es','it'] as const)('localizes the cart capacity failure in %s',locale=>{
   const text=customerErrorText(locale,'Your cart can contain at most 20 trip selections. Remove a selection before adding another.','fallback')
   expect(text).not.toBe('fallback');expect(text).toContain('20')

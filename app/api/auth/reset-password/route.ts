@@ -5,7 +5,7 @@ import {
   checkResetSubmitRateLimit,
   recordPasswordResetAttempt,
 } from '@/lib/server/rate-limit';
-import { validatePasswordResetToken, consumePasswordResetToken } from '@/lib/server/auth';
+import { validatePasswordResetToken, consumePasswordResetToken } from '@/lib/server/auth/auth';
 import {
   validatePasswordStrength,
   MIN_PASSWORD_LENGTH,

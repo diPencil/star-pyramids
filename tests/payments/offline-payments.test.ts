@@ -151,23 +151,23 @@ const shared = vi.hoisted(() => {
 const { store } = shared
 
 vi.mock('@/lib/server/db', () => ({ db: shared.db }))
-vi.mock('@/lib/server/email', () => ({
+vi.mock('@/lib/server/email/email', () => ({
   sendCustomerEmailSafe: vi.fn(async () => undefined),
   sendStaffEmailSafe: vi.fn(async () => undefined),
 }))
-vi.mock('@/lib/server/notifications', () => ({
+vi.mock('@/lib/server/notifications/notifications', () => ({
   notifyUser: vi.fn(async () => undefined),
   notifyStaff: vi.fn(async () => undefined),
 }))
-vi.mock('@/lib/server/booking-access', () => ({
+vi.mock('@/lib/server/booking/access/booking-access', () => ({
   revokeGuestBookingTokens: vi.fn(async () => undefined),
   issueGuestBookingToken: vi.fn(async () => ({ token: 'guest-payment-token', expiresAt: new Date() })),
   guestBookingPath: (token: string) => `/booking/${token}`,
 }))
 
-import { recordOfflinePayment, deriveBookingPaymentSummary } from '@/lib/server/payments'
-import { notifyStaff } from '@/lib/server/notifications'
-import { sendCustomerEmailSafe } from '@/lib/server/email'
+import { recordOfflinePayment, deriveBookingPaymentSummary } from '@/lib/server/payments/payments'
+import { notifyStaff } from '@/lib/server/notifications/notifications'
+import { sendCustomerEmailSafe } from '@/lib/server/email/email'
 
 function seedBooking(overrides: Record<string, any> = {}) {
   const row: Record<string, any> = {
@@ -332,7 +332,7 @@ describe('recordOfflinePayment', () => {
 describe('POST /api/admin/payments/record authorization', () => {
   it('rejects staff without payments.edit with 403', async () => {
     vi.resetModules()
-    vi.doMock('@/lib/server/auth', () => ({
+    vi.doMock('@/lib/server/auth/auth', () => ({
       getCurrentUser: vi.fn(async () => ({ id: 's1', roles: ['STAFF'], permissions: [] })),
       hasPermission: (user: any, key: string) => user.roles.includes('SUPER_ADMIN') || user.permissions.includes(key),
     }))

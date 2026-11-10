@@ -13,12 +13,12 @@ import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableT
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
-import { SharedSelect } from '@/components/shared-select'
-import { useDbCarsStatus } from '@/lib/events-cars-client'
+import { SharedSelect } from '@/components/shared/forms/shared-select'
+import { useDbCarsStatus } from '@/lib/catalogue/events-cars-client'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { toast } from '@/components/admin/admin-toaster'
-import { CarPricingManager } from '@/components/admin/car-pricing-manager'
-import type { PricingTier as PriceRow } from '@/lib/car-pricing-admin'
+import { CarPricingManager } from '@/components/admin/cars/car-pricing-manager'
+import type { PricingTier as PriceRow } from '@/lib/cars/car-pricing-admin'
 
 type LocationRow = {
   id: string

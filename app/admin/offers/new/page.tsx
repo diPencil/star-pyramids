@@ -2,25 +2,25 @@
 
 import { CreationTimeline } from '@/components/admin/creation-timeline'
 
-import { CampaignFields } from '@/components/admin/campaign-fields'
-import { PromoBarFields } from '@/components/admin/promo-bar-fields'
-import { isPromoBar, readCampaign } from '@/lib/marketing-campaigns'
+import { CampaignFields } from '@/components/admin/marketing/campaign-fields'
+import { PromoBarFields } from '@/components/admin/marketing/promo-bar-fields'
+import { isPromoBar, readCampaign } from '@/lib/marketing/marketing-campaigns'
 
 import Link from 'next/link'
 import { Suspense, useEffect, useState } from 'react'
 import { ContentLanguageTabs, TranslatedInput, TranslatedTextarea } from '@/components/admin/content-language-tabs'
-import { type CatalogueTranslations } from '@/lib/catalogue-translations'
+import { type CatalogueTranslations } from '@/lib/catalogue/catalogue-translations'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { slugify } from '@/lib/admin-store'
-import { useDbOffers, invalidateOffersBlogsCache } from '@/lib/offers-blogs-client'
-import { useDbToursStatus, invalidateToursCache } from '@/lib/tours-client'
+import { useDbOffers, invalidateOffersBlogsCache } from '@/lib/catalogue/offers-blogs-client'
+import { useDbToursStatus, invalidateToursCache } from '@/lib/tours/tours-client'
 import { ImageField } from '@/components/admin/image-field'
-import { SharedSelect } from '@/components/shared-select'
+import { SharedSelect } from '@/components/shared/forms/shared-select'
 import type { Offer } from '@/data/types'
-import { DateInput } from '@/components/date-input'
+import { DateInput } from '@/components/shared/forms/date-input'
 
 const cleanSlugInput = (value: string) =>
   value.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').replace(/-+/g, '-').slice(0, 80)

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 
-import { verifyVoucherToken, type VoucherVerification } from '@/lib/server/documents';
+import { verifyVoucherToken, type VoucherVerification } from '@/lib/server/documents/documents';
 
 // Verification payloads must never be indexed, cached, or prerendered:
 // the token in the URL is a bearer for the validity view.

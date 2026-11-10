@@ -1,7 +1,7 @@
 import { expect, it, vi } from 'vitest'
 import type { Prisma } from '@prisma/client'
-import { catalogueBotReply } from '@/lib/server/live-chat-catalogue'
-import { baseChipHrefs, botMessageParts, copy } from '@/lib/live-chat-bot'
+import { catalogueBotReply } from '@/lib/server/support/live-chat-catalogue'
+import { baseChipHrefs, botMessageParts, copy } from '@/lib/support/live-chat-bot'
 
 function catalogue() {
   const findMany = vi.fn().mockResolvedValue([])

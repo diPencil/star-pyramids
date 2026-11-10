@@ -4,7 +4,7 @@ const h=vi.hoisted(()=>({index:0,values:[] as unknown[],effect:null as null|(()=
 vi.mock('react',async()=>({...await vi.importActual<typeof import('react')>('react'),useState:(initial:unknown)=>{const i=h.index++;if(!(i in h.values))h.values[i]=initial;return[h.values[i],(v:unknown)=>{h.values[i]=v}]},useRef:(initial:unknown)=>{const i=h.index++;if(!(i in h.values))h.values[i]={current:initial};return h.values[i]},useEffect:(fn:()=>void)=>{h.effect??=fn}}))
 vi.mock('@/components/site',()=>({SiteShell:({children}:{children:ReactNode})=>children}))
 vi.mock('@/components/locale',async()=>({...await vi.importActual<typeof import('@/components/locale')>('@/components/locale'),useLocale:()=>({locale:h.locale})}))
-import {BookingAccountSetup} from '@/components/booking-account-setup'
+import {BookingAccountSetup} from '@/components/booking/booking-account-setup'
 function render(){h.index=0;return BookingAccountSetup()}
 function find(node:ReactNode,predicate:(e:ReactElement<Record<string,any>>)=>boolean):ReactElement<Record<string,any>>|undefined{if(Array.isArray(node)){for(const n of node){const found=find(n,predicate);if(found)return found}return}if(!node||typeof node!=='object'||!('props'in node))return;const e=node as ReactElement<Record<string,any>>;return predicate(e)?e:find(e.props.children,predicate)}
 const info={email:'owner@example.com',needsPassword:true}

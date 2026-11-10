@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { CustomerTripRequestsPage } from '@/components/account-custom-trip'
-import { isTripReference } from '@/lib/trip-request'
+import { CustomerTripRequestsPage } from '@/components/account/account-custom-trip'
+import { isTripReference } from '@/lib/trip-builder/trip-request'
 
 export const metadata: Metadata = {
   title: 'My Trip Requests',

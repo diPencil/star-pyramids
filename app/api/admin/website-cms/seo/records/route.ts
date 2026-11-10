@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { listRecordSeo } from '@/lib/server/record-seo'
-import { recordSeoAccess, canReadRecordSeo, SEO_PRIVATE_HEADERS } from '@/lib/server/record-seo-api'
-import { hasPermission } from '@/lib/server/auth'
+import { listRecordSeo } from '@/lib/server/seo/record-seo'
+import { recordSeoAccess, canReadRecordSeo, SEO_PRIVATE_HEADERS } from '@/lib/server/seo/record-seo-api'
+import { hasPermission } from '@/lib/server/auth/auth'
 export async function GET() {
   const access = await recordSeoAccess()
   if (access.response) return access.response

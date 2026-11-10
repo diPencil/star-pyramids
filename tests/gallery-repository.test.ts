@@ -1,7 +1,7 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 const m = vi.hoisted(() => ({ query: vi.fn(), execute: vi.fn(), tour: vi.fn(), transaction: vi.fn() }))
 vi.mock('@/lib/server/db', () => ({ db: { $queryRaw: m.query, $executeRaw: m.execute, $transaction: m.transaction, tour: { findUnique: m.tour } } }))
-import { listPublishedGallery, listTourGalleryItems, publishGalleryItem, reorderGalleryItems } from '@/lib/server/journey-gallery'
+import { listPublishedGallery, listTourGalleryItems, publishGalleryItem, reorderGalleryItems } from '@/lib/server/gallery/journey-gallery'
 const row = (id: string, sortOrder: number) => ({ id, mediaType: 'VIDEO', mediaUrl: '/clip.mp4', title: `Actual ${id}`, titleAr: null, caption: 'Saved caption', thumbnail: null, showOnHomepage: true, showOnTours: true, tourScope: 'SELECTED_TOURS', platform: 'direct', isPublished: true, sortOrder, createdAt: new Date('2026-01-01'), updatedAt: new Date('2026-01-01') })
 beforeEach(() => { vi.clearAllMocks(); m.query.mockResolvedValue([row('later', 20), row('first', 10)]); m.tour.mockResolvedValue({ status: 'published' }); m.execute.mockResolvedValue(1); m.transaction.mockImplementation(async callback => callback({ $queryRaw: m.query, $executeRaw: m.execute })) })
 it('filters eligible homepage records in SQL and returns sorted items without private assignments', async () => {

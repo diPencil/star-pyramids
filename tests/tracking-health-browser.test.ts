@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import { afterEach, expect, it, vi } from 'vitest'
-import { installTrackingHealthResponder, observeTrackingBrowser } from '@/lib/tracking-health-browser'
-import { initializeGtm, readTrackingConsent } from '@/lib/tracking-browser'
-import { TRACKING_CONSENT_STORAGE_KEY } from '@/lib/tracking'
+import { installTrackingHealthResponder, observeTrackingBrowser } from '@/lib/tracking/health/tracking-health-browser'
+import { initializeGtm, readTrackingConsent } from '@/lib/tracking/tracking-browser'
+import { TRACKING_CONSENT_STORAGE_KEY } from '@/lib/tracking/tracking'
 
 class Channel {
   static channels = new Set<Channel>()

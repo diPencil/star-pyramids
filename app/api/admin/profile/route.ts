@@ -11,9 +11,9 @@ import {
   normalizeEmail,
   validatePasswordStrength,
 } from '@/lib/core/validation';
-import { getCurrentUser, hasStaffRole } from '@/lib/server/auth';
+import { getCurrentUser, hasStaffRole } from '@/lib/server/auth/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
-import { toClientUser, updateAdminProfile } from '@/lib/server/users';
+import { toClientUser, updateAdminProfile } from '@/lib/server/auth/users';
 
 type AdminProfileBody = {
   firstName?: unknown;

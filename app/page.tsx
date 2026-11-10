@@ -1,13 +1,13 @@
 import type { Metadata } from 'next'
-import { RebuiltHomePage } from '@/components/homepage'
-import { generateOrganizationJsonLd, renderJsonLd } from '@/lib/structured-data'
-import { getSiteUrl, getHreflangEntries } from '@/lib/seo'
-import { readHeroState } from '@/lib/server/website-heroes'
-import { publicHeroState } from '@/lib/website-heroes'
-import type { PublicHomeHero } from '@/components/homepage-hero'
-import { readPublishedPage } from '@/lib/server/page-sections'
+import { RebuiltHomePage } from '@/components/home/homepage'
+import { generateOrganizationJsonLd, renderJsonLd } from '@/lib/seo/structured-data'
+import { getSiteUrl, getHreflangEntries } from '@/lib/seo/seo'
+import { readHeroState } from '@/lib/server/cms/heroes/website-heroes'
+import { publicHeroState } from '@/lib/cms/heroes/website-heroes'
+import type { PublicHomeHero } from '@/components/home/homepage-hero'
+import { readPublishedPage } from '@/lib/server/cms/page-sections'
 import { getServerLocale } from '@/lib/server/locale'
-import { pageContentMetadata } from '@/lib/server/page-content-metadata'
+import { pageContentMetadata } from '@/lib/server/cms/page-content-metadata'
 
 export async function generateMetadata(): Promise<Metadata> {
   const siteUrl = await getSiteUrl()

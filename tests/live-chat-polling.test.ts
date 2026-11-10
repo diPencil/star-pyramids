@@ -11,7 +11,7 @@ vi.mock('react', async original => ({
     hooks.effects.push(() => { hooks.cleanups.get(i)?.(); const cleanup = effect(); if (cleanup) hooks.cleanups.set(i, cleanup); else hooks.cleanups.delete(i) })
   },
 }))
-import { useLiveChat } from '@/lib/live-chat-client'
+import { useLiveChat } from '@/lib/support/live-chat-client'
 const fetchMock = vi.fn<typeof fetch>()
 let doc: EventTarget & { hidden: boolean }
 function render(open = true) { hooks.index = 0; const result = useLiveChat(open); for (const run of hooks.effects.splice(0)) run(); return result }

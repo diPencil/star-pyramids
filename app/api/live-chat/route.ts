@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { isSameOriginRequest } from '@/lib/server/csrf'
-import { chatBudget, chatOwner, ipChatBudget } from '@/lib/server/live-chat-session'
-import { liveThreadRevision, readLiveThread, writeLiveThread } from '@/lib/server/live-chat'
-import { LiveChatError, parseLiveAction } from '@/lib/live-chat-contract'
+import { chatBudget, chatOwner, ipChatBudget } from '@/lib/server/support/live-chat-session'
+import { liveThreadRevision, readLiveThread, writeLiveThread } from '@/lib/server/support/live-chat'
+import { LiveChatError, parseLiveAction } from '@/lib/support/live-chat-contract'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

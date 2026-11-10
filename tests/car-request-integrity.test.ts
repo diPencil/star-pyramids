@@ -339,25 +339,25 @@ const helpers = vi.hoisted(() => {
 const { store, fakeDb } = helpers
 
 vi.mock('@/lib/server/db', () => ({ db: helpers.fakeDb }))
-vi.mock('@/lib/server/notifications', () => ({
+vi.mock('@/lib/server/notifications/notifications', () => ({
   notifyUser: vi.fn(async () => undefined),
   notifyStaff: vi.fn(async () => undefined),
 }))
-vi.mock('@/lib/server/email', () => ({
+vi.mock('@/lib/server/email/email', () => ({
   sendCustomerEmailSafe: vi.fn(async () => undefined),
   sendStaffEmailSafe: vi.fn(async () => undefined),
 }))
-vi.mock('@/lib/server/auth', () => ({
+vi.mock('@/lib/server/auth/auth', () => ({
   getCurrentUser: vi.fn(async () => ({ id: 'staff-1', roles: ['STAFF'] })),
   hasPermission: vi.fn(() => true),
 }))
 vi.mock('@/lib/server/csrf', () => ({ isSameOriginRequest: vi.fn(() => true) }))
 vi.mock('@/lib/server/rate-limit', () => ({ checkCarRequestRateLimit: vi.fn(async () => ({ allowed: true })), recordCarRequestAttempt: vi.fn(async () => undefined) }))
-vi.mock('@/lib/server/staff-preview', () => ({ getAccountReadUser: vi.fn(async () => ({ id: 'user-1' })), getAccountWriteUser: vi.fn(async () => ({ id: 'user-1' })) }))
-vi.mock('@/lib/catalogue-translations', () => ({
+vi.mock('@/lib/server/auth/staff-preview', () => ({ getAccountReadUser: vi.fn(async () => ({ id: 'user-1' })), getAccountWriteUser: vi.fn(async () => ({ id: 'user-1' })) }))
+vi.mock('@/lib/catalogue/catalogue-translations', () => ({
   validateCatalogueTranslations: vi.fn(() => ({})),
 }))
-vi.mock('@/lib/server/catalogue-translations', () => ({
+vi.mock('@/lib/server/catalogue/catalogue-translations', () => ({
   catalogueTranslationResponse: vi.fn(async (_kind: string, payload: unknown) => payload),
   saveWithCatalogueTranslations: vi.fn(
     (_kind: string, _t: unknown, _s: unknown, fn: (tx: unknown) => Promise<unknown>) => fn(helpers.fakeDb),
@@ -367,7 +367,7 @@ vi.mock('@/lib/server/catalogue-translations', () => ({
   ),
 }))
 
-import { transitionStaffCarRequest, assignStaffCarVehicle, createCarRequestRecord, updateCustomerCarRequest, getCustomerCarRequest, validateCarDraft } from '@/lib/server/car-requests'
+import { transitionStaffCarRequest, assignStaffCarVehicle, createCarRequestRecord, updateCustomerCarRequest, getCustomerCarRequest, validateCarDraft } from '@/lib/server/cars/car-requests'
 import {
   createCarLocation,
   createCarRoute,
@@ -377,8 +377,8 @@ import {
   resolveCarRequestQuote,
   resolveCarRouteQuote,
   updateCarRoutePrice,
-} from '@/lib/server/car-pricing'
-import { parseVehicleCapacity } from '@/lib/car-request'
+} from '@/lib/server/cars/car-pricing'
+import { parseVehicleCapacity } from '@/lib/cars/car-request'
 import { PUT } from '@/app/api/cars/[slug]/route'
 import { POST as submitCarRequest } from '@/app/api/car-requests/route'
 import { GET as getAccountRequest, PATCH as patchAccountRequest } from '@/app/api/account/car-requests/[ref]/route'
@@ -688,7 +688,7 @@ describe('PUT /api/cars/[slug] has no daily-rate surface at all', () => {
 
 describe('legacy daily-rate UI is removed from vehicle management surfaces', () => {
   it('the vehicle create/edit form no longer renders or validates a daily rate', () => {
-    const form = readFileSync(path.resolve(__dirname, '../components/admin/vehicle-form.tsx'), 'utf8')
+    const form = readFileSync(path.resolve(__dirname, '../components/admin/cars/vehicle-form.tsx'), 'utf8')
     expect(form).not.toContain('Daily rate')
     expect(form).not.toContain('السعر اليومي')
     expect(form).not.toContain('setDailyPrice')
@@ -721,9 +721,9 @@ describe('legacy daily-rate UI is removed from vehicle management surfaces', () 
 
   it('the vehicle form, shared mapping, client mapping, types and import script have no dailyPrice reference', () => {
     for (const file of [
-      'components/admin/vehicle-form.tsx',
-      'lib/server/cars.ts',
-      'lib/events-cars-client.ts',
+      'components/admin/cars/vehicle-form.tsx',
+      'lib/server/cars/cars.ts',
+      'lib/catalogue/events-cars-client.ts',
       'data/types.ts',
       'data/content.ts',
       'prisma/import-cars.ts',

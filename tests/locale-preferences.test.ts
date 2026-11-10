@@ -2,9 +2,9 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { countries, countryByCode } from '@/data/countries'
-import { countryLabel } from '@/lib/country-label'
-import { authPageMetadata } from '@/lib/auth-page-metadata'
-import { localePreferenceCookie, readLocalePreferenceCookie, type Locale } from '@/lib/locale-config'
+import { countryLabel } from '@/lib/i18n/country-label'
+import { authPageMetadata } from '@/lib/seo/auth-page-metadata'
+import { localePreferenceCookie, readLocalePreferenceCookie, type Locale } from '@/lib/i18n/locale-config'
 import { InitialLocaleProvider, LocaleProvider, useLocale } from '@/components/locale'
 
 describe('localized region labels', () => {

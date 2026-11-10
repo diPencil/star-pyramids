@@ -6,11 +6,11 @@ vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams({
 vi.mock('@/components/site', () => ({ SiteShell: ({ children }: { children: unknown }) => children }))
 vi.mock('@/components/locale', () => ({ useLocale: () => ({ locale: 'en' }), tx: (_locale: string, text: { en: string }) => text.en }))
 const status = () => ({ data: state.loading || state.error ? null : [], loading: state.loading, error: state.error, retry: state.retry })
-vi.mock('@/lib/tours-client', () => ({ useDbTours: () => [], useDbToursStatus: () => status() }))
-vi.mock('@/lib/catalogue-client', () => ({ usePublicDestinationsStatus: () => status() }))
-vi.mock('@/lib/events-cars-client', () => ({ useDbEvents: () => [], useDbEventsStatus: () => status() }))
-vi.mock('@/lib/offers-blogs-client', () => ({ useDbOffers: () => [], useDbBlogs: () => state.blogs, useDbOffersStatus: () => status(), usePublicBlogsStatus: () => status() }))
-import { SearchPage } from '@/components/public-search-page'
+vi.mock('@/lib/tours/tours-client', () => ({ useDbTours: () => [], useDbToursStatus: () => status() }))
+vi.mock('@/lib/catalogue/catalogue-client', () => ({ usePublicDestinationsStatus: () => status() }))
+vi.mock('@/lib/catalogue/events-cars-client', () => ({ useDbEvents: () => [], useDbEventsStatus: () => status() }))
+vi.mock('@/lib/catalogue/offers-blogs-client', () => ({ useDbOffers: () => [], useDbBlogs: () => state.blogs, useDbOffersStatus: () => status(), usePublicBlogsStatus: () => status() }))
+import { SearchPage } from '@/components/content/public-search-page'
 beforeEach(() => { state.loading = false; state.error = null; state.blogs = []; state.query = '' })
 describe('public search rendering without browser or database writes', () => {
   it('renders a genuine empty state rather than bundled demo results', () => {

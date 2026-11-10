@@ -2,13 +2,13 @@ import { beforeEach, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({ create: vi.fn(), notifyUser: vi.fn(), notifyStaff: vi.fn(), email: vi.fn() }))
 vi.mock('@/lib/server/db', () => ({ db: { tripRequest: { create: mocks.create } } }))
-vi.mock('@/lib/server/notifications', () => ({ notifyUser: mocks.notifyUser, notifyStaff: mocks.notifyStaff }))
-vi.mock('@/lib/server/email', () => ({ sendCustomerEmailSafe: mocks.email, sendStaffEmailSafe: mocks.email }))
-vi.mock('@/lib/server/blogs', () => ({ findBlogBySlug: vi.fn() }))
-vi.mock('@/lib/server/destinations', () => ({ findDestinationBySlug: vi.fn() }))
-vi.mock('@/lib/server/tours', () => ({ findTourBySlug: vi.fn() }))
-import { createTripRequestRecord } from '@/lib/server/trip-requests'
-import { tripRequestMeasurement } from '@/lib/server/trip-request-measurement'
+vi.mock('@/lib/server/notifications/notifications', () => ({ notifyUser: mocks.notifyUser, notifyStaff: mocks.notifyStaff }))
+vi.mock('@/lib/server/email/email', () => ({ sendCustomerEmailSafe: mocks.email, sendStaffEmailSafe: mocks.email }))
+vi.mock('@/lib/server/editorial/blogs', () => ({ findBlogBySlug: vi.fn() }))
+vi.mock('@/lib/server/catalogue/destinations', () => ({ findDestinationBySlug: vi.fn() }))
+vi.mock('@/lib/server/catalogue/tours', () => ({ findTourBySlug: vi.fn() }))
+import { createTripRequestRecord } from '@/lib/server/trip-builder/trip-requests'
+import { tripRequestMeasurement } from '@/lib/server/tracking/leads/trip-request-measurement'
 
 const draft = {
   contactName: 'Fixture Visitor', contactEmail: 'visitor@example.test', contactPhone: '2025550123', dialCode: '+1',

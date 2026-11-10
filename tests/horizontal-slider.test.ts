@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Children, createElement, isValidElement, type ReactNode, type ReactElement } from 'react'
-import { HorizontalSlider } from '@/components/horizontal-slider'
+import { HorizontalSlider } from '@/components/shared/horizontal-slider'
 
 // Exercise actual component effects/handlers without a browser or another renderer dependency.
 const hooks = vi.hoisted(() => ({ cursor: 0, cells: [] as unknown[], pending: [] as Array<() => void> }))

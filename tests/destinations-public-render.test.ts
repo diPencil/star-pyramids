@@ -5,25 +5,25 @@ import type { Destination, Tour } from '@/data/types'
 
 const mocks = vi.hoisted(() => ({ locale: 'en', destinations: vi.fn(), tours: vi.fn(), list: vi.fn(), find: vi.fn(), slugs: vi.fn(), listTours: vi.fn(), hero: vi.fn(), notFound: vi.fn() }))
 vi.mock('@/components/locale', async () => ({ ...await vi.importActual<typeof import('@/components/locale')>('@/components/locale'), useLocale: () => ({ locale: mocks.locale, currency: 'USD' }) }))
-vi.mock('@/lib/catalogue-client', () => ({ usePublicDestinationsStatus: mocks.destinations }))
-vi.mock('@/lib/tours-client', () => ({ useDbToursStatus: mocks.tours, invalidateToursCache: vi.fn() }))
-vi.mock('@/lib/customer-account', () => ({ useCustomerFavorites: () => ({ has: () => false, toggle: vi.fn() }) }))
+vi.mock('@/lib/catalogue/catalogue-client', () => ({ usePublicDestinationsStatus: mocks.destinations }))
+vi.mock('@/lib/tours/tours-client', () => ({ useDbToursStatus: mocks.tours, invalidateToursCache: vi.fn() }))
+vi.mock('@/lib/account/customer-account', () => ({ useCustomerFavorites: () => ({ has: () => false, toggle: vi.fn() }) }))
 // Keep the real TourCard (including its canonical link); omit unrelated shell providers.
 vi.mock('@/components/site', async () => ({ ...await vi.importActual<typeof import('@/components/site')>('@/components/site'), SiteShell: ({ children }: { children: ReactNode }) => children }))
 vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams(), usePathname: () => '/destinations', useRouter: () => ({}), notFound: mocks.notFound }))
-vi.mock('@/lib/server/destinations', () => ({ getPublishedDestinationDetails: mocks.list, findDestinationBySlug: mocks.find, listDestinationSlugs: mocks.slugs }))
-vi.mock('@/lib/server/tours', () => ({ listTours: mocks.listTours }))
-vi.mock('@/lib/server/faq-hero', () => ({ readFaqHeroState: mocks.hero }))
-vi.mock('@/lib/server/page-content-metadata', () => ({ pageContentMetadata: vi.fn() }))
-vi.mock('@/lib/structured-data', () => ({ RecordPageJsonLd: () => null }))
-vi.mock('@/lib/dynamic-seo', () => ({ dynamicSeo: vi.fn() }))
+vi.mock('@/lib/server/catalogue/destinations', () => ({ getPublishedDestinationDetails: mocks.list, findDestinationBySlug: mocks.find, listDestinationSlugs: mocks.slugs }))
+vi.mock('@/lib/server/catalogue/tours', () => ({ listTours: mocks.listTours }))
+vi.mock('@/lib/server/cms/heroes/faq-hero', () => ({ readFaqHeroState: mocks.hero }))
+vi.mock('@/lib/server/cms/page-content-metadata', () => ({ pageContentMetadata: vi.fn() }))
+vi.mock('@/lib/seo/structured-data', () => ({ RecordPageJsonLd: () => null }))
+vi.mock('@/lib/seo/dynamic-seo', () => ({ dynamicSeo: vi.fn() }))
 
 import { DestinationDetailPage, DestinationsPage } from '@/components/extended-pages'
-import { PresentationProvider, type PresentationStates } from '@/components/presentation-content-context'
-import { FaqHeroProvider } from '@/components/faq-hero-context'
-import { originalTemplateContent } from '@/lib/template-presentation'
-import { originalEditorialHero } from '@/lib/editorial-hero-definitions'
-import { localizeCatalogue } from '@/lib/catalogue-translations'
+import { PresentationProvider, type PresentationStates } from '@/components/cms/presentation-content-context'
+import { FaqHeroProvider } from '@/components/cms/heroes/faq-hero-context'
+import { originalTemplateContent } from '@/lib/cms/templates/template-presentation'
+import { originalEditorialHero } from '@/lib/cms/heroes/editorial-hero-definitions'
+import { localizeCatalogue } from '@/lib/catalogue/catalogue-translations'
 import { destinations as bootstrapDestinations } from '@/data/content'
 import ListingRoute from '@/app/destinations/page'
 import DetailRoute, { generateStaticParams } from '@/app/destinations/[slug]/page'

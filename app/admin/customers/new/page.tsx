@@ -7,8 +7,8 @@ import { AdminText, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { countries, defaultCountry } from '@/data/countries'
 import { ImageField } from '@/components/admin/image-field'
-import { CountrySelect } from '@/components/country-select'
-import { CountryFlag } from '@/components/country-flag'
+import { CountrySelect } from '@/components/shared/forms/country-select'
+import { CountryFlag } from '@/components/shared/forms/country-flag'
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from '@/lib/core/validation'
 
 export default function NewCustomerPage() {

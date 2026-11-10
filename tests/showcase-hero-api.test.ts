@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mock = vi.hoisted(() => ({ user: { id: 'staff' } as { id: string } | null, allowed: true, origin: true, read: vi.fn(), change: vi.fn() }))
-vi.mock('@/lib/server/auth', () => ({ getCurrentUser: async () => mock.user, hasPermission: () => mock.allowed }))
+vi.mock('@/lib/server/auth/auth', () => ({ getCurrentUser: async () => mock.user, hasPermission: () => mock.allowed }))
 vi.mock('@/lib/server/csrf', () => ({ isSameOriginRequest: () => mock.origin }))
-vi.mock('@/lib/server/showcase-heroes', () => ({ readShowcaseState: mock.read, changeShowcaseHero: mock.change }))
+vi.mock('@/lib/server/cms/heroes/showcase-heroes', () => ({ readShowcaseState: mock.read, changeShowcaseHero: mock.change }))
 import { GET, PATCH } from '@/app/api/admin/website-cms/showcase-heroes/[id]/route'
-import { initialShowcaseState } from '@/lib/showcase-heroes'
+import { initialShowcaseState } from '@/lib/cms/heroes/showcase-heroes'
 const context = (id = 'about') => ({ params: Promise.resolve({ id }) })
 beforeEach(() => { mock.user = { id: 'staff' }; mock.allowed = true; mock.origin = true; mock.read.mockReset().mockResolvedValue(initialShowcaseState()); mock.change.mockReset().mockResolvedValue(initialShowcaseState()) })
 describe('showcase hero security with no database writes', () => {

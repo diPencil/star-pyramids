@@ -1,33 +1,33 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Blog, Offer, Tour } from '@/data/types'
-vi.mock('@/lib/server/record-seo', () => ({ getPublishedRecordSeo: vi.fn(async () => null) }))
-vi.mock('@/lib/server/global-seo', () => ({ getGlobalSeo: vi.fn(async () => ({})) }))
-vi.mock('@/lib/server/catalogue-translations', () => ({ attachCatalogueTranslations: async (_kind: string, rows: object[]) => rows }))
+vi.mock('@/lib/server/seo/record-seo', () => ({ getPublishedRecordSeo: vi.fn(async () => null) }))
+vi.mock('@/lib/server/seo/global-seo', () => ({ getGlobalSeo: vi.fn(async () => ({})) }))
+vi.mock('@/lib/server/catalogue/catalogue-translations', () => ({ attachCatalogueTranslations: async (_kind: string, rows: object[]) => rows }))
 
 vi.mock('@/lib/server/db', () => { throw new Error('SEO tests must not access the database') })
-vi.mock('@/lib/server/tours', () => ({ listTours: vi.fn() }))
-vi.mock('@/lib/server/destinations', () => ({
+vi.mock('@/lib/server/catalogue/tours', () => ({ listTours: vi.fn() }))
+vi.mock('@/lib/server/catalogue/destinations', () => ({
   getPublishedDestinationDetails: vi.fn(), getPublishedOneDayDestinations: vi.fn(),
 }))
-vi.mock('@/lib/server/blogs', () => ({ listBlogSlugs: vi.fn() }))
-vi.mock('@/lib/server/events', () => ({ getPublishedDbEvents: vi.fn() }))
-vi.mock('@/lib/server/offers', () => ({ getPublishedDbOffers: vi.fn() }))
-vi.mock('@/lib/server/categories', () => ({ getPublishedCategories: vi.fn() }))
-vi.mock('@/lib/server/seo-manager', () => ({ readSeoState: vi.fn() }))
+vi.mock('@/lib/server/editorial/blogs', () => ({ listBlogSlugs: vi.fn() }))
+vi.mock('@/lib/server/events/events', () => ({ getPublishedDbEvents: vi.fn() }))
+vi.mock('@/lib/server/offers/offers', () => ({ getPublishedDbOffers: vi.fn() }))
+vi.mock('@/lib/server/catalogue/categories', () => ({ getPublishedCategories: vi.fn() }))
+vi.mock('@/lib/server/seo/seo-manager', () => ({ readSeoState: vi.fn() }))
 
-import { getCanonicalUrl, getHreflangEntries, getSiteUrl } from '@/lib/seo'
+import { getCanonicalUrl, getHreflangEntries, getSiteUrl } from '@/lib/seo/seo'
 import sitemap from '@/app/sitemap'
 import robots from '@/app/robots'
-import { listTours } from '@/lib/server/tours'
-import { getPublishedDestinationDetails, getPublishedOneDayDestinations } from '@/lib/server/destinations'
-import { listBlogSlugs } from '@/lib/server/blogs'
-import { getPublishedDbEvents } from '@/lib/server/events'
-import { getPublishedDbOffers } from '@/lib/server/offers'
-import { getPublishedCategories } from '@/lib/server/categories'
-import { readSeoState } from '@/lib/server/seo-manager'
-import { initialPageState } from '@/lib/page-sections'
-import { originalSeoPage } from '@/lib/seo-manager'
-import { generateBlogPostingJsonLd, generateOrganizationJsonLd, generateTouristTripJsonLd, renderJsonLd } from '@/lib/structured-data'
+import { listTours } from '@/lib/server/catalogue/tours'
+import { getPublishedDestinationDetails, getPublishedOneDayDestinations } from '@/lib/server/catalogue/destinations'
+import { listBlogSlugs } from '@/lib/server/editorial/blogs'
+import { getPublishedDbEvents } from '@/lib/server/events/events'
+import { getPublishedDbOffers } from '@/lib/server/offers/offers'
+import { getPublishedCategories } from '@/lib/server/catalogue/categories'
+import { readSeoState } from '@/lib/server/seo/seo-manager'
+import { initialPageState } from '@/lib/cms/page-sections'
+import { originalSeoPage } from '@/lib/seo/seo-manager'
+import { generateBlogPostingJsonLd, generateOrganizationJsonLd, generateTouristTripJsonLd, renderJsonLd } from '@/lib/seo/structured-data'
 
 afterEach(() => { vi.unstubAllEnvs(); vi.resetAllMocks() })
 beforeEach(() => {

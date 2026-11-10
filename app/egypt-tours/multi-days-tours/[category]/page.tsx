@@ -1,9 +1,9 @@
-import { findCategoryBySlug, listCategorySlugs } from '@/lib/server/categories'
+import { findCategoryBySlug, listCategorySlugs } from '@/lib/server/catalogue/categories'
 import { MultiDayCategoryPage } from '@/components/site'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { dynamicCategorySeo } from '@/lib/dynamic-seo'
-import { RecordPageJsonLd } from '@/lib/structured-data'
+import { dynamicCategorySeo } from '@/lib/seo/dynamic-seo'
+import { RecordPageJsonLd } from '@/lib/seo/structured-data'
 
 export async function generateMetadata({ params }: { params: Promise<{ category: string }> }): Promise<Metadata> {
   const { category: slug } = await params

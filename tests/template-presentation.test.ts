@@ -2,13 +2,13 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }), usePathname: () => '/', useSearchParams: () => new URLSearchParams() }))
-import { AboutPage } from '@/components/about-page'
+import { AboutPage } from '@/components/content/about-page'
 import { ContactPage, DestinationsPage } from '@/components/extended-pages'
 import { InitialLocaleProvider } from '@/components/locale'
-import { PresentationProvider } from '@/components/presentation-content-context'
-import { originalPageContent, validatePageContent, pageSections } from '@/lib/page-sections'
-import { TEMPLATE_PAGES, type TemplatePageId } from '@/lib/template-presentation'
-import { CmsImage } from '@/components/cms-image'
+import { PresentationProvider } from '@/components/cms/presentation-content-context'
+import { originalPageContent, validatePageContent, pageSections } from '@/lib/cms/page-sections'
+import { TEMPLATE_PAGES, type TemplatePageId } from '@/lib/cms/templates/template-presentation'
+import { CmsImage } from '@/components/cms/cms-image'
 const render = (id: TemplatePageId, Component: typeof AboutPage, content?: ReturnType<typeof originalPageContent>) => renderToStaticMarkup(createElement(InitialLocaleProvider, { locale: 'en', preview: true, children: createElement(PresentationProvider, { states: content ? { [id]: { content } } : {}, children: createElement(Component) }) }))
 describe('all presentation adapters reuse the existing CMS document lifecycle', () => {
   it.each(Object.keys(TEMPLATE_PAGES) as TemplatePageId[])('validates original %s without touching records', (id) => { expect(validatePageContent(originalPageContent(id), id)).toEqual(originalPageContent(id)) })

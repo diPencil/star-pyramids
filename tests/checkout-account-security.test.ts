@@ -1,7 +1,7 @@
 import {beforeEach,expect,it,vi} from 'vitest'
 import {hashToken} from '@/lib/core/tokens'
 import {Prisma} from '@prisma/client'
-import {bookingActivityLabel} from '@/lib/booking'
+import {bookingActivityLabel} from '@/lib/booking/booking'
 const shared=vi.hoisted(()=>{
   type Row=Record<string,any>
   const state={users:[] as Row[],bookings:[] as Row[],tokens:[] as Row[],activities:[] as Row[],failLink:false}
@@ -9,12 +9,12 @@ const shared=vi.hoisted(()=>{
   return {state,db,mail:vi.fn(),hash:vi.fn(),current:vi.fn(),permission:vi.fn(),checkout:vi.fn()}
 })
 vi.mock('@/lib/server/db',()=>({db:shared.db}))
-vi.mock('@/lib/server/email',()=>({sendCustomerEmailSafe:shared.mail}))
+vi.mock('@/lib/server/email/email',()=>({sendCustomerEmailSafe:shared.mail}))
 vi.mock('@/lib/core/password',()=>({hashPassword:shared.hash}))
-vi.mock('@/lib/server/auth',()=>({getCurrentUser:shared.current,hasPermission:shared.permission}))
-vi.mock('@/lib/server/booking-checkout',()=>({createCheckoutBooking:shared.checkout}))
-vi.mock('@/lib/server/booking-request-security',()=>({bookingSameOrigin:(request:Request)=>request.headers.get('origin')===new URL(request.url).origin,bookingClientIp:()=> 'unknown',reserveBookingAttempt:async()=>({allowed:true})}))
-import {prepareCheckoutAccount,inspectCheckoutAccount,completeCheckoutAccount,recordCheckoutAccountPreparationFailure} from '@/lib/server/checkout-account'
+vi.mock('@/lib/server/auth/auth',()=>({getCurrentUser:shared.current,hasPermission:shared.permission}))
+vi.mock('@/lib/server/booking/checkout/booking-checkout',()=>({createCheckoutBooking:shared.checkout}))
+vi.mock('@/lib/server/booking/booking-request-security',()=>({bookingSameOrigin:(request:Request)=>request.headers.get('origin')===new URL(request.url).origin,bookingClientIp:()=> 'unknown',reserveBookingAttempt:async()=>({allowed:true})}))
+import {prepareCheckoutAccount,inspectCheckoutAccount,completeCheckoutAccount,recordCheckoutAccountPreparationFailure} from '@/lib/server/booking/checkout/checkout-account'
 import {POST as checkoutPOST} from '@/app/api/bookings/route'
 import {GET as customersGET} from '@/app/api/admin/customers/route'
 const {state,db}=shared

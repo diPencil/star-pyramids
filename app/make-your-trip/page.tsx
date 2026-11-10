@@ -1,8 +1,8 @@
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
-import { pageContentMetadata } from '@/lib/server/page-content-metadata'
+import { pageContentMetadata } from '@/lib/server/cms/page-content-metadata'
 import MakeYourTripPlanner from './trip-request-planner'
-import { getSiteUrl, getHreflangEntries } from '@/lib/seo'
+import { getSiteUrl, getHreflangEntries } from '@/lib/seo/seo'
 
 export async function generateMetadata(): Promise<Metadata> {
   const siteUrl = await getSiteUrl()

@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 const memory = vi.hoisted(() => ({ auth: true, permissions: new Set<string>(), origin: true, entries: new Map<string, unknown>(), conflict: false, revalidate: vi.fn() }))
 vi.mock('@/lib/server/db', () => ({ db: new Proxy({}, { get: () => { throw new Error('API regressions must never access the real database') } }) }))
-vi.mock('@/lib/server/auth', () => ({ getCurrentUser: async () => memory.auth ? { id: 'staff' } : null, hasPermission: (_user: unknown, key: string) => memory.permissions.has(key) }))
+vi.mock('@/lib/server/auth/auth', () => ({ getCurrentUser: async () => memory.auth ? { id: 'staff' } : null, hasPermission: (_user: unknown, key: string) => memory.permissions.has(key) }))
 vi.mock('@/lib/server/csrf', () => ({ isSameOriginRequest: () => memory.origin }))
 vi.mock('next/cache', () => ({ revalidatePath: memory.revalidate }))
-vi.mock('@/lib/server/tours', () => ({ findTourBySlug: async () => ({ slug: 'egypt', title: 'Egypt', summary: 'A real source description', category: 'one-day-tours', price: 0 }) }))
-vi.mock('@/lib/server/blogs', () => ({ findBlogBySlug: async () => ({ slug: 'egypt', title: 'Egypt', excerpt: 'An actual article.', category: 'Travel' }) }))
-vi.mock('@/lib/server/record-seo', () => ({
+vi.mock('@/lib/server/catalogue/tours', () => ({ findTourBySlug: async () => ({ slug: 'egypt', title: 'Egypt', summary: 'A real source description', category: 'one-day-tours', price: 0 }) }))
+vi.mock('@/lib/server/editorial/blogs', () => ({ findBlogBySlug: async () => ({ slug: 'egypt', title: 'Egypt', excerpt: 'An actual article.', category: 'Travel' }) }))
+vi.mock('@/lib/server/seo/record-seo', () => ({
   listRecordSeo: async () => [...memory.entries.values()],
   readRecordSeo: async (kind: string, slug: string) => { const row = memory.entries.get(kind + ':' + slug); if (!row) throw Object.assign(new Error('Missing'), { status: 404 }); return row },
   changeRecordSeo: async (kind: string, slug: string, action: 'save-draft' | 'publish' | 'restore', revision: number, content?: unknown) => {
@@ -15,8 +15,8 @@ vi.mock('@/lib/server/record-seo', () => ({
     const result = { record: row.record, state: transitionRecordSeo(row.state, action, content) }; memory.entries.set(kind + ':' + slug, result); return result
   },
 }))
-import { HeroConflictError } from '@/lib/server/website-heroes'
-import { initialRecordSeoState, transitionRecordSeo, emptyRecordSeoContent, type RecordSeoKind, type RecordSeoDescriptor, type RecordSeoState } from '@/lib/record-seo'
+import { HeroConflictError } from '@/lib/server/cms/heroes/website-heroes'
+import { initialRecordSeoState, transitionRecordSeo, emptyRecordSeoContent, type RecordSeoKind, type RecordSeoDescriptor, type RecordSeoState } from '@/lib/seo/record-seo'
 import { GET, PATCH } from '@/app/api/admin/website-cms/seo/records/[kind]/[slug]/route'
 import { GET as list } from '@/app/api/admin/website-cms/seo/records/route'
 import { GET as preview } from '@/app/api/admin/website-cms/seo/records/[kind]/[slug]/preview/route'

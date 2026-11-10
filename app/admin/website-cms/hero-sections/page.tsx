@@ -4,12 +4,12 @@ import { Eye, Pencil } from 'lucide-react'
 import { PageHead } from '@/components/admin/admin-shell'
 import { Card, AdminTableTools, AdminTableWrap, AdminTableActions, AdminIconAction } from '@/components/admin/admin-ui'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
-import { SharedSelect } from '@/components/shared-select'
-import { heroCatalogue } from '@/lib/hero-catalogue'
-import type { HeroState } from '@/lib/website-heroes'
-import type { FaqHeroState } from '@/lib/faq-hero'
-import { EDITORIAL_HERO_IDS, isEditorialHeroId, originalEditorialHero } from '@/lib/editorial-hero-definitions'
-import { SHOWCASE_HERO_IDS, isShowcaseHeroId, type ShowcaseHeroState } from '@/lib/showcase-heroes'
+import { SharedSelect } from '@/components/shared/forms/shared-select'
+import { heroCatalogue } from '@/lib/cms/heroes/hero-catalogue'
+import type { HeroState } from '@/lib/cms/heroes/website-heroes'
+import type { FaqHeroState } from '@/lib/cms/heroes/faq-hero'
+import { EDITORIAL_HERO_IDS, isEditorialHeroId, originalEditorialHero } from '@/lib/cms/heroes/editorial-hero-definitions'
+import { SHOWCASE_HERO_IDS, isShowcaseHeroId, type ShowcaseHeroState } from '@/lib/cms/heroes/showcase-heroes'
 export default function HeroSectionsPage() {
   const [query, setQuery] = useState('')
   const [group, setGroup] = useState('all')

@@ -3,9 +3,9 @@ import { readFileSync } from 'node:fs'
 import type { ReactElement, ReactNode } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ConsentManager } from '@/components/consent-manager'
-import { FUNNEL_STORAGE_PREFIX } from '@/lib/booking-funnel'
-import { TRACKING_CONSENT_STORAGE_KEY } from '@/lib/tracking'
-import { chooseTrackingConsent, initializeGtm, readTrackingConsent, readTrackingConsentPreference, subscribeToTrackingConsent } from '@/lib/tracking-browser'
+import { FUNNEL_STORAGE_PREFIX } from '@/lib/tracking/leads/booking-funnel'
+import { TRACKING_CONSENT_STORAGE_KEY } from '@/lib/tracking/tracking'
+import { chooseTrackingConsent, initializeGtm, readTrackingConsent, readTrackingConsentPreference, subscribeToTrackingConsent } from '@/lib/tracking/tracking-browser'
 
 const hooks = vi.hoisted(() => ({
   index: 0,

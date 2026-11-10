@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { PaymentDetailPage } from '@/components/account-portal'
-import { isPaymentReference } from '@/lib/payment'
+import { PaymentDetailPage } from '@/components/account/account-portal'
+import { isPaymentReference } from '@/lib/payments/payment'
 
 export const metadata: Metadata = {
   title: 'Payment Details',

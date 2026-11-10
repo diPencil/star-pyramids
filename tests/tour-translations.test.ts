@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { readTourText, writeTourText, type Translatable } from '@/lib/tour-translations'
+import { readTourText, writeTourText, type Translatable } from '@/lib/tours/tour-translations'
 
 describe('manual tour translation editing', () => {
   const original: Translatable & { title: string; price: number; titleAr: string } = {

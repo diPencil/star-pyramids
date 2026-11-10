@@ -7,11 +7,11 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableTools, AdminTableWrap, AdminText, Avatar, Card, StatusPill } from '@/components/admin/admin-ui'
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 import { useAdminLocale } from '@/components/admin/admin-locale'
-import { formatCurrency } from '@/lib/currency'
+import { formatCurrency } from '@/lib/payments/currency'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
-import { SharedSelect } from '@/components/shared-select'
-import { type BookingStatus, type StaffBooking } from '@/lib/booking'
-import {toAdminBookingRow} from '@/lib/admin-booking-row'
+import { SharedSelect } from '@/components/shared/forms/shared-select'
+import { type BookingStatus, type StaffBooking } from '@/lib/booking/booking'
+import {toAdminBookingRow} from '@/lib/admin/admin-booking-row'
 
 const statusTabs = [
   { id: 'all', en: 'All', ar: 'الكل' },

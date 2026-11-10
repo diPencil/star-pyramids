@@ -12,22 +12,22 @@
 
 import { describe, it, expect, vi, afterAll } from 'vitest';
 
-vi.mock('@/lib/server/auth', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/server/auth')>();
+vi.mock('@/lib/server/auth/auth', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/server/auth/auth')>();
   return { ...actual, getCurrentUser: vi.fn(async () => null) };
 });
-vi.mock('@/lib/server/email', () => ({
+vi.mock('@/lib/server/email/email', () => ({
   sendCustomerEmailSafe: vi.fn(async () => undefined),
   sendStaffEmailSafe: vi.fn(async () => undefined),
 }));
-vi.mock('@/lib/server/notifications', () => ({
+vi.mock('@/lib/server/notifications/notifications', () => ({
   notifyUser: vi.fn(async () => undefined),
   notifyStaff: vi.fn(async () => undefined),
 }));
 
-import { getCurrentUser } from '@/lib/server/auth';
-import { issueGuestBookingToken } from '@/lib/server/booking-access';
-import { issueBookingDocument } from '@/lib/server/documents';
+import { getCurrentUser } from '@/lib/server/auth/auth';
+import { issueGuestBookingToken } from '@/lib/server/booking/access/booking-access';
+import { issueBookingDocument } from '@/lib/server/documents/documents';
 import { db } from '@/lib/server/db';
 import { GET as staffList, POST as staffIssue } from '@/app/api/admin/bookings/[ref]/documents/route';
 import { GET as ownerPdf } from '@/app/api/account/bookings/[ref]/documents/[documentId]/pdf/route';

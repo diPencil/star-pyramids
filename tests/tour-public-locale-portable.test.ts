@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { localizePublicTour } from '@/lib/tour-public-locale'
+import { localizePublicTour } from '@/lib/tours/tour-public-locale'
 import { translationTour } from './fixtures/translation-tour'
 
 describe('public translation identity and financial isolation', () => {

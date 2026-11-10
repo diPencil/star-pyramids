@@ -1,12 +1,12 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 const m = vi.hoisted(() => ({ read: vi.fn(), bookings: vi.fn(), trips: vi.fn(), cars: vi.fn(), events: vi.fn(), payments: vi.fn(), favorites: vi.fn() }))
-vi.mock('@/lib/server/staff-preview', () => ({ getAccountReadUser: m.read, getAccountWriteUser: vi.fn() }))
-vi.mock('@/lib/server/bookings', () => ({ listCustomerBookings: m.bookings }))
-vi.mock('@/lib/server/trip-requests', () => ({ listCustomerTripRequests: m.trips }))
-vi.mock('@/lib/server/car-requests', () => ({ listCustomerCarRequests: m.cars }))
-vi.mock('@/lib/server/event-requests', () => ({ listCustomerEventRequests: m.events }))
-vi.mock('@/lib/server/payments', () => ({ listCustomerPayments: m.payments, initiateCustomerPayment: vi.fn(), validatePaymentInitiation: vi.fn() }))
-vi.mock('@/lib/server/favorites', () => ({ listFavoriteSlugs: m.favorites, addFavorite: vi.fn(), removeFavorite: vi.fn(), validateFavorite: vi.fn() }))
+vi.mock('@/lib/server/auth/staff-preview', () => ({ getAccountReadUser: m.read, getAccountWriteUser: vi.fn() }))
+vi.mock('@/lib/server/booking/bookings', () => ({ listCustomerBookings: m.bookings }))
+vi.mock('@/lib/server/trip-builder/trip-requests', () => ({ listCustomerTripRequests: m.trips }))
+vi.mock('@/lib/server/cars/car-requests', () => ({ listCustomerCarRequests: m.cars }))
+vi.mock('@/lib/server/events/event-requests', () => ({ listCustomerEventRequests: m.events }))
+vi.mock('@/lib/server/payments/payments', () => ({ listCustomerPayments: m.payments, initiateCustomerPayment: vi.fn(), validatePaymentInitiation: vi.fn() }))
+vi.mock('@/lib/server/account/favorites', () => ({ listFavoriteSlugs: m.favorites, addFavorite: vi.fn(), removeFavorite: vi.fn(), validateFavorite: vi.fn() }))
 import { GET as bookings } from '@/app/api/account/bookings/route'
 import { GET as trips } from '@/app/api/account/trip-requests/route'
 import { GET as cars } from '@/app/api/account/car-requests/route'

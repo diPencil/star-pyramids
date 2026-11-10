@@ -10,12 +10,12 @@ import {
   readLocalePreferenceCookie,
   type EnabledLocale,
   type Locale,
-} from '@/lib/locale-config'
-import { ensureStorefrontSettings, getDbCurrency, getDbLocalization } from '@/lib/storefront-settings'
+} from '@/lib/i18n/locale-config'
+import { ensureStorefrontSettings, getDbCurrency, getDbLocalization } from '@/lib/cms/storefront-settings'
 
 export type { Locale }
-export type { Currency } from '@/lib/currency'
-import { isCurrency, formatCurrency, type Currency } from '@/lib/currency'
+export type { Currency } from '@/lib/payments/currency'
+import { isCurrency, formatCurrency, type Currency } from '@/lib/payments/currency'
 
 /**
  * Canonical localized-text picker (EN/ES/IT public + preserved AR).

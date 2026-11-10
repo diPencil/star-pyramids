@@ -1,17 +1,17 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { initialRecordSeoState, transitionRecordSeo, validateRecordSeoContent } from '@/lib/record-seo'
-import { fetchSavedRecordSeoPreview, filterSeoRecords, type SeoRecordResponse } from '@/components/admin/seo-record-editor'
+import { initialRecordSeoState, transitionRecordSeo, validateRecordSeoContent } from '@/lib/seo/record-seo'
+import { fetchSavedRecordSeoPreview, filterSeoRecords, type SeoRecordResponse } from '@/components/admin/seo/seo-record-editor'
 
-vi.mock('@/components/admin/seo-manager', () => ({ SeoEditor: () => null }))
+vi.mock('@/components/admin/seo/seo-manager', () => ({ SeoEditor: () => null }))
 vi.mock('@/components/admin/admin-ui', () => ({}))
 vi.mock('@/components/admin/admin-pagination', () => ({}))
-vi.mock('@/components/shared-select', () => ({}))
+vi.mock('@/components/shared/forms/shared-select', () => ({}))
 
 const read = (path: string) => readFileSync(join(process.cwd(), path), 'utf8')
-const editor = read('components/admin/seo-manager.tsx')
-const records = read('components/admin/seo-record-editor.tsx')
+const editor = read('components/admin/seo/seo-manager.tsx')
+const records = ['components/admin/seo/seo-record-editor.tsx', 'components/admin/seo/seo-record-data.ts', 'components/admin/seo/seo-record-lists.tsx'].map(read).join('\n')
 const route = read('app/admin/website-cms/seo/dynamic/[kind]/[slug]/page.tsx')
 const content = { text: { en: { title: 'Egypt', description: 'Explore Egypt' }, es: { title: 'Egipto', description: 'Explora Egipto' }, it: { title: 'Egitto', description: 'Esplora Egitto' } }, image: '', structuredData: false }
 

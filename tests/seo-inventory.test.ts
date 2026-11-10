@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-vi.mock('@/lib/server/seo-manager', () => ({ readSeoState: vi.fn() }))
-vi.mock('@/lib/server/record-seo', () => ({ listRecordSeo: vi.fn() }))
-import { readSeoState } from '@/lib/server/seo-manager'
-import { listRecordSeo } from '@/lib/server/record-seo'
-import { initialRecordSeoState, emptyRecordSeoContent, type RecordSeoKind } from '@/lib/record-seo'
-import { seoInventory } from '@/lib/server/seo-inventory'
-import { initialPageState } from '@/lib/page-sections'
-import { SEO_PAGES } from '@/lib/seo-manager'
-import { CRUISE_HERO_IDS } from '@/lib/compact-hero-defaults'
+vi.mock('@/lib/server/seo/seo-manager', () => ({ readSeoState: vi.fn() }))
+vi.mock('@/lib/server/seo/record-seo', () => ({ listRecordSeo: vi.fn() }))
+import { readSeoState } from '@/lib/server/seo/seo-manager'
+import { listRecordSeo } from '@/lib/server/seo/record-seo'
+import { initialRecordSeoState, emptyRecordSeoContent, type RecordSeoKind } from '@/lib/seo/record-seo'
+import { seoInventory } from '@/lib/server/seo/seo-inventory'
+import { initialPageState } from '@/lib/cms/page-sections'
+import { SEO_PAGES } from '@/lib/seo/seo-manager'
+import { CRUISE_HERO_IDS } from '@/lib/cms/heroes/compact-hero-defaults'
 beforeEach(() => {
   vi.mocked(readSeoState).mockResolvedValue(initialPageState())
   vi.mocked(listRecordSeo).mockResolvedValue([])

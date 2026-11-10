@@ -22,8 +22,8 @@ const { mockedDb } = shared
 vi.mock('@/lib/server/db', () => ({ db: shared.mockedDb }))
 vi.mock('next/headers', () => ({ cookies: () => shared.mockedJar }))
 
-import { updateCustomerIdentity, updateAdminProfile } from '@/lib/server/users'
-import { getSession, SESSION_COOKIE_NAME, SESSION_TTL_MS } from '@/lib/server/session'
+import { updateCustomerIdentity, updateAdminProfile } from '@/lib/server/auth/users'
+import { getSession, SESSION_COOKIE_NAME, SESSION_TTL_MS } from '@/lib/server/auth/session'
 
 const mockedJar = shared.mockedJar
 
@@ -131,7 +131,7 @@ describe('login route failures are generic', () => {
     'returns the same 401 body for failure %s',
     async (failure) => {
       vi.resetModules()
-      vi.doMock('@/lib/server/auth', () => ({
+      vi.doMock('@/lib/server/auth/auth', () => ({
         validateCredentials: vi.fn(async () => ({ failure })),
         authorizedPostLoginPath: () => '/account',
       }))
@@ -140,7 +140,7 @@ describe('login route failures are generic', () => {
         recordLoginAttempt: vi.fn(async () => undefined),
         clearLoginAttempts: vi.fn(async () => undefined),
       }))
-      vi.doMock('@/lib/server/session', () => ({ createSession: vi.fn() }))
+      vi.doMock('@/lib/server/auth/session', () => ({ createSession: vi.fn() }))
       const { POST } = await import('@/app/api/auth/login/route')
       const res = await POST(postLogin({ identifier: 'someone@example.com', password: 'whatever' }))
       expect(res.status).toBe(401)

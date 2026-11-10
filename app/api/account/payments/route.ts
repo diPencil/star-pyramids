@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 
 import { isSameOriginRequest } from '@/lib/server/csrf';
-import { getAccountReadUser, getAccountWriteUser } from '@/lib/server/staff-preview';
+import { getAccountReadUser, getAccountWriteUser } from '@/lib/server/auth/staff-preview';
 import {
   initiateCustomerPayment,
   listCustomerPayments,
   validatePaymentInitiation,
-} from '@/lib/server/payments';
+} from '@/lib/server/payments/payments';
 import {
   checkPaymentRateLimit,
   recordPaymentAttempt,

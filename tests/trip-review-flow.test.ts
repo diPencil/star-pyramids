@@ -4,7 +4,7 @@ type Row = { id: string; publicId: string; userId: string; tourSlug: string; rat
 type Filter = { status?: string; tourSlug?: string | { not: string } }
 const memory = vi.hoisted(() => ({ rows: [] as Row[] }))
 const filtered = (where: Filter) => memory.rows.filter(row => (!where.status || row.status === where.status) && (!where.tourSlug || (typeof where.tourSlug === 'string' ? row.tourSlug === where.tourSlug : row.tourSlug !== where.tourSlug.not)))
-vi.mock('@/lib/server/auth', () => ({ getCurrentUser: async () => ({ id: 'customer' }), hasPermission: () => true }))
+vi.mock('@/lib/server/auth/auth', () => ({ getCurrentUser: async () => ({ id: 'customer' }), hasPermission: () => true }))
 vi.mock('@/lib/server/db', () => ({ db: {
   reviewAttempt: { count: async () => 0, create: async () => ({}) },
   tour: {

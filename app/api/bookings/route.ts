@@ -1,16 +1,16 @@
 import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 
-import { getCurrentUser } from '@/lib/server/auth';
-import {bookingSameOrigin,bookingClientIp,reserveBookingAttempt} from '@/lib/server/booking-request-security';
+import { getCurrentUser } from '@/lib/server/auth/auth';
+import {bookingSameOrigin,bookingClientIp,reserveBookingAttempt} from '@/lib/server/booking/booking-request-security';
 import { readBoundedJson } from '@/lib/server/request-json';
-import { prepareCheckoutAccount, recordCheckoutAccountPreparationFailure } from '@/lib/server/checkout-account';
-import { createCheckoutBooking } from '@/lib/server/booking-checkout';
-import {PriceChanged,QuoteServiceError,TourUnavailable} from '@/lib/server/booking-quote';
-import { BOOKING_MARKETING_GRANT_HEADER, BOOKING_MEASUREMENT_HEADER, bookingMeasurementGrants } from '@/lib/booking-measurement';
-import { isProductionTrackingHost } from '@/lib/tracking';
-import { getTrackingSettings } from '@/lib/server/tracking';
-import { bookingConfirmationResponse, confirmationCookieFromHeader } from '@/lib/server/booking-confirmation';
+import { prepareCheckoutAccount, recordCheckoutAccountPreparationFailure } from '@/lib/server/booking/checkout/checkout-account';
+import { createCheckoutBooking } from '@/lib/server/booking/checkout/booking-checkout';
+import {PriceChanged,QuoteServiceError,TourUnavailable} from '@/lib/server/booking/checkout/booking-quote';
+import { BOOKING_MARKETING_GRANT_HEADER, BOOKING_MEASUREMENT_HEADER, bookingMeasurementGrants } from '@/lib/tracking/leads/booking-measurement';
+import { isProductionTrackingHost } from '@/lib/tracking/tracking';
+import { getTrackingSettings } from '@/lib/server/tracking/tracking';
+import { bookingConfirmationResponse, confirmationCookieFromHeader } from '@/lib/server/booking/access/booking-confirmation';
 
 function bodyEmail(body: unknown): string {
   if (typeof body !== 'object' || body === null) return 'unknown';

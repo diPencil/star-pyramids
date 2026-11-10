@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
-import { getCurrentUser, hasPermission } from '@/lib/server/auth'
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth'
 import { isSameOriginRequest } from '@/lib/server/csrf'
-import { changeSeo, readSeoState } from '@/lib/server/seo-manager'
-import { HeroConflictError } from '@/lib/server/website-heroes'
-import { isSeoPage, SEO_PAGES, type SeoAction } from '@/lib/seo-manager'
-import { validateSeoContent } from '@/lib/seo-content'
-import { cmsPageRegistry } from '@/lib/cms-coverage'
-import { HeroValidationError } from '@/lib/website-heroes'
+import { changeSeo, readSeoState } from '@/lib/server/seo/seo-manager'
+import { HeroConflictError } from '@/lib/server/cms/heroes/website-heroes'
+import { isSeoPage, SEO_PAGES, type SeoAction } from '@/lib/seo/seo-manager'
+import { validateSeoContent } from '@/lib/seo/seo-content'
+import { cmsPageRegistry } from '@/lib/cms/cms-coverage'
+import { HeroValidationError } from '@/lib/cms/heroes/website-heroes'
 const headers = { 'Cache-Control': 'private, no-store' }
 type Context = { params: Promise<{ pageKey: string }> }
 export async function GET(_request: Request, { params }: Context) {

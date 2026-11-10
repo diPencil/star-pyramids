@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { requestGuestCrmRecovery } from '@/lib/admin-customers-client'
+import { requestGuestCrmRecovery } from '@/lib/admin/admin-customers-client'
 afterEach(()=>vi.unstubAllGlobals())
 it('requests the existing email proof flow without transmitting consent or claiming ownership',async()=>{
   const fetch=vi.fn().mockResolvedValue(new Response(JSON.stringify({accepted:true})))

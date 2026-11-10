@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { placedOffers, readCampaign, safeCampaignHref, validateCampaign } from '@/lib/marketing-campaigns'
-import { campaignContent, OfferInputError } from '@/lib/server/special-offers'
-import { localizeCatalogue, validateCatalogueTranslations } from '@/lib/catalogue-translations'
-import { decodeTourJson, encodeTourJson } from '@/lib/tour-json'
+import { placedOffers, readCampaign, safeCampaignHref, validateCampaign } from '@/lib/marketing/marketing-campaigns'
+import { campaignContent, OfferInputError } from '@/lib/server/offers/special-offers'
+import { localizeCatalogue, validateCatalogueTranslations } from '@/lib/catalogue/catalogue-translations'
+import { decodeTourJson, encodeTourJson } from '@/lib/tours/tour-json'
 import type { Offer } from '@/data/types'
 
 const campaign = { ...readCampaign(undefined), body: 'Real description', terms: 'Actual terms', ctaHref: '/make-your-trip?src=campaign', placements: ['offers', 'home', 'trips-sidebar', 'blog-sidebar'] as const }

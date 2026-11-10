@@ -60,7 +60,7 @@ async function loadService() {
   vi.resetModules();
   const dbModule = await import('@/lib/server/db');
   installDb()(dbModule.db as unknown as Record<string, unknown>);
-  return import('@/lib/server/booking-access');
+  return import('@/lib/server/booking/access/booking-access');
 }
 
 /** A token that satisfies the base64url(32 bytes) shape the service expects. */

@@ -31,7 +31,7 @@ function setSmtpEnv(values: Record<string, string>) {
 
 async function loadModule() {
   vi.resetModules();
-  return import('@/lib/server/email-smtp');
+  return import('@/lib/server/email/email-smtp');
 }
 
 const input = {

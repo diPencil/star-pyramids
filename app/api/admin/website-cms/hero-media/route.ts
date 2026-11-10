@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
-import { getCurrentUser, hasPermission } from '@/lib/server/auth'
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth'
 import { isSameOriginRequest } from '@/lib/server/csrf'
-import { checkMediaUploadRateLimit, storeUploadedImage, MediaUploadError } from '@/lib/server/media'
-import { storeUploadedVideo, VideoUploadError } from '@/lib/server/journey-video-storage'
-import { MAX_HERO_VIDEO_BYTES } from '@/lib/website-heroes'
-import { readUploadForm, UploadBodyTooLarge } from '@/lib/server/upload-form'
+import { checkMediaUploadRateLimit, storeUploadedImage, MediaUploadError } from '@/lib/server/media/media'
+import { storeUploadedVideo, VideoUploadError } from '@/lib/server/gallery/journey-video-storage'
+import { MAX_HERO_VIDEO_BYTES } from '@/lib/cms/heroes/website-heroes'
+import { readUploadForm, UploadBodyTooLarge } from '@/lib/server/media/upload-form'
 export const runtime = 'nodejs'
 export async function POST(request: Request) {
   if (!isSameOriginRequest(request)) return NextResponse.json({ error: 'Forbidden.' }, { status: 403 })

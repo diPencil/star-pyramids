@@ -9,14 +9,14 @@ vi.mock('@/lib/server/db', () => {
     updateMany: async ({ where, data }: { where: { key: string; value: string }; data: { value: string } }) => { if (memory.conflict || memory.rows.get(where.key) !== where.value) return { count: 0 }; memory.rows.set(where.key, data.value); return { count: 1 } },
   }, tour: reference, destination: reference, blog: reference, offer: reference, event: reference } }
 })
-vi.mock('@/lib/server/auth', () => ({ getCurrentUser: async () => memory.authenticated ? { id: 'isolated-staff' } : null, hasPermission: () => memory.allowed }))
+vi.mock('@/lib/server/auth/auth', () => ({ getCurrentUser: async () => memory.authenticated ? { id: 'isolated-staff' } : null, hasPermission: () => memory.allowed }))
 vi.mock('@/lib/server/csrf', () => ({ isSameOriginRequest: () => memory.origin }))
 vi.mock('next/cache', () => ({ revalidatePath: memory.revalidate }))
 import { GET, PATCH } from '@/app/api/admin/website-cms/pages/[pageKey]/route'
 import { GET as overviewGET } from '@/app/api/admin/website-cms/pages/route'
-import { readPublishedPage, readPresentationStates } from '@/lib/server/page-sections'
-import { TEMPLATE_PAGES, type TemplatePageId } from '@/lib/template-presentation'
-import { originalPageContent } from '@/lib/page-sections'
+import { readPublishedPage, readPresentationStates } from '@/lib/server/cms/page-sections'
+import { TEMPLATE_PAGES, type TemplatePageId } from '@/lib/cms/templates/template-presentation'
+import { originalPageContent } from '@/lib/cms/page-sections'
 const context = (pageKey = 'homepage') => ({ params: Promise.resolve({ pageKey }) })
 const request = (body: unknown) => new Request('https://example.test', { method: 'PATCH', body: JSON.stringify(body) })
 beforeEach(() => { memory.rows.clear(); memory.authenticated = true; memory.allowed = true; memory.origin = true; memory.conflict = false; memory.invalidLink = false; memory.revalidate.mockReset() })

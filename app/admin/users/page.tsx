@@ -7,8 +7,8 @@ import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableT
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
-import { SharedSelect } from '@/components/shared-select'
-import { mutateDirectoryRole, mutateDirectoryUser, useDbRolesStatus, useDbUsersStatus, type CatalogPermission, type DirectoryRole, type DirectoryUser } from '@/lib/admin-users-client'
+import { SharedSelect } from '@/components/shared/forms/shared-select'
+import { mutateDirectoryRole, mutateDirectoryUser, useDbRolesStatus, useDbUsersStatus, type CatalogPermission, type DirectoryRole, type DirectoryUser } from '@/lib/admin/admin-users-client'
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 import { toast } from '@/components/admin/admin-toaster'
 

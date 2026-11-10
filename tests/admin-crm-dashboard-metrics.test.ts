@@ -4,8 +4,8 @@ vi.mock('@/lib/server/db',()=>({db:{
   booking:{findMany:m.bookings},bookingItem:{findMany:m.items,count:m.itemCount},payment:{findMany:m.payments},
   user:{count:m.count,findMany:m.empty},tour:{findMany:m.empty},tripRequest:{findMany:m.empty},carRequest:{findMany:m.empty},eventRequest:{findMany:m.empty},websiteEnquiry:{findMany:m.empty},review:{findMany:m.empty},
 }}))
-import { getAnalytics } from '@/lib/server/analytics'
-import { parseAnalyticsRange } from '@/lib/analytics-range'
+import { getAnalytics } from '@/lib/server/analytics/analytics'
+import { parseAnalyticsRange } from '@/lib/analytics/analytics-range'
 const range=()=>parseAnalyticsRange(new URLSearchParams({from:'2026-11-03',to:'2026-11-03'}))
 const createdAt=new Date('2026-11-03T14:00:00Z')
 const bookings=[

@@ -1,16 +1,16 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
 const mocks=vi.hoisted(()=>({user:vi.fn(),permission:vi.fn(),origin:vi.fn(),read:vi.fn(),change:vi.fn(),defaults:vi.fn(),resolve:vi.fn(),published:vi.fn(),options:vi.fn(),staticOptions:vi.fn(),revalidate:vi.fn()}))
-vi.mock('@/lib/server/auth',()=>({getCurrentUser:mocks.user,hasPermission:mocks.permission}))
+vi.mock('@/lib/server/auth/auth',()=>({getCurrentUser:mocks.user,hasPermission:mocks.permission}))
 vi.mock('@/lib/server/csrf',()=>({isSameOriginRequest:mocks.origin}))
-vi.mock('@/lib/server/navigation',()=>({readNavigation:mocks.read,changeNavigation:mocks.change,navigationDefaults:mocks.defaults,resolveNavigation:mocks.resolve,publishedNavigation:mocks.published,recordNavigationOptions:mocks.options,staticNavigationOptions:mocks.staticOptions}))
+vi.mock('@/lib/server/navigation/navigation',()=>({readNavigation:mocks.read,changeNavigation:mocks.change,navigationDefaults:mocks.defaults,resolveNavigation:mocks.resolve,publishedNavigation:mocks.published,recordNavigationOptions:mocks.options,staticNavigationOptions:mocks.staticOptions}))
 vi.mock('next/cache',()=>({revalidatePath:mocks.revalidate}))
-vi.mock('@/lib/server/website-heroes',()=>({HeroConflictError:class extends Error{}}))
+vi.mock('@/lib/server/cms/heroes/website-heroes',()=>({HeroConflictError:class extends Error{}}))
 import { GET as adminGET, PATCH } from '@/app/api/admin/website-cms/navigation/route'
 import { POST as preview } from '@/app/api/admin/website-cms/navigation/preview/route'
 import { GET as publicGET } from '@/app/api/navigation/route'
 import { GET as optionsGET } from '@/app/api/admin/website-cms/navigation/options/route'
-import { NavigationValidationError, defaultNavigation, initialNavigation } from '@/lib/navigation'
-import { HeroConflictError } from '@/lib/server/website-heroes'
+import { NavigationValidationError, defaultNavigation, initialNavigation } from '@/lib/navigation/navigation'
+import { HeroConflictError } from '@/lib/server/cms/heroes/website-heroes'
 const request=(action='save-draft',content:unknown=defaultNavigation(),revision=0)=>new Request('https://local.test/api/admin/website-cms/navigation',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,content,revision})})
 beforeEach(()=>{vi.resetAllMocks();mocks.user.mockResolvedValue({id:'staff'});mocks.permission.mockReturnValue(true);mocks.origin.mockReturnValue(true);mocks.read.mockResolvedValue(initialNavigation());mocks.defaults.mockResolvedValue(defaultNavigation());mocks.change.mockResolvedValue({...initialNavigation(),revision:1});mocks.resolve.mockResolvedValue({primaryLocale:'en',revision:0,items:[]});mocks.published.mockResolvedValue(null);mocks.options.mockResolvedValue([]);mocks.staticOptions.mockReturnValue([{key:'/',label:'Home',href:'/',target:{type:'internal',href:'/'}}])})
 describe('navigation endpoints authorization and lifecycle',()=>{

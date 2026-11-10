@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server';
 
 import { isSameOriginRequest } from '@/lib/server/csrf';
-import { getAccountReadUser, getAccountWriteUser } from '@/lib/server/staff-preview';
+import { getAccountReadUser, getAccountWriteUser } from '@/lib/server/auth/staff-preview';
 import {
   cancelCustomerTripRequest,
   getCustomerTripRequest,
   isShoreTour,
   updateCustomerTripRequest,
   validateTripDraft,
-} from '@/lib/server/trip-requests';
+} from '@/lib/server/trip-builder/trip-requests';
 
 function refOf(ctx: { params: Promise<{ ref: string }> }): Promise<string> {
   return ctx.params.then((p) => p.ref);

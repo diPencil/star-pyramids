@@ -1,8 +1,8 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, expect, it, vi } from 'vitest'
-import { pickLocaleText, type Locale } from '@/lib/locale-config'
-import { reviewText } from '@/lib/review-copy'
+import { pickLocaleText, type Locale } from '@/lib/i18n/locale-config'
+import { reviewText } from '@/lib/reviews/review-copy'
 
 const state = vi.hoisted(() => ({ selected: 'all', locale: 'en' as Locale }))
 vi.mock('react', async () => {
@@ -10,9 +10,9 @@ vi.mock('react', async () => {
   return { ...actual, useState: (initial: unknown) => actual.useState(initial === 'all' ? state.selected : initial) }
 })
 vi.mock('@/components/locale', () => ({ useLocale: () => ({ locale: state.locale }), tx: (locale: Locale, value: { en: string }) => pickLocaleText(locale, value) }))
-vi.mock('@/components/website-reviews', () => ({ WebsiteReviews: ({ scope }: { scope: string }) => createElement('div', { 'data-local-reviews-scope': scope }) }))
-import { ProviderReviewsSection } from '@/components/provider-reviews'
-import { StarsRow } from '@/components/reviews'
+vi.mock('@/components/reviews/website-reviews', () => ({ WebsiteReviews: ({ scope }: { scope: string }) => createElement('div', { 'data-local-reviews-scope': scope }) }))
+import { ProviderReviewsSection } from '@/components/reviews/provider-reviews'
+import { StarsRow } from '@/components/reviews/reviews'
 
 afterEach(() => { state.selected = 'all'; state.locale = 'en' })
 it.each(['all', 'website', 'trips'])('routes selected %s tab into the matching local API feed scope', selected => {

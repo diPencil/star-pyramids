@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
-import { AnalyticsValidationError, getAnalytics, parseAnalyticsRange } from '@/lib/server/analytics';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
+import { AnalyticsValidationError, getAnalytics, parseAnalyticsRange } from '@/lib/server/analytics/analytics';
 
 /**
  * Phase 4G: real dashboard analytics from database records.

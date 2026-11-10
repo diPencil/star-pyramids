@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
-import { CheckoutPage } from '@/components/checkout-page'
-import { isProductionTrackingHost } from '@/lib/tracking'
-import { getTrackingSettings } from '@/lib/server/tracking'
+import { CheckoutPage } from '@/components/booking/checkout/checkout-page'
+import { isProductionTrackingHost } from '@/lib/tracking/tracking'
+import { getTrackingSettings } from '@/lib/server/tracking/tracking'
 
 export const metadata: Metadata = {
   title: 'Checkout',

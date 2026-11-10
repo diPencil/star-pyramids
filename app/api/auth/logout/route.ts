@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { destroySession } from '@/lib/server/session';
+import { destroySession } from '@/lib/server/auth/session';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 
 export async function POST(request: Request) {

@@ -6,8 +6,8 @@ import 'server-only'
 
 import { db } from '@/lib/server/db'
 import { getDefaultProvider, hasEnabledProvider, getProviderAdapterOrThrow, getEnabledProviders } from '@/lib/payments/providers/index'
-import { initiateCustomerPayment, validatePaymentInitiation, type ValidatedPaymentInitiation } from '@/lib/server/payments'
-import { getCurrentUser } from '@/lib/server/auth'
+import { initiateCustomerPayment, validatePaymentInitiation, type ValidatedPaymentInitiation } from '@/lib/server/payments/payments'
+import { getCurrentUser } from '@/lib/server/auth/auth'
 import { ConfigurationError, ValidationError, AuthorizationError, NotFoundError } from '@/lib/server/errors'
 
 /** Result of a checkout session creation */
@@ -205,7 +205,7 @@ export async function getCheckoutSessionStatus(
   amount: number
   currency: string
 }> {
-  const { getCustomerPayment } = await import('@/lib/server/payments')
+  const { getCustomerPayment } = await import('@/lib/server/payments/payments')
   const payment = await getCustomerPayment(userId ?? '', paymentReference)
   
   if (!payment) {

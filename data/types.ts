@@ -1,6 +1,6 @@
-import type { CatalogueTranslations } from '@/lib/catalogue-translations'
-import type { TourTranslations } from '@/lib/tour-translations'
-import type { ContentFormats } from '@/lib/tour-rich-text'
+import type { CatalogueTranslations } from '@/lib/catalogue/catalogue-translations'
+import type { TourTranslations } from '@/lib/tours/tour-translations'
+import type { ContentFormats } from '@/lib/tours/tour-rich-text'
 
 export type TourCategory = 'one-day-tours' | 'multi-days-tours' | 'nile-cruises' | 'shore-excursions'
 export type TourVariant = 'multi' | 'day' | 'cruise' | 'shore'
@@ -350,7 +350,7 @@ export type Event = {
 }
 
 export type Offer = {
-  campaign?: import("@/lib/marketing-campaigns").CampaignContent
+  campaign?: import("@/lib/marketing/marketing-campaigns").CampaignContent
   linkedTourPublished?: boolean
   tourSlug?: string
   discountPercent?: number

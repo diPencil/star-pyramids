@@ -8,8 +8,8 @@ import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableW
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { useAdminCurrency } from '@/components/admin/admin-currency'
-import { crmAccountLabel, formatCrmMoney } from '@/lib/admin-crm-reporting'
-import { mutateCustomerStatus, useDbCustomerDetail } from '@/lib/admin-customers-client'
+import { crmAccountLabel, formatCrmMoney } from '@/lib/admin/admin-crm-reporting'
+import { mutateCustomerStatus, useDbCustomerDetail } from '@/lib/admin/admin-customers-client'
 import { startImpersonation } from '@/lib/admin-store'
 import { toast } from '@/components/admin/admin-toaster'
 

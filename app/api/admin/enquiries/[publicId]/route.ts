@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/server/db';
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
-import { enquirySelect, enquiryStaffWhere } from '@/lib/server/enquiries';
+import { enquirySelect, enquiryStaffWhere } from '@/lib/server/enquiries/enquiries';
 import type { EnquiryStatus } from '@prisma/client';
 
 type Context = { params: Promise<{ publicId: string }> };

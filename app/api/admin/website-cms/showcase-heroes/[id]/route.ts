@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
-import { getCurrentUser, hasPermission } from '@/lib/server/auth'
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth'
 import { isSameOriginRequest } from '@/lib/server/csrf'
-import { HeroConflictError } from '@/lib/server/website-heroes'
-import { readShowcaseState, changeShowcaseHero } from '@/lib/server/showcase-heroes'
-import { isShowcaseHeroId } from '@/lib/showcase-heroes'
-import { HeroValidationError, type HeroAction } from '@/lib/website-heroes'
+import { HeroConflictError } from '@/lib/server/cms/heroes/website-heroes'
+import { readShowcaseState, changeShowcaseHero } from '@/lib/server/cms/heroes/showcase-heroes'
+import { isShowcaseHeroId } from '@/lib/cms/heroes/showcase-heroes'
+import { HeroValidationError, type HeroAction } from '@/lib/cms/heroes/website-heroes'
 type Context = { params: Promise<{ id: string }> }
 const headers = { 'Cache-Control': 'private, no-store' }
 export async function GET(_request: Request, { params }: Context) {

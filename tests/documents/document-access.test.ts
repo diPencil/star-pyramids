@@ -16,11 +16,11 @@
 import { describe, it, expect, afterAll } from 'vitest'
 
 import { db } from '@/lib/server/db'
-import { issueGuestBookingToken } from '@/lib/server/booking-access'
+import { issueGuestBookingToken } from '@/lib/server/booking/access/booking-access'
 import {
   getBookingDocumentForActor,
   issueBookingDocument,
-} from '@/lib/server/documents'
+} from '@/lib/server/documents/documents'
 
 const reachable: boolean = await db
   .$queryRaw`SELECT 1`

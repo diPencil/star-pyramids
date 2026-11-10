@@ -1,9 +1,9 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 import { randomUUID } from 'node:crypto'
-import { LiveChatError } from '@/lib/live-chat-contract'
+import { LiveChatError } from '@/lib/support/live-chat-contract'
 const mocks = vi.hoisted(() => ({ owner: vi.fn(), read: vi.fn(), revision: vi.fn(), write: vi.fn(), budget: vi.fn(), ip: vi.fn() }))
-vi.mock('@/lib/server/live-chat-session', () => ({ chatOwner: mocks.owner, chatBudget: mocks.budget, ipChatBudget: mocks.ip }))
-vi.mock('@/lib/server/live-chat', () => ({ readLiveThread: mocks.read, liveThreadRevision: mocks.revision, writeLiveThread: mocks.write }))
+vi.mock('@/lib/server/support/live-chat-session', () => ({ chatOwner: mocks.owner, chatBudget: mocks.budget, ipChatBudget: mocks.ip }))
+vi.mock('@/lib/server/support/live-chat', () => ({ readLiveThread: mocks.read, liveThreadRevision: mocks.revision, writeLiveThread: mocks.write }))
 import { GET, POST } from '@/app/api/live-chat/route'
 import { POST as bootstrap } from '@/app/api/live-chat/session/route'
 const request = (body: unknown, origin = 'https://fixture.invalid') => new Request('https://fixture.invalid/api/live-chat', { method: 'POST', headers: { host: 'fixture.invalid', origin }, body: JSON.stringify(body) })

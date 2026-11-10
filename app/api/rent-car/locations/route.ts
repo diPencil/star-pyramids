@@ -2,7 +2,7 @@
 // Hidden locations never appear on public surfaces.
 import { NextResponse } from 'next/server';
 
-import { listActiveCarLocations } from '@/lib/server/car-pricing';
+import { listActiveCarLocations } from '@/lib/server/cars/car-pricing';
 
 export async function GET() {
   const rows = await listActiveCarLocations();

@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser } from '@/lib/server/auth';
+import { getCurrentUser } from '@/lib/server/auth/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
-import { updateRole, UserManagementError } from '@/lib/server/users';
+import { updateRole, UserManagementError } from '@/lib/server/auth/users';
 
 function toError(error: unknown) {
   if (error instanceof UserManagementError) {

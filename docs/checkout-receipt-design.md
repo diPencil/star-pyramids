@@ -63,9 +63,9 @@ without a total; display-currency formatting and fixed mobile navigation.
 
 ## Files and release
 
-- `components/checkout-page.tsx`
-- `components/booking-payment.tsx` (compact note only)
-- `components/checkout-receipt.css` (new, scoped styles)
+- `components/booking/checkout/checkout-page.tsx`
+- `components/booking/booking-payment.tsx` (compact note only)
+- `components/booking/checkout/checkout-receipt.css` (new, scoped styles)
 - `app/globals.css` (stylesheet import)
 - `tests/checkout-flow-safety.test.ts`
 - This document.

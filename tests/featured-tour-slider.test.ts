@@ -4,13 +4,13 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import postcss, { type AtRule } from 'postcss'
 import { describe, expect, it, vi } from 'vitest'
 import { InitialLocaleProvider, LocaleProvider } from '@/components/locale'
-import { RebuiltHomePage } from '@/components/homepage'
-import { originalPageContent } from '@/lib/page-sections'
+import { RebuiltHomePage } from '@/components/home/homepage'
+import { originalPageContent } from '@/lib/cms/page-sections'
 import type { Tour } from '@/data/types'
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }), usePathname: () => '/', useSearchParams: () => new URLSearchParams() }))
-vi.mock('@/lib/tours-client', () => ({ useDbTours: () => Array.from({ length: 9 }, (_, index) => ({ slug: 'published-' + index, title: 'Tour ' + index, status: 'published', category: 'one-day-tours', location: 'Cairo', duration: '1 day', price: 1, image: '/fixture.jpg' }) as Tour) }))
-vi.mock('@/lib/catalogue-client', () => ({ useDbDestinations: () => [], useDbCategories: () => [] }))
+vi.mock('@/lib/tours/tours-client', () => ({ useDbTours: () => Array.from({ length: 9 }, (_, index) => ({ slug: 'published-' + index, title: 'Tour ' + index, status: 'published', category: 'one-day-tours', location: 'Cairo', duration: '1 day', price: 1, image: '/fixture.jpg' }) as Tour) }))
+vi.mock('@/lib/catalogue/catalogue-client', () => ({ useDbDestinations: () => [], useDbCategories: () => [] }))
 
 describe('homepage featured tour carousel', () => {
   it.each(['en', 'es', 'it'] as const)('includes every published card despite old CMS selection or limits in %s', locale => {
@@ -32,7 +32,7 @@ describe('homepage featured tour carousel', () => {
     expect(html).toContain('class="compact-tour-grid popular-grid"')
   })
   it('aligns the arrows left and action right on one responsive footer row', () => {
-    const root = postcss.parse(readFileSync('components/featured-tour-slider.css', 'utf8'))
+    const root = postcss.parse(readFileSync('components/home/featured-tour-slider.css', 'utf8'))
     const rules = new Map<string, Record<string, string>>()
     root.walkRules(rule => {
       const values: Record<string, string> = {}
@@ -44,7 +44,7 @@ describe('homepage featured tour carousel', () => {
     expect(rules.get('.featured-tours-slider .horizontal-slider-action')).toMatchObject({ 'margin-left': 'auto', 'min-width': '0' })
   })
   it.each([320, 375, 430, 760, 761, 1024, 1440, 1920])('keeps an overflow row at width %i without changing other section grids', width => {
-    const root = postcss.parse(readFileSync('components/featured-tour-slider.css', 'utf8'))
+    const root = postcss.parse(readFileSync('components/home/featured-tour-slider.css', 'utf8'))
     const values: Record<string, string> = {}
     root.walkRules(rule => {
       expect(rule.selector).toContain('.featured-tours-slider')

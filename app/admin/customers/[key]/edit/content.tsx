@@ -5,10 +5,10 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminText, Avatar, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { ImageField } from '@/components/admin/image-field'
-import { CountrySelect } from '@/components/country-select'
-import { CountryFlag } from '@/components/country-flag'
+import { CountrySelect } from '@/components/shared/forms/country-select'
+import { CountryFlag } from '@/components/shared/forms/country-flag'
 import { countries, defaultCountry } from '@/data/countries'
-import { mutateCustomerProfile, useDbCustomerDetail } from '@/lib/admin-customers-client'
+import { mutateCustomerProfile, useDbCustomerDetail } from '@/lib/admin/admin-customers-client'
 import { toast } from '@/components/admin/admin-toaster'
 
 /**

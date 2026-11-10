@@ -8,10 +8,10 @@ import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableT
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
-import { invalidateCatalogueCache, useDbDestinationsStatus } from '@/lib/catalogue-client'
+import { invalidateCatalogueCache, useDbDestinationsStatus } from '@/lib/catalogue/catalogue-client'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { toast } from '@/components/admin/admin-toaster'
-import { SharedSelect } from '@/components/shared-select'
+import { SharedSelect } from '@/components/shared/forms/shared-select'
 import { useCurrentUser } from '@/lib/use-current-user'
 
 export default function DestinationsPage() {

@@ -4,18 +4,18 @@ import { CreationTimeline } from '@/components/admin/creation-timeline'
 
 import { Suspense, useEffect, useState } from 'react'
 import { ContentLanguageTabs, TranslatedInput, TranslatedTextarea } from '@/components/admin/content-language-tabs'
-import { type CatalogueTranslations } from '@/lib/catalogue-translations'
+import { type CatalogueTranslations } from '@/lib/catalogue/catalogue-translations'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { PageHead } from '@/components/admin/admin-shell'
 import { AdminText, Card } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { toast } from '@/components/admin/admin-toaster'
 import { slugify } from '@/lib/admin-store'
-import { invalidateOffersBlogsCache, useDbBlogs } from '@/lib/offers-blogs-client'
+import { invalidateOffersBlogsCache, useDbBlogs } from '@/lib/catalogue/offers-blogs-client'
 import { ImageField } from '@/components/admin/image-field'
 import { BlogEditorialForm } from '@/components/admin/blog-editorial-form'
 import type { Blog } from '@/data/types'
-import { BlogEditorialInputError, emptyBlogEditorial, validateBlogEditorial } from '@/lib/blog-editorial'
+import { BlogEditorialInputError, emptyBlogEditorial, validateBlogEditorial } from '@/lib/editorial/blog-editorial'
 
 const cleanSlugInput = (value: string) =>
   value.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').replace(/-+/g, '-').slice(0, 80)

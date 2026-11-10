@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
-import { listStaffTripRequests } from '@/lib/server/trip-requests';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
+import { listStaffTripRequests } from '@/lib/server/trip-builder/trip-requests';
 
 /** Staff trip-request inbox (full operational projection). */
 export async function GET() {

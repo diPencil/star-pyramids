@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
-import { getCurrentUser, hasPermission } from '@/lib/server/auth'
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth'
 import { isSameOriginRequest } from '@/lib/server/csrf'
-import { changeHero, HeroConflictError, readHeroState } from '@/lib/server/website-heroes'
-import { HeroValidationError, type HeroAction } from '@/lib/website-heroes'
+import { changeHero, HeroConflictError, readHeroState } from '@/lib/server/cms/heroes/website-heroes'
+import { HeroValidationError, type HeroAction } from '@/lib/cms/heroes/website-heroes'
 
 const headers = { 'Cache-Control': 'private, no-store' }
 export async function GET() {

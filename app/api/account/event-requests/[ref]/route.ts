@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 
 import { isSameOriginRequest } from '@/lib/server/csrf';
-import { getAccountReadUser, getAccountWriteUser } from '@/lib/server/staff-preview';
+import { getAccountReadUser, getAccountWriteUser } from '@/lib/server/auth/staff-preview';
 import {
   cancelCustomerEventRequest,
   getCustomerEventRequest,
-} from '@/lib/server/event-requests';
+} from '@/lib/server/events/event-requests';
 
 function refOf(ctx: { params: Promise<{ ref: string }> }): Promise<string> {
   return ctx.params.then((p) => p.ref);

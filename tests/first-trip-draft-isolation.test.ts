@@ -4,17 +4,17 @@ import type { Tour } from '@/data/types'
 
 const state = vi.hoisted(() => ({ tours: [] as Tour[] }))
 vi.mock('@/lib/server/db', () => ({ db: {} }))
-vi.mock('@/lib/server/tours', () => ({
+vi.mock('@/lib/server/catalogue/tours', () => ({
   getToursByCategory: async () => state.tours,
   findTourBySlug: async (slug: string) => state.tours.find(t => t.slug === slug || t.aliases?.includes(slug)) ?? null,
 }))
-vi.mock('@/lib/server/blogs', () => ({ findBlogBySlug: async () => null }))
-vi.mock('@/lib/server/destinations', () => ({ findDestinationBySlug: async () => null }))
-vi.mock('@/lib/server/notifications', () => ({ notifyUser: vi.fn(), notifyStaff: vi.fn() }))
-vi.mock('@/lib/server/email', () => ({ sendCustomerEmailSafe: vi.fn(), sendStaffEmailSafe: vi.fn() }))
-vi.mock('@/lib/server/page-content-metadata', () => ({ pageContentMetadata: async () => ({}) }))
-vi.mock('@/lib/seo', () => ({ getCanonicalUrl: async (p: string) => p, getHreflangEntries: async () => ({}) }))
-vi.mock('@/components/server-showcase-hero', async () => {
+vi.mock('@/lib/server/editorial/blogs', () => ({ findBlogBySlug: async () => null }))
+vi.mock('@/lib/server/catalogue/destinations', () => ({ findDestinationBySlug: async () => null }))
+vi.mock('@/lib/server/notifications/notifications', () => ({ notifyUser: vi.fn(), notifyStaff: vi.fn() }))
+vi.mock('@/lib/server/email/email', () => ({ sendCustomerEmailSafe: vi.fn(), sendStaffEmailSafe: vi.fn() }))
+vi.mock('@/lib/server/cms/page-content-metadata', () => ({ pageContentMetadata: async () => ({}) }))
+vi.mock('@/lib/seo/seo', () => ({ getCanonicalUrl: async (p: string) => p, getHreflangEntries: async () => ({}) }))
+vi.mock('@/components/cms/heroes/server-showcase-hero', async () => {
   const { createElement } = await import('react')
   return { ServerShowcaseHero: ({ children }: { children: React.ReactNode }) => createElement('main', null, children) }
 })
@@ -24,7 +24,7 @@ vi.mock('@/components/site', async () => {
 })
 
 import CruiseTypePage from '@/app/egypt-tours/nile-cruises/[type]/page'
-import { validateTripDraft } from '@/lib/server/trip-requests'
+import { validateTripDraft } from '@/lib/server/trip-builder/trip-requests'
 
 const makeTour = (slug: string, status: string, cruiseType: Tour['cruiseType'] = 'standard-nile-cruises'): Tour => ({
   slug, title: slug, aliases: [`${slug}-alias`], status, category: 'nile-cruises', cruiseType,

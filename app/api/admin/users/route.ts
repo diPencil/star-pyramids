@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import {
   grantableRoleKeys,
@@ -9,7 +9,7 @@ import {
   listStaffUsers,
   UserManagementError,
   type StaffListItem,
-} from '@/lib/server/users';
+} from '@/lib/server/auth/users';
 
 function toDirectoryItem(user: StaffListItem) {
   const name =

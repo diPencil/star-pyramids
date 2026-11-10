@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { tierDraftIssue, tierPayload, type PricingTier, type TierDraft } from '@/lib/car-pricing-admin'
+import { tierDraftIssue, tierPayload, type PricingTier, type TierDraft } from '@/lib/cars/car-pricing-admin'
 import { readFileSync } from 'node:fs'
 
 const draft: TierDraft = { minPassengers: '1', maxPassengers: '3', oneWay: '10.25', roundTripMode: 'AUTOMATIC', roundTrip: '', roundTripMultiplier: '1.50', isActive: true }
@@ -33,7 +33,7 @@ describe('pricing management form contracts', () => {
     expect(page).toContain("tab === 'locations'")
     expect(page).toContain("tab === 'routes'")
     expect(page).toContain('<CarPricingManager')
-    const component = readFileSync('components/admin/car-pricing-manager.tsx', 'utf8')
+    const component = readFileSync('components/admin/cars/car-pricing-manager.tsx', 'utf8')
     expect(component).toContain("'/api/admin/rent-car/configurations', 'PATCH'")
     expect(component).toContain('tierPayload(draft)')
     expect(component).toContain('isActive: !row.isActive')

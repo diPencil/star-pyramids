@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 const auth = vi.hoisted(() => ({ signedIn: false, allowed: false }))
-vi.mock('@/lib/server/auth', () => ({ getCurrentUser: async () => auth.signedIn ? { id: 'test-staff' } : null, hasPermission: () => auth.allowed }))
+vi.mock('@/lib/server/auth/auth', () => ({ getCurrentUser: async () => auth.signedIn ? { id: 'test-staff' } : null, hasPermission: () => auth.allowed }))
 vi.mock('@/lib/server/db', () => ({ db: {} }))
-vi.mock('@/lib/server/catalogue-translations', () => ({ catalogueTranslationResponse: vi.fn(), saveWithCatalogueTranslations: vi.fn() }))
+vi.mock('@/lib/server/catalogue/catalogue-translations', () => ({ catalogueTranslationResponse: vi.fn(), saveWithCatalogueTranslations: vi.fn() }))
 import { POST } from '@/app/api/offers/route'
 import { PUT, DELETE } from '@/app/api/offers/[slug]/route'
 const context = { params: Promise.resolve({ slug: 'existing' }) }

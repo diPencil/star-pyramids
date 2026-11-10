@@ -7,8 +7,8 @@ import { AdminEmpty, AdminIconAction, AdminTableWrap, Card } from './admin-ui'
 import { AdminPagination } from './admin-pagination'
 import { useAdminLocale } from './admin-locale'
 import { toast } from './admin-toaster'
-import { SharedSelect } from '@/components/shared-select'
-import { useAdminNotifications, type AdminNotification } from '@/lib/admin-notifications'
+import { SharedSelect } from '@/components/shared/forms/shared-select'
+import { useAdminNotifications, type AdminNotification } from '@/lib/notifications/admin-notifications'
 
 export function AdminNotificationsPage() {
   const ar = useAdminLocale() === 'ar'

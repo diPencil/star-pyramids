@@ -1,9 +1,9 @@
-import { getPublishedOneDayDestinations } from '@/lib/server/destinations'
+import { getPublishedOneDayDestinations } from '@/lib/server/catalogue/destinations'
 import { OneDayDestinationPage } from '@/components/site'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { dynamicSeo } from '@/lib/dynamic-seo'
-import { RecordPageJsonLd } from '@/lib/structured-data'
+import { dynamicSeo } from '@/lib/seo/dynamic-seo'
+import { RecordPageJsonLd } from '@/lib/seo/structured-data'
 
 export async function generateMetadata({ params }: { params: Promise<{ region: string }> }): Promise<Metadata> {
   const { region } = await params

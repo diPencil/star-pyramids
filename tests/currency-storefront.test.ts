@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ensureStorefrontSettings, refreshStorefrontSettings, getDbCurrency } from '@/lib/storefront-settings'
+import { ensureStorefrontSettings, refreshStorefrontSettings, getDbCurrency } from '@/lib/cms/storefront-settings'
 import { readStoredAdminCurrency, readStoredAdminCurrencyLocale } from '@/components/admin/admin-currency'
 
 afterEach(() => { vi.unstubAllGlobals() })

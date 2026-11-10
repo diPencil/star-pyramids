@@ -1,7 +1,7 @@
-import { rentCarFailure } from '@/lib/server/rent-car-errors';
+import { rentCarFailure } from '@/lib/server/cars/rent-car-errors';
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
 import {
@@ -9,8 +9,8 @@ import {
   assignStaffCarVehicle,
   getStaffCarRequest,
   transitionStaffCarRequest,
-} from '@/lib/server/car-requests';
-import { CAR_REQUEST_STATUSES, isCarReference, type CarRequestStatus } from '@/lib/car-request';
+} from '@/lib/server/cars/car-requests';
+import { CAR_REQUEST_STATUSES, isCarReference, type CarRequestStatus } from '@/lib/cars/car-request';
 
 type StaffPatchBody = {
   status?: unknown;

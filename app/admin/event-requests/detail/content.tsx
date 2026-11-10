@@ -8,8 +8,8 @@ import { AdminText, Card } from '@/components/admin/admin-ui'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { toast } from '@/components/admin/admin-toaster'
-import { canTransitionEventRequest, eventActivityLabel, eventDisplayTitle, eventRequestStatusLabel, type EventRequestStatus, type StaffEventRequest } from '@/lib/event-request'
-import { displayInternationalPhone, telLink } from '@/lib/phone'
+import { canTransitionEventRequest, eventActivityLabel, eventDisplayTitle, eventRequestStatusLabel, type EventRequestStatus, type StaffEventRequest } from '@/lib/events/event-request'
+import { displayInternationalPhone, telLink } from '@/lib/core/phone'
 import { countryDisplayName } from '@/data/countries'
 
 const ACTIONS: { from: EventRequestStatus[]; to: EventRequestStatus; tone: 'primary' | 'danger' }[] = [

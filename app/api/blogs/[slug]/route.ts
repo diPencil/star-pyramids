@@ -1,12 +1,12 @@
-import { catalogueTranslationResponse, saveWithCatalogueTranslations, deleteWithCatalogueTranslations } from '@/lib/server/catalogue-translations';
-import { preserveRecordSeo, recordSeoObject } from '@/lib/record-seo';
-import { validateCatalogueTranslations } from '@/lib/catalogue-translations';
+import { catalogueTranslationResponse, saveWithCatalogueTranslations, deleteWithCatalogueTranslations } from '@/lib/server/catalogue/catalogue-translations';
+import { preserveRecordSeo, recordSeoObject } from '@/lib/seo/record-seo';
+import { validateCatalogueTranslations } from '@/lib/catalogue/catalogue-translations';
 import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
 import { readJsonObject } from '@/lib/json-text';
-import { BlogEditorialInputError, validateBlogEditorial } from '@/lib/blog-editorial';
+import { BlogEditorialInputError, validateBlogEditorial } from '@/lib/editorial/blog-editorial';
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 

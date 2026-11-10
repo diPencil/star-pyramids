@@ -1,8 +1,8 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 const mock = vi.hoisted(() => ({ user: vi.fn(), staff: vi.fn(), permission: vi.fn(), get: vi.fn(), admit: vi.fn(), verify: vi.fn() }))
-vi.mock('@/lib/server/auth', () => ({ getCurrentUser: mock.user, hasStaffRole: mock.staff, hasPermission: mock.permission }))
+vi.mock('@/lib/server/auth/auth', () => ({ getCurrentUser: mock.user, hasStaffRole: mock.staff, hasPermission: mock.permission }))
 vi.mock('@/lib/server/settings', () => ({ getSetting: mock.get }))
-vi.mock('@/lib/server/tracking-health', () => ({ admitTrackingHealthCheck: mock.admit, verifyTrackingHealth: mock.verify }))
+vi.mock('@/lib/server/tracking/health/tracking-health', () => ({ admitTrackingHealthCheck: mock.admit, verifyTrackingHealth: mock.verify }))
 import { POST } from '@/app/api/admin/tracking-health/route'
 const request = (origin = 'https://fixture.invalid') => new Request('https://fixture.invalid/api/admin/tracking-health', { method: 'POST', headers: { host: 'fixture.invalid', origin } })
 beforeEach(() => {

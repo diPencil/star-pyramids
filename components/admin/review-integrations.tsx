@@ -1,6 +1,6 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { REVIEW_LABELS, type ReviewAdmin, type ReviewConfig, type ReviewProvider } from '@/lib/review-integrations'
+import { REVIEW_LABELS, type ReviewAdmin, type ReviewConfig, type ReviewProvider } from '@/lib/reviews/review-integrations'
 import { AdminText, Card } from './admin-ui'
 import { toast } from './admin-toaster'
 import { useAdminLocale } from './admin-locale'

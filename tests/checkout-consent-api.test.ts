@@ -1,15 +1,15 @@
 import {afterEach,beforeEach,expect,it,vi} from 'vitest'
 import {Prisma} from '@prisma/client'
-import {PriceChanged} from '@/lib/server/booking-quote'
-import {bookingPriceSnapshot} from '@/lib/booking-price'
-import { BOOKING_MEASUREMENT_HEADER, type BookingMeasurementGrants } from '@/lib/booking-measurement'
-import { confirmationCookieName, readBookingConfirmation } from '@/lib/server/booking-confirmation'
+import {PriceChanged} from '@/lib/server/booking/checkout/booking-quote'
+import {bookingPriceSnapshot} from '@/lib/booking/booking-price'
+import { BOOKING_MEASUREMENT_HEADER, type BookingMeasurementGrants } from '@/lib/tracking/leads/booking-measurement'
+import { confirmationCookieName, readBookingConfirmation } from '@/lib/server/booking/access/booking-confirmation'
 const m=vi.hoisted(()=>({current:vi.fn(),validate:vi.fn(),create:vi.fn(),prepare:vi.fn(),recordFailure:vi.fn(),tracking:vi.fn()}))
-vi.mock('@/lib/server/auth',()=>({getCurrentUser:m.current}))
-vi.mock('@/lib/server/bookings',()=>({validateBookingDraft:m.validate,createBookingRecord:m.create}))
-vi.mock('@/lib/server/checkout-account',()=>({prepareCheckoutAccount:m.prepare,recordCheckoutAccountPreparationFailure:m.recordFailure}))
-vi.mock('@/lib/server/tracking',()=>({getTrackingSettings:m.tracking}))
-vi.mock('@/lib/server/booking-checkout',()=>({createCheckoutBooking:async(userId:string|null,selections:unknown,acceptedTerms:boolean,_price:unknown,_quote:unknown,_recover:unknown,measurement?:BookingMeasurementGrants)=>{
+vi.mock('@/lib/server/auth/auth',()=>({getCurrentUser:m.current}))
+vi.mock('@/lib/server/booking/bookings',()=>({validateBookingDraft:m.validate,createBookingRecord:m.create}))
+vi.mock('@/lib/server/booking/checkout/checkout-account',()=>({prepareCheckoutAccount:m.prepare,recordCheckoutAccountPreparationFailure:m.recordFailure}))
+vi.mock('@/lib/server/tracking/tracking',()=>({getTrackingSettings:m.tracking}))
+vi.mock('@/lib/server/booking/checkout/booking-checkout',()=>({createCheckoutBooking:async(userId:string|null,selections:unknown,acceptedTerms:boolean,_price:unknown,_quote:unknown,_recover:unknown,measurement?:BookingMeasurementGrants)=>{
   if(!userId&&!acceptedTerms)throw Error('You must accept the Terms and Privacy Policy.')
   const draft=await m.validate(selections);draft.accountConsent=userId===null&&acceptedTerms
   const result=await m.create(userId,draft)

@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser } from '@/lib/server/auth';
+import { getCurrentUser } from '@/lib/server/auth/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import {
   MediaUploadError,
   storeUploadedImage,
-} from '@/lib/server/media';
-import { toClientUser, updateUserAvatar } from '@/lib/server/users';
-import { getStaffPreviewCustomer } from '@/lib/server/staff-preview';
+} from '@/lib/server/media/media';
+import { toClientUser, updateUserAvatar } from '@/lib/server/auth/users';
+import { getStaffPreviewCustomer } from '@/lib/server/auth/staff-preview';
 
 export const runtime = 'nodejs';
 

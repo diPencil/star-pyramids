@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
-import { listStaffPayments } from '@/lib/server/payments';
-import { PAYMENT_STATUSES, type PaymentStatus } from '@/lib/payment';
-import { recordOfflinePayment, recordOfflineRefund } from '@/lib/server/payments';
-import { BOOKING_STATUSES, type BookingStatus } from '@/lib/booking';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
+import { listStaffPayments } from '@/lib/server/payments/payments';
+import { PAYMENT_STATUSES, type PaymentStatus } from '@/lib/payments/payment';
+import { recordOfflinePayment, recordOfflineRefund } from '@/lib/server/payments/payments';
+import { BOOKING_STATUSES, type BookingStatus } from '@/lib/booking/booking';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 
 const STATUS_SET = new Set<string>(PAYMENT_STATUSES);

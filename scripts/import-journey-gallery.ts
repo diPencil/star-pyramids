@@ -24,7 +24,7 @@ import { PrismaClient } from '@prisma/client';
 const db = new PrismaClient();
 
 const LEGACY_PHOTOS: Array<{ mediaUrl: string; title: string; sortOrder: number }> = [
-  // Mirrors components/homepage.tsx `galItems` (order preserved).
+  // Mirrors components/home/homepage.tsx `galItems` (order preserved).
   // `images[1..3]` resolve at runtime from components/site.tsx; the
   // concrete paths below are the values those entries hold today.
   { mediaUrl: '', title: 'Giza Pyramids, Cairo', sortOrder: 10 },

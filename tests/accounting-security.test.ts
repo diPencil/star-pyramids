@@ -21,12 +21,12 @@ const shared = vi.hoisted(() => {
   return { state, db }
 })
 vi.mock('@/lib/server/db', () => ({ db: shared.db }))
-vi.mock('@/lib/server/notifications', () => ({ notifyUser: vi.fn(), notifyStaff: vi.fn() }))
-vi.mock('@/lib/server/email', () => ({ sendCustomerEmailSafe: vi.fn(), sendStaffEmailSafe: vi.fn() }))
-vi.mock('@/lib/server/booking-access', () => ({ guestBookingPath: vi.fn(), issueGuestBookingToken: vi.fn(), revokeGuestBookingTokens: vi.fn(), resolveGuestBookingToken: vi.fn() }))
-import { initiateCustomerPayment, recordOfflinePayment, recordOfflineRefund } from '@/lib/server/payments'
-import { createBookingRecord, type ValidatedBookingDraft } from '@/lib/server/bookings'
-import { notifyStaff } from '@/lib/server/notifications'
+vi.mock('@/lib/server/notifications/notifications', () => ({ notifyUser: vi.fn(), notifyStaff: vi.fn() }))
+vi.mock('@/lib/server/email/email', () => ({ sendCustomerEmailSafe: vi.fn(), sendStaffEmailSafe: vi.fn() }))
+vi.mock('@/lib/server/booking/access/booking-access', () => ({ guestBookingPath: vi.fn(), issueGuestBookingToken: vi.fn(), revokeGuestBookingTokens: vi.fn(), resolveGuestBookingToken: vi.fn() }))
+import { initiateCustomerPayment, recordOfflinePayment, recordOfflineRefund } from '@/lib/server/payments/payments'
+import { createBookingRecord, type ValidatedBookingDraft } from '@/lib/server/booking/bookings'
+import { notifyStaff } from '@/lib/server/notifications/notifications'
 
 const { db, state } = shared
 const date = new Date('2026-01-01T00:00:00Z')

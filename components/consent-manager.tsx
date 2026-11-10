@@ -2,9 +2,9 @@
 
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react'
 import { X } from 'lucide-react'
-import { discardPendingBookingFunnel } from '@/lib/booking-funnel'
-import { sanitizeLocale, type EnabledLocale } from '@/lib/locale-config'
-import { chooseTrackingConsent, readTrackingConsent, readTrackingConsentPreference, subscribeToTrackingConsent, type TrackingConsent } from '@/lib/tracking-browser'
+import { discardPendingBookingFunnel } from '@/lib/tracking/leads/booking-funnel'
+import { sanitizeLocale, type EnabledLocale } from '@/lib/i18n/locale-config'
+import { chooseTrackingConsent, readTrackingConsent, readTrackingConsentPreference, subscribeToTrackingConsent, type TrackingConsent } from '@/lib/tracking/tracking-browser'
 import styles from './consent-manager.module.css'
 
 const optionalOff = { analytics: false, marketing: false }

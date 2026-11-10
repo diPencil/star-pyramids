@@ -2,7 +2,7 @@
 // Directional: A→B and B→A are distinct entries with independent pricing.
 import { NextResponse } from 'next/server';
 
-import { listActiveCarRoutes } from '@/lib/server/car-pricing';
+import { listActiveCarRoutes } from '@/lib/server/cars/car-pricing';
 
 export async function GET() {
   const rows = await listActiveCarRoutes();

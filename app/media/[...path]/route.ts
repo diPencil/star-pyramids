@@ -1,7 +1,7 @@
 import { createReadStream } from 'node:fs';
 import { Readable } from 'node:stream';
 
-import { getMediaAsset, resolveMediaPath, statMediaFile } from '@/lib/server/media';
+import { getMediaAsset, resolveMediaPath, statMediaFile } from '@/lib/server/media/media';
 
 // Stored images are served from the filesystem through this route, so the
 // Node.js runtime is required (never the Edge runtime).

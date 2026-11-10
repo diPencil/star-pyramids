@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { listMarketingNotifications } from '@/lib/server/marketing-notifications'
+import { listMarketingNotifications } from '@/lib/server/marketing/marketing-notifications'
 export const dynamic = 'force-dynamic'
 export async function GET() {
   try { return NextResponse.json({ notifications: await listMarketingNotifications() }, { headers: { 'Cache-Control': 'private, no-store' } }) }

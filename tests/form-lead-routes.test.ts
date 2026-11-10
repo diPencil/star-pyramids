@@ -1,13 +1,13 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({ user: vi.fn(), car: vi.fn(), event: vi.fn(), limit: vi.fn(), attempt: vi.fn() }))
-vi.mock('@/lib/server/auth', () => ({ getCurrentUser: mocks.user }))
+vi.mock('@/lib/server/auth/auth', () => ({ getCurrentUser: mocks.user }))
 vi.mock('@/lib/server/rate-limit', () => ({ checkCarRequestRateLimit: mocks.limit, checkEventRequestRateLimit: mocks.limit,
   recordCarRequestAttempt: mocks.attempt, recordEventRequestAttempt: mocks.attempt }))
-vi.mock('@/lib/server/car-requests', () => ({ createCarRequestRecord: mocks.car, validateCarDraft: vi.fn(async body => body) }))
-vi.mock('@/lib/server/event-requests', () => ({ createEventRequestRecord: mocks.event, validateEventDraft: vi.fn(async body => body), EventRequestInputError: class extends Error {} }))
+vi.mock('@/lib/server/cars/car-requests', () => ({ createCarRequestRecord: mocks.car, validateCarDraft: vi.fn(async body => body) }))
+vi.mock('@/lib/server/events/event-requests', () => ({ createEventRequestRecord: mocks.event, validateEventDraft: vi.fn(async body => body), EventRequestInputError: class extends Error {} }))
 import { POST as car } from '@/app/api/car-requests/route'
 import { POST as event } from '@/app/api/event-requests/route'
-import { formLeadMeasurement } from '@/lib/server/form-lead-measurement'
+import { formLeadMeasurement } from '@/lib/server/tracking/leads/form-lead-measurement'
 
 beforeEach(() => {
   vi.resetAllMocks()

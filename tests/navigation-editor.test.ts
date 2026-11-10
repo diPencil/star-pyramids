@@ -12,8 +12,8 @@ vi.mock('react',async()=>{
 })
 vi.mock('@/components/admin/admin-shell',()=>({PageHead:()=>null}))
 vi.mock('@/components/admin/admin-toaster',()=>({toast:{success:vi.fn(),error:vi.fn()}}))
-import { NavigationManager } from '@/components/admin/navigation-manager'
-import { defaultNavigation, initialNavigation } from '@/lib/navigation'
+import { NavigationManager } from '@/components/admin/cms/navigation-manager'
+import { defaultNavigation, initialNavigation } from '@/lib/navigation/navigation'
 type Element=ReactElement<Record<string,any>>
 function elements(node:ReactNode):Element[]{return Children.toArray(node).flatMap(child=>isValidElement(child)?[child as Element,...elements((child as Element).props.children)]:[])}
 function text(node:ReactNode):string{return Children.toArray(node).map(child=>typeof child==='string'||typeof child==='number'?String(child):isValidElement(child)?text((child as Element).props.children):'').join('')}

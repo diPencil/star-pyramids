@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import ts from 'typescript'
 import { readFileSync } from 'node:fs'
-import { EDITORIAL_HERO_IDS, isEditorialHeroId, originalEditorialHero, validateEditorialHero } from '@/lib/editorial-hero-definitions'
-import { validateFaqHero } from '@/lib/faq-hero'
+import { EDITORIAL_HERO_IDS, isEditorialHeroId, originalEditorialHero, validateEditorialHero } from '@/lib/cms/heroes/editorial-hero-definitions'
+import { validateFaqHero } from '@/lib/cms/heroes/faq-hero'
 
 describe('editorial hero identity and original content', () => {
   it('allows only implemented identities, not arbitrary SiteSetting keys', () => {
@@ -11,7 +11,7 @@ describe('editorial hero identity and original content', () => {
     for (const id of EDITORIAL_HERO_IDS) expect(validateFaqHero(originalEditorialHero(id))).toEqual(originalEditorialHero(id))
   })
   it('matches existing destination hero translations without changing the original layout', () => {
-    const file = ts.createSourceFile('extended-pages.tsx', readFileSync('components/extended-pages.tsx', 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+    const file = ts.createSourceFile('extended-pages.tsx', readFileSync("components/content/destination-pages.tsx", 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
     let hero: ts.JsxSelfClosingElement | undefined
     const visit = (node: ts.Node) => {
       if (ts.isFunctionDeclaration(node) && node.name?.text === 'DestinationsPageContent') {
@@ -45,7 +45,7 @@ describe('editorial hero identity and original content', () => {
     expect(() => validateEditorialHero('destinations', { ...original, image: 'javascript:alert(1)' })).toThrow()
   })
   it('lists information pages only after their real routes use the CMS renderer', () => {
-    const catalogue = readFileSync('lib/hero-catalogue.ts', 'utf8')
+    const catalogue = readFileSync('lib/cms/heroes/hero-catalogue.ts', 'utf8')
     for (const [id, path] of [['guide', 'egypt-travel-guide'], ['accessible', 'accessible-travel']]) {
       expect(catalogue).toContain(`id: '${id}'`)
       const route = readFileSync(`app/${path}/page.tsx`, 'utf8')

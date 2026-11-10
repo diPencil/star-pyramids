@@ -3,10 +3,10 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { Clock3 } from 'lucide-react'
 import { PageShowcaseHero } from '@/components/site'
-import { EmptyFleetHero, EmptyOffersHero } from '@/components/empty-fleet-hero'
-import { ShowcaseHeroProvider } from '@/components/showcase-hero-context'
+import { EmptyFleetHero, EmptyOffersHero } from '@/components/cars/empty-fleet-hero'
+import { ShowcaseHeroProvider } from '@/components/cms/heroes/showcase-hero-context'
 import { InitialLocaleProvider, LocaleProvider } from '@/components/locale'
-import { originalShowcaseHero, type PublicShowcaseHero } from '@/lib/showcase-heroes'
+import { originalShowcaseHero, type PublicShowcaseHero } from '@/lib/cms/heroes/showcase-heroes'
 
 const props = { image: '/egypt-hero.png', eyebrow: 'Source eyebrow', title: 'Source title', intro: 'Source description', primaryLabel: 'Browse', primaryHref: '#fleet', secondaryLabel: 'Featured', secondaryHref: '/rent-car/request?vehicle=source-id', railLabel: 'Featured vehicle', railTitle: 'Source record title', railHref: '/rent-car/request?vehicle=source-id', railMeta: [{ Icon: Clock3, label: 'Source duration' }], statsLabel: 'Source summary', stats: [{ value: 42, label: 'Source count' }] }
 const render = (state?: PublicShowcaseHero) => renderToStaticMarkup(createElement(InitialLocaleProvider, { locale: 'es', preview: true, children: createElement(LocaleProvider, { children: state ? createElement(ShowcaseHeroProvider, { state, children: createElement(PageShowcaseHero, props) }) : createElement(PageShowcaseHero, props) }) }))

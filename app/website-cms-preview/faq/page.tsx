@@ -1,12 +1,12 @@
 import { redirect } from 'next/navigation'
-import { requireStaff } from '@/lib/server/guards'
-import { hasPermission } from '@/lib/server/auth'
-import { readFaqHeroState } from '@/lib/server/faq-hero'
+import { requireStaff } from '@/lib/server/auth/guards'
+import { hasPermission } from '@/lib/server/auth/auth'
+import { readFaqHeroState } from '@/lib/server/cms/heroes/faq-hero'
 import { FAQPage } from '@/components/extended-pages'
-import { FaqHeroProvider } from '@/components/faq-hero-context'
+import { FaqHeroProvider } from '@/components/cms/heroes/faq-hero-context'
 import { InitialLocaleProvider, LocaleProvider } from '@/components/locale'
-import { sanitizeLocale } from '@/lib/locale-config'
-import { originalFaqHero } from '@/lib/faq-hero'
+import { sanitizeLocale } from '@/lib/i18n/locale-config'
+import { originalFaqHero } from '@/lib/cms/heroes/faq-hero'
 
 export const metadata = { robots: { index: false, follow: false, nocache: true } }
 export default async function Preview({ searchParams }: { searchParams: Promise<{ locale?: string }> }) {

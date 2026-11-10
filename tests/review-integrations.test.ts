@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { validateReviewConfig, safeProviderUrl } from '@/lib/review-integrations'
-import { sealReviewSecret, openReviewSecret } from '@/lib/server/review-credentials'
-import { fetchReviewProvider } from '@/lib/server/review-providers'
+import { validateReviewConfig, safeProviderUrl } from '@/lib/reviews/review-integrations'
+import { sealReviewSecret, openReviewSecret } from '@/lib/server/reviews/review-credentials'
+import { fetchReviewProvider } from '@/lib/server/reviews/review-providers'
 const config = { enabled: true, resourceId: 'ChIJexample', profileUrl: '', widgetId: '' }
 beforeEach(() => { vi.stubEnv('REVIEW_INTEGRATIONS_KEY', 'a'.repeat(64)) })
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs() })

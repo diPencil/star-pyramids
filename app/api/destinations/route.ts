@@ -1,11 +1,11 @@
-import { catalogueTranslationResponse, saveWithCatalogueTranslations } from '@/lib/server/catalogue-translations';
-import { preserveRecordSeo } from '@/lib/record-seo';
-import { validateCatalogueTranslations } from '@/lib/catalogue-translations';
+import { catalogueTranslationResponse, saveWithCatalogueTranslations } from '@/lib/server/catalogue/catalogue-translations';
+import { preserveRecordSeo } from '@/lib/seo/record-seo';
+import { validateCatalogueTranslations } from '@/lib/catalogue/catalogue-translations';
 import { NextResponse } from 'next/server';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import { db } from '@/lib/server/db';
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
-import { applyDestinationTourChanges, destinationFailure, publicDestinationReferences, validateDestinationWrite } from '@/lib/destination-write';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
+import { applyDestinationTourChanges, destinationFailure, publicDestinationReferences, validateDestinationWrite } from '@/lib/catalogue/destination-write';
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 

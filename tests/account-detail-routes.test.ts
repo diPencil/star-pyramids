@@ -4,16 +4,16 @@ import { describe, expect, it, vi } from 'vitest'
 
 // Only presentation is stubbed: execute the real server route and validators.
 // No APIs, sessions or databases are contacted.
-vi.mock('@/components/account-portal', () => ({
+vi.mock('@/components/account/account-portal', () => ({
   BookingDetailPage: ({ reference }: { reference: string }) => createElement('article', null, `Booking detail: ${reference}`),
   CarRequestDetailPage: ({ reference }: { reference: string }) => createElement('article', null, `Car request detail: ${reference}`),
   PaymentDetailPage: ({ reference }: { reference: string }) => createElement('article', null, `Payment detail: ${reference}`),
   CustomerAccountPage: () => createElement('article', null, 'Incorrect profile/list fallback'),
 }))
-vi.mock('@/components/account-custom-trip', () => ({
+vi.mock('@/components/account/account-custom-trip', () => ({
   CustomerTripRequestDetailPage: ({ reference }: { reference: string }) => createElement('article', null, `Trip request detail: ${reference}`),
 }))
-vi.mock('@/components/account-event-requests', () => ({
+vi.mock('@/components/account/account-event-requests', () => ({
   CustomerEventRequestDetailPage: ({ reference }: { reference: string }) => createElement('article', null, `Event request detail: ${reference}`),
 }))
 

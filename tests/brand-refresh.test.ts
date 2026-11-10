@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-let store:typeof import('@/lib/storefront-settings')
+let store:typeof import('@/lib/cms/storefront-settings')
 const fetcher=vi.fn()
 const settle=()=>new Promise(resolve=>setTimeout(resolve,0))
-beforeEach(async()=>{vi.resetModules();fetcher.mockReset();vi.stubGlobal('window',new EventTarget());vi.stubGlobal('fetch',fetcher);store=await import('@/lib/storefront-settings')})
+beforeEach(async()=>{vi.resetModules();fetcher.mockReset();vi.stubGlobal('window',new EventTarget());vi.stubGlobal('fetch',fetcher);store=await import('@/lib/cms/storefront-settings')})
 afterEach(()=>vi.unstubAllGlobals())
 const response=(logo:string,favicon=logo)=>Response.json({settings:{brand:{logo,favicon}}})
 it('requests fresh settings and ignores old responses after an admin refresh',async()=>{

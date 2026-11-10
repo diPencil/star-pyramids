@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { bindGalleryDialog, galleryNextIndex, stopGalleryVideo } from '@/lib/gallery-lightbox'
-import { safeGalleryLocalPath, validateGalleryOrder, validateGalleryPayload, resolveGalleryVideoSource } from '@/lib/journey-gallery'
+import { bindGalleryDialog, galleryNextIndex, stopGalleryVideo } from '@/lib/ui/gallery-lightbox'
+import { safeGalleryLocalPath, validateGalleryOrder, validateGalleryPayload, resolveGalleryVideoSource } from '@/lib/gallery/journey-gallery'
 
 function fixture() {
   const listeners = new Map<string, (event: unknown) => void>()

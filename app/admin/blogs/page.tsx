@@ -9,8 +9,8 @@ import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
-import { SharedSelect } from '@/components/shared-select'
-import { invalidateOffersBlogsCache, useDbBlogsStatus } from '@/lib/offers-blogs-client'
+import { SharedSelect } from '@/components/shared/forms/shared-select'
+import { invalidateOffersBlogsCache, useDbBlogsStatus } from '@/lib/catalogue/offers-blogs-client'
 import { toast } from '@/components/admin/admin-toaster'
 
 export default function BlogsPage() {

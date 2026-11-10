@@ -1,8 +1,8 @@
 import {beforeEach,expect,it,vi} from 'vitest'
 const m=vi.hoisted(()=>({inspect:vi.fn(),complete:vi.fn(),current:vi.fn(),session:vi.fn(),limit:vi.fn(),record:vi.fn()}))
-vi.mock('@/lib/server/checkout-account',()=>({inspectCheckoutAccount:m.inspect,completeCheckoutAccount:m.complete}))
-vi.mock('@/lib/server/auth',()=>({getCurrentUser:m.current}))
-vi.mock('@/lib/server/session',()=>({createSession:m.session}))
+vi.mock('@/lib/server/booking/checkout/checkout-account',()=>({inspectCheckoutAccount:m.inspect,completeCheckoutAccount:m.complete}))
+vi.mock('@/lib/server/auth/auth',()=>({getCurrentUser:m.current}))
+vi.mock('@/lib/server/auth/session',()=>({createSession:m.session}))
 vi.mock('@/lib/server/rate-limit',()=>({checkResetSubmitRateLimit:m.limit,recordPasswordResetAttempt:m.record}))
 import {POST} from '@/app/api/bookings/account/route'
 const request=(body:unknown={},origin='https://starpyramids.com')=>new Request('https://starpyramids.com/api/bookings/account',{method:'POST',headers:{origin,host:'starpyramids.com','content-type':'application/json'},body:JSON.stringify({reference:'SP-BK-ABC123',token:'a'.repeat(43),mode:'inspect',...body as object})})

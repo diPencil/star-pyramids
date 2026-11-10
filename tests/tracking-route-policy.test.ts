@@ -4,8 +4,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 import { catalogTours } from '@/data/tours'
 import { proxy } from '@/proxy'
-import { canMeasureLocation, isSafeTrackingUrl, sanitizeMeasurementUrl } from '@/lib/tracking'
-import { publicPageView } from '@/lib/tracking-events'
+import { canMeasureLocation, isSafeTrackingUrl, sanitizeMeasurementUrl } from '@/lib/tracking/tracking'
+import { publicPageView } from '@/lib/tracking/tracking-events'
 
 const origin = 'https://starpyramids.com'
 // Deliberate release contract, independent of the runtime allowlist. A new

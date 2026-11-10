@@ -1,6 +1,6 @@
 'use client'
 
-import { isOfferActive, offerHref } from '@/lib/special-offers'
+import { isOfferActive, offerHref } from '@/lib/offers/special-offers'
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { ExternalLink, Eye, EyeOff, Megaphone, Pencil, Plus, Tags, Ticket, Trash2 } from 'lucide-react'
@@ -11,9 +11,9 @@ import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-so
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { useAdminCurrency } from '@/components/admin/admin-currency'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
-import { SharedSelect } from '@/components/shared-select'
-import { invalidateOffersBlogsCache, useDbOffersStatus } from '@/lib/offers-blogs-client'
-import { isPromoBar } from '@/lib/marketing-campaigns'
+import { SharedSelect } from '@/components/shared/forms/shared-select'
+import { invalidateOffersBlogsCache, useDbOffersStatus } from '@/lib/catalogue/offers-blogs-client'
+import { isPromoBar } from '@/lib/marketing/marketing-campaigns'
 import { toast } from '@/components/admin/admin-toaster'
 
 export default function OffersPage() {

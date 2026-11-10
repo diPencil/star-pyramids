@@ -51,7 +51,7 @@ vi.mock('@/lib/server/db', () => ({
 }));
 
 const adapter = { name: 'test-adapter', send: vi.fn() };
-vi.mock('@/lib/server/email-smtp', () => ({
+vi.mock('@/lib/server/email/email-smtp', () => ({
   SmtpProviderAdapter: class {
     readonly name = 'smtp';
     send = vi.fn();
@@ -62,7 +62,7 @@ vi.mock('@/lib/server/email-smtp', () => ({
 
 async function loadEmail() {
   vi.resetModules();
-  const mod = await import('@/lib/server/email');
+  const mod = await import('@/lib/server/email/email');
   mod.setEmailProvider(adapter);
   return mod;
 }
@@ -173,7 +173,7 @@ describe('safe email helpers', () => {
   it('sends booking links as absolute URLs using the trusted public origin', async () => {
     adapter.send.mockResolvedValue({providerMessageId:'booking-link'});
     const {sendCustomerEmailSafe}=await loadEmail();
-    const {resolveSiteUrl}=await import('@/lib/seo');
+    const {resolveSiteUrl}=await import('@/lib/seo/seo');
     await sendCustomerEmailSafe('booking_access_requested','guest@example.com',{name:'Guest',reference:'SP-BK-ABC123',detailUrl:'/booking/'+'a'.repeat(43)});
     const sent=adapter.send.mock.calls[0][0];
     expect(sent.html).toContain(`href="${resolveSiteUrl()}/booking/`);
@@ -182,7 +182,7 @@ describe('safe email helpers', () => {
   it.each(['booking_created','booking_confirmed','booking_completed','booking_cancelled','payment_proof_received','payment_initiated','payment_paid','payment_failed','admin_payment_initiated','admin_booking_created','admin_payment_proof_submitted'] as const)('keeps %s links on the public origin',async eventType=>{
     adapter.send.mockResolvedValue({providerMessageId:'lifecycle-link'});
     const {sendCustomerEmailSafe}=await loadEmail();
-    const {resolveSiteUrl}=await import('@/lib/seo');
+    const {resolveSiteUrl}=await import('@/lib/seo/seo');
     await sendCustomerEmailSafe(eventType,'guest@example.com',{detailUrl:'/account/bookings/detail?ref=SP-BK-ABC123'});
     expect(adapter.send.mock.calls[0][0].text).toContain(`${resolveSiteUrl()}/account/bookings/detail?ref=SP-BK-ABC123`);
   });

@@ -100,26 +100,26 @@ const shared = vi.hoisted(() => {
 const { store } = shared
 
 vi.mock('@/lib/server/db', () => ({ db: shared.db }))
-vi.mock('@/lib/server/email', () => ({
+vi.mock('@/lib/server/email/email', () => ({
   sendCustomerEmailSafe: vi.fn(async () => undefined),
   sendStaffEmailSafe: vi.fn(async () => undefined),
 }))
-vi.mock('@/lib/server/notifications', () => ({
+vi.mock('@/lib/server/notifications/notifications', () => ({
   notifyUser: vi.fn(async () => undefined),
   notifyStaff: vi.fn(async () => undefined),
 }))
 
-import { GuestBookingAccessError } from '@/lib/server/booking-access'
+import { GuestBookingAccessError } from '@/lib/server/booking/access/booking-access'
 import {
   acknowledgePaymentProof,
   submitCustomerPaymentProof,
   submitGuestPaymentProof,
   validateProofInput,
-} from '@/lib/server/payment-proofs'
-import { bookingOfflinePaymentLabel } from '@/lib/payment'
-import { derivePaymentProofs, formatPaymentProofNote, parsePaymentProofNote } from '@/lib/booking'
-import { notifyStaff, notifyUser } from '@/lib/server/notifications'
-import { sendCustomerEmailSafe, sendStaffEmailSafe } from '@/lib/server/email'
+} from '@/lib/server/payments/payment-proofs'
+import { bookingOfflinePaymentLabel } from '@/lib/payments/payment'
+import { derivePaymentProofs, formatPaymentProofNote, parsePaymentProofNote } from '@/lib/booking/booking'
+import { notifyStaff, notifyUser } from '@/lib/server/notifications/notifications'
+import { sendCustomerEmailSafe, sendStaffEmailSafe } from '@/lib/server/email/email'
 
 const GUEST_TOKEN = 'a'.repeat(43)
 
@@ -382,7 +382,7 @@ describe('bookingOfflinePaymentLabel', () => {
 describe('POST /api/account/bookings/[ref]/proof authorization', () => {
   it('rejects unauthenticated callers with 401', async () => {
     vi.resetModules()
-    vi.doMock('@/lib/server/auth', () => ({
+    vi.doMock('@/lib/server/auth/auth', () => ({
       getCurrentUser: vi.fn(async () => null),
       hasPermission: () => false,
     }))

@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { collectedCrmMoney, crmAccountLabel, customerBookingAmounts, formatCrmMoney, groupCrmMoney } from '@/lib/admin-crm-reporting'
+import { collectedCrmMoney, crmAccountLabel, customerBookingAmounts, formatCrmMoney, groupCrmMoney } from '@/lib/admin/admin-crm-reporting'
 import { BookingToursSummary } from '@/components/admin/booking-tours-summary'
 
 it('keeps currencies separate, counts booking values once and retains USD-only legacy scalars', () => {

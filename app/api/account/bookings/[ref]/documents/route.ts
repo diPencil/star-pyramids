@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 
 import { db } from '@/lib/server/db';
-import { listBookingDocuments, toDocumentListItem } from '@/lib/server/documents';
-import { getAccountReadUser } from '@/lib/server/staff-preview';
+import { listBookingDocuments, toDocumentListItem } from '@/lib/server/documents/documents';
+import { getAccountReadUser } from '@/lib/server/auth/staff-preview';
 
 /**
  * Owner-only document list for one booking (Phase C).

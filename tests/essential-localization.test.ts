@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
-import { getBotReply } from '@/components/live-chat'
-import { customerErrorCopy, customerErrorText } from '@/lib/customer-error-copy'
+import { getBotReply } from '@/components/support/live-chat'
+import { customerErrorCopy, customerErrorText } from '@/lib/account/customer-error-copy'
 
 describe('essential customer localization', () => {
   it.each([
@@ -31,7 +31,7 @@ describe('essential customer localization', () => {
   })
 
   it('requires EN/ES/IT for inline UI copy in essential journey components', () => {
-    const paths = ['site', 'cart-page', 'checkout-page', 'tour-detail', 'day-tour-detail', 'trips-page', 'account-custom-trip', 'account-portal', 'event-request-form']
+    const paths = ['site', 'layout/site-header', 'shared/trip-search-engine', 'tours/tour-card', 'booking/cart/cart-page', 'booking/checkout/checkout-page', 'tours/detail/tour-detail', 'tours/detail/day-tour-detail', 'tours/trips-page', 'account/account-custom-trip', 'account/account-portal', 'account/shared/account-shell', "account/shared/account-hooks", "account/shared/account-ui", "account/shared/account-notifications", "account/bookings/booking-sections", "account/cars/car-request-sections", "account/favorites/favorites-section", "account/overview/overview-section", "account/payments/payment-sections", "account/support/messages-section", "account/profile/profile-settings", 'events/event-request-form']
     let checked = 0
     for (const name of paths) {
       const path = `components/${name}.tsx`
@@ -50,7 +50,7 @@ describe('essential customer localization', () => {
   })
 
   it('covers literal tour UI lookups instead of silently returning English', () => {
-    const path = 'components/tour-detail.tsx'
+    const path = 'components/tours/detail/tour-detail.tsx'
     const source = ts.createSourceFile(path, readFileSync(path, 'utf8'), ts.ScriptTarget.Latest, true)
     const dictionaries: Set<string>[] = []
     const collect = (node: ts.Node) => {

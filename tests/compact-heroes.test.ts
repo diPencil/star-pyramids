@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { CRUISE_HERO_IDS } from '@/lib/compact-hero-defaults'
+import { CRUISE_HERO_IDS } from '@/lib/cms/heroes/compact-hero-defaults'
 import { cruiseTypes } from '@/data/tours'
-import { heroCatalogue } from '@/lib/hero-catalogue'
-import { originalShowcaseHero, validateShowcaseHero, type PublicShowcaseHero } from '@/lib/showcase-heroes'
-import { ShowcaseHeroProvider } from '@/components/showcase-hero-context'
+import { heroCatalogue } from '@/lib/cms/heroes/hero-catalogue'
+import { originalShowcaseHero, validateShowcaseHero, type PublicShowcaseHero } from '@/lib/cms/heroes/showcase-heroes'
+import { ShowcaseHeroProvider } from '@/components/cms/heroes/showcase-hero-context'
 import { InitialLocaleProvider, LocaleProvider } from '@/components/locale'
 import { RegionTourPage } from '@/components/site'
-import { TripsPage } from '@/components/trips-page'
+import { TripsPage } from '@/components/tours/trips-page'
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ replace: vi.fn(), push: vi.fn() }), usePathname: () => '/trips', useSearchParams: () => new URLSearchParams() }))
 

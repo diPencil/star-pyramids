@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { CustomerEventRequestDetailPage } from '@/components/account-event-requests'
-import { isEventReference } from '@/lib/event-request'
+import { CustomerEventRequestDetailPage } from '@/components/account/account-event-requests'
+import { isEventReference } from '@/lib/events/event-request'
 
 export const metadata: Metadata = {
   title: 'Event Request Details',

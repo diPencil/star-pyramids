@@ -1,15 +1,15 @@
 'use client'
-import { formatCurrency, type Currency } from '@/lib/currency'
-import { submitTripRequest } from '@/lib/trip-request-submission'
+import { formatCurrency, type Currency } from '@/lib/payments/currency'
+import { submitTripRequest } from '@/lib/trip-builder/trip-request-submission'
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, ArrowRight, Check, CircleAlert, Minus, Plus } from 'lucide-react'
 import { SiteShell, Breadcrumb } from '@/components/site'
 import { useLocale } from '@/components/locale'
-import { localizeTourLocation } from '@/lib/tour-format'
+import { localizeTourLocation } from '@/lib/tours/tour-format'
 import { destinations } from '@/data/content'
-import { useDbDestinations } from '@/lib/catalogue-client'
+import { useDbDestinations } from '@/lib/catalogue/catalogue-client'
 import { parseMakeTripQuery } from '@/lib/query'
 import {
   TRIP_BUDGET_CAP,
@@ -22,16 +22,16 @@ import {
   type TripFieldErrors,
   type TripRequest,
   type TripTimeMode,
-} from '@/lib/trip-request'
+} from '@/lib/trip-builder/trip-request'
 import { findTour } from '@/data/tours'
 import { useCurrentUser } from '@/lib/use-current-user'
-import { readCustomerProfile, saveCustomerProfile } from '@/lib/customer-account'
+import { readCustomerProfile, saveCustomerProfile } from '@/lib/account/customer-account'
 import { countries, countryByDialCode, countryCode as resolveCountryCode, countryDisplayName, defaultCountry, nationalPhone } from '@/data/countries'
-import { CountrySelect } from '@/components/country-select'
-import { SharedSelect } from '@/components/shared-select'
-import { InternationalPhoneInput } from '@/components/international-phone-input'
-import { displayInternationalPhone } from '@/lib/phone'
-import { DateInput } from '@/components/date-input'
+import { CountrySelect } from '@/components/shared/forms/country-select'
+import { SharedSelect } from '@/components/shared/forms/shared-select'
+import { InternationalPhoneInput } from '@/components/shared/forms/international-phone-input'
+import { displayInternationalPhone } from '@/lib/core/phone'
+import { DateInput } from '@/components/shared/forms/date-input'
 
 const stepLabels = ['Quick information', 'Personal information', 'Confirmation']
 const timeOptions: ReadonlyArray<readonly [TripTimeMode, string]> = [['exact', 'Have An Exact Time'], ['approx', 'Have An Approximate Time'], ['unsure', 'Not Sure Yet']] as const

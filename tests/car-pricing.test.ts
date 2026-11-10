@@ -237,7 +237,7 @@ vi.mock('@/lib/server/db', () => {
   };
 });
 
-vi.mock('@/lib/server/auth', () => ({
+vi.mock('@/lib/server/auth/auth', () => ({
   getCurrentUser: async () => helpers.auth.user,
   hasPermission: (user: any, permission: string) =>
     !!user && (helpers.auth.permissions.has('*') || helpers.auth.permissions.has(permission)),
@@ -254,7 +254,7 @@ import {
   parseMoneyToCents,
   parseRoundTripMultiplier,
   scaleCentsByMultiplier,
-} from '@/lib/car-pricing';
+} from '@/lib/cars/car-pricing';
 import {
   createCarLocation,
   createCarRoute,
@@ -268,7 +268,7 @@ import {
   updateCarRoutePrice,
   updateCarPricingConfiguration,
   type CarRouteQuoteResult,
-} from '@/lib/server/car-pricing';
+} from '@/lib/server/cars/car-pricing';
 import { GET as getQuote } from '@/app/api/rent-car/quote/route';
 import { GET as getAdminPrices, POST as postAdminPrices } from '@/app/api/admin/rent-car/prices/route';
 import { PATCH as patchAdminLocation } from '@/app/api/admin/rent-car/locations/[slug]/route';

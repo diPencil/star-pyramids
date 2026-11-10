@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mock = vi.hoisted(() => ({ user: { id: 'staff' } as { id: string } | null, allowed: true, origin: true, read: vi.fn(), change: vi.fn() }))
-vi.mock('@/lib/server/auth', () => ({ getCurrentUser: async () => mock.user, hasPermission: () => mock.allowed }))
+vi.mock('@/lib/server/auth/auth', () => ({ getCurrentUser: async () => mock.user, hasPermission: () => mock.allowed }))
 vi.mock('@/lib/server/csrf', () => ({ isSameOriginRequest: () => mock.origin }))
-vi.mock('@/lib/server/faq-hero', () => ({ readFaqHeroState: mock.read, changeFaqHero: mock.change }))
+vi.mock('@/lib/server/cms/heroes/faq-hero', () => ({ readFaqHeroState: mock.read, changeFaqHero: mock.change }))
 import { GET, PATCH } from '@/app/api/admin/website-cms/editorial-heroes/[id]/route'
-import { initialFaqHeroState } from '@/lib/faq-hero'
+import { initialFaqHeroState } from '@/lib/cms/heroes/faq-hero'
 const context = (id: string) => ({ params: Promise.resolve({ id }) })
 beforeEach(() => { mock.user = { id: 'staff' }; mock.allowed = true; mock.origin = true; mock.read.mockReset().mockResolvedValue(initialFaqHeroState()); mock.change.mockReset().mockResolvedValue(initialFaqHeroState()) })
 describe('editorial hero routes use only allowlisted identities', () => {

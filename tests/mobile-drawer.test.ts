@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { useMobileDrawer } from '@/lib/use-mobile-drawer'
+import { useMobileDrawer } from '@/lib/ui/use-mobile-drawer'
 
 const state = vi.hoisted(() => ({ mobile: true, effects: [] as Array<() => void | (() => void)> }))
 vi.mock('react', async (importOriginal) => ({

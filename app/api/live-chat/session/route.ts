@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { isSameOriginRequest } from '@/lib/server/csrf'
-import { chatOwner, ipChatBudget } from '@/lib/server/live-chat-session'
-import { LiveChatError } from '@/lib/live-chat-contract'
+import { chatOwner, ipChatBudget } from '@/lib/server/support/live-chat-session'
+import { LiveChatError } from '@/lib/support/live-chat-contract'
 
 export async function POST(request: Request) {
   const headers = { 'Cache-Control': 'private, no-store', Vary: 'Cookie' }

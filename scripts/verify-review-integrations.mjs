@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict'
 process.loadEnvFile('.env')
 const { db } = await import('../lib/server/db.ts')
-const { saveReviewIntegration, getReviewIntegrations } = await import('../lib/server/review-integrations.ts')
+const { saveReviewIntegration, getReviewIntegrations } = await import('../lib/server/reviews/review-integrations.ts')
 const key = 'reviews.integration.google'
 const rollback = new Error('ROLLBACK_REVIEW_SETTINGS_VERIFICATION')
 const methods = ['findUnique', 'create', 'updateMany']

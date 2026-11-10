@@ -5,8 +5,8 @@ vi.mock('react', () => ({
   useRef: (initial: any) => { const slot = h.cursor++; if (!(slot in h.slots)) h.slots[slot] = { current: initial }; return h.slots[slot] },
   useEffect: (effect: () => (() => void) | undefined, deps: unknown[]) => { const index = h.effect++, previous = h.effects[index]; if (!previous || deps.some((dep, i) => dep !== previous.deps[i])) { previous?.cleanup?.(); h.effects[index] = { deps, cleanup: effect() } } },
 }))
-vi.mock('@/lib/customer-notifications', () => ({ invalidateNotifications: h.invalidate }))
-import { useMarketingNotifications } from '@/lib/marketing-notifications-client'
+vi.mock('@/lib/account/customer-notifications', () => ({ invalidateNotifications: h.invalidate }))
+import { useMarketingNotifications } from '@/lib/marketing/marketing-notifications-client'
 const item = (letter = 'a') => ({ id: 'marketing:offer:' + letter.repeat(32), type: 'offer_available', title: 'Current offer', message: 'Real offer', href: '/special-offers/current', readAt: null, expiresAt: null, createdAt: '2026-10-28T00:00:00Z', localized: {} })
 const render = (owner: string | null | undefined) => { h.cursor = 0; h.effect = 0; return useMarketingNotifications(owner) }
 const settle = () => new Promise(resolve => setTimeout(resolve, 0))

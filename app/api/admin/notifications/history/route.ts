@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getCurrentUser, hasPermission } from '@/lib/server/auth'
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth'
 import { db } from '@/lib/server/db'
 const headers = { 'Cache-Control': 'private, no-store' }
 export async function GET(request: Request) {

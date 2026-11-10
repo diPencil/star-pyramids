@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mock = vi.hoisted(() => ({ findUnique: vi.fn(), updateMany: vi.fn(), create: vi.fn() }))
 vi.mock('@/lib/server/db', () => ({ db: { siteSetting: mock } }))
-import { changeFaqHero, readFaqHeroState } from '@/lib/server/faq-hero'
-import { FAQ_HERO_KEY, initialFaqHeroState, originalFaqHero } from '@/lib/faq-hero'
-import { originalEditorialHero } from '@/lib/editorial-hero-definitions'
+import { changeFaqHero, readFaqHeroState } from '@/lib/server/cms/heroes/faq-hero'
+import { FAQ_HERO_KEY, initialFaqHeroState, originalFaqHero } from '@/lib/cms/heroes/faq-hero'
+import { originalEditorialHero } from '@/lib/cms/heroes/editorial-hero-definitions'
 beforeEach(() => { mock.findUnique.mockReset().mockResolvedValue(null); mock.updateMany.mockReset().mockResolvedValue({ count: 1 }); mock.create.mockReset().mockResolvedValue({}) })
 describe('FAQ persistence with mocked Prisma only', () => {
   it('keeps destination storage and restore independent from FAQ', async () => {

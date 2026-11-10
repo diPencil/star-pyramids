@@ -1,11 +1,11 @@
-import { rentCarFailure } from '@/lib/server/rent-car-errors';
+import { rentCarFailure } from '@/lib/server/cars/rent-car-errors';
 // Staff-only route edit/delete (Phase 2). Deleting a route that still has
 // price entries is refused by the service (deactivate instead).
 import { NextResponse } from 'next/server';
 
 import { isSameOriginRequest } from '@/lib/server/csrf';
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
-import { deleteCarRoute, updateCarRoute } from '@/lib/server/car-pricing';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
+import { deleteCarRoute, updateCarRoute } from '@/lib/server/cars/car-pricing';
 
 async function requirePermission(request: Request, permission: string) {
   const user = await getCurrentUser();

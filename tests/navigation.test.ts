@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { defaultNavigation, validateNavigation, transitionNavigation, initialNavigation, moveNavigation, navigationLabel, visibleNavigation, safeNavigationUrl, decodeNavigation, navigationActive, type NavigationContent, type ResolvedNavigationItem } from '@/lib/navigation'
+import { defaultNavigation, validateNavigation, transitionNavigation, initialNavigation, moveNavigation, navigationLabel, visibleNavigation, safeNavigationUrl, decodeNavigation, navigationActive, type NavigationContent, type ResolvedNavigationItem } from '@/lib/navigation/navigation'
 const fixture = () => defaultNavigation()
 const resolved = (content = fixture()): ResolvedNavigationItem[] => content.items.map(item => ({ ...item, href: item.target?.type === 'internal' ? item.target.href : undefined, children: item.children.map(child => ({ ...child, href: child.target?.type === 'internal' ? child.target.href : undefined, children: [] })) }))
 describe('Navigation CMS document and tree operations', () => {

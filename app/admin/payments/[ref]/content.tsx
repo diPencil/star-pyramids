@@ -6,11 +6,11 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { AdminText, Card, StatusPill } from '@/components/admin/admin-ui'
 import { useAdminLocale } from '@/components/admin/admin-locale'
-import { formatCurrency, TOUR_BOOKING_CURRENCY } from '@/lib/currency'
+import { formatCurrency, TOUR_BOOKING_CURRENCY } from '@/lib/payments/currency'
 import { toast } from '@/components/admin/admin-toaster'
 import { useCurrentUser } from '@/lib/use-current-user'
-import { SharedSelect } from '@/components/shared-select'
-import { paymentActivityLabel, paymentStatusLabel, type StaffPayment } from '@/lib/payment'
+import { SharedSelect } from '@/components/shared/forms/shared-select'
+import { paymentActivityLabel, paymentStatusLabel, type StaffPayment } from '@/lib/payments/payment'
 
 async function apiStaffPaymentDetail(reference: string): Promise<StaffPayment> {
   const res = await fetch(`/api/admin/payments/${encodeURIComponent(reference)}`, { credentials: 'same-origin' })

@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
 import { isSameOriginRequest } from '@/lib/server/csrf';
 import {
   countUnreadNotifications,
   listNotifications,
   markAllNotificationsRead,
   markNotificationRead,
-} from '@/lib/server/notifications';
+} from '@/lib/server/notifications/notifications';
 
 async function requireStaff(permission: string) {
   const current = await getCurrentUser();

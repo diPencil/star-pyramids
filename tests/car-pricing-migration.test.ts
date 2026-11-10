@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { parseVehicleCapacity } from '@/lib/car-request'
+import { parseVehicleCapacity } from '@/lib/cars/car-request'
 
 const sql = readFileSync('prisma/migrations/20261027170000_car_passenger_pricing/migration.sql', 'utf8')
 const schema = readFileSync('prisma/schema.prisma', 'utf8')

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { PrismaClient, Prisma } from '@prisma/client'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { parseLiveAction } from '@/lib/live-chat-contract'
+import { parseLiveAction } from '@/lib/support/live-chat-contract'
 
 // This verification is opt-in and never falls back to the application's .env.
 // Every synthetic row is enclosed in one transaction which deliberately rolls back.
@@ -16,10 +16,10 @@ vi.mock('@/lib/server/db', () => ({ db: new Proxy({}, {
   },
 }) }))
 // Verification must never notify existing staff or send email.
-vi.mock('@/lib/server/notifications', () => ({ notifyStaff: vi.fn(), notifyUser: vi.fn(), adminSupportHref: (ref: string) => `/admin/inbox?conversation=${ref}`, customerSupportHref: (ref: string) => `/account/messages?conversation=${ref}` }))
-vi.mock('@/lib/server/email', () => ({ sendCustomerEmailSafe: vi.fn(), sendStaffEmailSafe: vi.fn() }))
-import { readLiveThread, writeLiveThread } from '@/lib/server/live-chat'
-import { getCustomerThread, getStaffConversation, sendCustomerMessage, sendStaffMessage } from '@/lib/server/support-chat'
+vi.mock('@/lib/server/notifications/notifications', () => ({ notifyStaff: vi.fn(), notifyUser: vi.fn(), adminSupportHref: (ref: string) => `/admin/inbox?conversation=${ref}`, customerSupportHref: (ref: string) => `/account/messages?conversation=${ref}` }))
+vi.mock('@/lib/server/email/email', () => ({ sendCustomerEmailSafe: vi.fn(), sendStaffEmailSafe: vi.fn() }))
+import { readLiveThread, writeLiveThread } from '@/lib/server/support/live-chat'
+import { getCustomerThread, getStaffConversation, sendCustomerMessage, sendStaffMessage } from '@/lib/server/support/support-chat'
 
 describe.skipIf(!enabled)('authorized local chat database verification with rollback', () => {
   let client: PrismaClient

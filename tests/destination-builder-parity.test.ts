@@ -2,22 +2,22 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Destination, Tour } from '@/data/types'
-import { changeDestinationRow, destinationBuilderRecord, destinationBuilderTranslations, destinationPreview, DESTINATION_SECTION_MAP, DESTINATION_REPEATERS } from '@/lib/destination-builder'
-import { validateCatalogueTranslations } from '@/lib/catalogue-translations'
-import { validateDestinationWrite } from '@/lib/destination-write'
-import { DestinationSectionsEditor, DestinationCoverEditor } from '@/components/admin/destination-sections-editor'
-import { DestinationPreviewContent } from '@/components/admin/destination-builder-preview'
+import { changeDestinationRow, destinationBuilderRecord, destinationBuilderTranslations, destinationPreview, DESTINATION_SECTION_MAP, DESTINATION_REPEATERS } from '@/lib/catalogue/destination-builder'
+import { validateCatalogueTranslations } from '@/lib/catalogue/catalogue-translations'
+import { validateDestinationWrite } from '@/lib/catalogue/destination-write'
+import { DestinationSectionsEditor, DestinationCoverEditor } from '@/components/admin/destinations/destination-sections-editor'
+import { DestinationPreviewContent } from '@/components/admin/destinations/destination-builder-preview'
 import { DestinationDetailView } from '@/components/extended-pages'
 import { CreationTimeline } from '@/components/admin/creation-timeline'
-import { PublicAppearance } from '@/components/public-appearance'
+import { PublicAppearance } from '@/components/cms/public-appearance'
 import { TourCard, TourCardPresentation } from '@/components/site'
 import { InitialLocaleProvider, LocaleProvider } from '@/components/locale'
-import { PresentationProvider } from '@/components/presentation-content-context'
-import { originalTemplateContent } from '@/lib/template-presentation'
+import { PresentationProvider } from '@/components/cms/presentation-content-context'
+import { originalTemplateContent } from '@/lib/cms/templates/template-presentation'
 
 vi.mock('next/navigation', () => ({ usePathname: () => '/admin/destinations/new' }))
-vi.mock('@/lib/catalogue-client', () => ({ usePublicDestinationsStatus: () => { throw Error('Preview must not read the catalogue') } }))
-vi.mock('@/lib/tours-client', () => ({ useDbToursStatus: () => { throw Error('Preview must not fetch tours') } }))
+vi.mock('@/lib/catalogue/catalogue-client', () => ({ usePublicDestinationsStatus: () => { throw Error('Preview must not read the catalogue') } }))
+vi.mock('@/lib/tours/tours-client', () => ({ useDbToursStatus: () => { throw Error('Preview must not fetch tours') } }))
 // No DB access or media upload is allowed from rendering a preview.
 vi.mock('@/lib/server/db', () => { throw Error('Builder parity tests must never use the database') })
 

@@ -2,10 +2,10 @@ import { beforeEach, expect, it, vi } from 'vitest'
 import { generateOpaqueToken, hashToken } from '@/lib/core/tokens'
 const mock = vi.hoisted(() => ({ get: vi.fn(), set: vi.fn(), current: vi.fn(), account: vi.fn(), find: vi.fn(), create: vi.fn(), budget: vi.fn() }))
 vi.mock('next/headers', () => ({ cookies: async () => ({ get: mock.get, set: mock.set }) }))
-vi.mock('@/lib/server/auth', () => ({ getCurrentUser: mock.current }))
-vi.mock('@/lib/server/staff-preview', () => ({ getStaffPreviewCustomer: mock.account }))
+vi.mock('@/lib/server/auth/auth', () => ({ getCurrentUser: mock.current }))
+vi.mock('@/lib/server/auth/staff-preview', () => ({ getStaffPreviewCustomer: mock.account }))
 vi.mock('@/lib/server/db', () => ({ db: { chatGuestSession: { findUnique: mock.find, create: mock.create }, chatRateBucket: { upsert: mock.budget } } }))
-import { chatOwner, chatBudget, GUEST_CHAT_COOKIE } from '@/lib/server/live-chat-session'
+import { chatOwner, chatBudget, GUEST_CHAT_COOKIE } from '@/lib/server/support/live-chat-session'
 beforeEach(() => {
   vi.resetAllMocks()
   mock.current.mockResolvedValue(null)
@@ -66,7 +66,7 @@ it('uses Secure and a host-only cookie name in production', async () => {
   vi.stubEnv('NODE_ENV', 'production')
   vi.resetModules()
   try {
-    const production = await import('@/lib/server/live-chat-session')
+    const production = await import('@/lib/server/support/live-chat-session')
     await production.chatOwner(true)
     expect(mock.set).toHaveBeenCalledWith('__Host-sp-chat', expect.any(String), expect.objectContaining({ secure: true, httpOnly: true, path: '/', sameSite: 'strict' }))
   } finally { vi.unstubAllEnvs() }

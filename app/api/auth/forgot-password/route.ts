@@ -6,8 +6,8 @@ import {
   checkPasswordResetRateLimit,
   recordPasswordResetAttempt,
 } from '@/lib/server/rate-limit';
-import { createPasswordResetToken } from '@/lib/server/auth';
-import { sendCustomerEmailSafe } from '@/lib/server/email';
+import { createPasswordResetToken } from '@/lib/server/auth/auth';
+import { sendCustomerEmailSafe } from '@/lib/server/email/email';
 
 function requestIp(request: Request): string {
   return (

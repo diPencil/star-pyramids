@@ -6,8 +6,8 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Tour } from '@/data/types';
-import { isTourPublished } from '@/lib/tour-publish';
-import { resolveTours } from '@/lib/tours-client';
+import { isTourPublished } from '@/lib/tours/tour-publish';
+import { resolveTours } from '@/lib/tours/tours-client';
 
 function tour(slug: string, extra?: Partial<Tour>): Tour {
   return {

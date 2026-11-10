@@ -15,22 +15,22 @@ vi.mock('next/headers', () => ({
   }),
 }));
 
-vi.mock('@/lib/server/auth', () => ({
+vi.mock('@/lib/server/auth/auth', () => ({
   getCurrentUser: async () => state.current,
   hasStaffRole: (user: { roles: string[] }) => user.roles.some((role) => role !== 'CUSTOMER'),
   hasPermission: (user: { permissions: string[] }, key: string) => user.permissions.includes(key),
 }));
 
-vi.mock('@/lib/server/users', () => ({
+vi.mock('@/lib/server/auth/users', () => ({
   findPublicUserByPublicId: async () => state.customer,
 }));
 
-import { SESSION_COOKIE_NAME } from '@/lib/server/session';
+import { SESSION_COOKIE_NAME } from '@/lib/server/auth/session';
 import {
   getAccountReadUser,
   getAccountWriteUser,
   STAFF_PREVIEW_COOKIE_NAME,
-} from '@/lib/server/staff-preview';
+} from '@/lib/server/auth/staff-preview';
 
 const staff = {
   id: 'staff-db-id',

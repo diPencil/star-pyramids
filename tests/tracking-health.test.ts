@@ -1,8 +1,8 @@
 import { expect, it, vi } from 'vitest'
 import { generateKeyPairSync } from 'node:crypto'
-import { verifyTrackingHealth, admitTrackingHealthCheck } from '@/lib/server/tracking-health'
-import { googleTrackingApi, GoogleTrackingApiError, type GoogleTrackingApi } from '@/lib/server/google-tracking-api'
-import { browserTrackingHealth, normalizeGa4MeasurementId, overallTrackingHealth } from '@/lib/tracking-health'
+import { verifyTrackingHealth, admitTrackingHealthCheck } from '@/lib/server/tracking/health/tracking-health'
+import { googleTrackingApi, GoogleTrackingApiError, type GoogleTrackingApi } from '@/lib/server/tracking/health/google-tracking-api'
+import { browserTrackingHealth, normalizeGa4MeasurementId, overallTrackingHealth } from '@/lib/tracking/health/tracking-health'
 
 const config = { enabled: true, containerId: 'GTM-KQ8GR36H', measurementId: 'G-ABC1234567' }
 const env = { GOOGLE_TRACKING_GA4_PROPERTY_ID: '123' }

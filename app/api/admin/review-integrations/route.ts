@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
-import { getCurrentUser, hasPermission } from '@/lib/server/auth'
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth'
 import { isSameOriginRequest } from '@/lib/server/csrf'
-import { getReviewIntegrations, loadReviewFeed, saveReviewIntegration } from '@/lib/server/review-integrations'
-import { isReviewProvider } from '@/lib/review-integrations'
+import { getReviewIntegrations, loadReviewFeed, saveReviewIntegration } from '@/lib/server/reviews/review-integrations'
+import { isReviewProvider } from '@/lib/reviews/review-integrations'
 import { db } from '@/lib/server/db'
 const headers = { 'Cache-Control': 'no-store' }
 export async function GET() {

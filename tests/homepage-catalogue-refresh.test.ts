@@ -2,17 +2,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const effects = vi.hoisted(() => [] as Array<() => void | (() => void)>)
 vi.mock('react', () => ({ useState: () => [0, vi.fn()], useEffect: (effect: () => void | (() => void)) => { effects.push(effect) }, useMemo: (fn: () => unknown) => fn() }))
-vi.mock('@/lib/use-catalogue-language', () => ({ useCatalogueLanguage: (rows: unknown) => rows }))
+vi.mock('@/lib/catalogue/use-catalogue-language', () => ({ useCatalogueLanguage: (rows: unknown) => rows }))
 beforeEach(() => { vi.resetModules(); effects.length = 0 })
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
 const kinds = ['destinations', 'blogs', 'offers'] as const
 async function client(kind: typeof kinds[number]) {
   if (kind === 'destinations') {
-    const module = await import('@/lib/catalogue-client')
+    const module = await import('@/lib/catalogue/catalogue-client')
     return { read: () => module.useDbDestinations([]), invalidate: module.invalidateCatalogueCache }
   }
-  const module = await import('@/lib/offers-blogs-client')
+  const module = await import('@/lib/catalogue/offers-blogs-client')
   return { read: () => kind === 'blogs' ? module.useDbBlogs([]) : module.useDbOffers([]), invalidate: module.invalidateOffersBlogsCache }
 }
 const makeRow = (slug: string) => ({ slug, title: slug, image: '', copy: 'Source copy', isPublished: true, detail: {}, content: {} })

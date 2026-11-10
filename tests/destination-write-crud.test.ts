@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { changeDestinationRow, destinationBuilderTranslations } from '@/lib/destination-builder'
-import { stripRecordSeo, initialRecordSeoState } from '@/lib/record-seo'
-import { destinationEditorRecord, validateDestinationWrite } from '@/lib/destination-write'
+import { changeDestinationRow, destinationBuilderTranslations } from '@/lib/catalogue/destination-builder'
+import { stripRecordSeo, initialRecordSeoState } from '@/lib/seo/record-seo'
+import { destinationEditorRecord, validateDestinationWrite } from '@/lib/catalogue/destination-write'
 
 type Row = { slug: string; updatedAt: Date; detail: string; [key: string]: unknown }
 type Tour = { slug: string; destinationSlug: string | null; category: string; status: string; updatedAt: Date }
@@ -10,7 +10,7 @@ const m = vi.hoisted(() => ({
   user: true, permissions: new Set<string>(), origin: true, fail: '', sequence: 0,
   destinationWrite: vi.fn(), tourWrite: vi.fn(),
 }))
-vi.mock('@/lib/server/auth', () => ({ getCurrentUser: async () => m.user ? { id: 'staff' } : null, hasPermission: (_user: unknown, key: string) => m.permissions.has(key) }))
+vi.mock('@/lib/server/auth/auth', () => ({ getCurrentUser: async () => m.user ? { id: 'staff' } : null, hasPermission: (_user: unknown, key: string) => m.permissions.has(key) }))
 vi.mock('@/lib/server/csrf', () => ({ isSameOriginRequest: () => m.origin }))
 vi.mock('@/lib/server/db', () => {
   const conflict = (code = 'P2025') => Object.assign(new Error('PRIVATE SQL DIAGNOSTIC'), { code })

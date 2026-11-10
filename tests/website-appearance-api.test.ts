@@ -5,12 +5,12 @@ vi.mock('@/lib/server/db', () => ({ db: { siteSetting: {
   create: async ({ data }: { data: { key: string; value: string } }) => { if (memory.duplicate) throw { code: 'P2002' }; memory.rows.set(data.key, data.value); return data },
   updateMany: async ({ where, data }: { where: { key: string; value: string }; data: { value: string } }) => { if (memory.conflict || memory.rows.get(where.key) !== where.value) return { count: 0 }; memory.rows.set(where.key, data.value); return { count: 1 } },
 } } }))
-vi.mock('@/lib/server/auth', () => ({ getCurrentUser: async () => memory.authenticated ? { id: 'staff' } : null, hasPermission: (_user: unknown, permission: string) => permission === 'settings.edit' ? memory.edit : memory.view }))
+vi.mock('@/lib/server/auth/auth', () => ({ getCurrentUser: async () => memory.authenticated ? { id: 'staff' } : null, hasPermission: (_user: unknown, permission: string) => permission === 'settings.edit' ? memory.edit : memory.view }))
 vi.mock('@/lib/server/csrf', () => ({ isSameOriginRequest: () => memory.origin }))
 vi.mock('next/cache', () => ({ revalidatePath: memory.revalidate }))
 import { GET, PATCH } from '@/app/api/admin/website-cms/appearance/route'
-import { APPEARANCE_KEY } from '@/lib/website-appearance'
-import { readPublishedAppearance } from '@/lib/server/website-appearance'
+import { APPEARANCE_KEY } from '@/lib/cms/website-appearance'
+import { readPublishedAppearance } from '@/lib/server/cms/website-appearance'
 const request = (body: unknown) => new Request('https://starpyramids.com/api/admin/website-cms/appearance', { method: 'PATCH', body: JSON.stringify(body) })
 const save = (revision: number, content: unknown) => PATCH(request({ action: 'save-draft', revision, content }))
 beforeEach(() => { memory.rows.clear(); memory.authenticated = true; memory.view = true; memory.edit = true; memory.origin = true; memory.conflict = false; memory.duplicate = false; memory.revalidate.mockReset() })

@@ -7,9 +7,9 @@ import { PageHead } from '@/components/admin/admin-shell'
 import { AdminEmpty, AdminIconAction, AdminStats, AdminTableActions, AdminTableTools, AdminTableWrap, AdminText, Avatar, Card, StatusPill } from '@/components/admin/admin-ui'
 import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-sort'
 import { useAdminLocale } from '@/components/admin/admin-locale'
-import { formatCurrency } from '@/lib/currency'
+import { formatCurrency } from '@/lib/payments/currency'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
-import { PAYMENT_STATUSES, paymentStatusLabel, type PaymentStatus, type StaffPayment } from '@/lib/payment'
+import { PAYMENT_STATUSES, paymentStatusLabel, type PaymentStatus, type StaffPayment } from '@/lib/payments/payment'
 
 const statusTabs = [
   { id: 'all', en: 'All', ar: 'الكل' },

@@ -9,8 +9,8 @@ import { SortableTh, useAdminTableSort } from '@/components/admin/admin-table-so
 import { useAdminLocale } from '@/components/admin/admin-locale'
 import { AdminPagination, usePagination } from '@/components/admin/admin-pagination'
 import { getMultiDayToursForCategory, getToursByCategory } from '@/data/tours'
-import { invalidateCatalogueCache, useDbCategoriesStatus } from '@/lib/catalogue-client'
-import { useDbToursStatus } from '@/lib/tours-client'
+import { invalidateCatalogueCache, useDbCategoriesStatus } from '@/lib/catalogue/catalogue-client'
+import { useDbToursStatus } from '@/lib/tours/tours-client'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import { toast } from '@/components/admin/admin-toaster'
 

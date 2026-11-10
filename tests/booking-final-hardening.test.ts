@@ -1,18 +1,18 @@
 import {beforeEach,afterEach,it,expect,vi} from 'vitest'
 import type {Tour} from '@/data/types'
 import {Prisma} from '@prisma/client'
-import {estimateCart} from '@/lib/booking'
-import {sanitizeCartItem} from '@/lib/cart'
-import {bookingPriceLine,bookingPriceSnapshot} from '@/lib/booking-price'
+import {estimateCart} from '@/lib/booking/booking'
+import {sanitizeCartItem} from '@/lib/booking/cart'
+import {bookingPriceLine,bookingPriceSnapshot} from '@/lib/booking/booking-price'
 const m=vi.hoisted(()=>({rows:[] as any[],tour:null as any,secondTour:null as any,reads:0,hook:null as null|(()=>void),mail:vi.fn(),token:vi.fn(),create:vi.fn(),query:vi.fn()}))
 const db=vi.hoisted(()=>({booking:{findUnique:vi.fn(),create:vi.fn()},$transaction:vi.fn(),$queryRaw:vi.fn()}))
 vi.mock('@/lib/server/db',()=>({db}))
-vi.mock('@/lib/server/tours',()=>({findTourBySlug:async(slug:string)=>{m.reads++;return slug==='second-tour'?m.secondTour:m.tour}}))
-vi.mock('@/lib/server/notifications',()=>({notifyUser:vi.fn(),notifyStaff:vi.fn()}))
-vi.mock('@/lib/server/email',()=>({sendCustomerEmailSafe:m.mail,sendStaffEmailSafe:m.mail}))
-vi.mock('@/lib/server/booking-access',()=>({issueGuestBookingToken:m.token,revokeGuestBookingTokens:vi.fn(),guestBookingPath:()=>'/booking/'+ 'x'.repeat(43)}))
-import {createCheckoutBooking} from '@/lib/server/booking-checkout'
-import {PriceChanged,issuePriceQuote,verifyPriceQuote,requestDigest,priceDigest,QUOTE_TTL_MS} from '@/lib/server/booking-quote'
+vi.mock('@/lib/server/catalogue/tours',()=>({findTourBySlug:async(slug:string)=>{m.reads++;return slug==='second-tour'?m.secondTour:m.tour}}))
+vi.mock('@/lib/server/notifications/notifications',()=>({notifyUser:vi.fn(),notifyStaff:vi.fn()}))
+vi.mock('@/lib/server/email/email',()=>({sendCustomerEmailSafe:m.mail,sendStaffEmailSafe:m.mail}))
+vi.mock('@/lib/server/booking/access/booking-access',()=>({issueGuestBookingToken:m.token,revokeGuestBookingTokens:vi.fn(),guestBookingPath:()=>'/booking/'+ 'x'.repeat(43)}))
+import {createCheckoutBooking} from '@/lib/server/booking/checkout/booking-checkout'
+import {PriceChanged,issuePriceQuote,verifyPriceQuote,requestDigest,priceDigest,QUOTE_TTL_MS} from '@/lib/server/booking/checkout/booking-quote'
 const selection={tourSlug:'test-tour',date:'',adults:2,children:0,infants:0,addons:['Ticket','On request']}
 const input=()=>({lines:[{...selection}],contact:{name:'Test Customer',email:'test@example.com',phone:'+201234567890'},notes:'Customer note',currency:'USD',idempotencyKey:'hardening-attempt-key'})
 const snapshot=()=>bookingPriceSnapshot([bookingPriceLine(m.tour,selection)])
@@ -181,7 +181,7 @@ it('a recovery-only request cannot become a new booking',async()=>{
   expect(m.create).not.toHaveBeenCalled();expect(m.reads).toBe(0)
 })
 it('revalidates expiry and requires a fresh explicit confirmation',async()=>{
-  const price=snapshot();const identity=(await import('@/lib/server/booking-checkout')).checkoutRequestIdentity(input(),true)
+  const price=snapshot();const identity=(await import('@/lib/server/booking/checkout/booking-checkout')).checkoutRequestIdentity(input(),true)
   const expired=issuePriceQuote(requestDigest({fingerprint:identity.fingerprint,key:identity.key,userId:null}),price,Date.now()-QUOTE_TTL_MS)
   await expect(createCheckoutBooking(null,input(),true,price,expired)).rejects.toBeInstanceOf(PriceChanged)
   expect(m.rows).toHaveLength(0)

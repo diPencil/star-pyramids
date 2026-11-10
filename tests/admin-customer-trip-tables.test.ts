@@ -1,11 +1,11 @@
 import {createElement} from 'react'
 import {renderToStaticMarkup} from 'react-dom/server'
 import {beforeEach,it,expect,vi} from 'vitest'
-import type {DirectoryCustomer,CustomerDetail,GuestBookingContact} from '@/lib/admin-customers-client'
+import type {DirectoryCustomer,CustomerDetail,GuestBookingContact} from '@/lib/admin/admin-customers-client'
 const state=vi.hoisted(()=>({accounts:[] as DirectoryCustomer[],guests:[] as GuestBookingContact[],canGuests:true,canRecovery:false,detail:null as CustomerDetail|null,recovery:vi.fn()}))
-vi.mock('@/lib/admin-customers-client',()=>({useDbCustomersStatus:()=>({data:state.accounts,guestContacts:state.guests,canViewGuestContacts:state.canGuests,canRequestGuestRecovery:state.canRecovery,viewerPermissions:[],loading:false,error:null,retry:vi.fn(),refresh:vi.fn()}),useDbCustomerDetail:()=>({data:state.detail,canPreview:false,canManage:false,loading:false,error:null,retry:vi.fn(),refresh:vi.fn()}),mutateCustomerStatus:vi.fn(),requestGuestCrmRecovery:state.recovery}))
+vi.mock('@/lib/admin/admin-customers-client',()=>({useDbCustomersStatus:()=>({data:state.accounts,guestContacts:state.guests,canViewGuestContacts:state.canGuests,canRequestGuestRecovery:state.canRecovery,viewerPermissions:[],loading:false,error:null,retry:vi.fn(),refresh:vi.fn()}),useDbCustomerDetail:()=>({data:state.detail,canPreview:false,canManage:false,loading:false,error:null,retry:vi.fn(),refresh:vi.fn()}),mutateCustomerStatus:vi.fn(),requestGuestCrmRecovery:state.recovery}))
 vi.mock('@/components/admin/admin-currency',()=>({useAdminCurrency:()=>({formatUsd:(value:number)=>`USD ${value}`})}))
-vi.mock('@/components/shared-select',()=>({SharedSelect:()=>null}))
+vi.mock('@/components/shared/forms/shared-select',()=>({SharedSelect:()=>null}))
 import CustomersPage from '@/app/admin/customers/page'
 import {CustomerDetailContent} from '@/app/admin/customers/[key]/content'
 const date='2026-11-03T10:00:00Z'

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser, hasPermission } from '@/lib/server/auth';
-import { getCarBookingCounts } from '@/lib/server/cars';
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth';
+import { getCarBookingCounts } from '@/lib/server/cars/cars';
 
 /** Admin fleet booking stats: confirmed car transfers per assigned vehicle. */
 export async function GET() {

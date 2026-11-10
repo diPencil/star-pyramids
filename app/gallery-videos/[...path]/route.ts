@@ -2,7 +2,7 @@ import { createReadStream } from 'node:fs';
 
 import { Readable } from 'node:stream';
 
-import { getVideoAsset, resolveVideoPath, statVideoFile } from '@/lib/server/journey-video-storage';
+import { getVideoAsset, resolveVideoPath, statVideoFile } from '@/lib/server/gallery/journey-video-storage';
 
 // Stored journey videos are served from the filesystem through this route,
 // so the Node.js runtime is required (never the Edge runtime).

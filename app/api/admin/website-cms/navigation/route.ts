@@ -1,11 +1,11 @@
-import { readNavigationBody } from '@/lib/server/navigation-request'
+import { readNavigationBody } from '@/lib/server/navigation/navigation-request'
 import { NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
-import { getCurrentUser, hasPermission } from '@/lib/server/auth'
+import { getCurrentUser, hasPermission } from '@/lib/server/auth/auth'
 import { isSameOriginRequest } from '@/lib/server/csrf'
-import { readNavigation, changeNavigation, navigationDefaults } from '@/lib/server/navigation'
-import { NavigationValidationError } from '@/lib/navigation'
-import { HeroConflictError } from '@/lib/server/website-heroes'
+import { readNavigation, changeNavigation, navigationDefaults } from '@/lib/server/navigation/navigation'
+import { NavigationValidationError } from '@/lib/navigation/navigation'
+import { HeroConflictError } from '@/lib/server/cms/heroes/website-heroes'
 export const dynamic = 'force-dynamic'
 const headers = { 'Cache-Control': 'private, no-store', 'X-Robots-Tag': 'noindex, nofollow' }
 export async function GET() {

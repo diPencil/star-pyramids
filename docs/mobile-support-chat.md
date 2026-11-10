@@ -4,8 +4,8 @@ Live Chat and the existing WhatsApp handoff widget open as full-screen conversat
 
 ## Behavior and ownership
 
-- `components/support-chat-panel.tsx` owns responsive presentation and portals the mobile panel into `document.body`. `PublicAppearancePortal` preserves the published appearance tokens. Conversation state stays in the existing widget owner.
-- `lib/mobile-chat-screen.ts` tracks VisualViewport resize/scroll and window resize/orientation changes. The panel follows the visible viewport, including keyboard panning; window dimensions are the fallback.
+- `components/support/support-chat-panel.tsx` owns responsive presentation and portals the mobile panel into `document.body`. `PublicAppearancePortal` preserves the published appearance tokens. Conversation state stays in the existing widget owner.
+- `lib/support/mobile-chat-screen.ts` tracks VisualViewport resize/scroll and window resize/orientation changes. The panel follows the visible viewport, including keyboard panning; window dimensions are the fallback.
 - `app/mobile-shell.css` scopes the full-screen treatment to the existing mobile/tablet breakpoint. Messages scroll, the composer stays last, safe areas receive padding, and 16px input text avoids iOS input zoom.
 - The mobile header uses 4px vertical spacing, a 28px avatar, a 13px brand name and a 10.5px status line. Without safe-area insets or wrapped text, the 44px Back target makes it approximately 52px tall. Message bubbles use 13px text and smaller padding; the composer retains 16px text and 44px controls. These compact rules affect both chat channels only inside the mobile breakpoint; desktop stays unchanged.
 - Back closes the conversation and restores the page scroll and previous focus. Escape and focus trapping are supported. Opening focuses Back rather than summoning the keyboard. There is no new history entry or browser Back interception.

@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({ user: { id: 'staff' } as { id: string } | null, allowed: true, origin: true, read: vi.fn(), change: vi.fn() }))
-vi.mock('@/lib/server/auth', () => ({ getCurrentUser: async () => mocks.user, hasPermission: () => mocks.allowed }))
+vi.mock('@/lib/server/auth/auth', () => ({ getCurrentUser: async () => mocks.user, hasPermission: () => mocks.allowed }))
 vi.mock('@/lib/server/csrf', () => ({ isSameOriginRequest: () => mocks.origin }))
-vi.mock('@/lib/server/website-heroes', () => ({ readHeroState: mocks.read, changeHero: mocks.change, HeroConflictError: class extends Error {} }))
+vi.mock('@/lib/server/cms/heroes/website-heroes', () => ({ readHeroState: mocks.read, changeHero: mocks.change, HeroConflictError: class extends Error {} }))
 import { GET, PATCH } from '@/app/api/admin/website-cms/hero-sections/route'
 import { GET as publicGET } from '@/app/api/website-heroes/homepage/route'
-import { initialHeroState, originalHomeHero } from '@/lib/website-heroes'
+import { initialHeroState, originalHomeHero } from '@/lib/cms/heroes/website-heroes'
 beforeEach(() => { mocks.user = { id: 'staff' }; mocks.allowed = true; mocks.origin = true; mocks.read.mockReset().mockResolvedValue(initialHeroState()); mocks.change.mockReset().mockResolvedValue(initialHeroState()) })
 describe('CMS API security without database writes', () => {
   it('requires authentication before reading private drafts', async () => {
