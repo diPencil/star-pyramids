@@ -1,5 +1,6 @@
 'use client'
 import { BrandMark } from '@/components/brand-mark'
+import { AdminReleaseLabel } from './admin-release-label'
 import { currencyChoices, isCurrency, type Currency } from '@/lib/currency'
 
 import Link from 'next/link'
@@ -389,6 +390,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </div>
           )}
         </div>
+        <AdminReleaseLabel collapsed={collapsed} />
       </aside>
 
       <div className="sp-main" inert={mobileDrawer && mobileOpen ? true : undefined}>

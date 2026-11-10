@@ -1,5 +1,11 @@
+import { fileURLToPath } from 'node:url'
+import releaseVersion from './scripts/release-version.cjs'
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  env: {
+    NEXT_PUBLIC_APP_RELEASE_VERSION: releaseVersion.resolveReleaseVersion({ cwd: fileURLToPath(new URL('.', import.meta.url)) }),
+  },
   // The measurement boundary needs to distinguish Flight from document requests.
   skipProxyUrlNormalize: true,
   // Phase 1A: static export REMOVED. API routes, server sessions and
