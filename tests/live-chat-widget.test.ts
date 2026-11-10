@@ -1,6 +1,8 @@
 import type { ReactElement, ReactNode } from 'react'
 import { beforeEach, expect, it, vi } from 'vitest'
 const state = vi.hoisted(() => ({ index: 0, values: [] as unknown[], locale: 'en' as 'en' | 'es' | 'it', chat: { thread: null as any, error: false, errorCode: null as 'preview_read_only' | null, busy: false, send: vi.fn() } }))
+const tracking = vi.hoisted(() => ({ event: vi.fn() }))
+vi.mock('@/lib/tracking/tracking-events', () => ({ trackPublicInteraction: tracking.event }))
 vi.mock('react', async original => ({
   ...await original<typeof import('react')>(),
   useEffect: vi.fn(),
@@ -26,6 +28,13 @@ it('requests the live catalogue from the All trips chip instead of a fixed cruis
   button(render(), 'All trips').props.onClick()
   await vi.waitFor(() => expect(state.chat.send).toHaveBeenCalledWith({ action: 'message', body: 'All trips', locale: 'en' }))
   expect(button(render(), 'Nile cruise prices')).toBeUndefined()
+})
+it('measures the live chat WhatsApp link as contact intent without sending guest text', () => {
+  tracking.event.mockClear()
+  state.chat.thread = { messages: [{ senderRole: 'customer', body: 'WhatsApp person@example.test' }], agentRequested: false }
+  render().find(node => node.type === 'a' && node.props.href.startsWith('https://wa.me/'))!.props.onClick()
+  expect(tracking.event.mock.calls).toEqual([[{ event: 'sp_contact_click', channel: 'whatsapp', placement: 'support_widget' }]])
+  expect(state.chat.send).not.toHaveBeenCalled()
 })
 it('explains an actual preview restriction instead of suggesting a connectivity failure', () => {
   state.chat.error = true; state.chat.errorCode = 'preview_read_only'

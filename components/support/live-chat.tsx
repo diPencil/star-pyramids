@@ -1,4 +1,5 @@
 'use client'
+import { trackPublicInteraction } from '@/lib/tracking/tracking-events'
 import { BrandMark } from '@/components/branding/brand-mark'
 
 import { useEffect, useRef, useState } from 'react'
@@ -91,7 +92,7 @@ export function LiveChatWidget({ open, onOpen, onClose }: { open: boolean; onOpe
           const href = id === 'wa' ? whatsappHref(brand.whatsapp) : baseChipHrefs[id]
           return href
             ? (href.startsWith('http')
-              ? <a key={id} href={href} target="_blank" rel="noreferrer">{label}</a>
+              ? <a key={id} href={href} target="_blank" rel="noreferrer" onClick={id === 'wa' ? () => trackPublicInteraction({ event: 'sp_contact_click', channel: 'whatsapp', placement: 'support_widget' }) : undefined}>{label}</a>
               : <Link key={id} href={href} onClick={mobile ? onClose : undefined}>{label}</Link>)
             : <button key={id} type="button" disabled={chat.busy} onClick={() => { if (id === 'agent') {setSentHandoff(false);setHandoff(true)} else void send(label) }}>{label}</button>
         })}

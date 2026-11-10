@@ -8,6 +8,54 @@ const origin = 'https://starpyramids.com'
 const denied = { analytics: false, marketing: false }
 const granted = { analytics: true, marketing: false }
 
+describe('WhatsApp interaction privacy and eligibility', () => {
+  it('projects widget open and contact handoff without any message, phone or URL', () => {
+    const page = fixture('/trips')
+    const extra = { message: 'private text', phone: '+12025550123', url: 'https://wa.me/123?text=private' }
+    expect(queuePublicInteraction(page.browser, 'production', { event: 'sp_whatsapp_open', placement: 'support_widget', ...extra } as PublicInteraction)).toBe(true)
+    expect(queuePublicInteraction(page.browser, 'production', { event: 'sp_contact_click', channel: 'whatsapp', placement: 'support_widget', ...extra } as PublicInteraction)).toBe(true)
+    expect(page.dataLayer).toEqual([
+      { event: 'sp_whatsapp_open', channel: 'whatsapp', placement: 'support_widget' },
+      { event: 'sp_contact_click', channel: 'whatsapp', placement: 'support_widget' },
+    ])
+  })
+  it('rejects unsupported widget-open placements', () => {
+    const page = fixture('/trips')
+    expect(queuePublicInteraction(page.browser, 'production', { event: 'sp_whatsapp_open', placement: 'private' } as unknown as PublicInteraction)).toBe(false)
+    expect(page.dataLayer).toEqual([])
+  })
+  it.each([denied, { analytics: false, marketing: true }])('requires Analytics consent even when Marketing is %s', choice => {
+    const page = fixture('/trips', choice)
+    expect(queuePublicInteraction(page.browser, 'production', { event: 'sp_whatsapp_open', placement: 'support_widget' })).toBe(false)
+    expect(queuePublicInteraction(page.browser, 'production', { event: 'sp_contact_click', channel: 'whatsapp', placement: 'support_widget' })).toBe(false)
+    expect(page.dataLayer).toEqual([])
+  })
+  it('blocks private URLs, development hosts and withdrawn consent', () => {
+    const page = fixture('/trips')
+    for (const href of [origin + '/account', origin + '/trips?token=private', 'http://localhost:3000/trips']) {
+      page.location.href = href
+      expect(queuePublicInteraction(page.browser, 'production', { event: 'sp_whatsapp_open', placement: 'support_widget' })).toBe(false)
+      expect(queuePublicInteraction(page.browser, 'production', { event: 'sp_contact_click', channel: 'whatsapp', placement: 'support_widget' })).toBe(false)
+    }
+    page.location.href = origin + '/trips'
+    expect(queuePublicInteraction(page.browser, 'development', { event: 'sp_whatsapp_open', placement: 'support_widget' })).toBe(false)
+    page.applyConsent(denied)
+    expect(queuePublicInteraction(page.browser, 'production', { event: 'sp_contact_click', channel: 'whatsapp', placement: 'support_widget' })).toBe(false)
+    expect(page.dataLayer.filter(entry => ['sp_whatsapp_open', 'sp_contact_click'].includes((entry as { event?: string }).event ?? ''))).toEqual([])
+  })
+  it('keeps startup events queued once, and drops them after withdrawal', () => {
+    const page = fixture('/trips', granted, 'GTM-KQ8GR36H', false)
+    expect(queuePublicInteraction(page.browser, 'production', { event: 'sp_whatsapp_open', placement: 'support_widget' })).toBe(true)
+    expect(page.dataLayer).toEqual([])
+    page.ready(); page.ready()
+    expect(page.dataLayer.filter(entry => (entry as { event?: string }).event === 'sp_whatsapp_open')).toHaveLength(1)
+    const withdrawn = fixture('/trips', granted, 'GTM-KQ8GR36H', false)
+    queuePublicInteraction(withdrawn.browser, 'production', { event: 'sp_contact_click', channel: 'whatsapp', placement: 'support_widget' })
+    withdrawn.applyConsent(denied); withdrawn.ready()
+    expect(withdrawn.dataLayer.some(entry => (entry as { event?: string }).event === 'sp_contact_click')).toBe(false)
+  })
+})
+
 function fixture(path = '/', consent = granted, id: string | null = 'GTM-KQ8GR36H', autoReady = true) {
   const dataLayer: unknown[] = []
   const location = { href: origin + path }

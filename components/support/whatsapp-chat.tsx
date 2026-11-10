@@ -70,6 +70,7 @@ export function WhatsAppWidget({ open, onOpen, onClose }: { open: boolean; onOpe
   useEffect(() => () => { if (timerRef.current) window.clearTimeout(timerRef.current) }, [])
 
   const openPanel = () => {
+    trackPublicInteraction({ event: 'sp_whatsapp_open', placement: 'support_widget' })
     onOpen()
     setUnread(0)
     try { localStorage.setItem(OPENED_KEY, '1') } catch { /* private mode */ }
@@ -90,9 +91,8 @@ export function WhatsAppWidget({ open, onOpen, onClose }: { open: boolean; onOpe
     trackPublicInteraction({ event: 'sp_contact_click', channel: 'whatsapp', placement: 'support_widget' })
     setMessages((prev) => [...prev, { id: idRef.current++, from: 'user', text: clean, time: timeNow() }])
     setDraft('')
-    timerRef.current = window.setTimeout(() => {
-      window.open(`https://wa.me/${whatsappNumber(brand.whatsapp)}?text=${encodeURIComponent(clean)}`, '_blank', 'noopener')
-    }, 700)
+    // Keep the external handoff in the submit gesture, not a delayed callback.
+    window.open(`https://wa.me/${whatsappNumber(brand.whatsapp)}?text=${encodeURIComponent(clean)}`, '_blank', 'noopener')
   }
 
   return <div className="wa-wrap">

@@ -19,6 +19,7 @@ export type PublicInteraction =
   | { event: 'sp_search_submit'; placement: typeof SEARCH_PLACEMENTS[number] }
   | { event: 'sp_cta_click'; ctaId: typeof CTA_IDS[number] }
   | { event: 'sp_contact_click'; channel: typeof CONTACT_CHANNELS[number]; placement: typeof CONTACT_PLACEMENTS[number] }
+  | { event: 'sp_whatsapp_open'; placement: 'support_widget' }
 
 export function queuePublicInteraction(browser: Window, environment: string | undefined, interaction: PublicInteraction): boolean {
   // Project only known fields. Callers cannot attach URLs, form data or labels.
@@ -42,6 +43,9 @@ export function queuePublicInteraction(browser: Window, environment: string | un
     case 'sp_contact_click':
       if (!CONTACT_CHANNELS.includes(interaction.channel) || !CONTACT_PLACEMENTS.includes(interaction.placement)) return false
       return pushPublicInteraction(browser, environment, { event, channel: interaction.channel, placement: interaction.placement })
+    case 'sp_whatsapp_open':
+      if (interaction.placement !== 'support_widget') return false
+      return pushPublicInteraction(browser, environment, { event, channel: 'whatsapp', placement: interaction.placement })
     default:
       return false
   }
