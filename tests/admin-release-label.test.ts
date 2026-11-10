@@ -31,11 +31,11 @@ describe('admin release identity', () => {
   })
 
   it('renders the live brand source and build version below the sidebar user', () => {
-    vi.stubEnv('NEXT_PUBLIC_APP_RELEASE_VERSION', 'v0.16')
+    vi.stubEnv('NEXT_PUBLIC_APP_RELEASE_VERSION', 'v1.64')
     let html = renderToStaticMarkup(createElement(AdminReleaseLabel, { collapsed: false }))
     expect(html).toContain('Star Pyramids')
     expect(html).not.toContain('Tours')
-    expect(html).toContain('v0.16')
+    expect(html).toContain('v1.64')
     brand.companyName = 'New Company Five Other Names'
     html = renderToStaticMarkup(createElement(AdminReleaseLabel, { collapsed: false }))
     expect(html).toContain('New Company')
@@ -46,11 +46,11 @@ describe('admin release identity', () => {
   })
 
   it('keeps the version compact when collapsed and the full label accessible', () => {
-    vi.stubEnv('NEXT_PUBLIC_APP_RELEASE_VERSION', 'v0.16')
+    vi.stubEnv('NEXT_PUBLIC_APP_RELEASE_VERSION', 'v1.64')
     const html = renderToStaticMarkup(createElement(AdminReleaseLabel, { collapsed: true }))
-    expect(html).toContain('aria-label="Star Pyramids v0.16"')
+    expect(html).toContain('aria-label="Star Pyramids v1.64"')
     expect(html).not.toContain('>Star Pyramids</span>')
-    expect(html).toContain('dir="ltr">v0.16</span>')
+    expect(html).toContain('dir="ltr">v1.64</span>')
     const css = readFileSync('components/admin/admin-release-label.module.css', 'utf8')
     expect(css).toContain('min-width: 0')
     expect(css).toContain('text-overflow: ellipsis')
@@ -68,7 +68,7 @@ describe('admin release identity', () => {
 })
 
 describe('release version calculation', () => {
-  it.each([[0, 'v0.00'], [9, 'v0.00'], [10, 'v0.01'], [50, 'v0.05'], [164, 'v0.16'], [169, 'v0.16'], [170, 'v0.17'], [1000, 'v1.00']])('formats %i commits as %s', (count, expected) => {
+  it.each([[0, 'v0.00'], [9, 'v0.09'], [10, 'v0.10'], [50, 'v0.50'], [99, 'v0.99'], [100, 'v1.00'], [150, 'v1.50'], [164, 'v1.64'], [165, 'v1.65'], [169, 'v1.69'], [170, 'v1.70'], [199, 'v1.99'], [200, 'v2.00'], [1000, 'v10.00']])('formats %i commits as %s', (count, expected) => {
     expect(formatReleaseVersion(count)).toBe(expected)
   })
   it.each([-1, 0.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1])('rejects invalid counts: %s', count => {
@@ -76,16 +76,16 @@ describe('release version calculation', () => {
   })
   it('reads complete build history with a bounded Git subprocess', () => {
     const git = vi.fn().mockReturnValueOnce('false\n').mockReturnValueOnce('170\n')
-    expect(resolveReleaseVersion({ git })).toBe('v0.17')
+    expect(resolveReleaseVersion({ git })).toBe('v1.70')
     expect(git).toHaveBeenLastCalledWith('git', ['rev-list', '--count', 'HEAD'], expect.objectContaining({ timeout: 2000, windowsHide: true }))
   })
   it('uses the recorded published snapshot for shallow clones', () => {
     const git = vi.fn().mockReturnValueOnce('true\n')
-    expect(resolveReleaseVersion({ git })).toBe('v0.16')
+    expect(resolveReleaseVersion({ git })).toBe('v1.64')
     expect(git).toHaveBeenCalledTimes(1)
   })
   it('uses the recorded snapshot if Git is absent, fails or returns malformed counts', () => {
-    expect(resolveReleaseVersion({ git: vi.fn(() => { throw new Error('timeout') }) })).toBe('v0.16')
-    expect(resolveReleaseVersion({ git: vi.fn().mockReturnValueOnce('false').mockReturnValueOnce('bad') })).toBe('v0.16')
+    expect(resolveReleaseVersion({ git: vi.fn(() => { throw new Error('timeout') }) })).toBe('v1.64')
+    expect(resolveReleaseVersion({ git: vi.fn().mockReturnValueOnce('false').mockReturnValueOnce('bad') })).toBe('v1.64')
   })
 })

@@ -6,8 +6,9 @@ separated words appear; a one-word name stays intact. No new settings, storage,
 database access or authentication rules are introduced.
 
 The agreed counter is commits included in published main, not push operations:
-Git cannot reliably reconstruct historical push counts. Every ten commits add
-0.01: 50 → v0.05, 164 → v0.16, 170 → v0.17, 1000 → v1.00.
+Git cannot reliably reconstruct historical push counts. Every commit adds
+0.01: 10 → v0.10, 50 → v0.50, 100 → v1.00, 150 → v1.50, 165 → v1.65,
+200 → v2.00, 1000 → v10.00.
 
 At Next configuration/build time, scripts/release-version.cjs reads the full
 history of the built HEAD using a bounded, read-only Git command. Release builds
@@ -18,7 +19,7 @@ not merely because another commit was pushed.
 
 Source uploads without .git, unavailable Git, shallow history and command errors
 use RECORDED_MAIN_COMMIT_COUNT in that script. The initial recorded main snapshot
-is 164 commits (7993c03), giving v0.16. Refresh that snapshot during subsequent
+is 164 commits (7993c03), giving v1.64. Refresh that snapshot during subsequent
 release preparation when full history is available; otherwise a Git-less build
 will intentionally retain the last recorded number. Do not report a shallow
 clone's count as the total release history. All reachable commits are counted,

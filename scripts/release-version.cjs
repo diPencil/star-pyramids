@@ -6,8 +6,7 @@ const RECORDED_MAIN_COMMIT_COUNT = 164
 
 function formatReleaseVersion(commitCount) {
   if (!Number.isSafeInteger(commitCount) || commitCount < 0) throw new Error('Invalid release commit count.')
-  const increments = Math.floor(commitCount / 10)
-  return `v${Math.floor(increments / 100)}.${String(increments % 100).padStart(2, '0')}`
+  return `v${Math.floor(commitCount / 100)}.${String(commitCount % 100).padStart(2, '0')}`
 }
 
 function resolveReleaseVersion({ cwd, git = execFileSync } = {}) {
