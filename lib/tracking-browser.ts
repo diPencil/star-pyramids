@@ -321,13 +321,9 @@ export function initializeGtm(browser: TrackingWindow, containerId: string | nul
   browser.dataLayer ??= []
   browser.gtag ??= function () { browser.dataLayer?.push(arguments) }
   if (firstAttempt) {
-    // Advanced mode is approved for cookieless Google signals, not arbitrary
-    // third-party code. Runtime restrictions precede every container tag.
-    // Custom/non-Google tags remain blocked even after consent until reviewed.
-    if (mode === 'advanced') browser.dataLayer.push({
-      'gtm.allowlist': ['google'],
-      'gtm.blocklist': ['html', 'customScripts', 'customPixels', 'nonGoogleScripts', 'nonGooglePixels', 'nonGoogleIframes', 'sandboxedScripts'],
-    })
+    // Consent is updated by the existing bridge. Non-Google container tags
+    // must require Marketing consent in GTM; a permanent type blocklist would
+    // prevent them from running even after explicit acceptance.
     browser.gtag('consent', 'default', {
       ...consentState(DENIED),
       functionality_storage: 'granted',

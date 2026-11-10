@@ -150,13 +150,14 @@ describe('Google Tag Manager configuration', () => {
     initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, { analytics: false, marketing: false }, environment, 'advanced')
     expect(browser.document.head.appendChild).not.toHaveBeenCalled()
   })
-  it('loads Advanced mode before consent with denied defaults and Google-only restrictions before execution', () => {
+  it('loads Advanced mode once with denied defaults before execution without permanent tag-type restrictions', () => {
     const { browser, window } = browserAt(production)
     browser.document.head.appendChild.mockImplementation(() => {
-      expect(browser.dataLayer[0]).toEqual({ 'gtm.allowlist': ['google'], 'gtm.blocklist': expect.arrayContaining(['html', 'nonGoogleScripts', 'sandboxedScripts']) })
-      expect(Array.from(browser.dataLayer[1] as ArrayLike<unknown>)).toEqual(['consent', 'default', expect.objectContaining({
+      expect(browser.dataLayer.some(entry => 'gtm.allowlist' in Object(entry) || 'gtm.blocklist' in Object(entry))).toBe(false)
+      expect(Array.from(browser.dataLayer[0] as ArrayLike<unknown>)).toEqual(['consent', 'default', expect.objectContaining({
         analytics_storage: 'denied', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied',
       })])
+      expect(browser.dataLayer.at(-1)).toMatchObject({ event: 'gtm.js' })
     })
     initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production', 'advanced')
     expect(browser.document.head.appendChild).toHaveBeenCalledOnce()
@@ -178,10 +179,20 @@ describe('Google Tag Manager configuration', () => {
     browser.localStorage.setItem(TRACKING_CONSENT_STORAGE_KEY, JSON.stringify(choice))
     initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production', 'advanced')
     expect(Array.from(browser.dataLayer.filter(e => Array.from(e as ArrayLike<unknown>)[1] === 'update').at(-1) as ArrayLike<unknown>))
-      .toEqual(['consent', 'update', expect.objectContaining({ analytics_storage: choice.analytics ? 'granted' : 'denied', ad_storage: choice.marketing ? 'granted' : 'denied' })])
+      .toEqual(['consent', 'update', expect.objectContaining({
+        analytics_storage: choice.analytics ? 'granted' : 'denied',
+        ad_storage: choice.marketing ? 'granted' : 'denied',
+        ad_user_data: choice.marketing ? 'granted' : 'denied',
+        ad_personalization: choice.marketing ? 'granted' : 'denied',
+      })])
+    expect(browser.dataLayer.filter(e => (e as { event?: string }).event === GTM_CONSENT_READY_EVENT))
+      .toHaveLength(choice.analytics || choice.marketing ? 1 : 0)
+    expect(browser.dataLayer.some(entry => 'gtm.allowlist' in Object(entry) || 'gtm.blocklist' in Object(entry))).toBe(false)
     browser.localStorage.setItem(TRACKING_CONSENT_STORAGE_KEY, '{"analytics":false,"marketing":false}')
     initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production', 'advanced')
     expect(analyticsDataLayer(window, 'production')).toBeUndefined()
+    expect(Array.from(browser.dataLayer.filter(e => Array.from(e as ArrayLike<unknown>)[1] === 'update').at(-1) as ArrayLike<unknown>))
+      .toEqual(['consent', 'update', expect.objectContaining({ analytics_storage: 'denied', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied' })])
     expect(browser.document.head.appendChild).toHaveBeenCalledOnce()
   })
 
