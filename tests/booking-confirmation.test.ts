@@ -162,12 +162,23 @@ it('navigates only after cookie acknowledgement and leaves failures, missing coo
   assign.mockClear()
   fetch.mockResolvedValueOnce(Response.json({ ready: false }))
   expect(await openBookingConfirmation(browser, target)).toBe(false)
-  fetch.mockRejectedValueOnce(Error('offline'))
+  fetch.mockRejectedValue(Error('offline'))
   expect(await openBookingConfirmation(browser, target)).toBe(false)
+  expect(fetch).toHaveBeenCalledTimes(4)
   fetch.mockImplementationOnce(async () => { browser.location.href = origin + '/trips'; return Response.json({ ready: true }) })
   expect(await openBookingConfirmation(browser, target)).toBe(false)
   expect(await openBookingConfirmation(browser, 'https://evil.example')).toBe(false)
   expect(assign).not.toHaveBeenCalled()
+})
+
+it('retries a failed acknowledgement once without restarting checkout', async () => {
+  const assign = vi.fn()
+  const target = '/booking-confirmation?flow=' + 'a'.repeat(32)
+  const fetch = vi.fn().mockRejectedValueOnce(Error('connection lost')).mockResolvedValueOnce(Response.json({ ready: true }))
+  const browser = { location: { href: origin + '/checkout', assign }, fetch } as unknown as Window
+  expect(await openBookingConfirmation(browser, target)).toBe(true)
+  expect(fetch).toHaveBeenCalledTimes(2)
+  expect(assign).toHaveBeenCalledExactlyOnceWith(target)
 })
 
 it('bounds the acknowledgement wait and keeps a slow connection from blocking the saved receipt', async () => {
@@ -179,5 +190,6 @@ it('bounds the acknowledgement wait and keeps a slow connection from blocking th
   const pending = openBookingConfirmation(browser, '/booking-confirmation?flow=' + 'a'.repeat(32))
   await vi.advanceTimersByTimeAsync(2501)
   expect(await pending).toBe(false)
+  expect(browser.fetch).toHaveBeenCalledOnce()
   expect(assign).not.toHaveBeenCalled()
 })

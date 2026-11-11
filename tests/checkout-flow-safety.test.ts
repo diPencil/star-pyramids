@@ -36,16 +36,22 @@ const response=(data:unknown,status=201)=>new Response(JSON.stringify(data),{sta
 beforeEach(()=>{vi.clearAllMocks();harness.index=0;harness.values=[];harness.user=null;harness.items=[{key:'submitted',tourSlug:'db-only',title:'DB only',date:'',adults:2,children:0,infants:0,addons:[],image:'',adultUnit:999,childUnit:999,infantUnit:999,addonTotal:0,total:999}];harness.key.mockResolvedValue('stable-attempt-key');vi.stubGlobal('fetch',harness.fetch)})
 afterEach(()=>{harness.measure=false;vi.unstubAllGlobals();vi.unstubAllEnvs()})
 
-it.each([true, false])('keeps success handling before the acknowledged confirmation handoff: %s', async ready => {
+it.each([
+  { ready: true, transientFailure: false },
+  { ready: true, transientFailure: true },
+  { ready: false, transientFailure: false },
+])('keeps success handling before the acknowledged confirmation handoff: %j', async ({ ready, transientFailure }) => {
   const target = '/booking-confirmation?flow=' + 'a'.repeat(32)
   const assign = vi.fn()
   const acknowledge = vi.fn(async () => response({ ready }, 200))
+  if (transientFailure) acknowledge.mockResolvedValueOnce(response({ ready: false }, 503))
   vi.stubGlobal('window', { location: { href: 'https://starpyramids.com/checkout', assign }, fetch: acknowledge })
   harness.fetch.mockResolvedValueOnce(response({ reference: 'SP-BK-ABC123', total: 100, guest: true, guestAccessUrl: '/booking/' + 'a'.repeat(43), bookingConfirmationUrl: target }))
   await find(contact(), element => element.type === 'form')!.props.onSubmit({ preventDefault: vi.fn() })
   expect(harness.remove).toHaveBeenCalledWith(['submitted'])
   expect(harness.finish).toHaveBeenCalledWith('stable-attempt-key')
-  expect(acknowledge).toHaveBeenCalledOnce()
+  expect(harness.fetch).toHaveBeenCalledOnce()
+  expect(acknowledge).toHaveBeenCalledTimes(transientFailure ? 2 : 1)
   if (ready) expect(assign).toHaveBeenCalledExactlyOnceWith(target)
   else {
     expect(assign).not.toHaveBeenCalled()
