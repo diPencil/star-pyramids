@@ -60,7 +60,8 @@ export function recordCartAddition(browser: Window, environment: string | undefi
 
 export function recordBeginCheckout(browser: Window, environment: string | undefined, tourSlugs: readonly string[]) {
   try {
-    if (!isConsentedCheckout(browser, environment)) return
+    const fromCart = /^\/cart\/?$/.test(new URL(browser.location.href).pathname)
+    if (fromCart ? !canCaptureAnalytics(browser, environment) : !isConsentedCheckout(browser, environment)) return
     const basket = JSON.stringify([...tourSlugs].sort())
     const previous = JSON.parse(browser.sessionStorage.getItem(CHECKOUT_KEY) ?? 'null')
     const id = previous?.basket === basket ? previous.id : 'f_' + browser.crypto.randomUUID()
@@ -68,6 +69,10 @@ export function recordBeginCheckout(browser: Window, environment: string | undef
     if (!event) return
     browser.sessionStorage.setItem(CHECKOUT_KEY, JSON.stringify({ basket, id }))
     remember(browser, event)
+    if (fromCart && analyticsDataLayer(browser, environment)) {
+      // Dispatch in the navigation gesture before the public document unloads.
+      dispatchPendingEvent(browser, environment, FUNNEL_STORAGE_PREFIX + id, event)
+    }
   } catch { /* A tracking storage failure must not block checkout. */ }
 }
 
@@ -150,6 +155,20 @@ function storedKeys(storage: Storage): string[] {
   return keys
 }
 
+function dispatchPendingEvent(browser: Window, environment: string | undefined, key: string, event: BookingFunnelEvent, grants?: BookingMeasurementGrants) {
+  const storage = browser.localStorage
+  if (storage.getItem(key) === null) return
+  const deliveredKey = DELIVERED_PREFIX + event.event_id
+  if (storage.getItem(deliveredKey) !== null) {
+    storage.removeItem(key)
+    return
+  }
+  // Claim before queueing so the private checkout and later drains reuse the same milestone.
+  storage.setItem(deliveredKey, '1')
+  if (queueBookingFunnelEvent(browser, environment, event, grants)) storage.removeItem(key)
+  else storage.removeItem(deliveredKey)
+}
+
 export function discardPendingBookingFunnel(browser: Window, environment: string | undefined) {
   const url = new URL(browser.location.href)
   if (url.protocol !== 'https:' || !isProductionTrackingHost(environment, url.host)) return
@@ -184,14 +203,7 @@ export async function flushBookingFunnel(browser: Window, environment: string | 
     const order = { sp_add_to_cart: 0, sp_begin_checkout: 1, sp_booking_created: 2, trip_request_created: 2, enquiry_created: 2, car_request_created: 2, event_request_created: 2 }
     pending.sort((a, b) => a.capturedAt - b.capturedAt || order[a.event.event] - order[b.event.event])
     for (const { key, event, grants } of pending) {
-      if (storage.getItem(key) === null) continue
-      const deliveredKey = DELIVERED_PREFIX + event.event_id
-      if (storage.getItem(deliveredKey) !== null) { storage.removeItem(key); continue }
-      // Claim before queueing so a replay cannot enqueue the same milestone.
-      // A separate marker cannot be overwritten by a concurrent receipt.
-      storage.setItem(deliveredKey, '1')
-      if (queueBookingFunnelEvent(browser, environment, event, grants)) storage.removeItem(key)
-      else storage.removeItem(deliveredKey)
+      dispatchPendingEvent(browser, environment, key, event, grants)
     }
   }
   try {

@@ -339,6 +339,52 @@ it('keeps successful trip submission usable when measurement storage fails', asy
   expect(planner.layer).toEqual([])
 })
 
+it('dispatches checkout intent on cart before navigation and deduplicates the protected checkout', async () => {
+  const cart = documentAt('/cart')
+  setConsent(cart.local, true)
+  cart.boot(); cart.ready()
+  recordBeginCheckout(cart.browser, environment, ['cairo-tour', 'luxor-tour'])
+  recordBeginCheckout(cart.browser, environment, ['luxor-tour', 'cairo-tour'])
+  expect(cart.layer).toEqual([{
+    event: 'sp_begin_checkout', event_id: expect.stringMatching(/^f_/),
+    items: [{ item_id: 'cairo-tour', quantity: 1 }, { item_id: 'luxor-tour', quantity: 1 }],
+  }])
+
+  const checkout = documentAt('/checkout', cart.local, cart.session)
+  recordBeginCheckout(checkout.browser, environment, ['cairo-tour', 'luxor-tour'])
+  recordBookingReceipt(checkout.browser, environment, receipt)
+  const confirmation = documentAt('/booking-confirmation', cart.local)
+  confirmation.boot(); confirmation.ready()
+  await flushBookingFunnel(confirmation.browser, environment)
+  expect(checkout.layer).toEqual([])
+  expect(confirmation.layer).toEqual([analyticsLead])
+})
+
+it.each(['/cart?token=private', '/cart#private', '/account'])('does not record checkout intent on %s', path => {
+  const cart = documentAt('/cart')
+  setConsent(cart.local, true)
+  cart.boot(); cart.ready()
+  cart.browser.location.href = origin + path
+  recordBeginCheckout(cart.browser, environment, ['cairo-tour'])
+  expect(cart.layer).toEqual([])
+  expect(cart.session.length).toBe(0)
+})
+
+it('requires Analytics consent and keeps a consented cart start pending while GTM loads', async () => {
+  const cart = documentAt('/cart')
+  setConsent(cart.local, false)
+  cart.boot()
+  recordBeginCheckout(cart.browser, environment, ['cairo-tour'])
+  expect(cart.session.length).toBe(0)
+  setConsent(cart.local, true)
+  cart.boot()
+  recordBeginCheckout(cart.browser, environment, ['cairo-tour'])
+  expect(cart.layer).toEqual([])
+  cart.ready()
+  await flushBookingFunnel(cart.browser, environment)
+  expect(cart.layer).toEqual([expect.objectContaining({ event: 'sp_begin_checkout' })])
+})
+
 it('queues checkout and receipt across refresh and drains them once on a ready public page', async () => {
   const checkout = documentAt('/checkout')
   setConsent(checkout.local, true)

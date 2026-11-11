@@ -1,11 +1,17 @@
 import { createElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { Tour } from '@/data/types'
 import type { CartItem } from '@/lib/booking/cart'
 import { estimateCart } from '@/lib/booking/booking'
 
 const state = vi.hoisted(() => ({ data: null as Tour[] | null, error: null as string | null, locale: 'en' as 'en' | 'es' | 'it', items: [] as CartItem[], retry: vi.fn(), clear: vi.fn() }))
+const measurement = vi.hoisted(() => ({ begin: vi.fn(), navigate: undefined as (() => void) | undefined }))
+vi.mock('next/link', () => ({ default: ({ onNavigate, ...props }: { href: string; children?: ReactNode; onNavigate?: () => void }) => {
+  if (props.href === '/checkout') measurement.navigate = onNavigate
+  return createElement('a', props)
+} }))
+vi.mock('@/lib/tracking/leads/booking-funnel', async original => ({ ...await original<typeof import('@/lib/tracking/leads/booking-funnel')>(), recordBeginCheckout: measurement.begin }))
 vi.mock('@/lib/tours/tours-client', () => ({ useDbToursStatus: () => ({ data: state.data, loading: state.data === null && !state.error, error: state.error, retry: state.retry }) }))
 vi.mock('@/lib/booking/cart', () => ({ useCart: () => ({ items: state.items }), clearCart: () => state.clear(), removeFromCart: vi.fn() }))
 vi.mock('@/components/site', () => ({ SiteShell: ({ children }: { children: ReactNode }) => children, Breadcrumb: () => null }))
@@ -18,6 +24,19 @@ import { CheckoutPage } from '@/components/booking/checkout/checkout-page'
 const liveTour = (category: Tour['category'] = 'one-day-tours'): Tour => ({ slug: 'alexandria-full-day-tour', aliases: ['old-alexandria'], status: 'published', title: 'Alexandria Full Day Tour', category, location: 'Alexandria', duration: 'Full day', price: 125, image: '/live.jpg', summary: 'A current DB-only trip', dayDetail: { overview: ['Visit Alexandria'], priceRows: [], travelerPrices: [{ travelers: 2, adultPrice: 125, childPrice: 70, infantPrice: 0 }], addOns: [{ title: 'Extra', price: 20 }] } })
 const line = (slug = 'alexandria-full-day-tour'): CartItem => ({ key: 'original-key', tourSlug: slug, title: 'Alexandria Full Day Tour', image: '/snapshot.jpg', date: '', adults: 2, children: 0, infants: 0, addons: [], addonTotal: 9999, adultUnit: 9999, childUnit: 9999, infantUnit: 9999, total: 9999 })
 beforeEach(() => { state.data = null; state.error = null; state.locale = 'en'; state.items = [line()]; vi.clearAllMocks() })
+afterEach(() => vi.unstubAllGlobals())
+
+it('measures navigation to checkout using validated canonical tour IDs', () => {
+  state.data = [liveTour()]
+  state.items = [line('old-alexandria')]
+  measurement.navigate = undefined
+  renderToStaticMarkup(createElement(CartPage))
+  expect(measurement.begin).not.toHaveBeenCalled()
+  const browser = {}
+  vi.stubGlobal('window', browser)
+  measurement.navigate!()
+  expect(measurement.begin).toHaveBeenCalledExactlyOnceWith(browser, process.env.NODE_ENV, ['alexandria-full-day-tour'])
+})
 
 it.each(['one-day-tours', 'multi-days-tours', 'nile-cruises', 'shore-excursions'] as const)('estimates a newly published %s DB tour without requiring static membership or Date Pricing', category => {
   const tour = liveTour(category), selected = line()
