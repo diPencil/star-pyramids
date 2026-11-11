@@ -15,7 +15,6 @@ type Destination = typeof DESTINATIONS[number]
 export type PublicInteraction =
   | { event: 'sp_navigation_click'; placement: NavPlacement; destination: Destination }
   | { event: 'sp_select_item'; itemId: string }
-  | { event: 'sp_book_now_click'; itemId: string }
   | { event: 'sp_search_submit'; placement: typeof SEARCH_PLACEMENTS[number] }
   | { event: 'sp_cta_click'; ctaId: typeof CTA_IDS[number] }
   | { event: 'sp_contact_click'; channel: typeof CONTACT_CHANNELS[number]; placement: typeof CONTACT_PLACEMENTS[number] }
@@ -31,9 +30,6 @@ export function queuePublicInteraction(browser: Window, environment: string | un
     case 'sp_select_item':
       if (!isPublicTourId(interaction.itemId)) return false
       return pushPublicInteraction(browser, environment, { event, items: [{ item_id: interaction.itemId }], placement: 'tour_card' })
-    case 'sp_book_now_click':
-      if (!isPublicTourId(interaction.itemId)) return false
-      return pushPublicInteraction(browser, environment, { event, item_id: interaction.itemId, placement: 'tour_detail' })
     case 'sp_search_submit':
       if (!SEARCH_PLACEMENTS.includes(interaction.placement)) return false
       return pushPublicInteraction(browser, environment, { event, placement: interaction.placement })
@@ -51,15 +47,15 @@ export function queuePublicInteraction(browser: Window, environment: string | un
   }
 }
 
-export function queueBookingFunnelEvent(browser: Window, environment: string | undefined, input: unknown, grants?: BookingMeasurementGrants): boolean {
+export function queueBookingFunnelEvent(browser: Window, environment: string | undefined, input: unknown, grants: BookingMeasurementGrants): boolean {
   const layer = analyticsDataLayer(browser, environment)
   if (!layer) return false
   const event = parseBookingFunnelEvent(input)
   if (!event) return false
   try {
+    const current = readTrackingGrants(browser)
+    if (!grants || grants.analytics !== current.analytics) return false
     if (isFunnelLead(event)) {
-      const current = readTrackingGrants(browser)
-      if (!grants || grants.analytics !== current.analytics) return false
       layer.push({ ...event, ads_eligible: Boolean(grants.marketing && grants.marketing === current.marketing) })
     } else layer.push(event)
     return true

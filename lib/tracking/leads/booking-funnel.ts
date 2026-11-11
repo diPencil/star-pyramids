@@ -7,7 +7,8 @@ export const FUNNEL_STORAGE_PREFIX = 'sp-funnel-v1:'
 const DELIVERED_PREFIX = 'sp-funnel-delivered-v1:'
 const CHECKOUT_KEY = 'sp-funnel-checkout-v1'
 const RETENTION_MS = 7 * 24 * 60 * 60 * 1000
-type PendingRecord = { event: BookingFunnelEvent; capturedAt: number; grants?: BookingMeasurementGrants }
+const BOOK_NOW_RETENTION_MS = 15 * 60 * 1000
+type PendingRecord = { event: BookingFunnelEvent; capturedAt: number; grants: BookingMeasurementGrants }
 
 function isConsentedCheckout(browser: Window, environment: string | undefined): boolean {
   const url = new URL(browser.location.href)
@@ -25,13 +26,18 @@ export function bookingMeasurementHeaders(enabled: boolean): Record<string, stri
   }
 }
 
-function remember(browser: Window, event: BookingFunnelEvent, grants?: BookingMeasurementGrants) {
+function remember(browser: Window, event: BookingFunnelEvent, grants: BookingMeasurementGrants) {
   const key = FUNNEL_STORAGE_PREFIX + event.event_id
   const storage = browser.localStorage
   if (storage.getItem(DELIVERED_PREFIX + event.event_id) !== null) return
   const stored = storage.getItem(key)
   const now = Date.now()
-  if (stored !== null && (!isFunnelLead(event) || readPendingRecord(key, stored, now))) return
+  if (stored !== null) {
+    const previous = readPendingRecord(key, stored, now)
+    if (event.event === 'sp_begin_checkout') {
+      if (previous?.grants.analytics === grants.analytics) return
+    } else if (!isFunnelLead(event) || previous) return
+  }
   storage.setItem(key, JSON.stringify({ event, capturedAt: now, grants }))
 }
 
@@ -41,19 +47,39 @@ function readPendingRecord(key: string, stored: string, now: number): PendingRec
     const event = parseBookingFunnelEvent(record?.event)
     const capturedAt: unknown = record?.capturedAt
     const grants = bookingMeasurementGrants(record?.grants?.analytics, record?.grants?.marketing)
-    if (event && key === FUNNEL_STORAGE_PREFIX + event.event_id && typeof capturedAt === 'number' &&
-        Number.isFinite(capturedAt) && capturedAt + RETENTION_MS > now &&
-        (!isFunnelLead(event) || grants)) return { event, capturedAt, grants }
+    if (event && grants && key === FUNNEL_STORAGE_PREFIX + event.event_id && typeof capturedAt === 'number' && Number.isFinite(capturedAt)) {
+      const retention = event.event === 'sp_book_now_click' ? BOOK_NOW_RETENTION_MS : RETENTION_MS
+      if (capturedAt <= now && capturedAt + retention > now) return { event, capturedAt, grants }
+    }
   } catch { /* Ignore malformed storage records. */ }
   return null
+}
+
+export function recordBookNowClick(browser: Window, environment: string | undefined, tourSlug: string) {
+  try {
+    if (!canCaptureAnalytics(browser, environment)) return
+    const analytics = readTrackingGrants(browser).analytics
+    if (!analytics) return
+    const event = parseBookingFunnelEvent({ event: 'sp_book_now_click', event_id: 'f_' + browser.crypto.randomUUID(), item_id: tourSlug })
+    if (!event) return
+    const grants = { analytics }
+    if (analyticsDataLayer(browser, environment)) {
+      queueBookingFunnelEvent(browser, environment, event, grants)
+      return
+    }
+    // The cart can be a fresh document while GTM is still starting.
+    remember(browser, event, grants)
+  } catch { /* Measurement must never interfere with booking. */ }
 }
 
 export function recordCartAddition(browser: Window, environment: string | undefined, tourSlug: string) {
   try {
     if (!canCaptureAnalytics(browser, environment)) return
+    const analytics = readTrackingGrants(browser).analytics
+    if (!analytics) return
     const event = parseBookingFunnelEvent({ event: 'sp_add_to_cart', event_id: 'f_' + browser.crypto.randomUUID(), items: [{ item_id: tourSlug, quantity: 1 }] })
     if (!event) return
-    remember(browser, event)
+    remember(browser, event, { analytics })
     void flushBookingFunnel(browser, environment)
   } catch { /* Measurement must not affect a successful cart change. */ }
 }
@@ -62,16 +88,19 @@ export function recordBeginCheckout(browser: Window, environment: string | undef
   try {
     const fromCart = /^\/cart\/?$/.test(new URL(browser.location.href).pathname)
     if (fromCart ? !canCaptureAnalytics(browser, environment) : !isConsentedCheckout(browser, environment)) return
+    const analytics = readTrackingGrants(browser).analytics
+    if (!analytics) return
     const basket = JSON.stringify([...tourSlugs].sort())
     const previous = JSON.parse(browser.sessionStorage.getItem(CHECKOUT_KEY) ?? 'null')
     const id = previous?.basket === basket ? previous.id : 'f_' + browser.crypto.randomUUID()
     const event = parseBookingFunnelEvent({ event: 'sp_begin_checkout', event_id: id, items: tourSlugs.map(item_id => ({ item_id, quantity: 1 })) })
     if (!event) return
     browser.sessionStorage.setItem(CHECKOUT_KEY, JSON.stringify({ basket, id }))
-    remember(browser, event)
+    const grants = { analytics }
+    remember(browser, event, grants)
     if (fromCart && analyticsDataLayer(browser, environment)) {
       // Dispatch in the navigation gesture before the public document unloads.
-      dispatchPendingEvent(browser, environment, FUNNEL_STORAGE_PREFIX + id, event)
+      dispatchPendingEvent(browser, environment, FUNNEL_STORAGE_PREFIX + id, event, grants)
     }
   } catch { /* A tracking storage failure must not block checkout. */ }
 }
@@ -155,7 +184,7 @@ function storedKeys(storage: Storage): string[] {
   return keys
 }
 
-function dispatchPendingEvent(browser: Window, environment: string | undefined, key: string, event: BookingFunnelEvent, grants?: BookingMeasurementGrants) {
+function dispatchPendingEvent(browser: Window, environment: string | undefined, key: string, event: BookingFunnelEvent, grants: BookingMeasurementGrants) {
   const storage = browser.localStorage
   if (storage.getItem(key) === null) return
   const deliveredKey = DELIVERED_PREFIX + event.event_id
@@ -193,14 +222,14 @@ export async function flushBookingFunnel(browser: Window, environment: string | 
       if (!stored) continue
       if (!consent) { storage.removeItem(key); continue }
       const record = readPendingRecord(key, stored, now)
-      if (!record || (isFunnelLead(record.event) && record.grants?.analytics !== currentGrants.analytics)) {
+      if (!record || record.grants.analytics !== currentGrants.analytics) {
         // A replay in another tab may have refreshed this entry.
         if (storage.getItem(key) === stored) storage.removeItem(key)
         continue
       }
       if (canDispatch) pending.push({ key, ...record })
     }
-    const order = { sp_add_to_cart: 0, sp_begin_checkout: 1, sp_booking_created: 2, trip_request_created: 2, enquiry_created: 2, car_request_created: 2, event_request_created: 2 }
+    const order = { sp_book_now_click: 0, sp_add_to_cart: 1, sp_begin_checkout: 2, sp_booking_created: 3, trip_request_created: 3, enquiry_created: 3, car_request_created: 3, event_request_created: 3 }
     pending.sort((a, b) => a.capturedAt - b.capturedAt || order[a.event.event] - order[b.event.event])
     for (const { key, event, grants } of pending) {
       dispatchPendingEvent(browser, environment, key, event, grants)

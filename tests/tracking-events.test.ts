@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { describe, expect, it, vi } from 'vitest'
-import { GTM_CONSENT_READY_EVENT, initializeGtm, isGtmReady } from '@/lib/tracking/tracking-browser'
+import { GTM_CONSENT_READY_EVENT, initializeGtm, isGtmReady, readTrackingGrants } from '@/lib/tracking/tracking-browser'
 import { createPageViewTracker, navigationInteraction, publicPageView, queueBookingFunnelEvent, queuePublicInteraction, type PublicInteraction } from '@/lib/tracking/tracking-events'
 import { TRACKING_CONSENT_STORAGE_KEY } from '@/lib/tracking/tracking'
 
@@ -208,7 +208,6 @@ describe('public interaction events', () => {
     const inputs: PublicInteraction[] = [
       { event: 'sp_navigation_click', placement: 'mobile_menu', destination: 'trips' },
       { event: 'sp_select_item', itemId: 'full-day-cairo' },
-      { event: 'sp_book_now_click', itemId: 'full-day-cairo' },
       { event: 'sp_search_submit', placement: 'header' },
       { event: 'sp_cta_click', ctaId: 'offer' },
       { event: 'sp_contact_click', channel: 'whatsapp', placement: 'support_widget' },
@@ -219,7 +218,6 @@ describe('public interaction events', () => {
     expect(dataLayer).toEqual([
       { event: 'sp_navigation_click', placement: 'mobile_menu', destination: 'trips' },
       { event: 'sp_select_item', items: [{ item_id: 'full-day-cairo' }], placement: 'tour_card' },
-      { event: 'sp_book_now_click', item_id: 'full-day-cairo', placement: 'tour_detail' },
       { event: 'sp_search_submit', placement: 'header' },
       { event: 'sp_cta_click', cta_id: 'offer' },
       { event: 'sp_contact_click', channel: 'whatsapp', placement: 'support_widget' },
@@ -274,10 +272,10 @@ describe('public interaction events', () => {
       location.href = url.href
       expect(observe(browser, 'production', { pathname: url.pathname, search: url.searchParams.toString(), enabled: true })).toBe(false)
       expect(queuePublicInteraction(browser, 'production', { event: 'sp_search_submit', placement: 'header' })).toBe(false)
-      expect(queueBookingFunnelEvent(browser, 'production', addToCart)).toBe(false)
+      expect(queueBookingFunnelEvent(browser, 'production', addToCart, { analytics: readTrackingGrants(browser).analytics! })).toBe(false)
     }
     expect(dataLayer).toEqual([])
     location.href = origin + '/trips'
-    expect(queueBookingFunnelEvent(browser, 'production', addToCart)).toBe(true)
+    expect(queueBookingFunnelEvent(browser, 'production', addToCart, { analytics: readTrackingGrants(browser).analytics! })).toBe(true)
   })
 })

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { afterEach, expect, it, vi } from 'vitest'
-import { bookingMeasurementHeaders, flushBookingFunnel, FUNNEL_STORAGE_PREFIX, recordBeginCheckout, recordBookingReceipt, recordCartAddition, recordTripRequestReceipt, tripRequestMeasurementGrants } from '@/lib/tracking/leads/booking-funnel'
+import { bookingMeasurementHeaders, flushBookingFunnel, FUNNEL_STORAGE_PREFIX, recordBeginCheckout, recordBookingReceipt, recordBookNowClick, recordCartAddition, recordTripRequestReceipt, tripRequestMeasurementGrants } from '@/lib/tracking/leads/booking-funnel'
 import { BOOKING_MEASUREMENT_HEADER, parseBookingFunnelEvent } from '@/lib/tracking/leads/booking-measurement'
 import { TRACKING_CONSENT_STORAGE_KEY } from '@/lib/tracking/tracking'
 import { initializeGtm, readTrackingConsent, updateGoogleConsent } from '@/lib/tracking/tracking-browser'
@@ -70,6 +70,87 @@ function setConsent(local: Storage, analytics: boolean, marketing?: string, anal
 afterEach(() => {
   vi.unstubAllGlobals()
   vi.unstubAllEnvs()
+})
+
+it('dispatches Book Now synchronously when GTM is ready, with only safe interaction fields', () => {
+  const tour = documentAt('/egypt-tours/cairo-tour')
+  setConsent(tour.local, true)
+  tour.boot(); tour.ready()
+  recordBookNowClick(tour.browser, environment, 'cairo-tour')
+  recordBookNowClick(tour.browser, environment, 'private@example.test')
+  expect(tour.layer).toEqual([{
+    event: 'sp_book_now_click', event_id: expect.stringMatching(/^f_/), item_id: 'cairo-tour', placement: 'tour_detail',
+  }])
+})
+
+it('recovers a startup Book Now click on a fresh cart document and drains it only once', async () => {
+  const tour = documentAt('/egypt-tours/cairo-tour')
+  setConsent(tour.local, true)
+  tour.boot()
+  recordBookNowClick(tour.browser, environment, 'cairo-tour')
+  expect(tour.layer).toEqual([])
+
+  const cart = documentAt('/cart', tour.local)
+  cart.boot(); cart.ready()
+  await flushBookingFunnel(cart.browser, environment)
+  await flushBookingFunnel(cart.browser, environment)
+  expect(cart.layer).toEqual([{
+    event: 'sp_book_now_click', event_id: expect.stringMatching(/^f_/), item_id: 'cairo-tour', placement: 'tour_detail',
+  }])
+})
+
+it('keeps deferred Book Now clicks off checkout and drops them after Analytics consent changes', async () => {
+  const tour = documentAt('/egypt-tours/cairo-tour')
+  setConsent(tour.local, true)
+  tour.boot()
+  recordBookNowClick(tour.browser, environment, 'cairo-tour')
+  const checkout = documentAt('/checkout', tour.local)
+  await flushBookingFunnel(checkout.browser, environment)
+  expect(checkout.layer).toEqual([])
+
+  setConsent(tour.local, false)
+  setConsent(tour.local, true, undefined, newAnalyticsGrant)
+  const cart = documentAt('/cart', tour.local)
+  cart.boot(); cart.ready()
+  await flushBookingFunnel(cart.browser, environment)
+  expect(cart.layer).toEqual([])
+})
+
+it('does not dispatch old cart and checkout intents after Analytics is withdrawn and granted again', async () => {
+  const cart = documentAt('/cart')
+  setConsent(cart.local, true)
+  cart.boot()
+  recordCartAddition(cart.browser, environment, 'cairo-tour')
+  recordBeginCheckout(cart.browser, environment, ['cairo-tour'])
+  expect(cart.local.length).toBe(3)
+
+  setConsent(cart.local, false)
+  setConsent(cart.local, true, undefined, newAnalyticsGrant)
+  const reloaded = documentAt('/cart', cart.local, cart.session)
+  reloaded.boot(); reloaded.ready()
+  await flushBookingFunnel(reloaded.browser, environment)
+  expect(reloaded.layer).toEqual([])
+
+  recordBeginCheckout(reloaded.browser, environment, ['cairo-tour'])
+  recordBeginCheckout(reloaded.browser, environment, ['cairo-tour'])
+  expect(reloaded.layer).toEqual([expect.objectContaining({ event: 'sp_begin_checkout' })])
+})
+
+it('drops an expired Book Now click even if its original consent remains granted', async () => {
+  const tour = documentAt('/egypt-tours/cairo-tour')
+  setConsent(tour.local, true)
+  tour.boot()
+  recordBookNowClick(tour.browser, environment, 'cairo-tour')
+  const key = tour.local.key(1)!
+  expect(key).toMatch(/^sp-funnel-v1:/)
+  const pending = JSON.parse(tour.local.getItem(key)!)
+  tour.local.setItem(key, JSON.stringify({ ...pending, capturedAt: Date.now() - 15 * 60 * 1000 }))
+
+  const cart = documentAt('/cart', tour.local)
+  cart.boot(); cart.ready()
+  await flushBookingFunnel(cart.browser, environment)
+  expect(cart.layer).toEqual([])
+  expect(cart.local.getItem(key)).toBeNull()
 })
 
 const formCases: [FormLeadType, FormLeadName, string][] = [

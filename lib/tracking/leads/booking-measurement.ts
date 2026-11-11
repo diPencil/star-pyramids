@@ -11,6 +11,12 @@ export function bookingMeasurementGrants(analytics: unknown, marketing: unknown)
 }
 
 type TourItem = { item_id: string; quantity: 1 }
+type BookNowClick = {
+  event: 'sp_book_now_click'
+  event_id: string
+  item_id: string
+  placement: 'tour_detail'
+}
 type FunnelIntent = {
   event: 'sp_add_to_cart' | 'sp_begin_checkout'
   event_id: string
@@ -29,7 +35,7 @@ export type FormLeadType = typeof FORM_LEAD_TYPES[number]
 export type FormLeadName = 'enquiry_created' | 'car_request_created' | 'event_request_created'
 export type FormLeadReceipt = { event: FormLeadName; event_id: string }
 export type FormLeadEvent = FormLeadReceipt & { form_type: FormLeadType }
-export type BookingFunnelEvent = FunnelIntent | BookingMeasurement | TripRequestMeasurement | FormLeadEvent
+export type BookingFunnelEvent = BookNowClick | FunnelIntent | BookingMeasurement | TripRequestMeasurement | FormLeadEvent
 export const isFunnelLead = (event: BookingFunnelEvent): boolean =>
   event.event === 'sp_booking_created' || event.event === 'trip_request_created' ||
   event.event === 'enquiry_created' || event.event === 'car_request_created' || event.event === 'event_request_created'
@@ -37,6 +43,8 @@ export type BookingMeasurementReceipt = { event: BookingMeasurement; grants: Boo
 
 export const isPublicTourId = (id: unknown): id is string =>
   typeof id === 'string' && id.length <= 120 && /^[a-z0-9]{1,32}(?:-[a-z0-9]{1,32})*$/.test(id)
+
+const FUNNEL_INTENT_ID = /^f_[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/
 
 function usdCents(value: unknown): number | null {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return null
@@ -59,8 +67,13 @@ export function parseBookingFunnelEvent(input: unknown): BookingFunnelEvent | nu
   if (event === 'trip_request_created') {
     return typeof event_id === 'string' && /^tr_[a-f0-9]{32}$/.test(event_id) ? { event, event_id } : null
   }
+  if (event === 'sp_book_now_click') {
+    const { item_id } = input as Record<string, unknown>
+    return typeof event_id === 'string' && FUNNEL_INTENT_ID.test(event_id) && isPublicTourId(item_id)
+      ? { event, event_id, item_id, placement: 'tour_detail' } : null
+  }
   if (event !== 'sp_add_to_cart' && event !== 'sp_begin_checkout' && event !== 'sp_booking_created') return null
-  const idPattern = event === 'sp_booking_created' ? /^bk_[a-f0-9]{32}$/ : /^f_[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/
+  const idPattern = event === 'sp_booking_created' ? /^bk_[a-f0-9]{32}$/ : FUNNEL_INTENT_ID
   if (typeof event_id !== 'string' || !idPattern.test(event_id) || !Array.isArray(items) ||
       items.length < 1 || items.length > 20 || event === 'sp_add_to_cart' && items.length !== 1) return null
 
