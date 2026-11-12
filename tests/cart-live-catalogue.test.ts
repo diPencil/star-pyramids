@@ -36,11 +36,12 @@ it('opens checkout as a fresh document without dispatching its start on the cart
   measurement.navigate = undefined
   renderToStaticMarkup(createElement(CartPage))
   expect(measurement.begin).not.toHaveBeenCalled()
-  const browser = { location: { assign: vi.fn() } }
+  const browser = { location: { assign: vi.fn() }, sessionStorage: { removeItem: vi.fn() } }
   vi.stubGlobal('window', browser)
   const preventDefault = vi.fn()
   measurement.navigate!({ preventDefault })
   expect(measurement.begin).not.toHaveBeenCalled()
+  expect(browser.sessionStorage.removeItem).toHaveBeenCalledExactlyOnceWith('sp-funnel-checkout-v1')
   expect(preventDefault).toHaveBeenCalledOnce()
   expect(browser.location.assign).toHaveBeenCalledExactlyOnceWith('/checkout')
 })

@@ -8,7 +8,7 @@ import { formatPrice, tx, useLocale } from '../../locale'
 import { clearCart, removeFromCart, useCart } from '@/lib/booking/cart'
 import { useCartCatalogue } from '@/lib/booking/cart-catalogue'
 import { CHECKOUT_DETAILS_PATH } from '@/lib/booking/booking-confirmation'
-import { recordBeginCheckout } from '@/lib/tracking/leads/booking-funnel'
+import { recordBeginCheckout, resetCheckoutStart } from '@/lib/tracking/leads/booking-funnel'
 import { GTM_READY_EVENT, subscribeToTrackingConsent } from '@/lib/tracking/tracking-browser'
 import { CartLineIssues } from './cart-line-issues'
 import { CartCatalogueStatus } from './cart-catalogue-status'
@@ -88,6 +88,7 @@ export function CartPage({ checkoutSummary = false }: { checkoutSummary?: boolea
               ? <a href={CHECKOUT_DETAILS_PATH} className="primary-btn" onClick={startCheckout}>{tx(locale, { en: 'Continue to booking details', es: 'Continuar con los datos de la reserva', it: 'Continua con i dati della prenotazione' })} <ArrowRight size={17} /></a>
               : <Link href="/checkout" prefetch={false} className="primary-btn" onNavigate={event => {
                 event.preventDefault()
+                resetCheckoutStart(window)
                 window.location.assign('/checkout')
               }}>{tx(locale, { en: 'Proceed to checkout', es: 'Proceder a la compra', it: 'Procedi al checkout', ar: 'إتمام الحجز' })} <ArrowRight size={17} /></Link>
             : <p className="cart-stale-note" role="note"><CircleAlert size={15} />{tx(locale, { en: 'Review the trip selections above before continuing.', es: 'Revisa las selecciones anteriores antes de continuar.', it: 'Controlla le selezioni sopra prima di continuare.', ar: 'أزل الرحلات غير المتاحة للمتابعة.' })}</p>}

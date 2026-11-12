@@ -56,6 +56,23 @@ describe('WhatsApp interaction privacy and eligibility', () => {
   })
 })
 
+it.each([
+  ['/contact', 'contact_methods', 'email'],
+  ['/contact', 'contact_methods', 'phone'],
+  ['/contact', 'contact_methods', 'whatsapp'],
+  ['/rent-car/request', 'car_request', 'whatsapp'],
+  ['/events/cairo-event', 'event_organizer', 'email'],
+  ['/events/cairo-event', 'event_organizer', 'phone'],
+  ['/events/cairo-event', 'event_organizer', 'whatsapp'],
+] as const)('projects %s contact clicks with only the approved channel and placement', (path, placement, channel) => {
+  const page = fixture(path)
+  const interaction = { event: 'sp_contact_click', placement, channel } as const
+  expect(queuePublicInteraction(page.browser, 'production', { ...interaction, url: 'mailto:private@example.test' } as PublicInteraction)).toBe(true)
+  expect(page.dataLayer).toEqual([interaction])
+  page.applyConsent(denied)
+  expect(queuePublicInteraction(page.browser, 'production', interaction)).toBe(false)
+})
+
 function fixture(path = '/', consent = granted, id: string | null = 'GTM-KQ8GR36H', autoReady = true) {
   const dataLayer: unknown[] = []
   const location = { href: origin + path }

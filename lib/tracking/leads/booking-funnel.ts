@@ -1,6 +1,6 @@
 import { CHECKOUT_DETAILS_PATH } from '../../booking/booking-confirmation'
 import { BOOKING_MARKETING_GRANT_HEADER, BOOKING_MEASUREMENT_HEADER, bookingMeasurementGrants, isFunnelLead, parseBookingFunnelEvent, type BookingFunnelEvent, type BookingMeasurementGrants } from './booking-measurement'
-import { isProductionTrackingHost, isSafeTrackingUrl } from '../tracking'
+import { isProductionTrackingHost, isSafeTrackingUrl, TAG_ASSISTANT_DEBUG_VALUE } from '../tracking'
 import { analyticsDataLayer, canCaptureAnalytics, readTrackingConsent, readTrackingGrants } from '../tracking-browser'
 import { queueBookingFunnelEvent } from '../tracking-events'
 
@@ -13,8 +13,11 @@ type PendingRecord = { event: BookingFunnelEvent; capturedAt: number; grants: Bo
 
 function isConsentedCheckout(browser: Window, environment: string | undefined): boolean {
   const url = new URL(browser.location.href)
+  // Preview can add its debug flag to a direct visit. Only the local capture
+  // is eligible here; the details document itself never initializes GTM.
+  const safeQuery = !url.search || (url.searchParams.size === 1 && TAG_ASSISTANT_DEBUG_VALUE.test(url.searchParams.get('gtm_debug') ?? ''))
   return url.protocol === 'https:' && isProductionTrackingHost(environment, url.host) &&
-    url.pathname === CHECKOUT_DETAILS_PATH && !url.search && !url.hash && readTrackingConsent(browser).analytics
+    url.pathname === CHECKOUT_DETAILS_PATH && safeQuery && !url.hash && readTrackingConsent(browser).analytics
 }
 
 export function bookingMeasurementHeaders(enabled: boolean): Record<string, string> {
@@ -83,6 +86,10 @@ export function recordCartAddition(browser: Window, environment: string | undefi
     remember(browser, event, { analytics })
     void flushBookingFunnel(browser, environment)
   } catch { /* Measurement must not affect a successful cart change. */ }
+}
+
+export function resetCheckoutStart(browser: Window) {
+  try { browser.sessionStorage.removeItem(CHECKOUT_KEY) } catch { /* Checkout navigation still proceeds. */ }
 }
 
 export function recordBeginCheckout(browser: Window, environment: string | undefined, tourSlugs: readonly string[]) {

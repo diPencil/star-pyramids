@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
+import { openBookingConfirmation } from '@/lib/booking/booking-confirmation'
 import { afterEach, expect, it, vi } from 'vitest'
-import { bookingMeasurementHeaders, flushBookingFunnel, FUNNEL_STORAGE_PREFIX, recordBeginCheckout, recordBookingReceipt, recordBookNowClick, recordCartAddition, recordTripRequestReceipt, tripRequestMeasurementGrants } from '@/lib/tracking/leads/booking-funnel'
+import { bookingMeasurementHeaders, flushBookingFunnel, FUNNEL_STORAGE_PREFIX, recordBeginCheckout, recordBookingReceipt, recordBookNowClick, recordCartAddition, recordTripRequestReceipt, resetCheckoutStart, tripRequestMeasurementGrants } from '@/lib/tracking/leads/booking-funnel'
 import { BOOKING_MEASUREMENT_HEADER, parseBookingFunnelEvent } from '@/lib/tracking/leads/booking-measurement'
 import { TRACKING_CONSENT_STORAGE_KEY } from '@/lib/tracking/tracking'
 import { initializeGtm, readTrackingConsent, updateGoogleConsent } from '@/lib/tracking/tracking-browser'
@@ -458,6 +459,77 @@ it('dispatches the checkout start once from the checkout summary after GTM start
     event: 'sp_begin_checkout', event_id: expect.stringMatching(/^f_/), items: [{ item_id: 'cairo-tour', quantity: 1 }],
   }])
   expect(details.layer).toEqual([])
+})
+
+it('tracks the booking funnel through a Preview-decorated private form and a clean public confirmation', async () => {
+  vi.stubEnv('NODE_ENV', environment)
+  const tour = documentAt('/egypt-tours/cairo-tour')
+  setConsent(tour.local, true)
+  tour.boot(); tour.ready()
+  recordBookNowClick(tour.browser, environment, 'cairo-tour')
+  recordCartAddition(tour.browser, environment, 'cairo-tour')
+  const summary = documentAt('/checkout', tour.local, tour.session)
+  summary.boot(); summary.ready()
+  recordBeginCheckout(summary.browser, environment, ['cairo-tour'])
+
+  const details = documentAt('/checkout/details?gtm_debug=x', tour.local, tour.session)
+  vi.stubGlobal('window', details.browser)
+  expect(bookingMeasurementHeaders(true)).toEqual({ [BOOKING_MEASUREMENT_HEADER]: analyticsGrant })
+  recordBeginCheckout(details.browser, environment, ['cairo-tour'])
+  const saved = { ...booking, items: [booking.items[0]], value: booking.items[0].price }
+  recordBookingReceipt(details.browser, environment, { ...receipt, event: saved })
+  const target = '/booking-confirmation?flow=' + 'a'.repeat(32)
+  const assign = vi.fn()
+  Object.assign(details.browser.location, { assign })
+  Object.assign(details.browser, { fetch: vi.fn().mockResolvedValue(Response.json({ ready: true })) })
+  expect(await openBookingConfirmation(details.browser, target)).toBe(true)
+  expect(assign).toHaveBeenCalledExactlyOnceWith(target)
+  expect(details.layer).toEqual([])
+
+  const confirmation = documentAt(target, tour.local, tour.session)
+  confirmation.boot(); confirmation.ready()
+  await flushBookingFunnel(confirmation.browser, environment)
+  await flushBookingFunnel(confirmation.browser, environment)
+  expect([...tour.layer, ...summary.layer, ...confirmation.layer].map(entry => (entry as { event: string }).event)).toEqual([
+    'sp_book_now_click', 'sp_add_to_cart', 'sp_begin_checkout', 'sp_booking_created',
+  ])
+  expect(confirmation.layer).toEqual([{ ...saved, ads_eligible: false }])
+})
+
+it.each(['?gtm_debug=secret', '?gtm_debug=x&gtm_debug=x', '?gtm_debug=x&token=private', '?gtm_debug=x#private'])(
+  'rejects unsafe Preview query data on booking details: %s', suffix => {
+    vi.stubEnv('NODE_ENV', environment)
+    const details = documentAt('/checkout/details' + suffix)
+    setConsent(details.local, true)
+    vi.stubGlobal('window', details.browser)
+    expect(bookingMeasurementHeaders(true)).toEqual({})
+    recordBookingReceipt(details.browser, environment, receipt)
+    expect(details.local.getItem(FUNNEL_STORAGE_PREFIX + booking.event_id)).toBeNull()
+  },
+)
+
+it('records a new checkout start when the visitor returns to the cart before ever opening the form', () => {
+  const first = documentAt('/checkout')
+  setConsent(first.local, true)
+  first.boot(); first.ready()
+  recordBeginCheckout(first.browser, environment, ['cairo-tour'])
+  expect(first.layer).toHaveLength(1)
+
+  const cart = documentAt('/cart', first.local, first.session)
+  resetCheckoutStart(cart.browser)
+  expect(cart.layer).toEqual([])
+
+  const second = documentAt('/checkout', first.local, first.session)
+  second.boot(); second.ready()
+  recordBeginCheckout(second.browser, environment, ['cairo-tour'])
+  expect(second.layer).toHaveLength(1)
+  expect(second.layer[0]).toMatchObject({ event: 'sp_begin_checkout' })
+  expect(second.layer[0]).not.toEqual(first.layer[0])
+
+  const reload = documentAt('/checkout', second.local, second.session)
+  reload.boot(); reload.ready()
+  recordBeginCheckout(reload.browser, environment, ['cairo-tour'])
+  expect(reload.layer).toEqual([])
 })
 
 it('counts a new cart departure after returning from an unfinished checkout with the same basket', async () => {

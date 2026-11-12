@@ -7,7 +7,7 @@ const DESTINATIONS = ['home', 'trips', 'tours', 'destinations', 'offers', 'blogs
 const SEARCH_PLACEMENTS = ['header', 'mobile_header', 'trips', 'tour_search'] as const
 const CTA_IDS = ['hero_primary', 'hero_secondary', 'hero_rail', 'offer', 'shore_enquiry', 'booking_shortcut', 'ask_question', 'homepage_planner'] as const
 const CONTACT_CHANNELS = ['whatsapp', 'email', 'phone', 'contact_page'] as const
-const CONTACT_PLACEMENTS = [...NAV_PLACEMENTS, 'support_widget', 'tour_enquiry'] as const
+const CONTACT_PLACEMENTS = [...NAV_PLACEMENTS, 'support_widget', 'tour_enquiry', 'contact_methods', 'car_request', 'event_organizer'] as const
 
 type NavPlacement = typeof NAV_PLACEMENTS[number]
 type Destination = typeof DESTINATIONS[number]

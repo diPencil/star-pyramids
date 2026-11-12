@@ -1,6 +1,7 @@
 'use client'
 
 import { CmsPublicLink } from "@/components/cms/cms-public-link";
+import { trackPublicInteraction } from "@/lib/tracking/tracking-events";
 import { usePresentation, PresentationSection } from "@/components/cms/presentation-content-context";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -302,9 +303,9 @@ export function EventDetailPage({ slug }: { slug: string }) {
           <span className="eyebrow">{tx(locale, { en: 'Organizer & contact', es: 'Organizador y contacto', it: 'Organizzatore e contatti', ar: 'المنظم والتواصل' })}</span>
           <h2>{(((locale === 'ar' ? item.organizerNameAr : undefined) || item.organizerName) ?? (tx(locale, { en: 'Contact', es: 'Contacto', it: 'Contatto', ar: 'تواصل' })))}</h2>
           <ul className="event-organizer-list">
-            {item.organizerPhone && telLink(undefined, item.organizerPhone) !== '' && <li><Phone size={15} /><a href={telLink(undefined, item.organizerPhone)}>{item.organizerPhone}</a></li>}
-            {item.organizerWhatsapp && whatsappLink(undefined, item.organizerWhatsapp) !== '' && <li><MessageCircle size={15} /><a href={whatsappLink(undefined, item.organizerWhatsapp)} target="_blank" rel="noreferrer">WhatsApp</a></li>}
-            {item.organizerEmail && <li><Mail size={15} /><a href={`mailto:${item.organizerEmail}`}>{item.organizerEmail}</a></li>}
+            {item.organizerPhone && telLink(undefined, item.organizerPhone) !== '' && <li><Phone size={15} /><a href={telLink(undefined, item.organizerPhone)} onClick={() => trackPublicInteraction({ event: 'sp_contact_click', channel: 'phone', placement: 'event_organizer' })}>{item.organizerPhone}</a></li>}
+            {item.organizerWhatsapp && whatsappLink(undefined, item.organizerWhatsapp) !== '' && <li><MessageCircle size={15} /><a href={whatsappLink(undefined, item.organizerWhatsapp)} target="_blank" rel="noreferrer" onClick={() => trackPublicInteraction({ event: 'sp_contact_click', channel: 'whatsapp', placement: 'event_organizer' })}>WhatsApp</a></li>}
+            {item.organizerEmail && <li><Mail size={15} /><a href={`mailto:${item.organizerEmail}`} onClick={() => trackPublicInteraction({ event: 'sp_contact_click', channel: 'email', placement: 'event_organizer' })}>{item.organizerEmail}</a></li>}
           </ul>
         </section>}
         {related.length > 0 && <PresentationSection pageId="event-detail" id="event-related"><section className="event-related">

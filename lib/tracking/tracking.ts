@@ -37,10 +37,11 @@ const CLICK_ID = /^[A-Za-z0-9_-]{1,256}$/
 const CAMPAIGN_LABEL = /^(?=[A-Za-z0-9 _-]{1,100}$)(?=[A-Za-z0-9 _-]*[A-Za-z])[A-Za-z0-9]+(?:[ _-][A-Za-z0-9]+)*$/
 const CAMPAIGN_NAME = new RegExp(`${CAMPAIGN_LABEL.source}|^[0-9]{1,20}$`)
 const CAMPAIGN_ID = /^(?:[0-9]{1,20}|(?=[A-Za-z0-9_-]{1,64}$)(?=[A-Za-z0-9_-]*[A-Za-z])[A-Za-z0-9]+(?:[_-][A-Za-z0-9]+)*)$/
+export const TAG_ASSISTANT_DEBUG_VALUE = /^(?:x|[1-9][0-9]{12})$/
 const PUBLIC_QUERY_VALUES: ReadonlyMap<string, RegExp> = new Map([
   // Tag Assistant adds a debug flag or millisecond timestamp to the landing URL.
   // This permits preview eligibility only; consent and URL payload stripping still apply.
-  ['gtm_debug', /^(?:x|[1-9][0-9]{12})$/],
+  ['gtm_debug', TAG_ASSISTANT_DEBUG_VALUE],
   ['page', /^[1-9][0-9]{0,5}$/],
   ['gclid', CLICK_ID],
   ['dclid', CLICK_ID],

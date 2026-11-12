@@ -1,6 +1,7 @@
 'use client'
 
 import { beginFormLead, confirmFormLead } from "@/lib/tracking/leads/form-lead";
+import { trackPublicInteraction } from "@/lib/tracking/tracking-events";
 import { EmptyFleetHero } from "./empty-fleet-hero";
 import { carTripTypeForKey } from "@/lib/cars/car-request";
 import { CmsPublicLink } from "@/components/cms/cms-public-link";
@@ -538,7 +539,7 @@ function CarRequestContent() {
                 </section>
               </div>
               <p><ShieldCheck size={15} />{tx(locale, { en: 'Private driver and A/C included', es: 'Conductor privado y aire acondicionado incluidos', it: 'Autista privato e aria condizionata inclusi', ar: 'شامل سائق خاص وتكييف' })}</p>
-              <a className="req-wa" href={whatsappHref(brand.whatsapp)} target="_blank" rel="noreferrer">{tx(locale, { en: 'Chat on WhatsApp', es: 'Hablar por WhatsApp', it: 'Chat su WhatsApp', ar: 'تواصل عبر واتساب' })}</a>
+              <a className="req-wa" href={whatsappHref(brand.whatsapp)} target="_blank" rel="noreferrer" onClick={() => trackPublicInteraction({ event: 'sp_contact_click', channel: 'whatsapp', placement: 'car_request' })}>{tx(locale, { en: 'Chat on WhatsApp', es: 'Hablar por WhatsApp', it: 'Chat su WhatsApp', ar: 'تواصل عبر واتساب' })}</a>
             </div>
           </aside>
           <div className="car-form-card">
