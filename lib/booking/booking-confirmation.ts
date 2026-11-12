@@ -9,6 +9,7 @@ export type CheckoutReceipt = {
 }
 
 export const CONFIRMATION_FLOW = /^[a-f0-9]{32}$/
+export const CHECKOUT_DETAILS_PATH = '/checkout/details'
 
 /** The flow selects an HttpOnly context; it is not a booking access token. */
 export async function openBookingConfirmation(browser: Window, target: unknown): Promise<boolean> {
@@ -16,7 +17,7 @@ export async function openBookingConfirmation(browser: Window, target: unknown):
   try {
     if (typeof target !== 'string' || !/^\/booking-confirmation\?flow=[a-f0-9]{32}$/.test(target)) return false
     const source = browser.location.href
-    if (new URL(source).pathname !== '/checkout') return false
+    if (new URL(source).pathname !== CHECKOUT_DETAILS_PATH) return false
     const flow = new URL(target, source).searchParams.get('flow')!
     // Verify the browser actually accepted the HttpOnly cookie. A blocked
     // cookie or network failure leaves the existing successful receipt intact.

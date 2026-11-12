@@ -17,6 +17,7 @@ describe('registered page content and lifecycle', () => {
     ['booking-account', '/booking-account', 'app/booking-account/page.tsx'],
     ['booking-confirmation', '/booking-confirmation', 'app/booking-confirmation/page.tsx'],
     ['checkout-receipt', '/checkout/receipt', 'app/checkout/receipt/page.tsx'],
+    ['checkout-details', '/checkout/details', 'app/checkout/details/page.tsx'],
   ])('registers %s as a fixed workflow without granting CMS or SEO editing', async (key, route, source) => {
     const entry = cmsPageRegistry.find(page => page.key === key)!
     expect(entry).toMatchObject({ route, source, inventory: 'verified', type: 'Application workflow' })

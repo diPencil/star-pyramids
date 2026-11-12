@@ -1,3 +1,4 @@
+import { CHECKOUT_DETAILS_PATH } from '../../booking/booking-confirmation'
 import { BOOKING_MARKETING_GRANT_HEADER, BOOKING_MEASUREMENT_HEADER, bookingMeasurementGrants, isFunnelLead, parseBookingFunnelEvent, type BookingFunnelEvent, type BookingMeasurementGrants } from './booking-measurement'
 import { isProductionTrackingHost, isSafeTrackingUrl } from '../tracking'
 import { analyticsDataLayer, canCaptureAnalytics, readTrackingConsent, readTrackingGrants } from '../tracking-browser'
@@ -8,14 +9,12 @@ const DELIVERED_PREFIX = 'sp-funnel-delivered-v1:'
 const CHECKOUT_KEY = 'sp-funnel-checkout-v1'
 const RETENTION_MS = 7 * 24 * 60 * 60 * 1000
 const BOOK_NOW_RETENTION_MS = 15 * 60 * 1000
-const CHECKOUT_VIEW_RETENTION_MS = 30 * 60 * 1000
-const recordedCheckoutViews = new WeakSet<Document>()
 type PendingRecord = { event: BookingFunnelEvent; capturedAt: number; grants: BookingMeasurementGrants }
 
 function isConsentedCheckout(browser: Window, environment: string | undefined): boolean {
   const url = new URL(browser.location.href)
   return url.protocol === 'https:' && isProductionTrackingHost(environment, url.host) &&
-    url.pathname === '/checkout' && !url.search && !url.hash && readTrackingConsent(browser).analytics
+    url.pathname === CHECKOUT_DETAILS_PATH && !url.search && !url.hash && readTrackingConsent(browser).analytics
 }
 
 export function bookingMeasurementHeaders(enabled: boolean): Record<string, string> {
@@ -50,8 +49,7 @@ function readPendingRecord(key: string, stored: string, now: number): PendingRec
     const capturedAt: unknown = record?.capturedAt
     const grants = bookingMeasurementGrants(record?.grants?.analytics, record?.grants?.marketing)
     if (event && grants && key === FUNNEL_STORAGE_PREFIX + event.event_id && typeof capturedAt === 'number' && Number.isFinite(capturedAt)) {
-      const retention = event.event === 'sp_book_now_click' ? BOOK_NOW_RETENTION_MS :
-        event.event === 'sp_checkout_view' ? CHECKOUT_VIEW_RETENTION_MS : RETENTION_MS
+      const retention = event.event === 'sp_book_now_click' ? BOOK_NOW_RETENTION_MS : RETENTION_MS
       if (capturedAt <= now && capturedAt + retention > now) return { event, capturedAt, grants }
     }
   } catch { /* Ignore malformed storage records. */ }
@@ -89,22 +87,22 @@ export function recordCartAddition(browser: Window, environment: string | undefi
 
 export function recordBeginCheckout(browser: Window, environment: string | undefined, tourSlugs: readonly string[]) {
   try {
-    const fromCart = /^\/cart\/?$/.test(new URL(browser.location.href).pathname)
-    if (fromCart ? !canCaptureAnalytics(browser, environment) : !isConsentedCheckout(browser, environment)) return
+    const fromPublicStep = /^\/(cart|checkout)\/?$/.test(new URL(browser.location.href).pathname)
+    if (fromPublicStep ? !canCaptureAnalytics(browser, environment) : !isConsentedCheckout(browser, environment)) return
     const analytics = readTrackingGrants(browser).analytics
     if (!analytics) return
     const basket = JSON.stringify([...tourSlugs].sort())
     const previous = JSON.parse(browser.sessionStorage.getItem(CHECKOUT_KEY) ?? 'null')
     // The private document reuses the cart's intent across hydration and reload.
     // A subsequent explicit departure from the cart starts another attempt.
-    const reuse = previous?.basket === basket && (!fromCart || previous.entered !== true)
+    const reuse = previous?.basket === basket && (!fromPublicStep || previous.entered !== true)
     const id = reuse ? previous.id : 'f_' + browser.crypto.randomUUID()
     const event = parseBookingFunnelEvent({ event: 'sp_begin_checkout', event_id: id, items: tourSlugs.map(item_id => ({ item_id, quantity: 1 })) })
     if (!event) return
-    browser.sessionStorage.setItem(CHECKOUT_KEY, JSON.stringify({ basket, id, entered: !fromCart }))
+    browser.sessionStorage.setItem(CHECKOUT_KEY, JSON.stringify({ basket, id, entered: !fromPublicStep }))
     const grants = { analytics }
     remember(browser, event, grants)
-    if (fromCart && analyticsDataLayer(browser, environment)) {
+    if (fromPublicStep && analyticsDataLayer(browser, environment)) {
       // Dispatch in the navigation gesture before the public document unloads.
       dispatchPendingEvent(browser, environment, FUNNEL_STORAGE_PREFIX + id, event, grants)
     }
@@ -123,19 +121,6 @@ export function recordBookingReceipt(browser: Window, environment: string | unde
     }
     browser.sessionStorage.removeItem(CHECKOUT_KEY)
   } catch { /* Keep receipt, cart cleanup and attempt recovery independent. */ }
-}
-
-/** Capture the visit from the protected document. A public document dispatches it later. */
-export function recordCheckoutView(browser: Window, environment: string | undefined) {
-  try {
-    if (recordedCheckoutViews.has(browser.document) || !isConsentedCheckout(browser, environment)) return
-    const analytics = readTrackingGrants(browser).analytics
-    if (!analytics) return
-    const event = parseBookingFunnelEvent({ event: 'sp_checkout_view', event_id: 'f_' + browser.crypto.randomUUID() })
-    if (!event) return
-    remember(browser, event, { analytics })
-    recordedCheckoutViews.add(browser.document)
-  } catch { /* Optional measurement must not affect checkout. */ }
 }
 
 /** Capture consent proofs only; planner fields never enter a measurement payload. */
@@ -248,7 +233,7 @@ export async function flushBookingFunnel(browser: Window, environment: string | 
       }
       if (canDispatch) pending.push({ key, ...record })
     }
-    const order = { sp_book_now_click: 0, sp_add_to_cart: 1, sp_begin_checkout: 2, sp_checkout_view: 3, sp_booking_created: 4, trip_request_created: 4, enquiry_created: 4, car_request_created: 4, event_request_created: 4 }
+    const order = { sp_book_now_click: 0, sp_add_to_cart: 1, sp_begin_checkout: 2, sp_booking_created: 3, trip_request_created: 3, enquiry_created: 3, car_request_created: 3, event_request_created: 3 }
     pending.sort((a, b) => a.capturedAt - b.capturedAt || order[a.event.event] - order[b.event.event])
     for (const { key, event, grants } of pending) {
       dispatchPendingEvent(browser, environment, key, event, grants)

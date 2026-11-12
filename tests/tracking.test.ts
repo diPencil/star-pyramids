@@ -57,7 +57,7 @@ describe('Google Tag Manager configuration', () => {
     expect(sanitizeMeasurementUrl(browser.location.href, 'production')).toBe(production + '/cart')
   })
 
-  it.each(['/cart?token=private', '/cart?email=private%40example.com', '/cart#private', '/checkout', '/booking/private', '/account/bookings'])(
+  it.each(['/cart?token=private', '/cart?email=private%40example.com', '/cart#private', '/checkout/details', '/booking/private', '/account/bookings'])(
     'keeps sensitive cart and booking locations unmeasured: %s', path => {
       const { browser, window } = browserAt(production + path)
       initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, { analytics: true, marketing: true }, 'production', 'advanced')
@@ -247,7 +247,7 @@ describe('Google Tag Manager configuration', () => {
     browser.localStorage.setItem(TRACKING_CONSENT_STORAGE_KEY, '{"analytics":false,"marketing":false}')
     initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, { analytics: true, marketing: false }, 'production')
     browser.localStorage.setItem(TRACKING_CONSENT_STORAGE_KEY, '{"analytics":true,"marketing":false}')
-    browser.location.href = production + '/checkout'
+    browser.location.href = production + '/checkout/details'
     initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production')
     expect(browser.document.head.appendChild).toHaveBeenCalledOnce()
     expect(isGtmReady(window)).toBe(false)
@@ -287,7 +287,7 @@ describe('Google Tag Manager configuration', () => {
     '/admin/settings', '/account/bookings', '/website-cms-preview/homepage',
     '/login', '/register', '/forgot-password', '/reset-password?token=secret',
     '/booking/private', '/booking-account#token=secret', '/verify-voucher/private',
-    '/checkout', '/search?q=person%40example.com', '/make-your-trip?edit=SP-TR-PRIVATE', '/rent-car/request?edit=SP-CR-PRIVATE',
+    '/checkout/details', '/search?q=person%40example.com', '/make-your-trip?edit=SP-TR-PRIVATE', '/rent-car/request?edit=SP-CR-PRIVATE',
     '/trips?%74oken=secret', '/trips?page=1&page=2', '/trips?gclid=person%40example.com',
     '/trips#token=secret', '/egypt-tours/person%40example.com', '/unknown',
     `/blogs/${'a'.repeat(43)}`, '/trips?sort=private', '/trips?destination=person%40example.com',

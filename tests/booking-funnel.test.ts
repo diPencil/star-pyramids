@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { afterEach, expect, it, vi } from 'vitest'
-import { bookingMeasurementHeaders, flushBookingFunnel, FUNNEL_STORAGE_PREFIX, recordBeginCheckout, recordBookingReceipt, recordBookNowClick, recordCartAddition, recordCheckoutView, recordTripRequestReceipt, tripRequestMeasurementGrants } from '@/lib/tracking/leads/booking-funnel'
+import { bookingMeasurementHeaders, flushBookingFunnel, FUNNEL_STORAGE_PREFIX, recordBeginCheckout, recordBookingReceipt, recordBookNowClick, recordCartAddition, recordTripRequestReceipt, tripRequestMeasurementGrants } from '@/lib/tracking/leads/booking-funnel'
 import { BOOKING_MEASUREMENT_HEADER, parseBookingFunnelEvent } from '@/lib/tracking/leads/booking-measurement'
 import { TRACKING_CONSENT_STORAGE_KEY } from '@/lib/tracking/tracking'
 import { initializeGtm, readTrackingConsent, updateGoogleConsent } from '@/lib/tracking/tracking-browser'
@@ -72,52 +72,6 @@ afterEach(() => {
   vi.unstubAllEnvs()
 })
 
-it('records one view of an opened checkout document and drains it only on a safe public page', async () => {
-  const checkout = documentAt('/checkout')
-  setConsent(checkout.local, false)
-  recordCheckoutView(checkout.browser, environment)
-  expect(checkout.local.length).toBe(1)
-
-  setConsent(checkout.local, true)
-  recordCheckoutView(checkout.browser, environment)
-  recordCheckoutView(checkout.browser, environment)
-  await flushBookingFunnel(checkout.browser, environment)
-  expect(checkout.layer).toEqual([])
-  const confirmation = documentAt('/booking-confirmation?flow=' + 'a'.repeat(32), checkout.local)
-  confirmation.boot(); confirmation.ready()
-  await flushBookingFunnel(confirmation.browser, environment)
-  await flushBookingFunnel(confirmation.browser, environment)
-  expect(confirmation.layer).toEqual([{
-    event: 'sp_checkout_view', event_id: expect.stringMatching(/^f_/), checkout_page_path: '/checkout',
-  }])
-})
-
-it.each(['/cart', '/checkout/receipt', '/checkout?token=private', '/checkout#private', 'http://starpyramids.com/checkout'])('does not capture a checkout view on %s', path => {
-  const page = documentAt(path)
-  setConsent(page.local, true)
-  recordCheckoutView(page.browser, environment)
-  expect(page.local.length).toBe(1)
-})
-
-it.each(['expired', 'withdrawn'] as const)('discards a %s deferred checkout view', async condition => {
-  const checkout = documentAt('/checkout')
-  setConsent(checkout.local, true)
-  recordCheckoutView(checkout.browser, environment)
-  const key = checkout.local.key(1)!
-  const pending = JSON.parse(checkout.local.getItem(key)!)
-  if (condition === 'expired') {
-    checkout.local.setItem(key, JSON.stringify({ ...pending, capturedAt: Date.now() - 30 * 60 * 1000 }))
-  } else {
-    setConsent(checkout.local, false)
-    setConsent(checkout.local, true, undefined, newAnalyticsGrant)
-  }
-  const cart = documentAt('/cart', checkout.local)
-  cart.boot(); cart.ready()
-  await flushBookingFunnel(cart.browser, environment)
-  expect(cart.layer).toEqual([])
-  expect(cart.local.getItem(key)).toBeNull()
-})
-
 it('dispatches Book Now synchronously when GTM is ready, with only safe interaction fields', () => {
   const tour = documentAt('/egypt-tours/cairo-tour')
   setConsent(tour.local, true)
@@ -150,7 +104,7 @@ it('keeps deferred Book Now clicks off checkout and drops them after Analytics c
   setConsent(tour.local, true)
   tour.boot()
   recordBookNowClick(tour.browser, environment, 'cairo-tour')
-  const checkout = documentAt('/checkout', tour.local)
+  const checkout = documentAt('/checkout/details', tour.local)
   await flushBookingFunnel(checkout.browser, environment)
   expect(checkout.layer).toEqual([])
 
@@ -477,7 +431,7 @@ it('dispatches checkout intent on cart before navigation and deduplicates the pr
     items: [{ item_id: 'cairo-tour', quantity: 1 }, { item_id: 'luxor-tour', quantity: 1 }],
   }])
 
-  const checkout = documentAt('/checkout', cart.local, cart.session)
+  const checkout = documentAt('/checkout/details', cart.local, cart.session)
   recordBeginCheckout(checkout.browser, environment, ['cairo-tour', 'luxor-tour'])
   recordBookingReceipt(checkout.browser, environment, receipt)
   const confirmation = documentAt('/booking-confirmation', cart.local)
@@ -493,9 +447,13 @@ it('counts a new cart departure after returning from an unfinished checkout with
   cart.boot(); cart.ready()
   recordBeginCheckout(cart.browser, environment, ['cairo-tour'])
 
-  const checkout = documentAt('/checkout', cart.local, cart.session)
+  const summary = documentAt('/checkout', cart.local, cart.session)
+  summary.boot(); summary.ready()
+  recordBeginCheckout(summary.browser, environment, ['cairo-tour'])
+  expect(summary.layer).toEqual([])
+  const checkout = documentAt('/checkout/details', cart.local, cart.session)
   recordBeginCheckout(checkout.browser, environment, ['cairo-tour'])
-  const reloaded = documentAt('/checkout', cart.local, cart.session)
+  const reloaded = documentAt('/checkout/details', cart.local, cart.session)
   recordBeginCheckout(reloaded.browser, environment, ['cairo-tour'])
   await flushBookingFunnel(cart.browser, environment)
   expect(cart.layer).toHaveLength(1)
@@ -535,10 +493,10 @@ it('requires Analytics consent and keeps a consented cart start pending while GT
 })
 
 it('queues checkout and receipt across refresh and drains them once on a ready public page', async () => {
-  const checkout = documentAt('/checkout')
+  const checkout = documentAt('/checkout/details')
   setConsent(checkout.local, true)
   recordBeginCheckout(checkout.browser, environment, ['cairo-tour', 'luxor-tour'])
-  const reloaded = documentAt('/checkout', checkout.local, checkout.session)
+  const reloaded = documentAt('/checkout/details', checkout.local, checkout.session)
   recordBeginCheckout(reloaded.browser, environment, ['luxor-tour', 'cairo-tour'])
   recordBookingReceipt(reloaded.browser, environment, {
     ...receipt,
@@ -574,7 +532,7 @@ it('queues checkout and receipt across refresh and drains them once on a ready p
 })
 
 it('can drain an existing protected checkout receipt on a consented cart without loading Google on checkout', async () => {
-  const checkout = documentAt('/checkout'); setConsent(checkout.local, true)
+  const checkout = documentAt('/checkout/details'); setConsent(checkout.local, true)
   recordBookingReceipt(checkout.browser, environment, receipt)
   const cart = documentAt('/cart', checkout.local); cart.boot(); cart.ready()
   await flushBookingFunnel(cart.browser, environment)
@@ -585,7 +543,7 @@ it('can drain an existing protected checkout receipt on a consented cart without
 
 it.each(['analytics', 'both', 'denied', 'withdrawn'] as const)(
   'drains a saved multi-tour booking on its clean confirmation once under %s consent', async choice => {
-    const checkout = documentAt('/checkout')
+    const checkout = documentAt('/checkout/details')
     setConsent(checkout.local, choice !== 'denied', choice === 'both' ? marketingGrant : undefined)
     const captured = { ...receipt, grants: { analytics: analyticsGrant, ...(choice === 'both' ? { marketing: marketingGrant } : {}) } }
     recordBeginCheckout(checkout.browser, environment, ['cairo-tour', 'luxor-tour'])
@@ -623,7 +581,7 @@ it('dispatches a single safe cart item only with consent and a production public
 })
 
 it('drains a recovered receipt only once across simultaneous public tabs', async () => {
-  const checkout = documentAt('/checkout')
+  const checkout = documentAt('/checkout/details')
   setConsent(checkout.local, true)
   recordBookingReceipt(checkout.browser, environment, receipt)
   const first = documentAt('/', checkout.local)
@@ -644,7 +602,7 @@ it('drains a recovered receipt only once across simultaneous public tabs', async
 })
 
 it('refreshes an expired undelivered booking on replay without refreshing it twice or overriding delivery', async () => {
-  const checkout = documentAt('/checkout')
+  const checkout = documentAt('/checkout/details')
   setConsent(checkout.local, true)
   const key = FUNNEL_STORAGE_PREFIX + booking.event_id
   const expired = Date.now() - 7 * 24 * 60 * 60 * 1000
@@ -671,14 +629,14 @@ it('refreshes an expired undelivered booking on replay without refreshing it twi
 })
 
 it('fails closed for consent withdrawal, token-bearing checkout and nonproduction hosts', async () => {
-  const checkout = documentAt('/checkout')
+  const checkout = documentAt('/checkout/details')
   vi.stubGlobal('window', checkout.browser)
   vi.stubEnv('NODE_ENV', environment)
   expect(bookingMeasurementHeaders(true)).toEqual({})
   setConsent(checkout.local, true)
   expect(bookingMeasurementHeaders(true)).toEqual({ [BOOKING_MEASUREMENT_HEADER]: analyticsGrant })
   expect(bookingMeasurementHeaders(false)).toEqual({})
-  for (const path of ['/checkout?token=private', '/checkout#private', '/booking/private', 'https://staging.example.com/checkout']) {
+  for (const path of ['/checkout/details?token=private', '/checkout/details#private', '/booking/private', 'https://staging.example.com/checkout']) {
     const { browser } = documentAt(path, checkout.local)
     vi.stubGlobal('window', browser)
     expect(bookingMeasurementHeaders(true)).toEqual({})
@@ -702,7 +660,7 @@ it.each([
   [marketingGrant, newMarketingGrant, false],
   [marketingGrant, marketingGrant, true],
 ])('requires continuous Marketing consent at capture and dispatch (%s -> %s)', async (captured, current, eligible) => {
-  const checkout = documentAt('/checkout')
+  const checkout = documentAt('/checkout/details')
   setConsent(checkout.local, true, captured)
   recordBookingReceipt(checkout.browser, environment, { ...receipt, grants: { analytics: analyticsGrant, marketing: captured } })
   setConsent(checkout.local, true, current)
@@ -714,7 +672,7 @@ it.each([
 })
 
 it('rejects old receipts and pending leads after Analytics withdrawal and regrant, even if queue cleanup did not run', async () => {
-  const checkout = documentAt('/checkout')
+  const checkout = documentAt('/checkout/details')
   setConsent(checkout.local, true, marketingGrant)
   recordBookingReceipt(checkout.browser, environment, receipt)
   const key = FUNNEL_STORAGE_PREFIX + booking.event_id

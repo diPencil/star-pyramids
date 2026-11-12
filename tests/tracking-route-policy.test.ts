@@ -11,7 +11,7 @@ const origin = 'https://starpyramids.com'
 // Deliberate release contract, independent of the runtime allowlist. A new
 // route must be reviewed, rather than silently measured or silently omitted.
 const publicRoutes = [
-  '/', '/about', '/accessible-travel', '/blogs', '/blogs/[slug]', '/cart', '/contact', '/booking-confirmation',
+  '/', '/about', '/accessible-travel', '/blogs', '/blogs/[slug]', '/cart', '/checkout', '/contact', '/booking-confirmation',
   '/destinations', '/destinations/[slug]', '/egypt-tours/[slug]',
   '/egypt-tours/multi-days-tours', '/egypt-tours/multi-days-tours/[category]',
   '/egypt-tours/nile-cruises', '/egypt-tours/nile-cruises/[type]',
@@ -21,7 +21,7 @@ const publicRoutes = [
   '/special-offers', '/special-offers/[slug]', '/terms', '/trips',
 ]
 const privateRoutes = [
-  '/booking/[token]', '/booking-account', '/checkout', '/forgot-password',
+  '/booking/[token]', '/booking-account', '/checkout/details', '/forgot-password',
   '/login', '/register', '/reset-password', '/search', '/verify-voucher/[token]', '/checkout/receipt',
 ]
 const privateFamily = /^\/(?:admin|account|website-cms-preview)(?:\/|$)/

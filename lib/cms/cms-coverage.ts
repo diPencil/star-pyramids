@@ -24,6 +24,7 @@ const functionalRoutes = [
   // These workflows have fixed security/receipt UI, not editable CMS documents.
   ['booking-account', 'Booking account setup', '/booking-account', 'app/booking-account/page.tsx'],
   ['booking-confirmation', 'Booking request confirmation', '/booking-confirmation', 'app/booking-confirmation/page.tsx'],
+  ['checkout-details', 'Booking details form', '/checkout/details', 'app/checkout/details/page.tsx'],
   ['checkout-receipt', 'Private booking receipt', '/checkout/receipt', 'app/checkout/receipt/page.tsx'],
   ['login', 'Sign in', '/login', 'components/auth-pages.tsx'], ['register', 'Registration', '/register', 'components/auth-pages.tsx'], ['forgot-password', 'Password recovery', '/forgot-password', 'components/extended-pages.tsx'], ['reset-password', 'Password reset', '/reset-password', 'app/reset-password/page.tsx'],
   ['guest-booking', 'Guest booking access', '/booking/[token]', 'app/booking/[token]/page.tsx'], ['voucher', 'Voucher verification', '/verify-voucher/[token]', 'app/verify-voucher/[token]/page.tsx'],

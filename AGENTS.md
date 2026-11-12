@@ -161,7 +161,7 @@ genuinely route-specific behavior.
 | `/account` and account sections | `components/account/account-portal.tsx` (`CustomerAccountPage`); protected layout in `app/account/layout.tsx` |
 | Account booking/car/payment detail routes | Intended detail exports from `account-portal.tsx`; reference validation in route wrappers and ownership enforcement in APIs/services |
 | Account trip/event requests and details | Dedicated request components; trip `?new=1` / `?edit=<ref>` handled by the trip route and existing request flow |
-| `/checkout`, `/booking-confirmation`, `/checkout/receipt`, `/booking/[token]` | Existing checkout, safe public confirmation and protected booking-access flows; preserve their tracking/document boundaries |
+| `/checkout`, `/checkout/details`, `/booking-confirmation`, `/checkout/receipt`, `/booking/[token]` | Tagged checkout summary, untagged contact form, safe public confirmation and protected booking-access flows; preserve their tracking/document boundaries |
 | `/admin/**`, `/api/**` | Feature-owned admin components and route handlers; validate authentication, permission, CSRF/signatures and ownership at the existing boundaries |
 | `/privacy`, `/terms` | `components/extended-pages.tsx`; copy in `data/content.ts` |
 

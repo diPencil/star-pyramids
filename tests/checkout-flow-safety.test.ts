@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { randomUUID } from 'node:crypto'
 import type { ReactElement, ReactNode } from 'react'
-import { useEffect } from 'react'
 import type { CartItem } from '@/lib/booking/cart'
 import type { Tour } from '@/data/types'
 import type { AuthenticatedUser } from '@/lib/auth-types'
@@ -37,34 +36,6 @@ const response=(data:unknown,status=201)=>new Response(JSON.stringify(data),{sta
 beforeEach(()=>{vi.clearAllMocks();harness.index=0;harness.values=[];harness.user=null;harness.items=[{key:'submitted',tourSlug:'db-only',title:'DB only',date:'',adults:2,children:0,infants:0,addons:[],image:'',adultUnit:999,childUnit:999,infantUnit:999,addonTotal:0,total:999}];harness.key.mockResolvedValue('stable-attempt-key');vi.stubGlobal('fetch',harness.fetch)})
 afterEach(()=>{harness.measure=false;vi.unstubAllGlobals();vi.unstubAllEnvs()})
 
-it('captures the mounted checkout view when Analytics consent becomes available', () => {
-  harness.measure = true
-  vi.stubEnv('NODE_ENV', 'production')
-  const values = new Map([[TRACKING_CONSENT_STORAGE_KEY, JSON.stringify({ analytics: false, marketing: false })]])
-  const browser = Object.assign(new EventTarget(), {
-    location: { href: 'https://starpyramids.com/checkout' }, document: {}, crypto: { randomUUID },
-    localStorage: { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value), removeItem: (key: string) => values.delete(key) },
-  })
-  vi.stubGlobal('window', browser)
-  render()
-  const checkoutViewEffect = vi.mocked(useEffect).mock.calls.at(-1)![0]
-  const unsubscribe = checkoutViewEffect()
-  try {
-    expect(values.size).toBe(1)
-    values.set(TRACKING_CONSENT_STORAGE_KEY, JSON.stringify({ analytics: true, marketing: false, grants: { analytics: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' } }))
-    const notify = () => browser.dispatchEvent(Object.assign(new Event('storage'), { key: TRACKING_CONSENT_STORAGE_KEY }))
-    notify()
-    notify()
-    const queued = [...values].filter(([key]) => key.startsWith(FUNNEL_STORAGE_PREFIX))
-    expect(queued).toHaveLength(1)
-    expect(JSON.parse(queued[0][1]).event).toEqual({
-      event: 'sp_checkout_view', event_id: expect.stringMatching(/^f_/), checkout_page_path: '/checkout',
-    })
-  } finally {
-    unsubscribe?.()
-  }
-})
-
 it.each([
   { ready: true, transientFailure: false },
   { ready: true, transientFailure: true },
@@ -74,7 +45,7 @@ it.each([
   const assign = vi.fn()
   const acknowledge = vi.fn(async () => response({ ready }, 200))
   if (transientFailure) acknowledge.mockResolvedValueOnce(response({ ready: false }, 503))
-  vi.stubGlobal('window', { location: { href: 'https://starpyramids.com/checkout', assign }, fetch: acknowledge })
+  vi.stubGlobal('window', { location: { href: 'https://starpyramids.com/checkout/details', assign }, fetch: acknowledge })
   harness.fetch.mockResolvedValueOnce(response({ reference: 'SP-BK-ABC123', total: 100, guest: true, guestAccessUrl: '/booking/' + 'a'.repeat(43), bookingConfirmationUrl: target }))
   await find(contact(), element => element.type === 'form')!.props.onSubmit({ preventDefault: vi.fn() })
   expect(harness.remove).toHaveBeenCalledWith(['submitted'])
@@ -176,7 +147,7 @@ it('queues the saved milestone only after a verified recovery, following a price
   const grants = { analytics: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' }
   const values = new Map([[TRACKING_CONSENT_STORAGE_KEY, JSON.stringify({ analytics: true, grants })]])
   vi.stubGlobal('window', {
-    location: { href: 'https://starpyramids.com/checkout' },
+    location: { href: 'https://starpyramids.com/checkout/details' },
     crypto: { randomUUID },
     localStorage: { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value), removeItem: (key: string) => values.delete(key) },
     sessionStorage: { getItem: () => null, removeItem: vi.fn() },

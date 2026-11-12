@@ -152,7 +152,7 @@ it('admits only a clean public confirmation document and forces a fresh protecte
 
 it('navigates only after cookie acknowledgement and leaves failures, missing cookies and later navigation alone', async () => {
   const assign = vi.fn()
-  const browser = { location: { href: origin + '/checkout', assign }, fetch: vi.fn() } as unknown as Window
+  const browser = { location: { href: origin + '/checkout/details', assign }, fetch: vi.fn() } as unknown as Window
   const target = '/booking-confirmation?flow=' + 'a'.repeat(32)
   const fetch = vi.mocked(browser.fetch)
   fetch.mockResolvedValueOnce(Response.json({ ready: true }))
@@ -175,7 +175,7 @@ it('retries a failed acknowledgement once without restarting checkout', async ()
   const assign = vi.fn()
   const target = '/booking-confirmation?flow=' + 'a'.repeat(32)
   const fetch = vi.fn().mockRejectedValueOnce(Error('connection lost')).mockResolvedValueOnce(Response.json({ ready: true }))
-  const browser = { location: { href: origin + '/checkout', assign }, fetch } as unknown as Window
+  const browser = { location: { href: origin + '/checkout/details', assign }, fetch } as unknown as Window
   expect(await openBookingConfirmation(browser, target)).toBe(true)
   expect(fetch).toHaveBeenCalledTimes(2)
   expect(assign).toHaveBeenCalledExactlyOnceWith(target)
@@ -184,7 +184,7 @@ it('retries a failed acknowledgement once without restarting checkout', async ()
 it('bounds the acknowledgement wait and keeps a slow connection from blocking the saved receipt', async () => {
   vi.useFakeTimers()
   const assign = vi.fn()
-  const browser = { location: { href: origin + '/checkout', assign }, fetch: vi.fn((_url, options) => new Promise((_resolve, reject) => {
+  const browser = { location: { href: origin + '/checkout/details', assign }, fetch: vi.fn((_url, options) => new Promise((_resolve, reject) => {
     options.signal.addEventListener('abort', () => reject(Error('aborted')))
   })) } as unknown as Window
   const pending = openBookingConfirmation(browser, '/booking-confirmation?flow=' + 'a'.repeat(32))

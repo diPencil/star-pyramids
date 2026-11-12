@@ -6,8 +6,8 @@ import type { CartItem } from '@/lib/booking/cart'
 import { estimateCart } from '@/lib/booking/booking'
 
 const state = vi.hoisted(() => ({ data: null as Tour[] | null, error: null as string | null, locale: 'en' as 'en' | 'es' | 'it', items: [] as CartItem[], retry: vi.fn(), clear: vi.fn() }))
-const measurement = vi.hoisted(() => ({ begin: vi.fn(), navigate: undefined as (() => void) | undefined }))
-vi.mock('next/link', () => ({ default: ({ onNavigate, ...props }: { href: string; children?: ReactNode; onNavigate?: () => void }) => {
+const measurement = vi.hoisted(() => ({ begin: vi.fn(), navigate: undefined as ((event: { preventDefault: () => void }) => void) | undefined }))
+vi.mock('next/link', () => ({ default: ({ onNavigate, prefetch: _prefetch, ...props }: { href: string; children?: ReactNode; onNavigate?: (event: { preventDefault: () => void }) => void; prefetch?: boolean }) => {
   if (props.href === '/checkout') measurement.navigate = onNavigate
   return createElement('a', props)
 } }))
@@ -20,6 +20,8 @@ vi.mock('@/components/shared/forms/international-phone-input', () => ({ Internat
 vi.mock('@/components/booking/booking-payment', () => ({ PaymentInstructions: () => null }))
 import { CartPage } from '@/components/booking/cart/cart-page'
 import { CheckoutPage } from '@/components/booking/checkout/checkout-page'
+import CheckoutSummaryPage from '@/app/checkout/page'
+import CheckoutDetailsPage from '@/app/checkout/details/page'
 
 const liveTour = (category: Tour['category'] = 'one-day-tours'): Tour => ({ slug: 'alexandria-full-day-tour', aliases: ['old-alexandria'], status: 'published', title: 'Alexandria Full Day Tour', category, location: 'Alexandria', duration: 'Full day', price: 125, image: '/live.jpg', summary: 'A current DB-only trip', dayDetail: { overview: ['Visit Alexandria'], priceRows: [], travelerPrices: [{ travelers: 2, adultPrice: 125, childPrice: 70, infantPrice: 0 }], addOns: [{ title: 'Extra', price: 20 }] } })
 const line = (slug = 'alexandria-full-day-tour'): CartItem => ({ key: 'original-key', tourSlug: slug, title: 'Alexandria Full Day Tour', image: '/snapshot.jpg', date: '', adults: 2, children: 0, infants: 0, addons: [], addonTotal: 9999, adultUnit: 9999, childUnit: 9999, infantUnit: 9999, total: 9999 })
@@ -32,10 +34,26 @@ it('measures navigation to checkout using validated canonical tour IDs', () => {
   measurement.navigate = undefined
   renderToStaticMarkup(createElement(CartPage))
   expect(measurement.begin).not.toHaveBeenCalled()
-  const browser = {}
+  const browser = { location: { assign: vi.fn() } }
   vi.stubGlobal('window', browser)
-  measurement.navigate!()
+  const preventDefault = vi.fn()
+  measurement.navigate!({ preventDefault })
   expect(measurement.begin).toHaveBeenCalledExactlyOnceWith(browser, process.env.NODE_ENV, ['alexandria-full-day-tour'])
+  expect(preventDefault).toHaveBeenCalledOnce()
+  expect(browser.location.assign).toHaveBeenCalledExactlyOnceWith('/checkout')
+})
+
+it('renders the public checkout summary without customer fields and keeps the form on the private route', async () => {
+  state.data = [liveTour()]
+  const html = renderToStaticMarkup(createElement(CheckoutSummaryPage))
+  expect(html).toContain('<h1>Checkout</h1>')
+  expect(html).toContain('href="/checkout/details"')
+  expect(html).toContain('Alexandria Full Day Tour')
+  expect(html).not.toMatch(/<form|<input|<textarea/)
+  expect(measurement.begin).not.toHaveBeenCalled()
+  const privateHtml = renderToStaticMarkup(await CheckoutDetailsPage())
+  expect(privateHtml).toContain('<form')
+  expect(privateHtml).toContain('type="email"')
 })
 
 it.each(['one-day-tours', 'multi-days-tours', 'nile-cruises', 'shore-excursions'] as const)('estimates a newly published %s DB tour without requiring static membership or Date Pricing', category => {

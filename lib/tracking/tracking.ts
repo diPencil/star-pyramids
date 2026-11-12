@@ -10,7 +10,7 @@ const GTM_CONTAINER_ID_PATTERN = /^GTM-[A-Z0-9]{4,12}$/
 const PRODUCTION_HOSTS = new Set(['starpyramids.com', 'www.starpyramids.com'])
 const PUBLIC_PAGES = new Set([
   '/', '/about', '/accessible-travel', '/egypt-travel-guide', '/faq', '/privacy',
-  '/rent-car', '/rent-car/request', '/contact', '/terms', '/trips', '/make-your-trip', '/cart', '/booking-confirmation',
+  '/rent-car', '/rent-car/request', '/contact', '/terms', '/trips', '/make-your-trip', '/cart', '/checkout', '/booking-confirmation',
 ])
 const CATALOGUE_PATH = /^\/(?:blogs|destinations|egypt-tours|events|special-offers)(?:\/[a-z0-9]{1,32}(?:-[a-z0-9]{1,32})*){0,3}$/
 // Literal section links already rendered by the public site. Unknown fragments

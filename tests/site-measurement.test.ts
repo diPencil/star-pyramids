@@ -66,13 +66,18 @@ function mount(path: string, modern: boolean, granted = true) {
   return { browser, origin, location, navigation, script, appendChild }
 }
 
-it('mounts one Advanced container before a first-visit choice and leaves optional consent denied', () => {
-  const { browser, script, appendChild } = mount('/trips', false, false)
+it.each(['/trips', '/checkout?gtm_debug=x'])('mounts one Advanced container with optional consent denied on %s', path => {
+  const { browser, script, appendChild } = mount(path, false, false)
   expect(appendChild).toHaveBeenCalledOnce()
   script.onload?.()
   expect(browser.dataLayer).not.toContainEqual({ event: GTM_CONSENT_READY_EVENT })
   browser.dispatchEvent(new Event('hashchange'))
   expect(appendChild).toHaveBeenCalledOnce()
+})
+
+it('keeps the booking details document untagged with saved consent and the Preview flag', () => {
+  const { appendChild } = mount('/checkout/details?gtm_debug=x', false)
+  expect(appendChild).not.toHaveBeenCalled()
 })
 
 it('drains the existing saved booking once when the clean confirmation container becomes ready', () => {
@@ -116,7 +121,7 @@ it('initializes the cart with denied defaults and preserves denial on a client t
   script.onload?.()
   expect(appendChild).toHaveBeenCalledOnce()
   expect(browser.dataLayer).not.toContainEqual({ event: GTM_CONSENT_READY_EVENT })
-  browser.history.pushState(null, '', '/checkout')
+  browser.history.pushState(null, '', '/checkout/details')
   expect(appendChild).toHaveBeenCalledOnce()
   expect(browser.dataLayer).not.toContainEqual({ event: GTM_CONSENT_READY_EVENT })
 })
@@ -168,8 +173,8 @@ it.each(['hashchange', 'popstate', 'navigation', 'replaceState', 'pushState'] as
 })
 
 it('keeps private routes excluded after a fragment is removed', () => {
-  const { browser, location, origin, appendChild } = mount('/checkout#private', false)
-  location.href = origin + '/checkout'
+  const { browser, location, origin, appendChild } = mount('/checkout/details#private', false)
+  location.href = origin + '/checkout/details'
   browser.dispatchEvent(new Event('hashchange'))
   expect(appendChild).not.toHaveBeenCalled()
   expect(browser.dataLayer).toEqual([])

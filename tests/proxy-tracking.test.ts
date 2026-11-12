@@ -9,11 +9,16 @@ const eligibility = 'x-middleware-request-x-sp-tracking-eligible'
 afterEach(() => vi.unstubAllEnvs())
 
 describe('measurement document boundary', () => {
-  it('admits the cart on direct and public Flight loads while forcing a fresh private checkout document', () => {
+  it('admits the cart and checkout summary while forcing a fresh untagged document for booking details', () => {
     vi.stubEnv('NODE_ENV', 'production')
     expect(proxy(new NextRequest(`${origin}/cart`)).headers.get(eligibility)).toBe('1')
     expect(proxy(new NextRequest(`${origin}/cart?gtm_debug=x&_rsc=transport`, { headers: { rsc: '1', referer: `${origin}/trips` } })).headers.get(eligibility)).toBe('1')
-    expect(proxy(new NextRequest(`${origin}/checkout?_rsc=transport`, { headers: { rsc: '1', referer: `${origin}/cart` } })).status).toBe(204)
+    expect(proxy(new NextRequest(`${origin}/checkout?gtm_debug=x`)).headers.get(eligibility)).toBe('1')
+    expect(proxy(new NextRequest(`${origin}/checkout/details?_rsc=transport`, { headers: { rsc: '1', referer: `${origin}/checkout` } })).status).toBe(204)
+    const details = proxy(new NextRequest(`${origin}/checkout/details`))
+    expect(details.headers.get(eligibility)).toBe('0')
+    expect(details.headers.get('cache-control')).toBe('private, no-store')
+    expect(details.headers.get('referrer-policy')).toBe('no-referrer')
     expect(proxy(new NextRequest(`${origin}/cart?email=private%40example.com`)).headers.get(eligibility)).toBe('0')
   })
   it('admits contact and public car forms but never address-bearing or edit car URLs', () => {
@@ -63,7 +68,7 @@ describe('measurement document boundary', () => {
     expect(publicResponse.headers.get(eligibility)).toBe('1')
   })
 
-  it.each(['/account', '/login', '/booking/private', '/checkout', '/search?q=private', '/trips?token=private'])(
+  it.each(['/account', '/login', '/booking/private', '/checkout/details', '/search?q=private', '/trips?token=private'])(
     'returns a document fallback instead of Flight data for %s', async path => {
       vi.stubEnv('NODE_ENV', 'production')
       const url = new URL(path, origin)

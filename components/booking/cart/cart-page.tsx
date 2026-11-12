@@ -6,24 +6,27 @@ import { Breadcrumb, SiteShell } from '@/components/site'
 import { formatPrice, tx, useLocale } from '../../locale'
 import { clearCart, removeFromCart, useCart } from '@/lib/booking/cart'
 import { useCartCatalogue } from '@/lib/booking/cart-catalogue'
+import { CHECKOUT_DETAILS_PATH } from '@/lib/booking/booking-confirmation'
 import { recordBeginCheckout } from '@/lib/tracking/leads/booking-funnel'
 import { CartLineIssues } from './cart-line-issues'
 import { CartCatalogueStatus } from './cart-catalogue-status'
 
-export function CartPage() {
+export function CartPage({ checkoutSummary = false }: { checkoutSummary?: boolean } = {}) {
   const { currency, locale } = useLocale()
   const { items } = useCart()
   const catalogue = useCartCatalogue(items)
   const { estimate } = catalogue
   const openDateLabel = tx(locale, { en: 'Open date', es: 'Fecha abierta', it: 'Data aperta', ar: 'التاريخ مفتوح' })
   const removeLabel = tx(locale, { en: 'Remove from cart', es: 'Quitar del carrito', it: 'Rimuovi dal carrello', ar: 'إزالة من السلة' })
+  const checkoutLabel = tx(locale, { en: 'Checkout', es: 'Finalizar reserva', it: 'Completa la prenotazione' })
+  const startCheckout = () => recordBeginCheckout(window, process.env.NODE_ENV, estimate.validLines.map(({ item }) => item.tourSlug))
 
-  return <SiteShell>
-    <Breadcrumb items={[tx(locale, { en: 'Cart', es: 'Carrito', it: 'Carrello', ar: 'سلة الرحلات' })]} />
+  const content = <>
+    <Breadcrumb items={[checkoutSummary ? checkoutLabel : tx(locale, { en: 'Cart', es: 'Carrito', it: 'Carrello', ar: 'سلة الرحلات' })]} />
     <main className="container cart-page">
       <header className="car-request-head">
         <span className="eyebrow">{tx(locale, { en: 'Your selected trips', es: 'Tus viajes seleccionados', it: 'I tuoi viaggi selezionati', ar: 'رحلاتك المختارة' })}</span>
-        <h1>{tx(locale, { en: 'Trip cart', es: 'Carrito de viajes', it: 'Carrello viaggi', ar: 'سلة الرحلات' })}</h1>
+        <h1>{checkoutSummary ? checkoutLabel : tx(locale, { en: 'Trip cart', es: 'Carrito de viajes', it: 'Carrello viaggi', ar: 'سلة الرحلات' })}</h1>
       </header>
       {!items.length ? <div className="cart-empty">
         <ShoppingCart size={40} />
@@ -63,13 +66,21 @@ export function CartPage() {
           <div className="cart-summary-row total"><span>{tx(locale, { en: 'Estimated subtotal', es: 'Subtotal estimado', it: 'Subtotale stimato', ar: 'الإجمالي التقديري' })}</span><strong>{estimate.priceUnavailable ? "—" : formatPrice(estimate.subtotal, currency, locale)}</strong></div>
           <p>{tx(locale, { en: 'Frontend estimate only. The final price, taxes, and fees are confirmed with our team before payment.', es: 'Solo estimación inicial. El precio final, impuestos y tasas se confirman con nuestro equipo antes del pago.', it: 'Solo stima iniziale. Prezzo finale, tasse e costi sono confermati con il nostro team prima del pagamento.', ar: 'تقدير مبدئي فقط. السعر النهائي والضرائب والرسوم تُؤكد مع فريقنا قبل الدفع.' })}</p>
           {estimate.validLines.length > 0 && !estimate.blocked
-            ? <Link href="/checkout" className="primary-btn" onNavigate={() => {
-              recordBeginCheckout(window, process.env.NODE_ENV, estimate.validLines.map(({ item }) => item.tourSlug))
-            }}>{tx(locale, { en: 'Proceed to checkout', es: 'Proceder a la compra', it: 'Procedi al checkout', ar: 'إتمام الحجز' })} <ArrowRight size={17} /></Link>
+            ? checkoutSummary
+              ? <a href={CHECKOUT_DETAILS_PATH} className="primary-btn" onClick={startCheckout}>{tx(locale, { en: 'Continue to booking details', es: 'Continuar con los datos de la reserva', it: 'Continua con i dati della prenotazione' })} <ArrowRight size={17} /></a>
+              : <Link href="/checkout" prefetch={false} className="primary-btn" onNavigate={event => {
+                event.preventDefault()
+                startCheckout()
+                window.location.assign('/checkout')
+              }}>{tx(locale, { en: 'Proceed to checkout', es: 'Proceder a la compra', it: 'Procedi al checkout', ar: 'إتمام الحجز' })} <ArrowRight size={17} /></Link>
             : <p className="cart-stale-note" role="note"><CircleAlert size={15} />{tx(locale, { en: 'Review the trip selections above before continuing.', es: 'Revisa las selecciones anteriores antes de continuar.', it: 'Controlla le selezioni sopra prima di continuare.', ar: 'أزل الرحلات غير المتاحة للمتابعة.' })}</p>}
-          <Link href="/trips" className="outline-btn">{tx(locale, { en: 'Continue browsing', es: 'Seguir explorando', it: 'Continua a sfogliare', ar: 'مواصلة التصفح' })}</Link>
+          {checkoutSummary
+            ? <Link href="/cart" className="outline-btn">{tx(locale, { en: 'Back to cart', es: 'Volver al carrito', it: 'Torna al carrello' })}</Link>
+            : <Link href="/trips" className="outline-btn">{tx(locale, { en: 'Continue browsing', es: 'Seguir explorando', it: 'Continua a sfogliare', ar: 'مواصلة التصفح' })}</Link>}
         </aside>
       </div>}
     </main>
-  </SiteShell>
+  </>
+  // The tagged summary has no account UI, contact fields or support chat.
+  return checkoutSummary ? content : <SiteShell>{content}</SiteShell>
 }

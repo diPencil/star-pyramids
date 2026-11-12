@@ -197,7 +197,7 @@ it('uses labelled native controls, restores focus on Escape, and saves categorie
 
 it('applies private-route withdrawal to public tabs and purges pending bookings before regrant', () => {
   const values = new Map([[TRACKING_CONSENT_STORAGE_KEY, JSON.stringify(granted)]])
-  const privatePage = browserAt('/checkout', values)
+  const privatePage = browserAt('/checkout/details', values)
   const publicPage = browserAt('/trips', values)
   const key = FUNNEL_STORAGE_PREFIX + 'pending'
   values.set(key, 'pending')

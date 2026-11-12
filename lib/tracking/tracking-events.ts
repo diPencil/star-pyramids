@@ -112,13 +112,14 @@ const PAGE_TITLES: Readonly<Record<string, string>> = {
   '/make-your-trip': 'Plan Your Egypt Trip',
   '/contact': 'Contact Us', '/rent-car/request': 'Request a Car',
   '/cart': 'Cart',
+  '/checkout': 'Checkout',
   '/booking-confirmation': 'Booking Request Confirmation',
 }
 
 export function publicPageView(url: URL, environment: string | undefined) {
   if (!canMeasureLocation(url, environment)) return null
   const pathname = url.pathname.replace(/\/$/, '') || '/'
-  const page = ['/make-your-trip', '/cart', '/booking-confirmation'].includes(pathname) ? 0 : Number(url.searchParams.get('page'))
+  const page = ['/make-your-trip', '/cart', '/checkout', '/booking-confirmation'].includes(pathname) ? 0 : Number(url.searchParams.get('page'))
   const pagePath = page > 1 ? `${pathname}?page=${page}` : pathname
   // A committed route provides a stable public title even when Next streams
   // metadata after the navigation or the previous document title is still set.

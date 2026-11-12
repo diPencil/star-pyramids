@@ -107,8 +107,8 @@ describe('public page views', () => {
     expect(observe(page.browser, 'production', commit)).toBe(true)
     expect(observe(page.browser, 'production', commit)).toBe(false)
     expect(page.dataLayer).toEqual([{ event: 'sp_page_view', page_path: '/cart', page_location: `${origin}/cart`, page_title: 'Cart | STAR PYRAMIDS' }])
-    page.location.href = origin + '/checkout'
-    expect(observe(page.browser, 'production', { pathname: '/checkout', search: '', enabled: true })).toBe(false)
+    page.location.href = origin + '/checkout/details'
+    expect(observe(page.browser, 'production', { pathname: '/checkout/details', search: '', enabled: true })).toBe(false)
     expect(page.dataLayer).toHaveLength(1)
   })
   it('uses a fixed planner title and canonical URL without dates, source or guest counts', () => {
