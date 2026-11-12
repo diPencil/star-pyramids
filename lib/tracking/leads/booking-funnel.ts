@@ -93,8 +93,8 @@ export function recordBeginCheckout(browser: Window, environment: string | undef
     if (!analytics) return
     const basket = JSON.stringify([...tourSlugs].sort())
     const previous = JSON.parse(browser.sessionStorage.getItem(CHECKOUT_KEY) ?? 'null')
-    // The private document reuses the cart's intent across hydration and reload.
-    // A subsequent explicit departure from the cart starts another attempt.
+    // The details form reuses the public step's intent across hydration and
+    // reload. Returning to the public step starts another attempt.
     const reuse = previous?.basket === basket && (!fromPublicStep || previous.entered !== true)
     const id = reuse ? previous.id : 'f_' + browser.crypto.randomUUID()
     const event = parseBookingFunnelEvent({ event: 'sp_begin_checkout', event_id: id, items: tourSlugs.map(item_id => ({ item_id, quantity: 1 })) })
@@ -103,7 +103,7 @@ export function recordBeginCheckout(browser: Window, environment: string | undef
     const grants = { analytics }
     remember(browser, event, grants)
     if (fromPublicStep && analyticsDataLayer(browser, environment)) {
-      // Dispatch in the navigation gesture before the public document unloads.
+      // The summary can dispatch immediately once the existing container is ready.
       dispatchPendingEvent(browser, environment, FUNNEL_STORAGE_PREFIX + id, event, grants)
     }
   } catch { /* A tracking storage failure must not block checkout. */ }

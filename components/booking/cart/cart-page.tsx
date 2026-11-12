@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useEffect } from 'react'
 import { ArrowRight, CalendarDays, CircleAlert, ShoppingCart, Trash2, Users } from 'lucide-react'
 import { Breadcrumb, SiteShell } from '@/components/site'
 import { formatPrice, tx, useLocale } from '../../locale'
@@ -8,6 +9,7 @@ import { clearCart, removeFromCart, useCart } from '@/lib/booking/cart'
 import { useCartCatalogue } from '@/lib/booking/cart-catalogue'
 import { CHECKOUT_DETAILS_PATH } from '@/lib/booking/booking-confirmation'
 import { recordBeginCheckout } from '@/lib/tracking/leads/booking-funnel'
+import { GTM_READY_EVENT, subscribeToTrackingConsent } from '@/lib/tracking/tracking-browser'
 import { CartLineIssues } from './cart-line-issues'
 import { CartCatalogueStatus } from './cart-catalogue-status'
 
@@ -20,6 +22,22 @@ export function CartPage({ checkoutSummary = false }: { checkoutSummary?: boolea
   const removeLabel = tx(locale, { en: 'Remove from cart', es: 'Quitar del carrito', it: 'Rimuovi dal carrello', ar: 'إزالة من السلة' })
   const checkoutLabel = tx(locale, { en: 'Checkout', es: 'Finalizar reserva', it: 'Completa la prenotazione' })
   const startCheckout = () => recordBeginCheckout(window, process.env.NODE_ENV, estimate.validLines.map(({ item }) => item.tourSlug))
+
+  useEffect(() => {
+    if (!checkoutSummary || !catalogue.ready || estimate.blocked || !estimate.validLines.length) return
+    const tourSlugs = estimate.validLines.map(({ item }) => item.tourSlug)
+    const record = () => recordBeginCheckout(window, process.env.NODE_ENV, tourSlugs)
+    const onPageShow = (event: PageTransitionEvent) => { if (event.persisted) record() }
+    window.addEventListener(GTM_READY_EVENT, record)
+    window.addEventListener('pageshow', onPageShow)
+    const unsubscribe = subscribeToTrackingConsent(window, record)
+    record()
+    return () => {
+      unsubscribe()
+      window.removeEventListener(GTM_READY_EVENT, record)
+      window.removeEventListener('pageshow', onPageShow)
+    }
+  }, [checkoutSummary, catalogue.ready, estimate.blocked, estimate.validLines])
 
   const content = <>
     <Breadcrumb items={[checkoutSummary ? checkoutLabel : tx(locale, { en: 'Cart', es: 'Carrito', it: 'Carrello', ar: 'سلة الرحلات' })]} />
@@ -70,7 +88,6 @@ export function CartPage({ checkoutSummary = false }: { checkoutSummary?: boolea
               ? <a href={CHECKOUT_DETAILS_PATH} className="primary-btn" onClick={startCheckout}>{tx(locale, { en: 'Continue to booking details', es: 'Continuar con los datos de la reserva', it: 'Continua con i dati della prenotazione' })} <ArrowRight size={17} /></a>
               : <Link href="/checkout" prefetch={false} className="primary-btn" onNavigate={event => {
                 event.preventDefault()
-                startCheckout()
                 window.location.assign('/checkout')
               }}>{tx(locale, { en: 'Proceed to checkout', es: 'Proceder a la compra', it: 'Procedi al checkout', ar: 'إتمام الحجز' })} <ArrowRight size={17} /></Link>
             : <p className="cart-stale-note" role="note"><CircleAlert size={15} />{tx(locale, { en: 'Review the trip selections above before continuing.', es: 'Revisa las selecciones anteriores antes de continuar.', it: 'Controlla le selezioni sopra prima di continuare.', ar: 'أزل الرحلات غير المتاحة للمتابعة.' })}</p>}

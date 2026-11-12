@@ -1,12 +1,14 @@
-import { createElement, type ReactNode } from 'react'
+import { createElement, useEffect, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { Tour } from '@/data/types'
 import type { CartItem } from '@/lib/booking/cart'
 import { estimateCart } from '@/lib/booking/booking'
+import { GTM_READY_EVENT } from '@/lib/tracking/tracking-browser'
 
 const state = vi.hoisted(() => ({ data: null as Tour[] | null, error: null as string | null, locale: 'en' as 'en' | 'es' | 'it', items: [] as CartItem[], retry: vi.fn(), clear: vi.fn() }))
 const measurement = vi.hoisted(() => ({ begin: vi.fn(), navigate: undefined as ((event: { preventDefault: () => void }) => void) | undefined }))
+vi.mock('react', async original => ({ ...await original<typeof import('react')>(), useEffect: vi.fn() }))
 vi.mock('next/link', () => ({ default: ({ onNavigate, prefetch: _prefetch, ...props }: { href: string; children?: ReactNode; onNavigate?: (event: { preventDefault: () => void }) => void; prefetch?: boolean }) => {
   if (props.href === '/checkout') measurement.navigate = onNavigate
   return createElement('a', props)
@@ -28,7 +30,7 @@ const line = (slug = 'alexandria-full-day-tour'): CartItem => ({ key: 'original-
 beforeEach(() => { state.data = null; state.error = null; state.locale = 'en'; state.items = [line()]; vi.clearAllMocks() })
 afterEach(() => vi.unstubAllGlobals())
 
-it('measures navigation to checkout using validated canonical tour IDs', () => {
+it('opens checkout as a fresh document without dispatching its start on the cart', () => {
   state.data = [liveTour()]
   state.items = [line('old-alexandria')]
   measurement.navigate = undefined
@@ -38,9 +40,25 @@ it('measures navigation to checkout using validated canonical tour IDs', () => {
   vi.stubGlobal('window', browser)
   const preventDefault = vi.fn()
   measurement.navigate!({ preventDefault })
-  expect(measurement.begin).toHaveBeenCalledExactlyOnceWith(browser, process.env.NODE_ENV, ['alexandria-full-day-tour'])
+  expect(measurement.begin).not.toHaveBeenCalled()
   expect(preventDefault).toHaveBeenCalledOnce()
   expect(browser.location.assign).toHaveBeenCalledExactlyOnceWith('/checkout')
+})
+
+it('records validated tour IDs on the checkout summary and retries when GTM is ready', () => {
+  state.data = [liveTour()]
+  state.items = [line('old-alexandria')]
+  renderToStaticMarkup(createElement(CheckoutSummaryPage))
+  const browser = new EventTarget()
+  vi.stubGlobal('window', browser)
+  const cleanup = vi.mocked(useEffect).mock.calls.at(-1)![0]()
+  try {
+    expect(measurement.begin).toHaveBeenCalledExactlyOnceWith(browser, process.env.NODE_ENV, ['alexandria-full-day-tour'])
+    browser.dispatchEvent(new Event(GTM_READY_EVENT))
+    expect(measurement.begin).toHaveBeenCalledTimes(2)
+  } finally {
+    cleanup?.()
+  }
 })
 
 it('renders the public checkout summary without customer fields and keeps the form on the private route', async () => {

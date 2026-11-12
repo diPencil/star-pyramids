@@ -441,6 +441,25 @@ it('dispatches checkout intent on cart before navigation and deduplicates the pr
   expect(confirmation.layer).toEqual([analyticsLead])
 })
 
+it('dispatches the checkout start once from the checkout summary after GTM startup', async () => {
+  const summary = documentAt('/checkout?gtm_debug=x')
+  setConsent(summary.local, true)
+  recordBeginCheckout(summary.browser, environment, ['cairo-tour'])
+  summary.boot()
+  recordBeginCheckout(summary.browser, environment, ['cairo-tour'])
+  expect(summary.layer).toEqual([])
+  summary.ready()
+  recordBeginCheckout(summary.browser, environment, ['cairo-tour'])
+  recordBeginCheckout(summary.browser, environment, ['cairo-tour'])
+  const details = documentAt('/checkout/details', summary.local, summary.session)
+  recordBeginCheckout(details.browser, environment, ['cairo-tour'])
+  await flushBookingFunnel(summary.browser, environment)
+  expect(summary.layer).toEqual([{
+    event: 'sp_begin_checkout', event_id: expect.stringMatching(/^f_/), items: [{ item_id: 'cairo-tour', quantity: 1 }],
+  }])
+  expect(details.layer).toEqual([])
+})
+
 it('counts a new cart departure after returning from an unfinished checkout with the same basket', async () => {
   const cart = documentAt('/cart')
   setConsent(cart.local, true)
