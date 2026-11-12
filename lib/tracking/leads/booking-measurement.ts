@@ -42,7 +42,7 @@ export const isFunnelLead = (event: BookingFunnelEvent): boolean =>
 export type BookingMeasurementReceipt = { event: BookingMeasurement; grants: BookingMeasurementGrants }
 
 export const isPublicTourId = (id: unknown): id is string =>
-  typeof id === 'string' && id.length <= 120 && /^[a-z0-9]{1,32}(?:-[a-z0-9]{1,32})*$/.test(id)
+  typeof id === 'string' && id.length <= 120 && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)
 
 const FUNNEL_INTENT_ID = /^f_[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/
 

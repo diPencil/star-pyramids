@@ -139,12 +139,13 @@ describe('isolated booking read and replay boundaries', () => {
     expect(mocks.transaction).not.toHaveBeenCalled()
   })
 
-  it('keeps replay ownership checks and captured Marketing consent', async () => {
+  it('keeps replay ownership checks and captured Marketing consent for a pending booking with a long public tour slug', async () => {
     const key = 'checkout-key-fixture'
+    const slug = 'alexandriaarchaeologicalmuseumexperience-private-tour'
     const digest = (category: string, grant: string) => createHash('sha256')
       .update(JSON.stringify(['sp-booking-consent-v1', key, category, grant])).digest('hex')
     const row = booking({ items: [{
-      id: 'item-fixture', bookingId: 'booking-fixture', tourSlug: 'fixture-tour', tourTitle: 'Fixture tour',
+      id: 'item-fixture', bookingId: 'booking-fixture', tourSlug: slug, tourTitle: 'Fixture tour',
       tourImage: null, travelDate: '', adults: 1, children: 0, infants: 0, addons: '[]',
       adultUnit: '100.00', childUnit: '0.00', infantUnit: '0.00', addonTotal: '0.00', lineTotal: '100.00',
     } as Row['items'][number]], activities: [{
@@ -157,7 +158,7 @@ describe('isolated booking read and replay boundaries', () => {
       { analytics: 'analytics-fixture', marketing: 'new-marketing-fixture' })
     expect(result).toMatchObject({ created: false, guestAccessUrl: null })
     expect(result?.bookingMeasurement?.grants).toEqual({ analytics: 'analytics-fixture', marketing: undefined })
-    expect(result?.bookingMeasurement?.event.event).toBe('sp_booking_created')
+    expect(result?.bookingMeasurement?.event).toMatchObject({ event: 'sp_booking_created', items: [{ item_id: slug, quantity: 1, price: 100 }] })
     await expect(entry.findCheckoutReplay('intruder', key, 'same-fixture')).rejects.toThrow('already used')
     expect(mocks.transaction).not.toHaveBeenCalled()
   })

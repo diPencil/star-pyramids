@@ -10,6 +10,7 @@ import { tripRequestMeasurement } from '@/lib/server/tracking/leads/trip-request
 import type { MakeYourTripRequestDraft } from '@/lib/trip-builder/trip-request'
 import { beginFormLead, confirmFormLead } from '@/lib/tracking/leads/form-lead'
 import { formLeadMeasurement } from '@/lib/server/tracking/leads/form-lead-measurement'
+import { validateTourWrite } from '@/lib/tours/tour-write'
 import type { FormLeadType, FormLeadName } from '@/lib/tracking/leads/booking-measurement'
 
 const origin = 'https://starpyramids.com'
@@ -459,6 +460,21 @@ it('dispatches the checkout start once from the checkout summary after GTM start
     event: 'sp_begin_checkout', event_id: expect.stringMatching(/^f_/), items: [{ item_id: 'cairo-tour', quantity: 1 }],
   }])
   expect(details.layer).toEqual([])
+})
+
+it('preserves a multi-tour booking lead with a long public slug accepted by the catalogue', async () => {
+  const slug = 'alexandriaarchaeologicalmuseumexperience-private-tour'
+  expect(() => validateTourWrite({ slug })).not.toThrow()
+  const checkout = documentAt('/checkout/details')
+  setConsent(checkout.local, true)
+  const event = { ...booking, items: [{ ...booking.items[0], item_id: slug }, booking.items[1]] }
+  recordBookingReceipt(checkout.browser, environment, { ...receipt, event })
+  const confirmation = documentAt('/booking-confirmation?flow=' + 'a'.repeat(32) + '&gtm_debug=x', checkout.local)
+  confirmation.boot(); confirmation.ready()
+  await flushBookingFunnel(confirmation.browser, environment)
+  await flushBookingFunnel(confirmation.browser, environment)
+  expect(checkout.layer).toEqual([])
+  expect(confirmation.layer).toEqual([{ ...event, ads_eligible: false }])
 })
 
 it('tracks the booking funnel through a Preview-decorated private form and a clean public confirmation', async () => {
