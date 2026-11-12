@@ -17,6 +17,11 @@ type BookNowClick = {
   item_id: string
   placement: 'tour_detail'
 }
+type CheckoutView = {
+  event: 'sp_checkout_view'
+  event_id: string
+  checkout_page_path: '/checkout'
+}
 type FunnelIntent = {
   event: 'sp_add_to_cart' | 'sp_begin_checkout'
   event_id: string
@@ -35,7 +40,7 @@ export type FormLeadType = typeof FORM_LEAD_TYPES[number]
 export type FormLeadName = 'enquiry_created' | 'car_request_created' | 'event_request_created'
 export type FormLeadReceipt = { event: FormLeadName; event_id: string }
 export type FormLeadEvent = FormLeadReceipt & { form_type: FormLeadType }
-export type BookingFunnelEvent = BookNowClick | FunnelIntent | BookingMeasurement | TripRequestMeasurement | FormLeadEvent
+export type BookingFunnelEvent = BookNowClick | CheckoutView | FunnelIntent | BookingMeasurement | TripRequestMeasurement | FormLeadEvent
 export const isFunnelLead = (event: BookingFunnelEvent): boolean =>
   event.event === 'sp_booking_created' || event.event === 'trip_request_created' ||
   event.event === 'enquiry_created' || event.event === 'car_request_created' || event.event === 'event_request_created'
@@ -71,6 +76,10 @@ export function parseBookingFunnelEvent(input: unknown): BookingFunnelEvent | nu
     const { item_id } = input as Record<string, unknown>
     return typeof event_id === 'string' && FUNNEL_INTENT_ID.test(event_id) && isPublicTourId(item_id)
       ? { event, event_id, item_id, placement: 'tour_detail' } : null
+  }
+  if (event === 'sp_checkout_view') {
+    return typeof event_id === 'string' && FUNNEL_INTENT_ID.test(event_id)
+      ? { event, event_id, checkout_page_path: '/checkout' } : null
   }
   if (event !== 'sp_add_to_cart' && event !== 'sp_begin_checkout' && event !== 'sp_booking_created') return null
   const idPattern = event === 'sp_booking_created' ? /^bk_[a-f0-9]{32}$/ : FUNNEL_INTENT_ID

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { afterEach, expect, it, vi } from 'vitest'
-import { bookingMeasurementHeaders, flushBookingFunnel, FUNNEL_STORAGE_PREFIX, recordBeginCheckout, recordBookingReceipt, recordBookNowClick, recordCartAddition, recordTripRequestReceipt, tripRequestMeasurementGrants } from '@/lib/tracking/leads/booking-funnel'
+import { bookingMeasurementHeaders, flushBookingFunnel, FUNNEL_STORAGE_PREFIX, recordBeginCheckout, recordBookingReceipt, recordBookNowClick, recordCartAddition, recordCheckoutView, recordTripRequestReceipt, tripRequestMeasurementGrants } from '@/lib/tracking/leads/booking-funnel'
 import { BOOKING_MEASUREMENT_HEADER, parseBookingFunnelEvent } from '@/lib/tracking/leads/booking-measurement'
 import { TRACKING_CONSENT_STORAGE_KEY } from '@/lib/tracking/tracking'
 import { initializeGtm, readTrackingConsent, updateGoogleConsent } from '@/lib/tracking/tracking-browser'
@@ -70,6 +70,52 @@ function setConsent(local: Storage, analytics: boolean, marketing?: string, anal
 afterEach(() => {
   vi.unstubAllGlobals()
   vi.unstubAllEnvs()
+})
+
+it('records one view of an opened checkout document and drains it only on a safe public page', async () => {
+  const checkout = documentAt('/checkout')
+  setConsent(checkout.local, false)
+  recordCheckoutView(checkout.browser, environment)
+  expect(checkout.local.length).toBe(1)
+
+  setConsent(checkout.local, true)
+  recordCheckoutView(checkout.browser, environment)
+  recordCheckoutView(checkout.browser, environment)
+  await flushBookingFunnel(checkout.browser, environment)
+  expect(checkout.layer).toEqual([])
+  const confirmation = documentAt('/booking-confirmation?flow=' + 'a'.repeat(32), checkout.local)
+  confirmation.boot(); confirmation.ready()
+  await flushBookingFunnel(confirmation.browser, environment)
+  await flushBookingFunnel(confirmation.browser, environment)
+  expect(confirmation.layer).toEqual([{
+    event: 'sp_checkout_view', event_id: expect.stringMatching(/^f_/), checkout_page_path: '/checkout',
+  }])
+})
+
+it.each(['/cart', '/checkout/receipt', '/checkout?token=private', '/checkout#private', 'http://starpyramids.com/checkout'])('does not capture a checkout view on %s', path => {
+  const page = documentAt(path)
+  setConsent(page.local, true)
+  recordCheckoutView(page.browser, environment)
+  expect(page.local.length).toBe(1)
+})
+
+it.each(['expired', 'withdrawn'] as const)('discards a %s deferred checkout view', async condition => {
+  const checkout = documentAt('/checkout')
+  setConsent(checkout.local, true)
+  recordCheckoutView(checkout.browser, environment)
+  const key = checkout.local.key(1)!
+  const pending = JSON.parse(checkout.local.getItem(key)!)
+  if (condition === 'expired') {
+    checkout.local.setItem(key, JSON.stringify({ ...pending, capturedAt: Date.now() - 30 * 60 * 1000 }))
+  } else {
+    setConsent(checkout.local, false)
+    setConsent(checkout.local, true, undefined, newAnalyticsGrant)
+  }
+  const cart = documentAt('/cart', checkout.local)
+  cart.boot(); cart.ready()
+  await flushBookingFunnel(cart.browser, environment)
+  expect(cart.layer).toEqual([])
+  expect(cart.local.getItem(key)).toBeNull()
 })
 
 it('dispatches Book Now synchronously when GTM is ready, with only safe interaction fields', () => {

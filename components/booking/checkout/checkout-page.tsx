@@ -21,7 +21,8 @@ import { CartCatalogueStatus } from '../cart/cart-catalogue-status'
 import { useCurrentUser } from '@/lib/use-current-user'
 import {bookingPriceSnapshot,parseAcceptedPrice,type BookingPriceSnapshot} from '@/lib/booking/booking-price'
 import {CustomerConfirmDialog} from '../../account/customer-confirm-dialog'
-import { bookingMeasurementHeaders, recordBeginCheckout, recordBookingReceipt } from '@/lib/tracking/leads/booking-funnel'
+import { bookingMeasurementHeaders, recordBeginCheckout, recordBookingReceipt, recordCheckoutView } from '@/lib/tracking/leads/booking-funnel'
+import { subscribeToTrackingConsent } from '@/lib/tracking/tracking-browser'
 import { openBookingConfirmation, type CheckoutReceipt } from '@/lib/booking/booking-confirmation'
 
 type CheckoutReply=Booking&{code?:string;slug?:string;price?:unknown;quote?:string;existing?:boolean;success?:boolean;error?:string;guestAccessUrl?:string|null;guest?:boolean;bookingMeasurement?:unknown;bookingConfirmationUrl?:unknown}
@@ -89,6 +90,13 @@ export function CheckoutPage({ measureBookings = false, initialReceipt = null }:
       recordBeginCheckout(window, process.env.NODE_ENV, estimate.validLines.map(line => line.item.tourSlug))
     }
   }, [measureBookings, catalogue.ready, staleBlocked, placed, estimate.validLines])
+
+  useEffect(() => {
+    if (!measureBookings || initialReceipt) return
+    const record = () => recordCheckoutView(window, process.env.NODE_ENV)
+    record()
+    return subscribeToTrackingConsent(window, record)
+  }, [measureBookings, initialReceipt])
 
   async function acceptBookingResult(data:CheckoutReply,draftEmail:string,submittedKeys:string[],idempotencyKey:string) {
         // Guest checkouts get a private link from the server: the booking is

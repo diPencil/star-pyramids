@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { randomUUID } from 'node:crypto'
 import type { ReactElement, ReactNode } from 'react'
+import { useEffect } from 'react'
 import type { CartItem } from '@/lib/booking/cart'
 import type { Tour } from '@/data/types'
 import type { AuthenticatedUser } from '@/lib/auth-types'
@@ -35,6 +36,34 @@ function contact(){let tree=render();find(tree,e=>e.type==='input'&&e.props.type
 const response=(data:unknown,status=201)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json'}})
 beforeEach(()=>{vi.clearAllMocks();harness.index=0;harness.values=[];harness.user=null;harness.items=[{key:'submitted',tourSlug:'db-only',title:'DB only',date:'',adults:2,children:0,infants:0,addons:[],image:'',adultUnit:999,childUnit:999,infantUnit:999,addonTotal:0,total:999}];harness.key.mockResolvedValue('stable-attempt-key');vi.stubGlobal('fetch',harness.fetch)})
 afterEach(()=>{harness.measure=false;vi.unstubAllGlobals();vi.unstubAllEnvs()})
+
+it('captures the mounted checkout view when Analytics consent becomes available', () => {
+  harness.measure = true
+  vi.stubEnv('NODE_ENV', 'production')
+  const values = new Map([[TRACKING_CONSENT_STORAGE_KEY, JSON.stringify({ analytics: false, marketing: false })]])
+  const browser = Object.assign(new EventTarget(), {
+    location: { href: 'https://starpyramids.com/checkout' }, document: {}, crypto: { randomUUID },
+    localStorage: { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value), removeItem: (key: string) => values.delete(key) },
+  })
+  vi.stubGlobal('window', browser)
+  render()
+  const checkoutViewEffect = vi.mocked(useEffect).mock.calls.at(-1)![0]
+  const unsubscribe = checkoutViewEffect()
+  try {
+    expect(values.size).toBe(1)
+    values.set(TRACKING_CONSENT_STORAGE_KEY, JSON.stringify({ analytics: true, marketing: false, grants: { analytics: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' } }))
+    const notify = () => browser.dispatchEvent(Object.assign(new Event('storage'), { key: TRACKING_CONSENT_STORAGE_KEY }))
+    notify()
+    notify()
+    const queued = [...values].filter(([key]) => key.startsWith(FUNNEL_STORAGE_PREFIX))
+    expect(queued).toHaveLength(1)
+    expect(JSON.parse(queued[0][1]).event).toEqual({
+      event: 'sp_checkout_view', event_id: expect.stringMatching(/^f_/), checkout_page_path: '/checkout',
+    })
+  } finally {
+    unsubscribe?.()
+  }
+})
 
 it.each([
   { ready: true, transientFailure: false },
