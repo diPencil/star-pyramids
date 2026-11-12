@@ -1,4 +1,4 @@
-import { createElement, useEffect, type ReactNode } from 'react'
+import { Children, createElement, isValidElement, useEffect, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { Tour } from '@/data/types'
@@ -7,13 +7,14 @@ import { estimateCart } from '@/lib/booking/booking'
 import { GTM_READY_EVENT } from '@/lib/tracking/tracking-browser'
 
 const state = vi.hoisted(() => ({ data: null as Tour[] | null, error: null as string | null, locale: 'en' as 'en' | 'es' | 'it', items: [] as CartItem[], retry: vi.fn(), clear: vi.fn() }))
-const measurement = vi.hoisted(() => ({ begin: vi.fn(), navigate: undefined as ((event: { preventDefault: () => void }) => void) | undefined }))
-vi.mock('react', async original => ({ ...await original<typeof import('react')>(), useEffect: vi.fn() }))
+const measurement = vi.hoisted(() => ({ begin: vi.fn(), interaction: vi.fn(), navigate: undefined as ((event: { preventDefault: () => void }) => void) | undefined }))
+vi.mock('react', async original => ({ ...await original<typeof import('react')>(), useEffect: vi.fn(), useMemo: (factory: () => unknown) => factory() }))
 vi.mock('next/link', () => ({ default: ({ onNavigate, prefetch: _prefetch, ...props }: { href: string; children?: ReactNode; onNavigate?: (event: { preventDefault: () => void }) => void; prefetch?: boolean }) => {
   if (props.href === '/checkout') measurement.navigate = onNavigate
   return createElement('a', props)
 } }))
 vi.mock('@/lib/tracking/leads/booking-funnel', async original => ({ ...await original<typeof import('@/lib/tracking/leads/booking-funnel')>(), recordBeginCheckout: measurement.begin }))
+vi.mock('@/lib/tracking/tracking-events', async original => ({ ...await original<typeof import('@/lib/tracking/tracking-events')>(), trackPublicInteraction: measurement.interaction }))
 vi.mock('@/lib/tours/tours-client', () => ({ useDbToursStatus: () => ({ data: state.data, loading: state.data === null && !state.error, error: state.error, retry: state.retry }) }))
 vi.mock('@/lib/booking/cart', () => ({ useCart: () => ({ items: state.items }), clearCart: () => state.clear(), removeFromCart: vi.fn() }))
 vi.mock('@/components/site', () => ({ SiteShell: ({ children }: { children: ReactNode }) => children, Breadcrumb: () => null }))
@@ -73,6 +74,30 @@ it('renders the public checkout summary without customer fields and keeps the fo
   const privateHtml = renderToStaticMarkup(await CheckoutDetailsPage())
   expect(privateHtml).toContain('<form')
   expect(privateHtml).toContain('type="email"')
+})
+
+it('records a separate event on Continue while keeping the native details link', () => {
+  state.data = [liveTour()]
+  const browser = { location: { assign: vi.fn() } }
+  vi.stubGlobal('window', browser)
+  const summary = CartPage({ checkoutSummary: true })
+  const findContinue = (tree: ReactNode): { onClick: (event: { preventDefault: () => void }) => void } | undefined => {
+    for (const node of Children.toArray(tree)) {
+      if (!isValidElement<{ href?: string; children?: ReactNode; onClick?: (event: { preventDefault: () => void }) => void }>(node)) continue
+      if (node.type === 'a' && node.props.href === '/checkout/details' && node.props.onClick) return { onClick: node.props.onClick }
+      const link = findContinue(node.props.children)
+      if (link) return link
+    }
+  }
+  expect(measurement.interaction).not.toHaveBeenCalled()
+  const link = findContinue(summary)
+  expect(link).toBeDefined()
+  const preventDefault = vi.fn()
+  link!.onClick({ preventDefault })
+  expect(measurement.begin).toHaveBeenCalledExactlyOnceWith(browser, process.env.NODE_ENV, ['alexandria-full-day-tour'])
+  expect(measurement.interaction).toHaveBeenCalledExactlyOnceWith({ event: 'sp_checkout_continue' })
+  expect(preventDefault).not.toHaveBeenCalled()
+  expect(browser.location.assign).not.toHaveBeenCalled()
 })
 
 it.each(['one-day-tours', 'multi-days-tours', 'nile-cruises', 'shore-excursions'] as const)('estimates a newly published %s DB tour without requiring static membership or Date Pricing', category => {

@@ -10,6 +10,7 @@ import { useCartCatalogue } from '@/lib/booking/cart-catalogue'
 import { CHECKOUT_DETAILS_PATH } from '@/lib/booking/booking-confirmation'
 import { recordBeginCheckout, resetCheckoutStart } from '@/lib/tracking/leads/booking-funnel'
 import { GTM_READY_EVENT, subscribeToTrackingConsent } from '@/lib/tracking/tracking-browser'
+import { trackPublicInteraction } from '@/lib/tracking/tracking-events'
 import { CartLineIssues } from './cart-line-issues'
 import { CartCatalogueStatus } from './cart-catalogue-status'
 
@@ -21,7 +22,10 @@ export function CartPage({ checkoutSummary = false }: { checkoutSummary?: boolea
   const openDateLabel = tx(locale, { en: 'Open date', es: 'Fecha abierta', it: 'Data aperta', ar: 'التاريخ مفتوح' })
   const removeLabel = tx(locale, { en: 'Remove from cart', es: 'Quitar del carrito', it: 'Rimuovi dal carrello', ar: 'إزالة من السلة' })
   const checkoutLabel = tx(locale, { en: 'Checkout', es: 'Finalizar reserva', it: 'Completa la prenotazione' })
-  const startCheckout = () => recordBeginCheckout(window, process.env.NODE_ENV, estimate.validLines.map(({ item }) => item.tourSlug))
+  const continueCheckout = () => {
+    recordBeginCheckout(window, process.env.NODE_ENV, estimate.validLines.map(({ item }) => item.tourSlug))
+    trackPublicInteraction({ event: 'sp_checkout_continue' })
+  }
 
   useEffect(() => {
     if (!checkoutSummary || !catalogue.ready || estimate.blocked || !estimate.validLines.length) return
@@ -85,7 +89,7 @@ export function CartPage({ checkoutSummary = false }: { checkoutSummary?: boolea
           <p>{tx(locale, { en: 'Frontend estimate only. The final price, taxes, and fees are confirmed with our team before payment.', es: 'Solo estimación inicial. El precio final, impuestos y tasas se confirman con nuestro equipo antes del pago.', it: 'Solo stima iniziale. Prezzo finale, tasse e costi sono confermati con il nostro team prima del pagamento.', ar: 'تقدير مبدئي فقط. السعر النهائي والضرائب والرسوم تُؤكد مع فريقنا قبل الدفع.' })}</p>
           {estimate.validLines.length > 0 && !estimate.blocked
             ? checkoutSummary
-              ? <a href={CHECKOUT_DETAILS_PATH} className="primary-btn" onClick={startCheckout}>{tx(locale, { en: 'Continue to booking details', es: 'Continuar con los datos de la reserva', it: 'Continua con i dati della prenotazione' })} <ArrowRight size={17} /></a>
+              ? <a href={CHECKOUT_DETAILS_PATH} className="primary-btn" onClick={continueCheckout}>{tx(locale, { en: 'Continue to booking details', es: 'Continuar con los datos de la reserva', it: 'Continua con i dati della prenotazione' })} <ArrowRight size={17} /></a>
               : <Link href="/checkout" prefetch={false} className="primary-btn" onNavigate={event => {
                 event.preventDefault()
                 resetCheckoutStart(window)

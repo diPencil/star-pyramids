@@ -8,6 +8,56 @@ const origin = 'https://starpyramids.com'
 const denied = { analytics: false, marketing: false }
 const granted = { analytics: true, marketing: false }
 
+describe('checkout continuation click', () => {
+  const interaction = { event: 'sp_checkout_continue' } as const
+
+  it('pushes only the event name for an eligible, consenting summary', () => {
+    const page = fixture('/checkout')
+    const input = { ...interaction, email: 'private@example.test', total: 500 }
+    expect(queuePublicInteraction(page.browser, 'production', input)).toBe(true)
+    expect(page.dataLayer).toEqual([interaction])
+    page.applyConsent(denied)
+    expect(queuePublicInteraction(page.browser, 'production', interaction)).toBe(false)
+  })
+
+  it.each(['/cart', '/checkout/details', '/checkout?token=private', '/checkout#private'])('blocks the event on %s', path => {
+    const page = fixture(path)
+    expect(queuePublicInteraction(page.browser, 'production', interaction)).toBe(false)
+    expect(page.dataLayer).toEqual([])
+  })
+
+  it('does not dispatch with Marketing-only consent or in development', () => {
+    const marketingOnly = fixture('/checkout', { analytics: false, marketing: true })
+    const page = fixture('/checkout')
+    expect(queuePublicInteraction(marketingOnly.browser, 'production', interaction)).toBe(false)
+    expect(queuePublicInteraction(page.browser, 'development', interaction)).toBe(false)
+    expect(marketingOnly.dataLayer).toEqual([])
+    expect(page.dataLayer).toEqual([])
+  })
+
+  it('dispatches a buffered click once when GTM becomes ready on the summary', () => {
+    const page = fixture('/checkout', granted, 'GTM-KQ8GR36H', false)
+    expect(queuePublicInteraction(page.browser, 'production', interaction)).toBe(true)
+    expect(page.dataLayer).toEqual([])
+    page.ready()
+    page.ready()
+    expect(page.dataLayer.filter(entry => (entry as { event?: string }).event === interaction.event)).toEqual([interaction])
+  })
+
+  it('drops a buffered click when consent is withdrawn or the page becomes private', () => {
+    const withdrawn = fixture('/checkout', granted, 'GTM-KQ8GR36H', false)
+    const privatePage = fixture('/checkout', granted, 'GTM-KQ8GR36H', false)
+    expect(queuePublicInteraction(withdrawn.browser, 'production', interaction)).toBe(true)
+    expect(queuePublicInteraction(privatePage.browser, 'production', interaction)).toBe(true)
+    withdrawn.applyConsent(denied)
+    privatePage.location.href = origin + '/checkout/details'
+    for (const page of [withdrawn, privatePage]) {
+      page.ready()
+      expect(page.dataLayer).not.toContainEqual(interaction)
+    }
+  })
+})
+
 describe('WhatsApp interaction privacy and eligibility', () => {
   it('projects widget open and contact handoff without any message, phone or URL', () => {
     const page = fixture('/trips')
