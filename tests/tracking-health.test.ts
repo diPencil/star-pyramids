@@ -23,20 +23,39 @@ it.each(['G-ABC1234567', ' g-abc1234567 '])('normalizes a valid GA4 Measurement 
 it.each(['', 'G-', 'G-abc@123456', 'G-ABC 12345', 'GTM-ABC123', 'AW-123456789', '<script>', 'G-' + 'A'.repeat(21)])('rejects invalid GA4 IDs: %s', value => expect(normalizeGa4MeasurementId(value)).toBeNull())
 
 it('does not claim a connection from saved IDs or missing Google credentials', async () => {
-  const result = await verifyTrackingHealth(config, { env: {} })
+  const publicFetch = vi.fn<typeof fetch>().mockResolvedValue(new Response('/* GTM */', { headers: { 'Content-Type': 'application/javascript; charset=UTF-8' } }))
+  const result = await verifyTrackingHealth(config, { env: {}, publicFetch })
   expect(result.configuration.status).toBe('verified')
-  expect(result.published).toMatchObject({ status: 'not_verified', code: 'google_credentials_missing' })
-  expect(result.ga4.status).toBe('not_verified')
+  expect(publicFetch).toHaveBeenCalledExactlyOnceWith(new URL(`https://www.googletagmanager.com/gtm.js?id=${config.containerId}`), { cache: 'no-store', redirect: 'error', signal: expect.any(AbortSignal) })
+  expect(result.published).toMatchObject({ status: 'not_verified', code: 'public_gtm_script_reachable', evidence: { publicHttpStatus: 200 } })
+  expect(result.ga4).toMatchObject({ status: 'not_verified', code: 'google_credentials_missing' })
   expect(result.overall).toBe('not_verified')
   expect(overallTrackingHealth([result.configuration])).toBe('not_verified')
+})
+
+it.each([200, 404, 503])('leaves the public script unconfirmed for a non-script HTTP %i response', async status => {
+  const publicFetch = vi.fn<typeof fetch>().mockResolvedValue(new Response('<html>internal details</html>', { status, headers: { 'Content-Type': 'text/html' } }))
+  const result = await verifyTrackingHealth(config, { env: {}, publicFetch })
+  expect(result.published).toEqual({ status: 'not_verified', code: 'public_gtm_script_unconfirmed', evidence: { publicHttpStatus: status } })
+})
+
+it('does not expose network errors from a public script check', async () => {
+  const publicFetch = vi.fn<typeof fetch>().mockRejectedValue(new Error('internal network details'))
+  const result = await verifyTrackingHealth(config, { env: {}, publicFetch })
+  expect(result.published).toEqual({ status: 'not_verified', code: 'public_gtm_script_unconfirmed' })
 })
 
 it.each([
   [{ ...config, enabled: false }, 'gtm_disabled'],
   [{ ...config, containerId: 'bad' }, 'gtm_id_invalid'],
+  [{ ...config, enabled: false, containerId: '' }, 'gtm_id_invalid'],
   [{ ...config, measurementId: '' }, 'ga4_id_invalid'],
 ] as const)('flags invalid or disabled configuration without pretending it is connected', async (input, code) => {
-  expect((await verifyTrackingHealth(input, { env: {} })).configuration).toMatchObject({ status: 'action_required', code })
+  const publicFetch = vi.fn<typeof fetch>().mockRejectedValue(new Error())
+  const result = await verifyTrackingHealth(input, { env: {}, publicFetch })
+  expect(result.configuration).toMatchObject({ status: 'action_required', code })
+  if (code !== 'ga4_id_invalid') expect(result.browser).toMatchObject({ status: 'not_verified', code })
+  if (code === 'gtm_id_invalid') expect(publicFetch).not.toHaveBeenCalled()
 })
 
 it('verifies only the live API version and the exact stream, with aggregate hostname filters', async () => {
@@ -75,12 +94,19 @@ it.each([[0, 'ga4_no_recent_data'], [3, 'ga4_reporting_delay']] as const)('does 
 })
 
 it('keeps reception and published permissions independent and hides upstream details', async () => {
-  const result = await verifyTrackingHealth(config, { env, api: fixture({ fail: 'tagmanager.googleapis.com' }) })
-  expect(result.published).toMatchObject({ status: 'action_required', code: 'google_permission_denied' })
+  const publicFetch = vi.fn<typeof fetch>().mockResolvedValue(new Response('/* GTM */', { headers: { 'Content-Type': 'application/javascript' } }))
+  const result = await verifyTrackingHealth(config, { env, api: fixture({ fail: 'tagmanager.googleapis.com' }), publicFetch })
+  expect(result.published).toMatchObject({ status: 'action_required', code: 'google_permission_denied', evidence: { publicHttpStatus: 200, publicScriptResult: 'public_gtm_script_reachable' } })
   expect(result.ga4.status).toBe('verified')
-  const analyticsDenied = await verifyTrackingHealth(config, { env, api: fixture({ fail: 'analyticsadmin' }) })
+  const analyticsDenied = await verifyTrackingHealth(config, { env, api: fixture({ fail: 'analyticsadmin' }), publicFetch })
   expect(analyticsDenied.ga4.code).toBe('google_permission_denied')
   expect(analyticsDenied.published.status).toBe('verified')
+  expect(publicFetch).toHaveBeenCalledOnce()
+})
+
+it('distinguishes unavailable Realtime data from a confirmed zero and trims the server property ID', async () => {
+  const result = await verifyTrackingHealth(config, { env: { GOOGLE_TRACKING_GA4_PROPERTY_ID: ' 123\n' }, api: fixture({ historical: 0, fail: 'runRealtimeReport' }) })
+  expect(result.ga4).toMatchObject({ status: 'not_verified', code: 'ga4_realtime_unavailable', evidence: { eventsLast7CompleteDays: 0, streamEventsLast30Minutes: null, realtimeStatus: 'google_permission_denied' } })
 })
 
 it('supports aggregate event counts when key-event metrics are unavailable', async () => {
@@ -89,7 +115,8 @@ it('supports aggregate event counts when key-event metrics are unavailable', asy
 })
 
 it.each(['google_timeout', 'google_api_error'] as const)('safely reports Google check failure: %s', async code => {
-  const result = await verifyTrackingHealth(config, { env, api: async () => { throw new GoogleTrackingApiError(code) } })
+  const publicFetch = vi.fn<typeof fetch>().mockRejectedValue(new Error('internal network details'))
+  const result = await verifyTrackingHealth(config, { env, api: async () => { throw new GoogleTrackingApiError(code) }, publicFetch })
   expect(result.published).toMatchObject({ status: 'error', code })
   expect(result.ga4).toMatchObject({ status: 'error', code })
 })

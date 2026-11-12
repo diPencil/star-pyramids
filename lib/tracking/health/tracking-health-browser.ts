@@ -12,6 +12,7 @@ export function installTrackingHealthResponder(browser: BrowserWithChannel, envi
   let channel: BroadcastChannel | undefined
   try {
     if (!browser.BroadcastChannel) return stopCsp
+    const observerId = browser.crypto.randomUUID()
     channel = new browser.BroadcastChannel(CHANNEL)
     channel.onmessage = event => {
       if (event.data?.type !== 'request' || !isTrackingGrant(event.data.nonce)) return
@@ -19,7 +20,7 @@ export function installTrackingHealthResponder(browser: BrowserWithChannel, envi
         const consent = readTrackingConsent(browser)
         const snapshot: TrackingBrowserSnapshot = { observedAt: new Date().toISOString(), containerId: observedGtmContainerId(browser) ?? containerId,
           eligible: canMeasureLocation(new URL(browser.location.href), environment), analytics: consent.analytics, marketing: consent.marketing, script: gtmScriptHealth(browser), csp: trackingCspEvidence(browser) }
-        channel?.postMessage({ type: 'response', nonce: event.data.nonce, snapshot })
+        channel?.postMessage({ type: 'response', nonce: event.data.nonce, observerId, snapshot })
       } catch { /* Diagnostics are optional and must not affect a public page. */ }
     }
   } catch { /* Unsupported or blocked channels mean no browser evidence. */ }
@@ -33,18 +34,25 @@ export function observeTrackingBrowser(browser: BrowserWithChannel, containerId:
       if (!browser.BroadcastChannel) { resolve({ status: 'not_verified', code: 'browser_channel_unavailable' }); return }
       channel = new browser.BroadcastChannel(CHANNEL)
       const nonce = browser.crypto.randomUUID()
-      const results: TrackingHealthCheck[] = []
+      const results = new Map<string, TrackingHealthCheck>()
       channel.onmessage = event => {
-        if (event.data?.type === 'response' && event.data.nonce === nonce && results.length < 50) results.push(browserTrackingHealth(event.data.snapshot, containerId))
+        const { type, nonce: responseNonce, observerId, snapshot } = event.data ?? {}
+        if (type !== 'response' || responseNonce !== nonce || !isTrackingGrant(observerId)) return
+        if (results.has(observerId) || results.size < 50) results.set(observerId, browserTrackingHealth(snapshot, containerId))
       }
+      const probe = () => {
+        try { channel?.postMessage({ type: 'request', nonce }) } catch { /* The channel may no longer be available. */ }
+      }
+      channel.postMessage({ type: 'request', nonce })
+      browser.setTimeout(probe, 400)
+      browser.setTimeout(probe, 900)
       browser.setTimeout(() => {
         channel?.close()
-        const relevant = results.filter(c => !['browser_invalid_observation', 'browser_ineligible'].includes(c.code))
+        const relevant = [...results.values()].filter(c => !['browser_invalid_observation', 'browser_ineligible'].includes(c.code))
         const issue = relevant.find(c => c.status === 'error') ?? relevant.find(c => c.status === 'action_required')
         const loaded = relevant.filter(c => c.status === 'verified')
         resolve(issue ?? (loaded.length ? { ...loaded[0], evidence: { ...loaded[0].evidence, observedTabs: relevant.length, loadedTabs: loaded.length } } : relevant[0] ?? { status: 'not_verified', code: 'browser_no_observation' }))
       }, 1200)
-      channel.postMessage({ type: 'request', nonce })
     } catch {
       channel?.close()
       resolve({ status: 'not_verified', code: 'browser_channel_unavailable' })

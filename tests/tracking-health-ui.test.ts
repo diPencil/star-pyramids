@@ -29,15 +29,17 @@ const result = { checkedAt: '2026-11-08T12:00:00Z', config: { enabled: true, con
 beforeEach(() => {
   hooks.index = 0; hooks.values = []
   for (const mock of Object.values(toasts)) mock.mockReset()
-  observe.mockResolvedValue({ status: 'verified', code: 'browser_observed' })
+  observe.mockReset().mockResolvedValue({ status: 'verified', code: 'browser_observed' })
   vi.stubGlobal('window', { setTimeout, clearTimeout })
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json(result)))
 })
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers() })
 
 it('starts unverified, supports EN/AR and logical RTL without requesting data on mount', () => {
   let nodes = render()
   expect(fetch).not.toHaveBeenCalled()
+  expect(observe).not.toHaveBeenCalled()
+  expect(nodes.find(n => n.type === 'a' && n.props.children === 'Open public homepage in a new tab')?.props).toMatchObject({ href: '/', target: '_blank', rel: 'noopener noreferrer' })
   expect(nodes.filter(n => n.props['data-status'] === 'verified')).toHaveLength(0)
   click(nodes, 'العربية')
   nodes = render()
@@ -53,6 +55,29 @@ it('never shows green overall success from IDs and a loaded browser alone', asyn
   expect(nodes.find(n => n.props.role === 'status')?.props.children).toBeDefined()
   expect(toasts.success).not.toHaveBeenCalled()
   expect(nodes.filter(n => n.props['data-status'] === 'not_verified').length).toBeGreaterThanOrEqual(3)
+})
+
+it('ignores previously loaded tabs when the saved GTM configuration is disabled', async () => {
+  vi.mocked(fetch).mockResolvedValueOnce(Response.json({ ...result, config: { ...result.config, enabled: false }, configuration: { status: 'action_required', code: 'gtm_disabled' }, browser: { status: 'not_verified', code: 'gtm_disabled' } }))
+  click(render(), 'Verify Connection')
+  await vi.waitFor(() => expect(toasts.warning).toHaveBeenCalledOnce())
+  expect(observe).not.toHaveBeenCalled()
+  expect(render().filter(n => n.props['data-status'] === 'verified')).toHaveLength(0)
+})
+
+it('reports a timeout if the deadline passes during browser observation', async () => {
+  vi.useFakeTimers()
+  vi.stubGlobal('window', { setTimeout, clearTimeout })
+  let finish!: (check: unknown) => void
+  observe.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+  click(render(), 'Verify Connection')
+  await vi.advanceTimersByTimeAsync(0)
+  expect(observe).toHaveBeenCalledOnce()
+  await vi.advanceTimersByTimeAsync(35000)
+  finish({ status: 'verified', code: 'browser_observed' })
+  await vi.advanceTimersByTimeAsync(0)
+  expect(render().find(n => n.props.role === 'alert')?.props.children).toBe('Verification timed out. No success was established.')
+  expect(toasts.success).not.toHaveBeenCalled()
 })
 
 it('shows a busy state and suppresses duplicate verification submissions', async () => {

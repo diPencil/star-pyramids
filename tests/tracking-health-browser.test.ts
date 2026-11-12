@@ -68,6 +68,21 @@ it('verifies pre-consent Advanced script load without claiming Analytics or Mark
   stop()
 })
 
+it('observes a tab that hydrates late and updates its evidence when GTM finishes loading', async () => {
+  vi.useFakeTimers()
+  const page = browser()
+  const report = observeTrackingBrowser(browser().browser, 'GTM-KQ8GR36H')
+  await vi.advanceTimersByTimeAsync(200)
+  const stop = installTrackingHealthResponder(page.browser, 'production', 'GTM-KQ8GR36H')
+  initializeGtm(page.browser, 'GTM-KQ8GR36H', readTrackingConsent(page.browser), 'production', 'advanced')
+  await vi.advanceTimersByTimeAsync(300)
+  page.scripts[0].onload?.()
+  await vi.advanceTimersByTimeAsync(700)
+  expect(await report).toMatchObject({ status: 'verified', code: 'browser_observed', evidence: { observedTabs: 1, loadedTabs: 1, analyticsConsent: false, marketingConsent: false } })
+  expect(page.result.document.head.appendChild).toHaveBeenCalledOnce()
+  stop()
+})
+
 it('does not verify a private page or a server request without a browser witness', async () => {
   vi.useFakeTimers()
   const privatePage = browser('https://starpyramids.com/account?token=private', true)

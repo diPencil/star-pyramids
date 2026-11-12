@@ -13,6 +13,8 @@ const messages: Record<string, readonly [string, string]> = {
   ga4_id_invalid: ['Save the GA4 Measurement ID for the intended web stream.', 'احفظ معرّف قياس GA4 لمصدر بيانات الويب المطلوب.'],
   configuration_incomplete: ['Complete and save the IDs before this check can run.', 'أكمل المعرّفات واحفظها قبل إجراء هذا الفحص.'],
   google_credentials_missing: ['Configure server-side read-only Google credentials. No Google account verification was performed.', 'اضبط بيانات اعتماد Google على الخادم للقراءة فقط. لم يتم التحقق من حساب Google.'],
+  public_gtm_script_reachable: ['Google returned a JavaScript response for this container ID. Configure read-only GTM access to verify the published tags and their GA4 destination.', 'أعاد Google استجابة JavaScript لمعرّف هذه الحاوية. اضبط صلاحية القراءة في GTM للتحقق من العلامات المنشورة ووجهتها في GA4.'],
+  public_gtm_script_unconfirmed: ['The server could not confirm a JavaScript response for this container ID. Check the saved ID or try again. Published tags require read-only GTM access.', 'لم يتمكن الخادم من تأكيد استجابة JavaScript لمعرّف هذه الحاوية. راجع المعرّف المحفوظ أو أعد المحاولة. التحقق من العلامات المنشورة يتطلب صلاحية القراءة في GTM.'],
   google_credentials_invalid: ['The server credential is invalid. Ask the server administrator to review its secure configuration.', 'بيانات اعتماد الخادم غير صالحة. اطلب من مسؤول الخادم مراجعة إعدادها الآمن.'],
   google_permission_denied: ['Google denied access. Review API enablement and read-only account/property permissions.', 'رفض Google الوصول. راجع تفعيل الواجهات وصلاحيات القراءة للحساب والموقع.'],
   google_auth_failed: ['Google authentication failed. Review the server credential; do not paste it into this page.', 'فشلت مصادقة Google. راجع بيانات اعتماد الخادم دون لصقها في هذه الصفحة.'],
@@ -29,9 +31,10 @@ const messages: Record<string, readonly [string, string]> = {
   ga4_stream_mismatch: ['The configured Measurement ID was not found in this GA4 property’s web streams.', 'لم يُعثر على معرّف القياس ضمن مصادر الويب في موقع GA4 المحدد.'],
   ga4_stream_unresolved: ['Stream discovery could not be completed within its safety limit.', 'تعذر إكمال تحديد مصدر البيانات ضمن الحد الآمن للفحص.'],
   ga4_data_received: ['GA4 reported events for this web stream and the production hostnames over the last seven complete days. This does not prove every conversion is correct.', 'أبلغ GA4 عن أحداث لهذا المصدر ونطاقات الإنتاج خلال آخر سبعة أيام مكتملة. هذا لا يثبت صحة كل تحويل.'],
-  ga4_reporting_delay: ['Realtime stream events exist, but no completed-day events were reported yet. Allow for reporting delay; realtime is not hostname-specific.', 'توجد أحداث آنية للمصدر، لكن لم تظهر أحداث لأيام مكتملة بعد. قد تتأخر التقارير؛ البيانات الآنية ليست خاصة بنطاق بعينه.'],
+  ga4_reporting_delay: ['Realtime shows activity for this stream. The completed-day report has no events for the production hostnames yet.', 'توجد أحداث آنية لمصدر البيانات. تقرير الأيام المكتملة لا يعرض أحداثًا لنطاقات الإنتاج حتى الآن.'],
+  ga4_realtime_unavailable: ['The completed-day report shows zero events for the production hostnames. Realtime reception could not be checked.', 'يعرض تقرير الأيام المكتملة صفر أحداث لنطاقات الإنتاج. تعذر فحص استقبال الأحداث في الوقت الفعلي.'],
   ga4_no_recent_data: ['No recent events were reported. Low traffic, consent, filters or reporting delay may explain this; absence alone does not prove failure.', 'لم تظهر أحداث حديثة. قد يكون السبب انخفاض الزيارات أو الموافقة أو الفلاتر أو تأخر التقارير؛ الغياب وحده لا يثبت الفشل.'],
-  browser_no_observation: ['Keep an eligible public page open in another tab of this browser, then verify again. This check never opens a page, loads GTM or grants consent.', 'اترك صفحة عامة مؤهلة مفتوحة في تبويب آخر بهذا المتصفح ثم أعد الفحص. هذا الفحص لا يفتح صفحة ولا يحمّل GTM ولا يمنح موافقة.'],
+  browser_no_observation: ['Open the public homepage in another tab of this browser, wait for it to load, then verify again.', 'افتح الصفحة الرئيسية العامة في تبويب آخر بهذا المتصفح وانتظر تحميلها ثم أعد الفحص.'],
   browser_channel_unavailable: ['This browser blocks or does not support cross-tab observation. Browser installation remains unverified.', 'هذا المتصفح لا يدعم ملاحظة التبويبات أو يمنعها. تثبيت المتصفح يظل غير متحقق.'],
   browser_invalid_observation: ['No fresh, valid browser observation is available.', 'لا توجد ملاحظة حديثة وصالحة من المتصفح.'],
   browser_ineligible: ['The responding page is outside the public measurement boundary.', 'الصفحة المستجيبة خارج حدود القياس العام.'],
@@ -46,6 +49,7 @@ const statuses: Record<TrackingHealthStatus, readonly [string, string]> = {
   verified: ['Verified', 'تم التحقق'], action_required: ['Action Required', 'يلزم إجراء'], not_verified: ['Not Verified', 'غير متحقق'], error: ['Error', 'خطأ'],
 }
 const evidenceLabels: Record<string, readonly [string, string]> = {
+  publicHttpStatus: ['Public script HTTP status', 'حالة HTTP لرابط السكربت العام'],
   cspOrigin: ['Observed CSP resource origin', 'نطاق المورد في مخالفة CSP'], cspDirective: ['CSP directive', 'توجيه CSP'], cspDisposition: ['CSP mode', 'وضع CSP'],
   containerId: ['Checked GTM Container ID', 'معرّف حاوية GTM المفحوصة'], measurementId: ['Checked GA4 Measurement ID', 'معرّف قياس GA4 المفحوص'],
   tagCount: ['Published tags', 'العلامات المنشورة'], matchingGoogleTags: ['Matching Google tags', 'علامات Google المطابقة'],
@@ -82,8 +86,11 @@ export function TrackingHealthPanel({ canVerify, blocked, revision }: { canVerif
         throw Error()
       }
       const data = await response.json() as TrackingHealthReport
-      const browser = await observeTrackingBrowser(window, data.config.containerId)
-      if (controller.signal.aborted) return
+      controller.signal.throwIfAborted()
+      const browser = data.config.enabled && data.config.containerId
+        ? await observeTrackingBrowser(window, data.config.containerId)
+        : data.browser
+      controller.signal.throwIfAborted()
       const result = { ...data, browser, overall: overallTrackingHealth([data.configuration, data.published, browser, data.ga4]) }
       setReport(result)
       const message = t('Tracking checks completed. Review each independent result.', 'اكتملت فحوص التتبع. راجع نتيجة كل فحص مستقل.')
@@ -106,6 +113,7 @@ export function TrackingHealthPanel({ canVerify, blocked, revision }: { canVerif
     return <div className={styles.row}>
       <div className={styles.rowHead}><strong>{label}</strong><span className={styles.status} data-status={check.status}>{statuses[check.status][ar ? 1 : 0]}</span></div>
       <p>{message[ar ? 1 : 0]}</p>
+      {typeof check.evidence?.publicScriptResult === 'string' && messages[check.evidence.publicScriptResult] && <p>{messages[check.evidence.publicScriptResult][ar ? 1 : 0]}</p>}
       {check.evidence && <dl className={styles.evidence}>{Object.entries(check.evidence).filter(([key]) => key in evidenceLabels).map(([key, value]) => <div key={key}><dt>{evidenceLabels[key][ar ? 1 : 0]}</dt><dd>{value === null ? t('Unavailable', 'غير متاح') : typeof value === 'boolean' ? value ? t('Granted', 'ممنوحة') : t('Denied', 'مرفوضة') : value}</dd></div>)}</dl>}
       {typeof check.evidence?.realtimeStatus === 'string' && check.evidence.realtimeStatus !== 'available' && <p>{t('Realtime: ', 'الفحص الآني: ')}{(messages[check.evidence.realtimeStatus] ?? messages.google_api_error)[ar ? 1 : 0]}</p>}
     </div>
@@ -125,6 +133,7 @@ export function TrackingHealthPanel({ canVerify, blocked, revision }: { canVerif
     {!canVerify && <p>{t('Verification requires administrator settings permission.', 'الفحص يتطلب تصريح إعدادات المسؤول.')}</p>}
     {error && <p role="alert">{error}</p>}
     <div className={styles.toolbar}><button className="sp-btn" type="button" disabled={!canVerify || blocked || busy} onClick={() => void verify()}><RefreshCw size={16} aria-hidden="true" />{busy ? t('Verifying…', 'جارٍ التحقق…') : t('Verify Connection', 'التحقق من الاتصال')}</button>
+      {canVerify && <a className="sp-btn" href="/" target="_blank" rel="noopener noreferrer">{t('Open public homepage in a new tab', 'افتح الصفحة الرئيسية العامة في تبويب جديد')}</a>}
       <span className={styles.checked}>{report ? <>{t('Last checked:', 'آخر فحص:')} <time dateTime={report.checkedAt}>{new Date(report.checkedAt).toLocaleString(ar ? 'ar' : 'en')}</time></> : t('Not checked in this session', 'لم يُفحص في هذه الجلسة')}</span>
     </div>
   </section>

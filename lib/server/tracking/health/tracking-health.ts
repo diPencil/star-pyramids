@@ -83,20 +83,46 @@ async function receptionCheck(config: TrackingHealthConfig, property: string, ap
     // Realtime lacks a hostname dimension. Its stream-level count is supporting evidence only.
     if (history.status === 'rejected') return { ...failure(history.reason), evidence }
     if (events === null) return check('error', 'google_api_error', evidence)
-    return check('not_verified', realtimeEvents !== null && realtimeEvents > 0 ? 'ga4_reporting_delay' : 'ga4_no_recent_data', evidence)
+    if (realtimeEvents === null) return check('not_verified', 'ga4_realtime_unavailable', evidence)
+    return check('not_verified', realtimeEvents > 0 ? 'ga4_reporting_delay' : 'ga4_no_recent_data', evidence)
   } catch (error) { return failure(error) }
 }
 
-export async function verifyTrackingHealth(config: TrackingHealthConfig, options: { env?: Record<string, string | undefined>; api?: GoogleTrackingApi } = {}): Promise<TrackingHealthReport> {
+async function checkPublicGtmScript(containerId: string, request: typeof fetch): Promise<TrackingHealthCheck> {
+  const url = new URL('https://www.googletagmanager.com/gtm.js')
+  url.searchParams.set('id', containerId)
+  try {
+    const response = await request(url, { cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(5000) })
+    const contentType = response.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase()
+    const servesScript = response.status === 200 && response.body !== null &&
+      (contentType === 'application/javascript' || contentType === 'text/javascript' || contentType === 'application/x-javascript')
+    void response.body?.cancel().catch(() => {})
+    return check('not_verified', servesScript ? 'public_gtm_script_reachable' : 'public_gtm_script_unconfirmed', { publicHttpStatus: response.status })
+  } catch {
+    return check('not_verified', 'public_gtm_script_unconfirmed')
+  }
+}
+
+async function checkPublished(config: TrackingHealthConfig, api: GoogleTrackingApi | undefined, request: typeof fetch): Promise<TrackingHealthCheck> {
+  if (!isValidGtmContainerId(config.containerId)) return check('not_verified', 'configuration_incomplete')
+  if (!api) return checkPublicGtmScript(config.containerId, request)
+  if (!config.measurementId) return check('not_verified', 'configuration_incomplete')
+  const result = await publishedCheck(config, api)
+  if (!result.code.startsWith('google_')) return result
+  const publicCheck = await checkPublicGtmScript(config.containerId, request)
+  return { ...result, evidence: { ...result.evidence, ...publicCheck.evidence, publicScriptResult: publicCheck.code } }
+}
+
+export async function verifyTrackingHealth(config: TrackingHealthConfig, options: { env?: Record<string, string | undefined>; api?: GoogleTrackingApi; publicFetch?: typeof fetch } = {}): Promise<TrackingHealthReport> {
   config = { enabled: config.enabled === true, containerId: normalizeGtmContainerId(config.containerId) ?? '', measurementId: normalizeGa4MeasurementId(config.measurementId) ?? '' }
   const env = options.env ?? process.env
-  const configuration = { ...(!config.enabled ? check('action_required', 'gtm_disabled') : !isValidGtmContainerId(config.containerId) ? check('action_required', 'gtm_id_invalid') : !normalizeGa4MeasurementId(config.measurementId) ? check('action_required', 'ga4_id_invalid') : check('verified', 'configuration_valid')), evidence: { containerId: config.containerId, measurementId: config.measurementId } }
-  const credentials = env.GOOGLE_TRACKING_SERVICE_ACCOUNT_JSON
+  const configuration = { ...(!config.containerId ? check('action_required', 'gtm_id_invalid') : !config.enabled ? check('action_required', 'gtm_disabled') : !config.measurementId ? check('action_required', 'ga4_id_invalid') : check('verified', 'configuration_valid')), evidence: { containerId: config.containerId, measurementId: config.measurementId } }
+  const credentials = env.GOOGLE_TRACKING_SERVICE_ACCOUNT_JSON?.trim()
   const api = options.api ?? (credentials ? googleTrackingApi(credentials) : undefined)
-  const published = isValidGtmContainerId(config.containerId) && normalizeGa4MeasurementId(config.measurementId) ? (api ? publishedCheck(config, api) : Promise.resolve(check('not_verified', 'google_credentials_missing'))) : Promise.resolve(check('not_verified', 'configuration_incomplete'))
-  const ga4 = normalizeGa4MeasurementId(config.measurementId) ? (api ? receptionCheck(config, env.GOOGLE_TRACKING_GA4_PROPERTY_ID ?? '', api) : Promise.resolve(check('not_verified', 'google_credentials_missing'))) : Promise.resolve(check('not_verified', 'configuration_incomplete'))
+  const published = checkPublished(config, api, options.publicFetch ?? fetch)
+  const ga4 = config.measurementId ? (api ? receptionCheck(config, env.GOOGLE_TRACKING_GA4_PROPERTY_ID?.trim() ?? '', api) : Promise.resolve(check('not_verified', 'google_credentials_missing'))) : Promise.resolve(check('not_verified', 'configuration_incomplete'))
   const [publishedResult, ga4Result] = await Promise.all([published, ga4])
-  const browser = check('not_verified', 'browser_no_observation')
+  const browser = check('not_verified', !config.containerId ? 'gtm_id_invalid' : !config.enabled ? 'gtm_disabled' : 'browser_no_observation')
   return { checkedAt: new Date().toISOString(), configuration, published: publishedResult, browser, ga4: ga4Result, config,
     overall: overallTrackingHealth([configuration, publishedResult, browser, ga4Result]) }
 }
