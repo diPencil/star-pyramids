@@ -487,6 +487,28 @@ it('dispatches checkout intent on cart before navigation and deduplicates the pr
   expect(confirmation.layer).toEqual([analyticsLead])
 })
 
+it('counts a new cart departure after returning from an unfinished checkout with the same basket', async () => {
+  const cart = documentAt('/cart')
+  setConsent(cart.local, true)
+  cart.boot(); cart.ready()
+  recordBeginCheckout(cart.browser, environment, ['cairo-tour'])
+
+  const checkout = documentAt('/checkout', cart.local, cart.session)
+  recordBeginCheckout(checkout.browser, environment, ['cairo-tour'])
+  const reloaded = documentAt('/checkout', cart.local, cart.session)
+  recordBeginCheckout(reloaded.browser, environment, ['cairo-tour'])
+  await flushBookingFunnel(cart.browser, environment)
+  expect(cart.layer).toHaveLength(1)
+
+  recordBeginCheckout(cart.browser, environment, ['cairo-tour'])
+  recordBeginCheckout(cart.browser, environment, ['cairo-tour'])
+  const starts = cart.layer as { event: string; event_id: string }[]
+  expect(starts.map(start => start.event)).toEqual(['sp_begin_checkout', 'sp_begin_checkout'])
+  expect(starts[0].event_id).not.toBe(starts[1].event_id)
+  expect(checkout.layer).toEqual([])
+  expect(reloaded.layer).toEqual([])
+})
+
 it.each(['/cart?token=private', '/cart#private', '/account'])('does not record checkout intent on %s', path => {
   const cart = documentAt('/cart')
   setConsent(cart.local, true)
