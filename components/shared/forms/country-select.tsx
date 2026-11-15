@@ -1,8 +1,8 @@
 'use client'
 
 import { Check, ChevronDown } from 'lucide-react'
-import { Select } from '@base-ui/react/select'
-import { countries } from '@/data/countries'
+import { Combobox } from '@base-ui/react/combobox'
+import { countries, type CountryOption } from '@/data/countries'
 import { countryLabel as localizedName } from '@/lib/i18n/country-label'
 import { CountryFlag } from '@/components/shared/forms/country-flag'
 import { tx } from '@/components/locale'
@@ -42,18 +42,20 @@ type CountrySelectProps = {
   popupWidth?: CountryPopupWidth
 }
 
-/**
- * Shared country picker for the trip-request surfaces.
- *
- * Why not a native `<select>`: the phone control needs a compact collapsed
- * label (flag + dial) with rich dropdown rows (name + dial), which a native
- * select cannot render, and QA found 197-option native popups opening far
- * from their field. This wraps the project's existing Base UI Select
- * primitive (already a dependency, already used by `components/ui`):
- * anchored popup, sensible max-height with internal scroll, typeahead,
- * full keyboard support, Escape/outside-press close, and ARIA listbox
- * semantics  -  without adding any dependency or touching country data.
- */
+function normalizeName(value: string) {
+  return value.trim().toLowerCase().normalize('NFD').replace(/\p{M}/gu, '')
+}
+
+function matchesCountry(country: CountryOption, query: string, locale: Locale) {
+  const term = normalizeName(query)
+  const dial = term.replace(/[٠-٩]/g, digit => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
+    .replace(/[۰-۹]/g, digit => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit))).replace(/[\s()-]/g, '')
+  if (/^\+?\d+$/.test(dial)) return country.dialCode.slice(1).startsWith(dial.replace(/^\+/, ''))
+  return country.code.toLowerCase() === term ||
+    [localizedName(country, locale), country.name, country.nameAr].some(name => normalizeName(name).includes(term))
+}
+
+/** Shared country picker that filters its anchored popup from the visible field. */
 export function CountrySelect({
   value,
   onChange,
@@ -72,85 +74,78 @@ export function CountrySelect({
   const isRtl = locale === 'ar'
   const dir = isRtl ? 'rtl' : 'ltr'
   const selected = value ? (countries.find((country) => country.code === value) ?? null) : null
-  const effective = selected
-
   const triggerName = labelledBy ? undefined : label
   const dropdownHint = tx(locale, { en: 'Choose a country', es: 'Elige un país', it: 'Scegli un paese', ar: 'اختر الدولة' })
+  const searchLabel = tx(locale, { en: 'Search by country or calling code', es: 'Busca por país o prefijo', it: 'Cerca per paese o prefisso', ar: 'ابحث باسم الدولة أو كود الاتصال' })
+  const inputLabel = (country: CountryOption) => variant === 'phone' ? country.dialCode : localizedName(country, locale)
 
   return (
     <span dir={dir} className={`cselect${variant === 'phone' ? ' is-phone' : ''}${className ? ` ${className}` : ''}`}>
-      <Select.Root
-        value={value === '' ? null : value}
-        onValueChange={(next) => onChange(typeof next === 'string' ? next : '')}
+      <Combobox.Root
+        key={locale}
+        items={countries}
+        value={selected}
+        onValueChange={(next) => { if (next) onChange(next.code) }}
+        itemToStringLabel={inputLabel}
+        filter={(country, query) => matchesCountry(country, query, locale)}
+        autoHighlight
+        openOnInputClick
         disabled={disabled}
       >
-        <Select.Trigger
-          id={id}
-          className={`cselect-trigger${invalid ? ' is-invalid' : ''}`}
-          aria-label={triggerName}
-          aria-labelledby={labelledBy}
-          aria-invalid={invalid === true ? true : undefined}
-          aria-describedby={describedBy}
-          title={effective ? `${localizedName(effective, locale)} (${effective.dialCode})` : dropdownHint}
-        >
-          <Select.Value placeholder={variant === 'phone' ? '' : (placeholder ?? dropdownHint)} className="cselect-value">
-            {(current: string | null) => {
-              const currentCountry = current ? (countries.find((country) => country.code === current) ?? null) : null
-              if (!currentCountry) return null
-              return variant === 'phone' ? (
-                <span className="cselect-compact">
-                  <CountryFlag code={currentCountry.code} size={18} />
-                  <bdi dir="ltr">{currentCountry.dialCode}</bdi>
-                </span>
-              ) : (
-                <span className="cselect-current">
-                  <CountryFlag code={currentCountry.code} size={18} />
-                  <span className="cselect-current-name">{localizedName(currentCountry, locale)}</span>
-                </span>
-              )
-            }}
-          </Select.Value>
-          <Select.Icon aria-hidden="true" className="cselect-chevron">
+        <Combobox.InputGroup render={<span />} className={`cselect-trigger cselect-editable${invalid ? ' is-invalid' : ''}`}>
+          {selected && <CountryFlag code={selected.code} size={18} />}
+          <Combobox.Input
+            id={id}
+            className="cselect-inline-input"
+            aria-label={triggerName}
+            aria-labelledby={labelledBy}
+            aria-invalid={invalid === true ? true : undefined}
+            aria-describedby={describedBy}
+            title={selected ? `${localizedName(selected, locale)} (${selected.dialCode})` : dropdownHint}
+            placeholder={variant === 'phone' ? undefined : (placeholder ?? dropdownHint)}
+            autoComplete="off"
+            onClick={(event) => { if (selected && event.currentTarget.value === inputLabel(selected)) event.currentTarget.select() }}
+            onFocus={(event) => { if (selected && event.currentTarget.value === inputLabel(selected)) event.currentTarget.select() }}
+          />
+          <Combobox.Trigger className="cselect-chevron cselect-toggle" aria-label={searchLabel} tabIndex={-1}>
             <ChevronDown size={15} />
-          </Select.Icon>
-        </Select.Trigger>
-        <Select.Portal>
+          </Combobox.Trigger>
+        </Combobox.InputGroup>
+        <Combobox.Portal>
           {/* Same header-safe collision geometry as SharedSelect (see above):
               top padding reserves the fixed sticky nav plus a safe gap;
               available height stays a maximum limit, not the desired height. */}
-          <Select.Positioner
+          <Combobox.Positioner
             className="cselect-positioner"
             sideOffset={6}
-            alignItemWithTrigger={false}
             collisionPadding={{ top: 80, right: 12, bottom: 12, left: 12 }}
             collisionAvoidance={{ side: 'flip', align: 'flip', fallbackAxisSide: 'none' }}
             sticky
           >
-            <Select.Popup className="cselect-popup" data-popup-width={popupWidth} dir={dir} aria-label={dropdownHint}>
-              <Select.List className="cselect-list">
-                {countries.map((country) => (
-                  <Select.Item
+            <Combobox.Popup className="cselect-popup cselect-search-popup" data-popup-width={popupWidth} dir={dir}>
+              <Combobox.Empty className="cselect-search-empty">{tx(locale, { en: 'No countries found', es: 'No se encontraron países', it: 'Nessun paese trovato', ar: 'لا توجد دول مطابقة' })}</Combobox.Empty>
+              <Combobox.List className="cselect-list">
+                {(country: CountryOption) => (
+                  <Combobox.Item
                     key={country.code}
-                    value={country.code}
-                    label={localizedName(country, locale)}
+                    value={country}
                     className="cselect-item"
                   >
-                    <Select.ItemText className="cselect-item-text">
-                      {variant === 'phone' && <CountryFlag code={country.code} size={18} />}
-                      {variant === 'country' && <CountryFlag code={country.code} size={18} />}
+                    <span className="cselect-item-text">
+                      <CountryFlag code={country.code} size={18} />
                       <span className="cselect-item-name">{localizedName(country, locale)}</span>
                       {variant === 'phone' && <bdi dir="ltr" className="cselect-item-dial">{country.dialCode}</bdi>}
-                    </Select.ItemText>
-                    <Select.ItemIndicator className="cselect-check" aria-hidden="true">
+                    </span>
+                    <Combobox.ItemIndicator className="cselect-check" aria-hidden="true">
                       <Check size={14} />
-                    </Select.ItemIndicator>
-                  </Select.Item>
-                ))}
-              </Select.List>
-            </Select.Popup>
-          </Select.Positioner>
-        </Select.Portal>
-      </Select.Root>
+                    </Combobox.ItemIndicator>
+                  </Combobox.Item>
+                )}
+              </Combobox.List>
+            </Combobox.Popup>
+          </Combobox.Positioner>
+        </Combobox.Portal>
+      </Combobox.Root>
     </span>
   )
 }

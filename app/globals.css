@@ -1324,6 +1324,15 @@ limited. These selectors are intentionally scoped to Select, not DateInput. */
 .cselect.is-phone .cselect-popup{max-width:min(300px,calc(100vw - 32px))}
 .cselect-popup[data-popup-width='trigger']{width:var(--anchor-width);min-width:0;max-width:calc(100vw - 32px)}
 .cselect-list{height:auto!important;max-height:min(262px,var(--available-height,calc(100dvh - 96px)))!important;overflow-y:auto!important;overscroll-behavior:contain;padding:6px;outline:none}
+.cselect-search-popup{display:flex;flex-direction:column}
+.cselect-search-popup .cselect-list{min-height:0;flex:1 1 auto}
+.cselect .cselect-editable{cursor:text}
+.cselect .cselect-editable .cselect-inline-input{flex:1;min-width:0;width:100%;min-height:0;height:auto;padding:0;border:0;outline:0;background:transparent;color:inherit;font:inherit;line-height:normal}
+.cselect .cselect-editable .cselect-toggle{display:inline-flex;align-items:center;justify-content:center;flex:none;width:24px;height:28px;min-height:0;padding:0;border:0;outline-offset:2px;background:transparent;color:#667085;cursor:pointer}
+.cselect.is-phone .cselect-editable .cselect-inline-input{width:5ch;font-weight:800}
+.cselect.is-phone .cselect-editable[data-popup-open] .cselect-inline-input{width:9ch}
+.international-phone-field .cselect.is-phone{max-width:60%}
+.cselect-search-empty:not(:empty){padding:8px 14px;color:#667085;font-size:13px}
 .cselect-item{display:flex;align-items:center;flex-wrap:nowrap;gap:8px;min-height:40px;padding:0 10px;border-radius:8px;cursor:pointer;font-size:13px;color:#101828}
 .cselect-item[data-highlighted]{background:#eef3ff}
 .cselect-item[data-selected]{font-weight:800}
