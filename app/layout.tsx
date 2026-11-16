@@ -4,7 +4,7 @@ import { NavigationProvider } from '@/components/layout/navigation-context'
 import { publishedNavigation } from '@/lib/server/navigation/navigation'
 import { Alexandria, Montserrat } from 'next/font/google'
 import type { Metadata, Viewport } from 'next'
-import { headers } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { BrandFavicon } from '@/components/branding/brand-favicon'
 import { InitialLocaleProvider } from '@/components/locale'
 import { EnquiryHistoryTracking } from '@/components/enquiries/enquiry-history-tracking'
@@ -20,6 +20,7 @@ import { SiteMeasurement } from '@/components/site-measurement'
 import { ConsentManager } from '@/components/consent-manager'
 import { getTrackingSettings } from '@/lib/server/tracking/tracking'
 import { TRACKING_ELIGIBLE_HEADER } from '@/lib/tracking/tracking'
+import { SOCIAL_MEASUREMENT_COOKIE } from '@/lib/tracking/auth/social-measurement'
 
 // Optimize font loading: preload critical weights, use display: swap
 const montserrat = Montserrat({
@@ -129,6 +130,7 @@ export default async function RootLayout({
   const requestHeaders = await headers()
   const measurementAllowed = process.env.NODE_ENV === 'production' && requestHeaders.get(TRACKING_ELIGIBLE_HEADER) === '1'
   const tracking = measurementAllowed ? await getTrackingSettings() : null
+  const pendingSocialMeasurement = Boolean(tracking?.enabled && (await cookies()).has(SOCIAL_MEASUREMENT_COOKIE))
 
   return (
     <html lang={htmlLang} data-scroll-behavior="smooth" suppressHydrationWarning>
@@ -143,7 +145,7 @@ export default async function RootLayout({
         <BrandProvider initial={await readServerBrandSettings()}><BrandFavicon />
         <EnquiryHistoryTracking />
         <NavigationProvider initial={await publishedNavigation().catch(() => ({ revision: -1, primaryLocale: 'en' as const, items: [] }))}><InitialLocaleProvider locale={locale}><PresentationProvider states={{ ...await readPresentationStates(), faq: await readPublishedPage('faq') }}><PublicAppearance tokens={await readPublishedAppearance()}><ConsentManager initialLocale={locale} />{children}</PublicAppearance></PresentationProvider></InitialLocaleProvider></NavigationProvider></BrandProvider>
-        {measurementAllowed && <SiteMeasurement containerId={tracking?.enabled ? tracking.containerId : null} explicitPageViews={process.env.TRACKING_EXPLICIT_PAGE_VIEWS === 'true'} />}
+        {measurementAllowed && <SiteMeasurement containerId={tracking?.enabled ? tracking.containerId : null} explicitPageViews={process.env.TRACKING_EXPLICIT_PAGE_VIEWS === 'true'} pendingSocialMeasurement={pendingSocialMeasurement} />}
       </body>
     </html>
   )

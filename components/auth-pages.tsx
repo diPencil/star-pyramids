@@ -15,7 +15,10 @@ import { Logo } from './site'
 import { getCopy } from '@/lib/i18n/locale-helpers'
 import { customerErrorText } from '@/lib/account/customer-error-copy'
 
-type SocialProvider = 'Google' | 'Facebook'
+import { startSocialSignIn } from '@/lib/auth/social-sign-in'
+import type { SocialProviderId } from '@/lib/auth/social-providers'
+
+type SocialOptions = { providers?: SocialProviderId[]; pending?: string | null }
 
 const baseAuthCopy = {
   en: {
@@ -68,15 +71,23 @@ function PasswordField({ label, name, autoComplete }: { label: string; name: str
   return <AuthField label={label} icon={<LockKeyhole size={18} />}><input required name={name} minLength={6} maxLength={64} type={show ? 'text' : 'password'} autoComplete={autoComplete} placeholder={tx(locale, { en: '6-64 characters', es: '6-64 caracteres', it: '6-64 caratteri', ar: '٦-٦٤ حرف' })} /><button type="button" onClick={() => setShow((value) => !value)} aria-label={show ? tx(locale, { en: 'Hide password', es: 'Ocultar contraseña', it: 'Nascondi password', ar: 'إخفاء كلمة المرور' }) : tx(locale, { en: 'Show password', es: 'Mostrar contraseña', it: 'Mostra password', ar: 'إظهار كلمة المرور' })}>{show ? <EyeOff size={18} /> : <Eye size={18} />}</button></AuthField>
 }
 
-function SocialButtons({ onSelect }: { onSelect: (provider: SocialProvider) => void }) {
+function SocialButtons({ providers, mode }: { providers: SocialProviderId[]; mode: 'login' | 'register' }) {
   const { locale } = useLocale()
-  return <div className="auth-v2-socials">
-    <button type="button" onClick={() => onSelect('Google')}><GoogleIcon /><span>{tx(locale, { en: 'Continue with Google', es: 'Continuar con Google', it: 'Continua con Google', ar: 'المتابعة باستخدام Google' })}</span></button>
-    <button type="button" onClick={() => onSelect('Facebook')}><FacebookIcon /><span>{tx(locale, { en: 'Continue with Facebook', es: 'Continuar con Facebook', it: 'Continua con Facebook', ar: 'المتابعة باستخدام Facebook' })}</span></button>
-  </div>
+  const [starting, setStarting] = useState(false)
+  const [failed, setFailed] = useState(false)
+  if (!providers.length) return null
+  const start = (provider: SocialProviderId) => {
+    setFailed(false)
+    setStarting(true)
+    void startSocialSignIn(provider, mode).catch(() => { setFailed(true); setStarting(false) })
+  }
+  return <><div className="auth-v2-socials">
+    {providers.includes('google') && <button type="button" disabled={starting} onClick={() => start('google')}><GoogleIcon /><span>{tx(locale, { en: 'Continue with Google', es: 'Continuar con Google', it: 'Continua con Google', ar: 'المتابعة باستخدام Google' })}</span></button>}
+    {providers.includes('facebook') && <button type="button" disabled={starting} onClick={() => start('facebook')}><FacebookIcon /><span>{tx(locale, { en: 'Continue with Facebook', es: 'Continuar con Facebook', it: 'Continua con Facebook', ar: 'المتابعة باستخدام Facebook' })}</span></button>}
+  </div>{failed && <SocialNotice pending={false} result="failed" />}</>
 }
 
-function LoginForm() {
+function LoginForm({ providers = [], pending = null }: SocialOptions) {
   const { locale } = useLocale()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -86,6 +97,7 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [continuePath, setContinuePath] = useState('')
   const genericError = tx(locale, { en: 'An error occurred. Please try again.', es: 'Se produjo un error. Inténtalo de nuevo.', it: 'Si è verificato un errore. Riprova.', ar: 'حدث خطأ. حاول مرة أخرى.' })
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -96,12 +108,17 @@ function LoginForm() {
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        referrerPolicy: 'origin',
+        headers: { 'Content-Type': 'application/json', ...(pending ? { 'X-SP-Social-Link': '1' } : {}) },
         credentials: 'same-origin',
-        body: JSON.stringify({ identifier, password, next: searchParams.get('next') }),
+        body: JSON.stringify({ identifier, password, next: searchParams.get('next'), ...(pending ? { linkSocial: pending } : {}) }),
       })
       if (res.ok) {
         const data = await res.json()
+        if (pending && data.socialLinked === false) {
+          setContinuePath(typeof data.redirectTo === 'string' ? data.redirectTo : '/account')
+          return
+        }
         router.replace(typeof data.redirectTo === 'string' ? data.redirectTo : '/')
         router.refresh()
         return
@@ -129,8 +146,10 @@ function LoginForm() {
       <header className="auth-v2-top"><Link href="/" aria-label={tx(locale, { en: 'Back to home', es: 'Volver al inicio', it: 'Torna alla home', ar: 'العودة للرئيسية' })}><ArrowRight size={18} />{tx(locale, { en: 'Home', es: 'Inicio', it: 'Home', ar: 'الرئيسية' })}</Link><LanguageSelector /></header>
       <div className="auth-v2-card">
         <div className="auth-v2-heading"><span>{tx(locale, { en: 'Welcome back', es: 'Bienvenido de nuevo', it: 'Bentornato', ar: 'مرحبًا بعودتك' })}</span><h1>{text.loginTitle}</h1><p>{text.loginCopy}</p></div>
+        {!pending && <SocialButtons providers={providers} mode="login" />}
+        {!continuePath && <SocialNotice pending={Boolean(pending)} result={searchParams.get('social')} />}
         {error && <p className="auth-v2-notice" role="alert"><ShieldCheck size={17} />{customerErrorText(locale, error, genericError)}</p>}
-        <form className="auth-v2-form" onSubmit={handleSubmit}>
+        {continuePath ? <p className="auth-v2-notice" role="status">{tx(locale, { en: 'You signed in, but your social account could not be linked. ', es: 'Has iniciado sesión, pero no se pudo vincular tu cuenta social. ', it: 'Hai effettuato l’accesso, ma non è stato possibile collegare il tuo account social. ', ar: 'تم تسجيل الدخول، لكن تعذر ربط حسابك. ' })}<Link href={continuePath}>{tx(locale, { en: 'Continue', es: 'Continuar', it: 'Continua', ar: 'متابعة' })}</Link></p> : <form className="auth-v2-form" onSubmit={handleSubmit}>
           <AuthField label={tx(locale, { en: 'Email or username', es: 'Correo electrónico o nombre de usuario', it: 'Email o nome utente', ar: 'البريد الإلكتروني أو اسم المستخدم' })} icon={<Mail size={18} />}>
             <input required name="username" type="text" autoComplete="username" placeholder={tx(locale, { en: 'you@example.com or username', es: 'you@example.com o nombre de usuario', it: 'you@example.com o nome utente', ar: 'you@example.com أو اسم المستخدم' })} value={identifier} onChange={(e) => setIdentifier(e.target.value)} />
           </AuthField>
@@ -142,14 +161,14 @@ function LoginForm() {
             <Link href="/forgot-password">{tx(locale, { en: 'Forgot password?', es: '¿Olvidó su contraseña?', it: 'Hai dimenticato la password?', ar: 'نسيت كلمة المرور؟' })}</Link>
           </p>
           <button className="auth-v2-primary" type="submit" disabled={loading}>{loading ? tx(locale, { en: 'Signing in...', es: 'Iniciando sesión...', it: 'Accesso in corso...', ar: 'جارٍ تسجيل الدخول...' }) : tx(locale, { en: 'Sign in', es: 'Iniciar sesión', it: 'Accedi', ar: 'تسجيل الدخول' })} <ArrowRight size={18} /></button>
-        </form>
+        </form>}
         <p className="auth-v2-switch">{tx(locale, { en: 'New to Star Pyramids? ', es: '¿Nuevo en Star Pyramids? ', it: 'Nuovo su Star Pyramids? ', ar: 'جديد على STAR PYRAMIDS؟ ' })}<Link href="/register">{tx(locale, { en: 'Create an account', es: 'Crea una cuenta', it: 'Crea un account', ar: 'أنشئ حسابك' })}</Link></p>
       </div>
     </section>
   </main>
 }
 
-function RegisterForm() {
+function RegisterForm({ providers = [], pending = null }: SocialOptions) {
   const { locale } = useLocale()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -161,7 +180,6 @@ function RegisterForm() {
   const [loading, setLoading] = useState(false)
   const createFailed = tx(locale, { en: 'Could not create the account. Please try again.', es: 'No se pudo crear la cuenta. Inténtalo de nuevo.', it: 'Impossibile creare l’account. Riprova.', ar: 'تعذر إنشاء الحساب. حاول مرة أخرى.' })
 
-  const socialPreview = (provider: SocialProvider) => setNotice(`${provider}${tx(locale, { en: ' is ready in the interface, but real sign-in requires backend OAuth configuration.', es: ' está listo en la interfaz, pero el inicio de sesión real requiere configuración OAuth en el backend.', it: ' è pronto nell’interfaccia, ma l’accesso reale richiede la configurazione OAuth nel backend.', ar: ' جاهز في التصميم، لكن الربط الحقيقي محتاج إعداد OAuth في الباك إند.' })}`)
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (loading) return
@@ -175,7 +193,8 @@ function RegisterForm() {
     try {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        referrerPolicy: 'origin',
+        headers: { 'Content-Type': 'application/json', ...(pending ? { 'X-SP-Social-Link': '1' } : {}) },
         credentials: 'same-origin',
         body: JSON.stringify({
           firstName: form.get('firstName'),
@@ -187,6 +206,7 @@ function RegisterForm() {
           confirmPassword: form.get('confirmPassword'),
           countryCode,
           acceptedTerms: form.get('acceptedTerms') === 'on',
+          ...(pending ? { linkSocial: pending } : {}),
           next: searchParams.get('next'),
         }),
       })
@@ -219,9 +239,10 @@ function RegisterForm() {
       <div className="auth-v2-card">
         <>
           <div className="auth-v2-heading"><span>{tx(locale, { en: 'Join STAR PYRAMIDS', es: 'Únete a STAR PYRAMIDS', it: 'Unisciti a STAR PYRAMIDS', ar: 'انضم لينا' })}</span><h1>{text.registerTitle}</h1><p>{text.registerCopy}</p></div>
-          <SocialButtons onSelect={socialPreview} />
+          {!pending && <SocialButtons providers={providers} mode="register" />}
+          <SocialNotice pending={Boolean(pending)} result={searchParams.get('social')} />
           {notice && <p className="auth-v2-notice" role="alert"><ShieldCheck size={17} />{typeof notice === 'string' ? notice : customerErrorText(locale, notice.apiError, createFailed)}</p>}
-          <div className="auth-v2-divider"><span>{tx(locale, { en: 'or use your details', es: 'o usa tus datos', it: 'oppure usa i tuoi dati', ar: 'أو استخدم بياناتك' })}</span></div>
+          {!pending && providers.length > 0 && <div className="auth-v2-divider"><span>{tx(locale, { en: 'or use your details', es: 'o usa tus datos', it: 'oppure usa i tuoi dati', ar: 'أو استخدم بياناتك' })}</span></div>}
           <form className="auth-v2-form" onSubmit={submit}>
             <div className="auth-v2-grid">
               <AuthField label={tx(locale, { en: 'First name', es: 'Nombre', it: 'Nome', ar: 'الاسم الأول' })} icon={<User size={18} />}><input required name="firstName" autoComplete="given-name" placeholder={tx(locale, { en: 'First name', es: 'Nombre', it: 'Nome', ar: 'الاسم الأول' })} /></AuthField>
@@ -244,10 +265,17 @@ function RegisterForm() {
   </main>
 }
 
-export function LoginPage() {
-  return <LocaleProvider><Suspense><LoginForm /></Suspense></LocaleProvider>
+function SocialNotice({ pending, result }: { pending: boolean; result: string | null }) {
+  const { locale } = useLocale()
+  if (pending) return <p className="auth-v2-notice" role="status">{tx(locale, { en: 'Complete this form to link your verified social account. If you already have a Star Pyramids account, sign in with its password to link it.', es: 'Completa este formulario para vincular tu cuenta social. Si ya tienes una cuenta, inicia sesión con tu contraseña para vincularla.', it: 'Completa questo modulo per collegare il tuo account social. Se hai già un account, accedi con la password per collegarlo.', ar: 'أكمل النموذج لربط حسابك. إذا كان لديك حساب، سجّل الدخول بكلمة المرور لربطه.' })}</p>
+  if (result !== 'failed' && result !== 'unavailable' && result !== 'link') return null
+  return <p className="auth-v2-notice" role="alert">{tx(locale, { en: 'Social sign-in could not be completed. Try again or use your account details.', es: 'No se pudo completar el acceso social. Inténtalo de nuevo o usa los datos de tu cuenta.', it: 'Impossibile completare l’accesso social. Riprova o usa i dati del tuo account.', ar: 'تعذر إكمال الدخول. حاول مرة أخرى أو استخدم بيانات حسابك.' })}</p>
 }
 
-export function RegisterPage() {
-  return <LocaleProvider><Suspense><RegisterForm /></Suspense></LocaleProvider>
+export function LoginPage(options: SocialOptions = {}) {
+  return <LocaleProvider><Suspense><LoginForm {...options} /></Suspense></LocaleProvider>
+}
+
+export function RegisterPage(options: SocialOptions = {}) {
+  return <LocaleProvider><Suspense><RegisterForm {...options} /></Suspense></LocaleProvider>
 }

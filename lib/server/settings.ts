@@ -13,6 +13,7 @@ import { isCurrency } from '../payments/currency';
 // Currency rates live in the FxRate table (DECIMAL pairs, USD anchor),
 // never in SiteSetting and never trusted from the browser.
 import 'server-only';
+import { openSocialValue, sealSocialValue, socialSecretIdKeys, socialSecretPurpose } from './auth/social-seal';
 
 import { Prisma } from '@prisma/client';
 
@@ -635,7 +636,9 @@ export async function getAdminSettings(): Promise<AdminSettingsSnapshot> {
   const secrets: Record<string, { configured: boolean }> = {};
   for (const key of SECRET_SETTING_KEYS) {
     const stored = byKey.get(key) ?? '';
-    secrets[key] = { configured: stored.length > 0 };
+    const idKey = socialSecretIdKeys.get(key);
+    const id = idKey ? byKey.get(idKey) : undefined;
+    secrets[key] = { configured: idKey ? Boolean(id && openSocialValue(stored, socialSecretPurpose(key, id))) : stored.length > 0 };
   }
   return { values, secrets, rates: await readRates() };
 }
@@ -687,10 +690,17 @@ export async function applyAdminSettings(input: {
 
   await db.$transaction(async (tx) => {
     for (const [key, value] of Object.entries(clean)) {
+      const idKey = socialSecretIdKeys.get(key);
+      let stored = value;
+      if (idKey) {
+        const id = clean[idKey] ?? (await tx.siteSetting.findUnique({ where: { key: idKey }, select: { value: true } }))?.value;
+        if (!id) throw new Error('Enter the provider ID with its secret.');
+        stored = sealSocialValue(value, socialSecretPurpose(key, id));
+      }
       await tx.siteSetting.upsert({
         where: { key },
-        update: { value },
-        create: { key, value },
+        update: { value: stored },
+        create: { key, value: stored },
       });
     }
     if (eur !== null) {

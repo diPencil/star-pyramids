@@ -10,9 +10,12 @@ import {
   clearLoginAttempts,
 } from '@/lib/server/rate-limit';
 import { toClientUser } from '@/lib/server/auth/users';
+import { db } from '@/lib/server/db';
+import { activePendingSocial, isSameOriginSocialLink, writeSocialCookie } from '@/lib/server/auth/social-flow';
+import { attachSocialIdentity, isActiveSocialCustomer } from '@/lib/server/auth/social-account';
 
 export async function POST(request: Request) {
-  if (!isSameOriginRequest(request)) {
+  if (!isSameOriginRequest(request) && !isSameOriginSocialLink(request)) {
     return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
   }
   let body: unknown;
@@ -57,12 +60,26 @@ export async function POST(request: Request) {
 
   await recordLoginAttempt(identifier, ipAddress, true);
   await clearLoginAttempts(identifier, ipAddress);
+  let socialLinked: boolean | undefined;
+  const { linkSocial } = body as { linkSocial?: unknown };
+  if (typeof linkSocial === 'string') {
+    socialLinked = false;
+    try {
+      const identity = await activePendingSocial(linkSocial);
+      if (identity && isActiveSocialCustomer(result.user)) {
+        await db.$transaction((tx) => attachSocialIdentity(tx, result.user.id, identity, identity.startedAt));
+        socialLinked = true;
+      }
+      if (identity) await writeSocialCookie('pending', null);
+    } catch { /* Password sign-in still succeeds if a provider link fails. */ }
+  }
   await createSession(result.user.id, {
     ipAddress: ipAddress !== 'unknown' ? ipAddress : undefined,
     userAgent: request.headers.get('user-agent') ?? undefined,
   });
   return NextResponse.json({
     user: toClientUser(result.user),
+    ...(socialLinked === undefined ? {} : { socialLinked }),
     redirectTo: authorizedPostLoginPath(result.user, next),
   });
 }

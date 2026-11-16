@@ -19,6 +19,10 @@ import {
 import { createSession } from '@/lib/server/auth/session';
 import { createCustomerUser, toClientUser } from '@/lib/server/auth/users';
 import { sendCustomerEmailSafe } from '@/lib/server/email/email';
+import { db } from '@/lib/server/db';
+import { activePendingSocial, isSameOriginSocialLink, writeSocialCookie } from '@/lib/server/auth/social-flow';
+import { attachSocialIdentity, SocialIdentityConflict } from '@/lib/server/auth/social-account';
+import { saveSocialMeasurement } from '@/lib/server/auth/social-measurement';
 
 type RegistrationBody = {
   email?: unknown;
@@ -31,6 +35,7 @@ type RegistrationBody = {
   phone?: unknown;
   acceptedTerms?: unknown;
   next?: unknown;
+  linkSocial?: unknown;
 };
 
 function text(value: unknown): string {
@@ -42,7 +47,7 @@ function requestIp(request: Request): string {
 }
 
 export async function POST(request: Request) {
-  if (!isSameOriginRequest(request)) {
+  if (!isSameOriginRequest(request) && !isSameOriginSocialLink(request)) {
     return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
   }
 
@@ -95,7 +100,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const user = await createCustomerUser({
+    const registration = {
       email,
       password,
       firstName,
@@ -103,11 +108,22 @@ export async function POST(request: Request) {
       username,
       countryCode,
       phone,
-    });
+    };
+    const identity = typeof body.linkSocial === 'string' ? await activePendingSocial(body.linkSocial) : null;
+    if (typeof body.linkSocial === 'string' && !identity) {
+      return NextResponse.json({ error: 'Social sign-in could not be completed.' }, { status: 409 });
+    }
+    const user = identity ? await db.$transaction(async (tx) => {
+      const created = await createCustomerUser(registration, tx);
+      await attachSocialIdentity(tx, created.id, identity, identity.startedAt);
+      return created;
+    }) : await createCustomerUser(registration);
+    if (identity) await writeSocialCookie('pending', null).catch(() => undefined);
     await createSession(user.id, {
       ipAddress: ipAddress !== 'unknown' ? ipAddress : undefined,
       userAgent: request.headers.get('user-agent') ?? undefined,
     });
+    if (identity) await saveSocialMeasurement('sp_sign_up', identity.provider, identity.analytics);
     // Welcome email (best-effort  -  never breaks registration). The
     // idempotency key guarantees one welcome per account even if the
     // client retries the request.
@@ -123,6 +139,10 @@ export async function POST(request: Request) {
       { status: 201 },
     );
   } catch (error) {
+    if (error instanceof SocialIdentityConflict) {
+      await writeSocialCookie('pending', null).catch(() => undefined);
+      return NextResponse.json({ error: 'Social sign-in could not be completed.' }, { status: 409 });
+    }
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       return NextResponse.json({ error: 'An account with these details already exists.' }, { status: 409 });
     }

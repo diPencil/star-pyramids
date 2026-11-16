@@ -7,6 +7,7 @@ import { GTM_CONSENT_READY_EVENT, readTrackingGrants } from '@/lib/tracking/trac
 import { FUNNEL_STORAGE_PREFIX } from '@/lib/tracking/leads/booking-funnel'
 import { submitTripRequest } from '@/lib/trip-builder/trip-request-submission'
 import type { MakeYourTripRequestDraft } from '@/lib/trip-builder/trip-request'
+import { SOCIAL_MEASUREMENT_HEADER, SOCIAL_MEASUREMENT_PATH } from '@/lib/tracking/auth/social-measurement'
 import { TourViewMeasurement } from '@/components/tours/detail/tour-view-measurement'
 
 const effects = vi.hoisted(() => [] as Array<() => void | (() => void)>)
@@ -26,7 +27,7 @@ afterEach(() => {
   vi.unstubAllEnvs()
 })
 
-function mount(path: string, modern: boolean, granted = true, renderChild?: () => void) {
+function mount(path: string, modern: boolean, granted = true, pendingSocialMeasurement = false, fetch: typeof window.fetch = vi.fn(), renderChild?: () => void) {
   const origin = 'https://starpyramids.com'
   const location = { href: origin + path, get pathname() { return new URL(this.href).pathname } }
   const navigation = modern ? new EventTarget() : undefined
@@ -45,7 +46,7 @@ function mount(path: string, modern: boolean, granted = true, renderChild?: () =
     },
   }
   const browser = Object.assign(new EventTarget(), {
-    location, navigation, history, crypto: { randomUUID },
+    location, navigation, history, fetch, crypto: { randomUUID },
     dataLayer: [] as unknown[],
     document: { createElement: () => script, head: { appendChild } },
     localStorage: {
@@ -60,7 +61,7 @@ function mount(path: string, modern: boolean, granted = true, renderChild?: () =
   vi.stubGlobal('window', browser)
   installEnquiryHistoryTracking(browser as unknown as Window)
   renderChild?.()
-  SiteMeasurement({ containerId: 'GTM-TEST', explicitPageViews: false })
+  SiteMeasurement({ containerId: 'GTM-TEST', explicitPageViews: false, pendingSocialMeasurement })
   for (const effect of effects.splice(0)) {
     const cleanup = effect()
     if (cleanup) cleanups.push(cleanup)
@@ -85,7 +86,7 @@ it.each(['one-day-tours', 'multi-days-tours', 'nile-cruises', 'shore-excursions'
 })
 
 it('dispatches after the first Analytics grant when the tour listener runs before SiteMeasurement', async () => {
-  const { browser, script } = mount('/egypt-tours/cairo', false, false, () => {
+  const { browser, script } = mount('/egypt-tours/cairo', false, false, false, undefined, () => {
     TourViewMeasurement({ routeSlug: 'cairo', itemId: 'cairo', category: 'one-day-tours' })
   })
   script.onload?.()
@@ -105,6 +106,40 @@ it.each([['/egypt-tours/cairo?token=private', true], ['/egypt-tours/cairo', fals
   if (stop) cleanups.push(stop)
   script.onload?.()
   expect(browser.dataLayer).not.toContainEqual(expect.objectContaining({ event: 'sp_view_item' }))
+})
+
+it('dispatches a consented social receipt once after GTM becomes ready on a public page', async () => {
+  const event = { event: 'sp_login', method: 'facebook', event_id: 'so_' + '1'.repeat(32) }
+  const fetch = vi.fn().mockResolvedValue(Response.json({ events: [{ ...event, email: 'private@example.test', user_id: 'private-id' }] }))
+  const { browser, script } = mount('/trips', false, true, true, fetch)
+  expect(fetch).not.toHaveBeenCalled()
+  script.onload?.()
+  await vi.waitFor(() => expect(browser.dataLayer).toContainEqual(event))
+  browser.dispatchEvent(new Event('online'))
+  expect(fetch).toHaveBeenCalledExactlyOnceWith(SOCIAL_MEASUREMENT_PATH, expect.objectContaining({ method: 'POST', headers: {
+    [SOCIAL_MEASUREMENT_HEADER]: readTrackingGrants(browser as unknown as Window).analytics,
+  } }))
+  expect(browser.dataLayer.filter(entry => (entry as { event?: string }).event === 'sp_login')).toEqual([event])
+})
+
+it.each([['/account', true], ['/trips', false]] as const)('does not read a receipt on %s unless the page and consent both qualify', (path, consent) => {
+  const fetch = vi.fn()
+  const { script } = mount(path, false, consent, true, fetch)
+  script.onload?.()
+  expect(fetch).not.toHaveBeenCalled()
+})
+
+it('drops an in-flight social receipt after Analytics consent is withdrawn', async () => {
+  let resolve!: (response: Response) => void
+  const fetch = vi.fn(() => new Promise<Response>(done => { resolve = done }))
+  const { browser, script } = mount('/trips', false, true, true, fetch)
+  script.onload?.()
+  await vi.waitFor(() => expect(fetch).toHaveBeenCalledOnce())
+  browser.localStorage.setItem(TRACKING_CONSENT_STORAGE_KEY, '{"analytics":false,"marketing":false}')
+  const event = { event: 'sp_sign_up', method: 'google', event_id: 'so_' + '2'.repeat(32) }
+  resolve(Response.json({ events: [event] }))
+  await new Promise(resolve => setTimeout(resolve, 0))
+  expect(browser.dataLayer).not.toContainEqual(event)
 })
 
 it.each(['/trips', '/checkout?gtm_debug=x'])('mounts one Advanced container with optional consent denied on %s', path => {

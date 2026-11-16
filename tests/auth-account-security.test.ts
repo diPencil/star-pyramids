@@ -24,6 +24,7 @@ vi.mock('next/headers', () => ({ cookies: () => shared.mockedJar }))
 
 import { updateCustomerIdentity, updateAdminProfile } from '@/lib/server/auth/users'
 import { getSession, SESSION_COOKIE_NAME, SESSION_TTL_MS } from '@/lib/server/auth/session'
+import { getCurrentUser } from '@/lib/server/auth/auth'
 
 const mockedJar = shared.mockedJar
 
@@ -33,6 +34,23 @@ beforeEach(() => {
   mockedDb.session = {}
   mockedJar.get = vi.fn()
   mockedJar.set = vi.fn()
+})
+
+it('keeps a social session from inheriting staff privileges after a role change', async () => {
+  mockedJar.get.mockReturnValue({ value: 'customer.fixture-session' })
+  mockedDb.session.findUnique = vi.fn().mockResolvedValue({ id: 'session', userId: 'user', expiresAt: new Date(Date.now() + 60_000) })
+  mockedDb.session.update = vi.fn().mockResolvedValue({})
+  mockedDb.user.findUnique = vi.fn().mockResolvedValue({ id: 'user', status: 'ACTIVE', roles: [{ role: { key: 'ADMIN' } }] })
+  expect(await getCurrentUser()).toBeNull()
+})
+
+it('returns no admin permissions from a social customer session', async () => {
+  mockedJar.get.mockReturnValue({ value: 'customer.fixture-session' })
+  mockedDb.session.findUnique = vi.fn().mockResolvedValue({ id: 'session', userId: 'user', expiresAt: new Date(Date.now() + 60_000) })
+  mockedDb.session.update = vi.fn().mockResolvedValue({})
+  mockedDb.user.findUnique = vi.fn().mockResolvedValue({ id: 'user', status: 'ACTIVE', roles: [{ role: { key: 'CUSTOMER' } }] })
+  expect(await getCurrentUser()).toMatchObject({ roles: ['CUSTOMER'], permissions: [] })
+  expect(mockedDb.user.findUnique).toHaveBeenCalledOnce()
 })
 
 describe('avatar URL allowlist (server-side)', () => {

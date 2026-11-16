@@ -6,6 +6,7 @@ import { WebsiteAppearance } from '@/components/admin/cms/website-appearance'
 import { AdminConfirmDialog } from '@/components/admin/admin-confirm-dialog'
 import './pro-additions.css'
 import { useCallback, useEffect, useState } from 'react'
+import { startSocialSignIn } from '@/lib/auth/social-sign-in'
 import { Building2, CheckCircle2, CircleDollarSign, Cloud, Globe2, KeyRound, LogIn, Mail, MapPinned, Palette, PlugZap, Plus, QrCode, Share2, ShieldCheck } from 'lucide-react'
 import { WhatsAppGlyph } from '@/components/support/whatsapp-chat'
 import { PageHead } from '@/components/admin/admin-shell'
@@ -775,10 +776,32 @@ function OAuthTab({ provider, snapshot, canWrite, onSaved }: TabShell & { provid
   const secretKey = isGoogle ? 'auth.google.clientSecret' : 'auth.facebook.appSecret'
   const enabledKey = isGoogle ? 'auth.google.enabled' : 'auth.facebook.enabled'
   const t = useTabState(snapshot, (snap) => ({
-    enabled: val(snap, enabledKey, 'true') === 'true',
+    enabled: val(snap, enabledKey, 'false') === 'true',
     clientId: val(snap, idKey, ''),
     clientSecret: '',
   }))
+  const [oauthStatus, setOAuthStatus] = useState<{ provider: string; configured: boolean; test: boolean | null; callbackUrl: string; deletionUrl?: string } | null>(null)
+  useEffect(() => {
+    if (!canWrite || !snapshot) return
+    const controller = new AbortController()
+    fetch(`/api/auth/social/${provider}`, { signal: controller.signal, cache: 'no-store' })
+      .then(async (response) => {
+        if (response.ok && !controller.signal.aborted) setOAuthStatus({ ...await response.json(), provider })
+      }).catch(() => {})
+    return () => controller.abort()
+  }, [canWrite, provider, snapshot])
+  const status = oauthStatus?.provider === provider ? oauthStatus : null
+  const [testing, setTesting] = useState(false)
+
+  const testLogin = async () => {
+    setTesting(true)
+    try {
+      await startSocialSignIn(provider, 'test')
+    } catch {
+      toast.error(ar ? 'تعذر بدء اختبار الدخول.' : 'Could not start the login test.', { dedupeKey: 'settings-error' })
+      setTesting(false)
+    }
+  }
 
   const save = async () => {
     t.setSaving(true)
@@ -790,7 +813,8 @@ function OAuthTab({ provider, snapshot, canWrite, onSaved }: TabShell & { provid
         [secretKey]: t.form.clientSecret,
       })
       onSaved(next)
-      toast.success(ar ? 'تم حفظ الإعدادات. تسجيل الدخول غير مفعل بعد.' : 'Configuration saved. Social login not live yet.', { dedupeKey: 'settings-save' })
+      setOAuthStatus(null)
+      toast.success(ar ? 'تم حفظ الإعدادات.' : 'Configuration saved.', { dedupeKey: 'settings-save' })
     } catch (e) {
       toast.error(e instanceof Error ? e.message : (ar ? 'فشل الحفظ.' : 'Save failed.'), { dedupeKey: 'settings-error' })
     } finally {
@@ -803,7 +827,7 @@ function OAuthTab({ provider, snapshot, canWrite, onSaved }: TabShell & { provid
       <div className="sp-integration-summary">
         <span className={cn('sp-integration-icon', isGoogle ? 'red' : 'facebook')}>{isGoogle ? <GoogleIcon size={22} /> : <FacebookIcon size={22} />}</span>
         <div className="sp-integration-copy"><strong>{isGoogle ? <AdminText en="Google customer login" ar="تسجيل دخول العملاء بجوجل" /> : <AdminText en="Facebook customer login" ar="تسجيل دخول العملاء بفيسبوك" />}</strong><p>{isGoogle ? <AdminText en="Allow customers to create or access their account with Google." ar="اسمح للعملاء بإنشاء حساباتهم أو الوصول إليها بجوجل." /> : <AdminText en="Allow customers to create or access their account with Facebook." ar="اسمح للعملاء بإنشاء حساباتهم أو الوصول إليها بفيسبوك." />}</p></div>
-        <div className="sp-integration-controls"><IntegrationStatus label={<AdminText en="Not connected" ar="غير متصل" />} /><IntegrationToggle checked={t.form.enabled} onChange={() => t.setForm((f) => ({ ...f, enabled: !f.enabled }))} disabled={!canWrite || t.saving} /></div>
+        <div className="sp-integration-controls"><IntegrationStatus label={status?.test === true ? <AdminText en="Login test passed" ar="نجح اختبار الدخول" /> : status?.test === false ? <AdminText en="Login test failed" ar="فشل اختبار الدخول" /> : status?.configured ? <AdminText en="Configured, not tested" ar="تم الإعداد دون اختبار" /> : <AdminText en="Not verified" ar="لم يتم التحقق" />} /><IntegrationToggle checked={t.form.enabled} onChange={() => t.setForm((f) => ({ ...f, enabled: !f.enabled }))} disabled={!canWrite || t.saving} /></div>
       </div>
       <section className="sp-integration-panel">
         <div className="sp-form">
@@ -811,9 +835,8 @@ function OAuthTab({ provider, snapshot, canWrite, onSaved }: TabShell & { provid
             <>
               <label><AdminText en="Google OAuth Client ID" ar="معرف عميل Google OAuth" /><input value={t.form.clientId} onChange={(e) => t.setForm((f) => ({ ...f, clientId: e.target.value }))} placeholder={ar ? 'أدخل معرف عميل Google OAuth' : 'Enter Google OAuth Client ID'} dir="ltr" disabled={!canWrite || t.saving} /></label>
               <SecretField labelEn="Google OAuth Client Secret" labelAr="سر عميل Google OAuth" value={t.form.clientSecret} onChange={(clientSecret) => t.setForm((f) => ({ ...f, clientSecret }))} configured={secretConfigured(snapshot, secretKey)} disabled={!canWrite || t.saving} />
-              <label><AdminText en="Authorized JavaScript origin" ar="مصدر JavaScript المعتمد" /><input value="https://starpyramids.com" readOnly dir="ltr" /></label>
-              <label><AdminText en="Authorized redirect URI" ar="رابط إعادة التوجيه المعتمد" /><input value="https://starpyramids.com/api/auth/callback/google" readOnly dir="ltr" /></label>
-              <label><AdminText en="Requested scopes" ar="النطاقات المطلوبة" /><input value="openid email profile" readOnly dir="ltr" /></label>
+              <label><AdminText en="Authorized redirect URI" ar="رابط إعادة التوجيه المعتمد" /><input value={status?.callbackUrl ?? 'https://starpyramids.com/api/auth/callback/google'} readOnly dir="ltr" /></label>
+              <label><AdminText en="Requested scopes" ar="النطاقات المطلوبة" /><input value="openid" readOnly dir="ltr" /></label>
             </>
           ) : (
             <>
@@ -821,21 +844,18 @@ function OAuthTab({ provider, snapshot, canWrite, onSaved }: TabShell & { provid
                 <label><AdminText en="Facebook App ID" ar="معرف تطبيق فيسبوك" /><input value={t.form.clientId} onChange={(e) => t.setForm((f) => ({ ...f, clientId: e.target.value }))} placeholder={ar ? 'أدخل معرف تطبيق فيسبوك' : 'Enter Facebook App ID'} dir="ltr" disabled={!canWrite || t.saving} /></label>
                 <SecretField labelEn="Facebook App Secret" labelAr="سر تطبيق فيسبوك" value={t.form.clientSecret} onChange={(clientSecret) => t.setForm((f) => ({ ...f, clientSecret }))} configured={secretConfigured(snapshot, secretKey)} disabled={!canWrite || t.saving} />
               </div>
-              <label><AdminText en="Valid OAuth redirect URI" ar="رابط إعادة توجيه OAuth الصالح" /><input value="https://starpyramids.com/api/auth/callback/facebook" readOnly dir="ltr" /></label>
-              <label><AdminText en="Data deletion callback" ar="رابط حذف البيانات" /><input value="https://starpyramids.com/api/auth/facebook/data-deletion" readOnly dir="ltr" /></label>
-              <label><AdminText en="Requested permissions" ar="الأذونات المطلوبة" /><input value="public_profile,email" readOnly dir="ltr" /></label>
+              <label><AdminText en="Valid OAuth redirect URI" ar="رابط إعادة توجيه OAuth الصالح" /><input value={status?.callbackUrl ?? 'https://starpyramids.com/api/auth/callback/facebook'} readOnly dir="ltr" /></label>
+              <label><AdminText en="Data deletion callback" ar="رابط حذف بيانات فيسبوك" /><input value={status?.deletionUrl ?? 'https://starpyramids.com/api/auth/facebook/data-deletion'} readOnly dir="ltr" /></label>
+              <label><AdminText en="Requested permissions" ar="الأذونات المطلوبة" /><input value="public_profile" readOnly dir="ltr" /></label>
             </>
           )}
         </div>
-        <PendingNote>{isGoogle
-          ? <AdminText en="The client secret stays on the server. Real Google sign-in requires the OAuth callback + secure session handling (pending)." ar="يبقى سر العميل في الخادم. يتطلب تسجيل الدخول الحقيقي بجوجل رد OAuth وإدارة جلسات آمنة (معلق)." />
-          : <AdminText en="Keep the App Secret on the server and configure the production domain in Meta. Real Facebook login requires the OAuth callback (pending)." ar="أبق سر التطبيق في الخادم واضبط نطاق الإنتاج في Meta. يتطلب تسجيل فيسبوك الحقيقي رد OAuth (معلق)." />}</PendingNote>
+        <PendingNote><AdminText en="Save your credentials and register the redirect URI with the provider. Test the saved configuration before enabling customer login." ar="احفظ بيانات الربط وسجّل رابط العودة لدى المزوّد. اختبر الإعدادات المحفوظة قبل تفعيل تسجيل دخول العملاء." /></PendingNote>
         {!canWrite && <ReadOnlyNote />}
         <p className="sp-integration-note"><KeyRound size={15} /> <AdminText en="Secrets are never exposed in frontend code." ar="لا تكشف الأسرار في كود الواجهة أبدا." /></p>
         <div className="sp-integration-actions">
           <button type="button" className="sp-btn primary" onClick={save} disabled={!canWrite || t.saving}>{t.saving ? <AdminText en="Saving…" ar="جارٍ الحفظ…" /> : <AdminText en="Save configuration" ar="حفظ الإعدادات" />}</button>
-          <button type="button" className="sp-btn" disabled title={ar ? 'يتطلب رد OAuth الخلفي (معلق)' : 'Requires the backend OAuth callback (pending)'}><LogIn size={17} /> {isGoogle ? <AdminText en="Connect Google" ar="ربط جوجل" /> : <AdminText en="Connect Facebook" ar="ربط فيسبوك" />}</button>
-          <button type="button" className="sp-btn" disabled title={ar ? 'يتاح بعد تنفيذ رد OAuth' : 'Available after the OAuth callback is implemented'}><AdminText en="Test login" ar="اختبار الدخول" /></button>
+          <button type="button" className="sp-btn" onClick={() => void testLogin()} disabled={!canWrite || !status?.configured || t.saving || testing}><LogIn size={17} /> <AdminText en="Test saved login" ar="اختبار الدخول المحفوظ" /></button>
         </div>
         <SaveFeedback error={t.error} />
       </section>
@@ -872,6 +892,8 @@ export default function SettingsPage() {
 
   useEffect(() => {
     void load()
+    const tested = new URLSearchParams(window.location.search).get('socialTest')
+    if (tested === 'google' || tested === 'facebook') setTab(`${tested}-auth`)
   }, [load])
 
   const activeTab = tabs.find((t) => t.id === tab)

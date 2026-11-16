@@ -99,6 +99,9 @@ export async function getCurrentUser(): Promise<PublicUser | null> {
     },
   });
   if (!row || row.status !== 'ACTIVE') return null;
+  if (session.customerOnly) {
+    return row.roles.length === 1 && row.roles[0].role.key === 'CUSTOMER' ? toPublicUser(row) : null;
+  }
   // Rolling renewal already happened inside getSession (DB row + cookie
   // together); no second touch here to avoid a duplicate write per read.
   return toPublicUser(row, await resolvePermissionKeys(row.id));

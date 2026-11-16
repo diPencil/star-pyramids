@@ -29,13 +29,14 @@ export interface SessionRecord {
   id: string;
   userId: string;
   expiresAt: Date;
+  customerOnly?: true;
 }
 
 export async function createSession(
   userId: string,
-  meta?: { ipAddress?: string; userAgent?: string },
+  meta?: { ipAddress?: string; userAgent?: string; customerOnly?: true },
 ): Promise<{ token: string; record: SessionRecord }> {
-  const token = generateOpaqueToken();
+  const token = (meta?.customerOnly ? 'customer.' : '') + generateOpaqueToken();
   const record = await db.session.create({
     data: {
       tokenHash: hashToken(token),
@@ -85,7 +86,7 @@ export async function getSession(): Promise<SessionRecord | null> {
   } catch {
     // Read-only cookie context: the read stays valid without renewal.
   }
-  return { ...row, expiresAt: renewedAt };
+  return { ...row, expiresAt: renewedAt, ...(token.startsWith('customer.') ? { customerOnly: true as const } : {}) };
 }
 
 export async function touchSession(id: string): Promise<void> {

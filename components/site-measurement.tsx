@@ -8,6 +8,7 @@ import { GTM_READY_EVENT, initializeGtm, readTrackingConsent, subscribeToTrackin
 import { createPageViewTracker } from '@/lib/tracking/tracking-events'
 import { flushBookingFunnel, FUNNEL_STORAGE_PREFIX } from '@/lib/tracking/leads/booking-funnel'
 import { installTrackingHealthResponder } from '@/lib/tracking/health/tracking-health-browser'
+import { flushSocialMeasurements } from '@/lib/tracking/auth/social-measurement-browser'
 
 function PublicPageViews({ enabled, refresh }: { enabled: boolean; refresh: () => void }) {
   const pathname = usePathname()
@@ -40,7 +41,7 @@ function PublicPageViews({ enabled, refresh }: { enabled: boolean; refresh: () =
   return null
 }
 
-export function SiteMeasurement({ containerId, explicitPageViews }: { containerId: string | null; explicitPageViews: boolean }) {
+export function SiteMeasurement({ containerId, explicitPageViews, pendingSocialMeasurement = false }: { containerId: string | null; explicitPageViews: boolean; pendingSocialMeasurement?: boolean }) {
   const analyticsAllowed = useRef(false)
   const [mountAnalytics, setMountAnalytics] = useState(false)
   const [analyticsGranted, setAnalyticsGranted] = useState(false)
@@ -54,15 +55,20 @@ export function SiteMeasurement({ containerId, explicitPageViews }: { containerI
     setAnalyticsGranted(analytics)
     if (analytics) setMountAnalytics(true)
     void flushBookingFunnel(window, process.env.NODE_ENV)
-  }, [containerId])
+    if (containerId && pendingSocialMeasurement) void flushSocialMeasurements(window, process.env.NODE_ENV)
+  }, [containerId, pendingSocialMeasurement])
 
   useEffect(() => {
     const flush = () => { void flushBookingFunnel(window, process.env.NODE_ENV) }
+    const onReady = () => {
+      flush()
+      if (containerId && pendingSocialMeasurement) void flushSocialMeasurements(window, process.env.NODE_ENV)
+    }
     const stopDiagnostics = installTrackingHealthResponder(window, process.env.NODE_ENV, containerId)
     const onStorage = (event: StorageEvent) => {
       if (event.key?.startsWith(FUNNEL_STORAGE_PREFIX)) flush()
     }
-    window.addEventListener(GTM_READY_EVENT, flush)
+    window.addEventListener(GTM_READY_EVENT, onReady)
     window.addEventListener('storage', onStorage)
     window.addEventListener('online', refresh)
     const unsubscribe = subscribeToTrackingConsent(window, refresh)
@@ -72,11 +78,11 @@ export function SiteMeasurement({ containerId, explicitPageViews }: { containerI
       unsubscribe()
       stopDiagnostics()
       stopLocation()
-      window.removeEventListener(GTM_READY_EVENT, flush)
+      window.removeEventListener(GTM_READY_EVENT, onReady)
       window.removeEventListener('storage', onStorage)
       window.removeEventListener('online', refresh)
     }
-  }, [refresh])
+  }, [refresh, containerId, pendingSocialMeasurement])
 
   const beforeSend: BeforeSend = event => {
     // Keep this guard after consent is withdrawn. The library script can

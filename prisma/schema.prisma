@@ -50,6 +50,7 @@ model User {
   notifications                Notification[]
   reviews                      Review[]
   sessions                     Session[]
+  socialIdentities             SocialIdentity[]
   auditActions                 StaffActionAudit[]    @relation("AuditActor")
   assignedSupportConversations SupportConversation[] @relation("SupportAssignee")
   supportConversations         SupportConversation[] @relation("SupportCustomer")
@@ -60,6 +61,28 @@ model User {
 
   @@index([status])
   @@map("users")
+}
+
+model SocialIdentity {
+  provider  String   @db.VarChar(16)
+  namespace String   @db.Char(64)
+  subject   String   @db.VarChar(255)
+  userId    String
+  createdAt DateTime @default(now())
+  authorizedAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, namespace, subject])
+  @@unique([userId, provider, namespace])
+  @@map("social_identities")
+}
+
+model FacebookLoginRevocation {
+  identityKey    String    @id @db.Char(64)
+  revokedThrough DateTime?
+
+  @@index([revokedThrough])
+  @@map("facebook_login_revocations")
 }
 
 model UserRole {
