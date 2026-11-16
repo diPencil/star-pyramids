@@ -2,10 +2,14 @@ import { NextResponse } from 'next/server'
 import { bookingSameOrigin } from '@/lib/server/booking/booking-request-security'
 import { confirmationCookieFromHeader, readBookingConfirmation } from '@/lib/server/booking/access/booking-confirmation'
 import { readBoundedJson } from '@/lib/server/request-json'
+import { CONFIRMATION_ACK_HEADER } from '@/lib/booking/booking-confirmation'
 
 export async function POST(request: Request) {
   const headers = { 'Cache-Control': 'private, no-store', 'Referrer-Policy': 'no-referrer' }
-  if (!bookingSameOrigin(request)) return NextResponse.json({ ready: false }, { status: 403, headers })
+  const origin = request.headers.get('origin')
+  const sameOriginWithoutReferrer = (!origin || origin === 'null') && !request.headers.has('referer') &&
+    request.headers.get('sec-fetch-site') === 'same-origin' && request.headers.get(CONFIRMATION_ACK_HEADER) === '1'
+  if (!bookingSameOrigin(request) && !sameOriginWithoutReferrer) return NextResponse.json({ ready: false }, { status: 403, headers })
   let input: unknown
   try { input = await readBoundedJson(request, 256) } catch { return NextResponse.json({ ready: false }, { status: 400, headers }) }
   if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some(key => key !== 'flow')) {

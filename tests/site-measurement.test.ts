@@ -7,6 +7,7 @@ import { GTM_CONSENT_READY_EVENT, readTrackingGrants } from '@/lib/tracking/trac
 import { FUNNEL_STORAGE_PREFIX } from '@/lib/tracking/leads/booking-funnel'
 import { submitTripRequest } from '@/lib/trip-builder/trip-request-submission'
 import type { MakeYourTripRequestDraft } from '@/lib/trip-builder/trip-request'
+import { TourViewMeasurement } from '@/components/tours/detail/tour-view-measurement'
 
 const effects = vi.hoisted(() => [] as Array<() => void | (() => void)>)
 vi.mock('react', async original => ({
@@ -25,9 +26,9 @@ afterEach(() => {
   vi.unstubAllEnvs()
 })
 
-function mount(path: string, modern: boolean, granted = true) {
+function mount(path: string, modern: boolean, granted = true, renderChild?: () => void) {
   const origin = 'https://starpyramids.com'
-  const location = { href: origin + path }
+  const location = { href: origin + path, get pathname() { return new URL(this.href).pathname } }
   const navigation = modern ? new EventTarget() : undefined
   const values = new Map(granted ? [[TRACKING_CONSENT_STORAGE_KEY, '{"analytics":true,"marketing":false}']] : [])
   const script: { onload?: () => void; onerror?: () => void } = {}
@@ -58,6 +59,7 @@ function mount(path: string, modern: boolean, granted = true) {
   vi.stubEnv('NODE_ENV', 'production')
   vi.stubGlobal('window', browser)
   installEnquiryHistoryTracking(browser as unknown as Window)
+  renderChild?.()
   SiteMeasurement({ containerId: 'GTM-TEST', explicitPageViews: false })
   for (const effect of effects.splice(0)) {
     const cleanup = effect()
@@ -65,6 +67,45 @@ function mount(path: string, modern: boolean, granted = true) {
   }
   return { browser, origin, location, navigation, script, appendChild }
 }
+
+it.each(['one-day-tours', 'multi-days-tours', 'nile-cruises', 'shore-excursions'] as const)('dispatches one %s detail view with the canonical item ID', async category => {
+  const routeSlug = 'long-tourslugwithmorethanthirtytwolettersforsale'
+  const { browser, script, appendChild } = mount(`/egypt-tours/${routeSlug}?gtm_debug=x`, false)
+  TourViewMeasurement({ routeSlug, itemId: 'canonical-tour', category })
+  const stop = effects.pop()?.()
+  if (stop) cleanups.push(stop)
+  expect(appendChild).toHaveBeenCalledOnce()
+  expect(browser.dataLayer).not.toContainEqual(expect.objectContaining({ event: 'sp_view_item' }))
+  script.onload?.()
+  browser.dispatchEvent(new Event('sp:location-change'))
+  await Promise.resolve()
+  expect(browser.dataLayer.filter(entry => (entry as { event?: string }).event === 'sp_view_item')).toEqual([{
+    event: 'sp_view_item', items: [{ item_id: 'canonical-tour', item_category: category }],
+  }])
+})
+
+it('dispatches after the first Analytics grant when the tour listener runs before SiteMeasurement', async () => {
+  const { browser, script } = mount('/egypt-tours/cairo', false, false, () => {
+    TourViewMeasurement({ routeSlug: 'cairo', itemId: 'cairo', category: 'one-day-tours' })
+  })
+  script.onload?.()
+  const event = { event: 'sp_view_item', items: [{ item_id: 'cairo', item_category: 'one-day-tours' }] }
+  expect(browser.dataLayer).not.toContainEqual(event)
+  const choice = { analytics: true, marketing: false }
+  browser.localStorage.setItem(TRACKING_CONSENT_STORAGE_KEY, JSON.stringify(choice))
+  browser.dispatchEvent(Object.assign(new Event('sp:consent-change'), { detail: choice }))
+  await Promise.resolve()
+  expect(browser.dataLayer.filter(entry => (entry as { event?: string }).event === 'sp_view_item')).toEqual([event])
+})
+
+it.each([['/egypt-tours/cairo?token=private', true], ['/egypt-tours/cairo', false]] as const)('does not emit a detail event for %s with Analytics consent %s', (path, consent) => {
+  const { browser, script } = mount(path, false, consent)
+  TourViewMeasurement({ routeSlug: 'cairo', itemId: 'cairo', category: 'one-day-tours' })
+  const stop = effects.pop()?.()
+  if (stop) cleanups.push(stop)
+  script.onload?.()
+  expect(browser.dataLayer).not.toContainEqual(expect.objectContaining({ event: 'sp_view_item' }))
+})
 
 it.each(['/trips', '/checkout?gtm_debug=x'])('mounts one Advanced container with optional consent denied on %s', path => {
   const { browser, script, appendChild } = mount(path, false, false)

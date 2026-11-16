@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { openBookingConfirmation } from '@/lib/booking/booking-confirmation'
 import { afterEach, expect, it, vi } from 'vitest'
-import { bookingMeasurementHeaders, flushBookingFunnel, FUNNEL_STORAGE_PREFIX, recordBeginCheckout, recordBookingReceipt, recordBookNowClick, recordCartAddition, recordTripRequestReceipt, resetCheckoutStart, tripRequestMeasurementGrants } from '@/lib/tracking/leads/booking-funnel'
+import { bookingMeasurementHeaders, flushBookingFunnel, FUNNEL_STORAGE_PREFIX, recordBeginCheckout, recordBookingReceipt, recordBookNowClick, recordCartAddition, recordCheckoutContinue, recordTripRequestReceipt, resetCheckoutStart, tripRequestMeasurementGrants } from '@/lib/tracking/leads/booking-funnel'
 import { BOOKING_MEASUREMENT_HEADER, parseBookingFunnelEvent } from '@/lib/tracking/leads/booking-measurement'
 import { TRACKING_CONSENT_STORAGE_KEY } from '@/lib/tracking/tracking'
 import { initializeGtm, readTrackingConsent, updateGoogleConsent } from '@/lib/tracking/tracking-browser'
@@ -72,6 +72,69 @@ function setConsent(local: Storage, analytics: boolean, marketing?: string, anal
 afterEach(() => {
   vi.unstubAllGlobals()
   vi.unstubAllEnvs()
+})
+
+it('recovers a Continue click after a full checkout navigation and emits it only once', async () => {
+  const summary = documentAt('/checkout')
+  setConsent(summary.local, true)
+  summary.boot()
+  recordCheckoutContinue(summary.browser, environment)
+  expect(summary.layer).toEqual([])
+
+  const details = documentAt('/checkout/details', summary.local)
+  await flushBookingFunnel(details.browser, environment)
+  expect(details.layer).toEqual([])
+
+  const confirmation = documentAt('/booking-confirmation', summary.local)
+  confirmation.boot(); confirmation.ready()
+  await flushBookingFunnel(confirmation.browser, environment)
+  await flushBookingFunnel(confirmation.browser, environment)
+  expect(confirmation.layer).toEqual([{ event: 'sp_checkout_continue' }])
+})
+
+it('dispatches Continue immediately without including its queue ID or saving a duplicate', async () => {
+  const summary = documentAt('/checkout')
+  setConsent(summary.local, true)
+  summary.boot(); summary.ready()
+  const storedCount = summary.local.length
+  recordCheckoutContinue(summary.browser, environment)
+  expect(summary.local.length).toBe(storedCount)
+  await flushBookingFunnel(summary.browser, environment)
+  expect(summary.layer).toEqual([{ event: 'sp_checkout_continue' }])
+})
+
+it.each([
+  ['/cart', true, environment], ['/checkout/details', true, environment],
+  ['/checkout?token=private', true, environment], ['/checkout#private', true, environment],
+  ['/checkout', false, environment], ['/checkout', true, 'development'],
+] as const)('blocks Continue on %s with Analytics %s in %s', async (path, consent, runtime) => {
+  const page = documentAt(path)
+  setConsent(page.local, consent, marketingGrant)
+  page.boot(); page.ready()
+  recordCheckoutContinue(page.browser, runtime)
+  await flushBookingFunnel(page.browser, environment)
+  expect(page.layer).toEqual([])
+  expect(Array.from({ length: page.local.length }, (_, index) => page.local.key(index))
+    .some(key => key?.startsWith(FUNNEL_STORAGE_PREFIX))).toBe(false)
+})
+
+it.each(['withdrawal', 'expiry'])('drops a deferred Continue click after %s', async reason => {
+  const now = Date.now()
+  const clock = vi.spyOn(Date, 'now').mockReturnValue(now)
+  try {
+    const summary = documentAt('/checkout')
+    setConsent(summary.local, true)
+    summary.boot()
+    recordCheckoutContinue(summary.browser, environment)
+    if (reason === 'withdrawal') setConsent(summary.local, true, undefined, newAnalyticsGrant)
+    else clock.mockReturnValue(now + 15 * 60 * 1000)
+    const confirmation = documentAt('/booking-confirmation', summary.local)
+    confirmation.boot(); confirmation.ready()
+    await flushBookingFunnel(confirmation.browser, environment)
+    expect(confirmation.layer).toEqual([])
+  } finally {
+    clock.mockRestore()
+  }
 })
 
 it('dispatches Book Now synchronously when GTM is ready, with only safe interaction fields', () => {

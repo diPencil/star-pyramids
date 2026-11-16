@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { SiteShell } from '@/components/site'
 import { TourDetailPage } from '@/components/tours/detail/tour-detail'
 import { DayTourDetailPage } from '@/components/tours/detail/day-tour-detail'
+import { TourViewMeasurement } from '@/components/tours/detail/tour-view-measurement'
 import { findTourBySlug, getRelatedDbTours, listTourRouteSlugs } from '@/lib/server/catalogue/tours'
 import { isTourPublished } from '@/lib/tours/tour-publish'
 import { generateTouristTripJsonLd, generateBreadcrumbJsonLd, renderJsonLd } from '@/lib/seo/structured-data'
@@ -56,6 +57,7 @@ export default async function TourPage({ params }: { params: Promise<{ slug: str
     <>
       {schemaEnabled && renderJsonLd(tourJsonLd)}
       {schemaEnabled && renderJsonLd(breadcrumbJsonLd)}
+      <TourViewMeasurement routeSlug={slug} itemId={tour.slug} category={tour.category} />
       <SiteShell initialLocale={serverLocale}>{tour.category === 'one-day-tours' ? <DayTourDetailPage tour={tour} related={related} /> : <TourDetailPage tour={tour} related={related} />}</SiteShell>
     </>
   )

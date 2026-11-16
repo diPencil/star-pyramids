@@ -13,8 +13,7 @@ vi.mock('next/link', () => ({ default: ({ onNavigate, prefetch: _prefetch, ...pr
   if (props.href === '/checkout') measurement.navigate = onNavigate
   return createElement('a', props)
 } }))
-vi.mock('@/lib/tracking/leads/booking-funnel', async original => ({ ...await original<typeof import('@/lib/tracking/leads/booking-funnel')>(), recordBeginCheckout: measurement.begin }))
-vi.mock('@/lib/tracking/tracking-events', async original => ({ ...await original<typeof import('@/lib/tracking/tracking-events')>(), trackPublicInteraction: measurement.interaction }))
+vi.mock('@/lib/tracking/leads/booking-funnel', async original => ({ ...await original<typeof import('@/lib/tracking/leads/booking-funnel')>(), recordBeginCheckout: measurement.begin, recordCheckoutContinue: measurement.interaction }))
 vi.mock('@/lib/tours/tours-client', () => ({ useDbToursStatus: () => ({ data: state.data, loading: state.data === null && !state.error, error: state.error, retry: state.retry }) }))
 vi.mock('@/lib/booking/cart', () => ({ useCart: () => ({ items: state.items }), clearCart: () => state.clear(), removeFromCart: vi.fn() }))
 vi.mock('@/components/site', () => ({ SiteShell: ({ children }: { children: ReactNode }) => children, Breadcrumb: () => null }))
@@ -95,7 +94,7 @@ it('records a separate event on Continue while keeping the native details link',
   const preventDefault = vi.fn()
   link!.onClick({ preventDefault })
   expect(measurement.begin).toHaveBeenCalledExactlyOnceWith(browser, process.env.NODE_ENV, ['alexandria-full-day-tour'])
-  expect(measurement.interaction).toHaveBeenCalledExactlyOnceWith({ event: 'sp_checkout_continue' })
+  expect(measurement.interaction).toHaveBeenCalledExactlyOnceWith(browser, process.env.NODE_ENV)
   expect(preventDefault).not.toHaveBeenCalled()
   expect(browser.location.assign).not.toHaveBeenCalled()
 })

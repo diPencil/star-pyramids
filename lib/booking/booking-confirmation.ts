@@ -10,6 +10,7 @@ export type CheckoutReceipt = {
 
 export const CONFIRMATION_FLOW = /^[a-f0-9]{32}$/
 export const CHECKOUT_DETAILS_PATH = '/checkout/details'
+export const CONFIRMATION_ACK_HEADER = 'x-sp-booking-confirmation'
 
 /** The flow selects an HttpOnly context; it is not a booking access token. */
 export async function openBookingConfirmation(browser: Window, target: unknown): Promise<boolean> {
@@ -26,8 +27,8 @@ export async function openBookingConfirmation(browser: Window, target: unknown):
     for (let attempt = 0; attempt < 2 && !controller.signal.aborted && browser.location.href === source; attempt++) {
       try {
         const response = await browser.fetch('/api/bookings/confirmation', {
-          method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ flow }),
-          credentials: 'same-origin', cache: 'no-store', redirect: 'error', signal: controller.signal,
+          method: 'POST', headers: { 'content-type': 'application/json', [CONFIRMATION_ACK_HEADER]: '1' }, body: JSON.stringify({ flow }),
+          credentials: 'same-origin', cache: 'no-store', redirect: 'error', referrerPolicy: 'origin', signal: controller.signal,
         })
         if (response.status >= 500) continue
         if (!response.ok || (await response.json()).ready !== true) return false

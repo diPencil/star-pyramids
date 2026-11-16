@@ -13,6 +13,7 @@ const PUBLIC_PAGES = new Set([
   '/rent-car', '/rent-car/request', '/contact', '/terms', '/trips', '/make-your-trip', '/cart', '/checkout', '/booking-confirmation',
 ])
 const CATALOGUE_PATH = /^\/(?:blogs|destinations|egypt-tours|events|special-offers)(?:\/[a-z0-9]{1,32}(?:-[a-z0-9]{1,32})*){0,3}$/
+const TOUR_DETAIL_PATH = /^\/egypt-tours\/(?=[a-z0-9-]{1,80}$)[a-z0-9]+(?:-[a-z0-9]+)*$/
 // Literal section links already rendered by the public site. Unknown fragments
 // may contain credentials; never treat a well-formed fragment as safe by itself.
 const PUBLIC_ANCHORS: Readonly<Record<string, readonly string[]>> = {
@@ -120,7 +121,7 @@ export function isProductionTrackingHost(environment: string | undefined, host: 
 export function isSafeTrackingUrl(url: URL): boolean {
   if (url.username || url.password) return false
   const path = url.pathname.replace(/\/$/, '') || '/'
-  if (!PUBLIC_PAGES.has(path) && !CATALOGUE_PATH.test(path)) return false
+  if (!PUBLIC_PAGES.has(path) && !CATALOGUE_PATH.test(path) && !TOUR_DETAIL_PATH.test(path)) return false
   if (url.hash && !PUBLIC_ANCHORS[path]?.includes(url.hash) &&
       !(EVENT_DETAIL.test(path) && ['#event-book', '#event-program'].includes(url.hash)) &&
       !(DESTINATION_DETAIL.test(path) && url.hash === '#destination-experiences')) return false

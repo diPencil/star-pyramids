@@ -8,9 +8,8 @@ import { formatPrice, tx, useLocale } from '../../locale'
 import { clearCart, removeFromCart, useCart } from '@/lib/booking/cart'
 import { useCartCatalogue } from '@/lib/booking/cart-catalogue'
 import { CHECKOUT_DETAILS_PATH } from '@/lib/booking/booking-confirmation'
-import { recordBeginCheckout, resetCheckoutStart } from '@/lib/tracking/leads/booking-funnel'
+import { recordBeginCheckout, recordCheckoutContinue, resetCheckoutStart } from '@/lib/tracking/leads/booking-funnel'
 import { GTM_READY_EVENT, subscribeToTrackingConsent } from '@/lib/tracking/tracking-browser'
-import { trackPublicInteraction } from '@/lib/tracking/tracking-events'
 import { CartLineIssues } from './cart-line-issues'
 import { CartCatalogueStatus } from './cart-catalogue-status'
 
@@ -24,7 +23,7 @@ export function CartPage({ checkoutSummary = false }: { checkoutSummary?: boolea
   const checkoutLabel = tx(locale, { en: 'Checkout', es: 'Finalizar reserva', it: 'Completa la prenotazione' })
   const continueCheckout = () => {
     recordBeginCheckout(window, process.env.NODE_ENV, estimate.validLines.map(({ item }) => item.tourSlug))
-    trackPublicInteraction({ event: 'sp_checkout_continue' })
+    recordCheckoutContinue(window, process.env.NODE_ENV)
   }
 
   useEffect(() => {

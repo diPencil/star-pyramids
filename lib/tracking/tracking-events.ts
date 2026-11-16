@@ -19,7 +19,6 @@ export type PublicInteraction =
   | { event: 'sp_cta_click'; ctaId: typeof CTA_IDS[number] }
   | { event: 'sp_contact_click'; channel: typeof CONTACT_CHANNELS[number]; placement: typeof CONTACT_PLACEMENTS[number] }
   | { event: 'sp_whatsapp_open'; placement: 'support_widget' }
-  | { event: 'sp_checkout_continue' }
 
 export function queuePublicInteraction(browser: Window, environment: string | undefined, interaction: PublicInteraction): boolean {
   // Project only known fields. Callers cannot attach URLs, form data or labels.
@@ -43,11 +42,6 @@ export function queuePublicInteraction(browser: Window, environment: string | un
     case 'sp_whatsapp_open':
       if (interaction.placement !== 'support_widget') return false
       return pushPublicInteraction(browser, environment, { event, channel: 'whatsapp', placement: interaction.placement })
-    case 'sp_checkout_continue': {
-      const { pathname } = new URL(browser.location.href)
-      if (pathname !== '/checkout' && pathname !== '/checkout/') return false
-      return pushPublicInteraction(browser, environment, { event })
-    }
     default:
       return false
   }
@@ -63,6 +57,9 @@ export function queueBookingFunnelEvent(browser: Window, environment: string | u
     if (!grants || grants.analytics !== current.analytics) return false
     if (isFunnelLead(event)) {
       layer.push({ ...event, ads_eligible: Boolean(grants.marketing && grants.marketing === current.marketing) })
+    } else if (event.event === 'sp_checkout_continue') {
+      // The queue ID is for local deduplication only.
+      layer.push({ event: event.event })
     } else layer.push(event)
     return true
   } catch { return false }

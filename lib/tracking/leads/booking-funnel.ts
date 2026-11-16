@@ -8,7 +8,7 @@ export const FUNNEL_STORAGE_PREFIX = 'sp-funnel-v1:'
 const DELIVERED_PREFIX = 'sp-funnel-delivered-v1:'
 const CHECKOUT_KEY = 'sp-funnel-checkout-v1'
 const RETENTION_MS = 7 * 24 * 60 * 60 * 1000
-const BOOK_NOW_RETENTION_MS = 15 * 60 * 1000
+const FUNNEL_CLICK_RETENTION_MS = 15 * 60 * 1000
 type PendingRecord = { event: BookingFunnelEvent; capturedAt: number; grants: BookingMeasurementGrants }
 
 function isConsentedCheckout(browser: Window, environment: string | undefined): boolean {
@@ -52,7 +52,7 @@ function readPendingRecord(key: string, stored: string, now: number): PendingRec
     const capturedAt: unknown = record?.capturedAt
     const grants = bookingMeasurementGrants(record?.grants?.analytics, record?.grants?.marketing)
     if (event && grants && key === FUNNEL_STORAGE_PREFIX + event.event_id && typeof capturedAt === 'number' && Number.isFinite(capturedAt)) {
-      const retention = event.event === 'sp_book_now_click' ? BOOK_NOW_RETENTION_MS : RETENTION_MS
+      const retention = event.event === 'sp_book_now_click' || event.event === 'sp_checkout_continue' ? FUNNEL_CLICK_RETENTION_MS : RETENTION_MS
       if (capturedAt <= now && capturedAt + retention > now) return { event, capturedAt, grants }
     }
   } catch { /* Ignore malformed storage records. */ }
@@ -74,6 +74,18 @@ export function recordBookNowClick(browser: Window, environment: string | undefi
     // The cart can be a fresh document while GTM is still starting.
     remember(browser, event, grants)
   } catch { /* Measurement must never interfere with booking. */ }
+}
+
+export function recordCheckoutContinue(browser: Window, environment: string | undefined) {
+  try {
+    if (!/^\/checkout\/?$/.test(new URL(browser.location.href).pathname) || !canCaptureAnalytics(browser, environment)) return
+    const analytics = readTrackingGrants(browser).analytics
+    if (!analytics) return
+    const event = { event: 'sp_checkout_continue', event_id: 'f_' + browser.crypto.randomUUID() } as const
+    const grants = { analytics }
+    // The native details link can unload this document before GTM is ready.
+    if (!queueBookingFunnelEvent(browser, environment, event, grants)) remember(browser, event, grants)
+  } catch { /* Measurement must not delay or interrupt checkout navigation. */ }
 }
 
 export function recordCartAddition(browser: Window, environment: string | undefined, tourSlug: string) {
@@ -240,7 +252,7 @@ export async function flushBookingFunnel(browser: Window, environment: string | 
       }
       if (canDispatch) pending.push({ key, ...record })
     }
-    const order = { sp_book_now_click: 0, sp_add_to_cart: 1, sp_begin_checkout: 2, sp_booking_created: 3, trip_request_created: 3, enquiry_created: 3, car_request_created: 3, event_request_created: 3 }
+    const order = { sp_book_now_click: 0, sp_add_to_cart: 1, sp_begin_checkout: 2, sp_checkout_continue: 3, sp_booking_created: 4, trip_request_created: 4, enquiry_created: 4, car_request_created: 4, event_request_created: 4 }
     pending.sort((a, b) => a.capturedAt - b.capturedAt || order[a.event.event] - order[b.event.event])
     for (const { key, event, grants } of pending) {
       dispatchPendingEvent(browser, environment, key, event, grants)
