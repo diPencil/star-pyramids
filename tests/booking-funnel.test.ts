@@ -13,6 +13,7 @@ import { formLeadMeasurement } from '@/lib/server/tracking/leads/form-lead-measu
 import { validateTourWrite } from '@/lib/tours/tour-write'
 import type { FormLeadType, FormLeadName } from '@/lib/tracking/leads/booking-measurement'
 import { BOOKING_MEASUREMENT_STATUS_EVENT } from '@/lib/tracking/leads/booking-diagnostics'
+import { BOOKING_CLAIM_TIMEOUT_MS } from '@/lib/tracking/leads/booking-enqueue-claim'
 import { bookingClaimStorage } from './helpers/booking-claim-storage'
 
 const origin = 'https://starpyramids.com'
@@ -76,6 +77,7 @@ function setConsent(local: Storage, analytics: boolean, marketing?: string, anal
 }
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.unstubAllGlobals()
   vi.unstubAllEnvs()
 })
@@ -891,13 +893,17 @@ it('uses the completed local marker if the transaction aborts after the push', a
   expect(details.local.getItem(bookingKey)).toBeNull()
 })
 
-it('retains pending bookings while GTM or the shared claim store is unavailable', async () => {
+it.each(['missing', 'blocked'])('retains pending bookings while GTM is unready or IndexedDB is %s', async availability => {
   const details = documentAt('/checkout/details')
   setConsent(details.local, true)
   recordBookingReceipt(details.browser, environment, receipt)
   const page = documentAt('/booking-confirmation', details.local)
   const statuses = bookingStatuses(page.browser)
-  Object.assign(page.browser, { indexedDB: undefined })
+  const request = { onblocked: () => {} }
+  const indexedDB = availability === 'blocked' ? {
+    open() { queueMicrotask(() => request.onblocked()); return request },
+  } : undefined
+  Object.assign(page.browser, { indexedDB })
   page.boot()
   await flushBookingFunnel(page.browser, environment)
   page.ready()
@@ -905,6 +911,121 @@ it('retains pending bookings while GTM or the shared claim store is unavailable'
   expect(statuses).toEqual([{ stage: 'drain', status: 'waiting_for_gtm' }, { stage: 'dispatch', status: 'storage_failed' }])
   expect(page.layer).toEqual([])
   expect(details.local.getItem(bookingKey)).not.toBeNull()
+})
+
+it('drains unrelated events in both tabs while a booking open never settles', async () => {
+  vi.useFakeTimers()
+  const details = documentAt('/checkout/details')
+  setConsent(details.local, true)
+  recordBookingReceipt(details.browser, environment, receipt)
+  const summary = documentAt('/checkout', details.local)
+  summary.boot()
+  recordCheckoutContinue(summary.browser, environment)
+
+  const page = documentAt('/booking-confirmation', details.local)
+  const other = documentAt('/checkout', details.local)
+  let tail = Promise.resolve()
+  let locked = false
+  const locks = { request(_name: string, task: () => void) {
+    tail = tail.then(async () => {
+      locked = true
+      try { await task() } finally { locked = false }
+    })
+    return tail
+  } }
+  const open = vi.fn(() => {
+    expect(locked).toBe(false)
+    return {}
+  })
+  Object.assign(page.browser.navigator, { locks })
+  Object.assign(other.browser.navigator, { locks })
+  Object.assign(page.browser, { indexedDB: { open } })
+  Object.assign(other.browser, { indexedDB: undefined })
+  page.boot(); page.ready()
+  other.boot(); other.ready()
+  const statuses = bookingStatuses(page.browser)
+  const stalled = flushBookingFunnel(page.browser, environment)
+  await vi.advanceTimersByTimeAsync(0)
+  expect(open).toHaveBeenCalledOnce()
+  expect(statuses).toEqual([])
+  expect(page.layer).toEqual([{ event: 'sp_checkout_continue' }])
+
+  recordCartAddition(summary.browser, environment, 'cairo-tour')
+  await flushBookingFunnel(other.browser, environment)
+  expect(other.layer).toEqual([expect.objectContaining({ event: 'sp_add_to_cart' })])
+  expect(details.local.getItem(bookingKey)).not.toBeNull()
+  await vi.advanceTimersByTimeAsync(BOOKING_CLAIM_TIMEOUT_MS)
+  await stalled
+  expect(statuses).toEqual([{ stage: 'dispatch', status: 'claim_timed_out' }])
+  expect(details.local.getItem(bookingKey)).not.toBeNull()
+})
+
+it.each([
+  'open',
+  'claim write before timeout callback',
+  'claim write after timeout callback',
+] as const)('ignores a late %s and retries an unexpired booking once', async stage => {
+  vi.useFakeTimers()
+  const details = documentAt('/checkout/details')
+  setConsent(details.local, true)
+  recordBookingReceipt(details.browser, environment, receipt)
+  const page = documentAt('/booking-confirmation', details.local)
+  const statuses = bookingStatuses(page.browser)
+  const existing = { result: undefined, onsuccess: () => {} }
+  const claim = { onsuccess: () => {} }
+  const put = vi.fn(() => claim)
+  const abort = vi.fn()
+  const database = {
+    close: vi.fn(),
+    transaction: vi.fn(() => ({ abort, objectStore: () => ({ get: () => existing, put }) })),
+  }
+  const request = { result: database, onsuccess: () => {} }
+  Object.assign(page.browser, { indexedDB: { open: () => request } })
+  page.boot(); page.ready()
+  const pending = flushBookingFunnel(page.browser, environment)
+  if (stage !== 'open') {
+    request.onsuccess()
+    existing.onsuccess()
+    expect(put).toHaveBeenCalledExactlyOnceWith('claiming', booking.event_id)
+  }
+  if (stage === 'open') {
+    await vi.advanceTimersByTimeAsync(BOOKING_CLAIM_TIMEOUT_MS)
+    request.onsuccess()
+    expect(database.transaction).not.toHaveBeenCalled()
+  } else {
+    // A queued IDB task can reach the deadline before the timer callback runs.
+    if (stage === 'claim write before timeout callback') vi.setSystemTime(Date.now() + BOOKING_CLAIM_TIMEOUT_MS)
+    else await vi.advanceTimersByTimeAsync(BOOKING_CLAIM_TIMEOUT_MS)
+    claim.onsuccess()
+    expect(abort).toHaveBeenCalledOnce()
+    expect(put).toHaveBeenCalledTimes(1)
+  }
+  await pending
+  expect(database.close).toHaveBeenCalledOnce()
+  expect(statuses).toEqual([{ stage: 'dispatch', status: 'claim_timed_out' }])
+  expect(page.layer).toEqual([])
+  expect(details.local.getItem(bookingKey)).not.toBeNull()
+
+  const recovered = documentAt('/booking-confirmation', details.local)
+  recovered.boot(); recovered.ready()
+  await flushBookingFunnel(recovered.browser, environment)
+  await flushBookingFunnel(recovered.browser, environment)
+  expect(recovered.layer).toEqual([analyticsLead])
+  expect(details.local.getItem(bookingKey)).toBeNull()
+})
+
+it('drops a pending receipt that expires while waiting for a booking claim', async () => {
+  vi.useFakeTimers()
+  const details = documentAt('/checkout/details')
+  setConsent(details.local, true)
+  details.local.setItem(bookingKey, JSON.stringify({ ...receipt, capturedAt: Date.now() - 7 * 24 * 60 * 60 * 1000 + 1 }))
+  details.claims.beforeClaim = () => vi.setSystemTime(Date.now() + 1)
+  const page = documentAt('/booking-confirmation', details.local)
+  page.boot(); page.ready()
+  await flushBookingFunnel(page.browser, environment)
+  await flushBookingFunnel(page.browser, environment)
+  expect(page.layer).toEqual([])
+  expect(details.local.getItem(bookingKey)).toBeNull()
 })
 
 it('rechecks the original Analytics grant after waiting for a booking claim', async () => {

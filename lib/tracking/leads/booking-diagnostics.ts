@@ -4,7 +4,7 @@ type BookingMeasurementStatuses = {
   capture: 'disabled' | 'ineligible' | 'invalid_receipt' | 'queued' | 'already_queued' | 'already_enqueued' | 'storage_failed'
   acknowledgement: 'unavailable' | 'rejected' | 'timed_out' | 'request_failed' | 'navigation_interrupted' | 'ready'
   drain: 'waiting_for_gtm' | 'discarded' | 'storage_failed'
-  dispatch: 'enqueued' | 'already_enqueued' | 'ineligible' | 'push_failed' | 'storage_failed' | 'enqueue_unconfirmed'
+  dispatch: 'enqueued' | 'already_enqueued' | 'ineligible' | 'push_failed' | 'storage_failed' | 'claim_timed_out' | 'enqueue_unconfirmed'
 }
 
 export function reportBookingMeasurement<Stage extends keyof BookingMeasurementStatuses>(

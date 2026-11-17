@@ -260,7 +260,8 @@ export function discardPendingBookingFunnel(browser: Window, environment: string
 export async function flushBookingFunnel(browser: Window, environment: string | undefined) {
   const url = new URL(browser.location.href)
   if (url.protocol !== 'https:' || !isProductionTrackingHost(environment, url.host)) return
-  const flush = async () => {
+  const bookings: { key: string; eventId: string }[] = []
+  const flush = () => {
     const consent = readTrackingConsent(browser).analytics
     const currentGrants = readTrackingGrants(browser)
     const canDispatch = consent && Boolean(analyticsDataLayer(browser, environment))
@@ -285,13 +286,15 @@ export async function flushBookingFunnel(browser: Window, environment: string | 
     const order = { sp_book_now_click: 0, sp_add_to_cart: 1, sp_begin_checkout: 2, sp_checkout_continue: 3, sp_booking_created: 4, trip_request_created: 4, enquiry_created: 4, car_request_created: 4, event_request_created: 4 }
     pending.sort((a, b) => a.capturedAt - b.capturedAt || order[a.event.event] - order[b.event.event])
     for (const { key, event, grants } of pending) {
-      if (event.event === 'sp_booking_created') await dispatchPendingBooking(browser, environment, key, event.event_id)
+      if (event.event === 'sp_booking_created') bookings.push({ key, eventId: event.event_id })
       else dispatchPendingEvent(browser, environment, key, event, grants)
     }
   }
   try {
     const locks = browser.navigator?.locks
     if (locks) await locks.request('sp-booking-funnel', flush)
-    else await flush()
+    else flush()
+    // IndexedDB serializes booking claims independently of the shared funnel lock.
+    for (const { key, eventId } of bookings) await dispatchPendingBooking(browser, environment, key, eventId)
   } catch { reportBookingMeasurement(browser, 'drain', 'storage_failed') }
 }
