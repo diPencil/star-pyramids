@@ -48,21 +48,25 @@ export function queuePublicInteraction(browser: Window, environment: string | un
 }
 
 export function queueBookingFunnelEvent(browser: Window, environment: string | undefined, input: unknown, grants: BookingMeasurementGrants): boolean {
+  return enqueueBookingFunnelEvent(browser, environment, input, grants) === 'enqueued'
+}
+
+export function enqueueBookingFunnelEvent(browser: Window, environment: string | undefined, input: unknown, grants: BookingMeasurementGrants): 'enqueued' | 'ineligible' | 'push_failed' {
   const layer = analyticsDataLayer(browser, environment)
-  if (!layer) return false
+  if (!layer) return 'ineligible'
   const event = parseBookingFunnelEvent(input)
-  if (!event) return false
+  if (!event) return 'ineligible'
   try {
     const current = readTrackingGrants(browser)
-    if (!grants || grants.analytics !== current.analytics) return false
+    if (!grants || grants.analytics !== current.analytics) return 'ineligible'
     if (isFunnelLead(event)) {
       layer.push({ ...event, ads_eligible: Boolean(grants.marketing && grants.marketing === current.marketing) })
     } else if (event.event === 'sp_checkout_continue') {
       // The queue ID is for local deduplication only.
       layer.push({ event: event.event })
     } else layer.push(event)
-    return true
-  } catch { return false }
+    return 'enqueued'
+  } catch { return 'push_failed' }
 }
 
 export function trackPublicInteraction(interaction: PublicInteraction) {

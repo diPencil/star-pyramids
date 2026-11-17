@@ -12,6 +12,8 @@ import { beginFormLead, confirmFormLead } from '@/lib/tracking/leads/form-lead'
 import { formLeadMeasurement } from '@/lib/server/tracking/leads/form-lead-measurement'
 import { validateTourWrite } from '@/lib/tours/tour-write'
 import type { FormLeadType, FormLeadName } from '@/lib/tracking/leads/booking-measurement'
+import { BOOKING_MEASUREMENT_STATUS_EVENT } from '@/lib/tracking/leads/booking-diagnostics'
+import { bookingClaimStorage } from './helpers/booking-claim-storage'
 
 const origin = 'https://starpyramids.com'
 const environment = 'production'
@@ -44,17 +46,21 @@ function storage(): Storage {
   }
 }
 
+const claimsByStorage = new WeakMap<Storage, ReturnType<typeof bookingClaimStorage>>()
+
 function documentAt(path: string, local = storage(), session = storage()) {
+  const claims = claimsByStorage.get(local) ?? bookingClaimStorage()
+  claimsByStorage.set(local, claims)
   const layer: unknown[] = []
   const script: { onload?: () => void } = {}
   const browser = Object.assign(new EventTarget(), {
     location: { href: new URL(path, origin).href },
     localStorage: local, sessionStorage: session,
-    crypto: { randomUUID }, dataLayer: layer, navigator: {},
+    crypto: { randomUUID }, dataLayer: layer, navigator: {}, indexedDB: claims.indexedDB,
     document: { createElement: () => script, head: { appendChild: vi.fn() } },
   }) as unknown as Window
   return {
-    browser, layer, local, session,
+    browser, layer, local, session, claims,
     boot: () => {
       initializeGtm(browser, 'GTM-TEST', readTrackingConsent(browser), environment)
       layer.length = 0
@@ -750,7 +756,7 @@ it('dispatches a single safe cart item only with consent and a production public
   }])
 })
 
-it('drains a recovered receipt only once across simultaneous public tabs', async () => {
+it.each(['both', 'neither', 'mixed'])('drains only once across simultaneous public tabs with %s using Web Locks', async mode => {
   const checkout = documentAt('/checkout/details')
   setConsent(checkout.local, true)
   recordBookingReceipt(checkout.browser, environment, receipt)
@@ -762,13 +768,160 @@ it('drains a recovered receipt only once across simultaneous public tabs', async
     return tail
   })
   for (const tab of [first, second]) {
-    Object.assign(tab.browser.navigator, { locks: { request } })
+    if (mode === 'both' || mode === 'mixed' && tab === first) Object.assign(tab.browser.navigator, { locks: { request } })
     tab.boot()
     tab.ready()
   }
   await Promise.all([flushBookingFunnel(first.browser, environment), flushBookingFunnel(second.browser, environment)])
-  expect(request).toHaveBeenCalledTimes(2)
+  expect(request).toHaveBeenCalledTimes(mode === 'both' ? 2 : mode === 'mixed' ? 1 : 0)
   expect([...first.layer, ...second.layer]).toEqual([analyticsLead])
+})
+
+const bookingKey = FUNNEL_STORAGE_PREFIX + booking.event_id
+const bookingMarker = 'sp-funnel-delivered-v1:' + booking.event_id
+
+function bookingStatuses(browser: Window) {
+  const statuses: unknown[] = []
+  browser.addEventListener(BOOKING_MEASUREMENT_STATUS_EVENT, event => statuses.push((event as CustomEvent).detail))
+  return statuses
+}
+
+it('reports storage failure instead of queued when the booking receipt write fails', () => {
+  const details = documentAt('/checkout/details')
+  setConsent(details.local, true)
+  const statuses = bookingStatuses(details.browser)
+  const write = details.local.setItem
+  vi.spyOn(details.local, 'setItem').mockImplementation((key, value) => {
+    if (key === bookingKey) throw Error('Synthetic quota error')
+    write(key, value)
+  })
+  expect(() => recordBookingReceipt(details.browser, environment, receipt)).not.toThrow()
+  expect(details.local.getItem(bookingKey)).toBeNull()
+  expect(statuses).toEqual([{ stage: 'capture', status: 'storage_failed' }])
+})
+
+it('recovers an interrupted booking claim before enqueue and suppresses a completed replay', async () => {
+  const details = documentAt('/checkout/details')
+  setConsent(details.local, true)
+  const capture = bookingStatuses(details.browser)
+  recordBookingReceipt(details.browser, environment, receipt)
+  details.claims.seedClaim(booking.event_id)
+  details.claims.beforeClaim = () => { throw Error('Synthetic interruption before push') }
+  const confirmation = documentAt('/booking-confirmation', details.local)
+  confirmation.boot(); confirmation.ready()
+  await flushBookingFunnel(confirmation.browser, environment)
+  expect(confirmation.layer).toEqual([])
+  expect(details.local.getItem(bookingKey)).not.toBeNull()
+  details.claims.beforeClaim = undefined
+  const refreshed = documentAt('/booking-confirmation', details.local)
+  refreshed.boot(); refreshed.ready()
+  const dispatch = bookingStatuses(refreshed.browser)
+  await flushBookingFunnel(refreshed.browser, environment)
+  expect(refreshed.layer).toEqual([analyticsLead])
+  recordBookingReceipt(details.browser, environment, receipt)
+  await flushBookingFunnel(refreshed.browser, environment)
+  expect(refreshed.layer).toEqual([analyticsLead])
+  expect(dispatch).toEqual([{ stage: 'dispatch', status: 'enqueued' }])
+  expect(capture).toEqual([{ stage: 'capture', status: 'queued' }, { stage: 'capture', status: 'already_enqueued' }])
+})
+
+it('keeps the booking pending after a failed claim write or push, then recovers it once', async () => {
+  const details = documentAt('/checkout/details')
+  setConsent(details.local, true)
+  recordBookingReceipt(details.browser, environment, receipt)
+  const page = documentAt('/booking-confirmation', details.local)
+  const statuses = bookingStatuses(page.browser)
+  page.boot(); page.ready()
+  details.claims.failClaimWrite = true
+  await flushBookingFunnel(page.browser, environment)
+  expect(details.local.getItem(bookingKey)).not.toBeNull()
+  expect(details.local.getItem(bookingMarker)).toBeNull()
+  expect(page.layer).toEqual([])
+  details.claims.failClaimWrite = false
+  const push = vi.spyOn(page.layer, 'push').mockImplementationOnce(() => { throw Error('Synthetic push failure') })
+  await flushBookingFunnel(page.browser, environment)
+  expect(details.local.getItem(bookingKey)).not.toBeNull()
+  expect(details.local.getItem(bookingMarker)).toBeNull()
+  push.mockRestore()
+  await flushBookingFunnel(page.browser, environment)
+  expect(page.layer).toEqual([analyticsLead])
+  expect(statuses).toEqual([
+    { stage: 'dispatch', status: 'storage_failed' },
+    { stage: 'dispatch', status: 'push_failed' },
+    { stage: 'dispatch', status: 'enqueued' },
+  ])
+})
+
+it('deduplicates via IndexedDB when the local completed marker write fails', async () => {
+  const details = documentAt('/checkout/details')
+  setConsent(details.local, true)
+  recordBookingReceipt(details.browser, environment, receipt)
+  const write = details.local.setItem
+  vi.spyOn(details.local, 'setItem').mockImplementation((key, value) => {
+    if (key === bookingMarker) throw Error('Synthetic marker error')
+    write(key, value)
+  })
+  const first = documentAt('/booking-confirmation', details.local)
+  first.boot(); first.ready()
+  await flushBookingFunnel(first.browser, environment)
+  recordBookingReceipt(details.browser, environment, receipt)
+  const second = documentAt('/booking-confirmation', details.local)
+  second.boot(); second.ready()
+  await flushBookingFunnel(second.browser, environment)
+  expect(first.layer).toEqual([analyticsLead])
+  expect(second.layer).toEqual([])
+  expect(details.local.getItem(bookingKey)).toBeNull()
+})
+
+it('uses the completed local marker if the transaction aborts after the push', async () => {
+  const details = documentAt('/checkout/details')
+  setConsent(details.local, true)
+  recordBookingReceipt(details.browser, environment, receipt)
+  const first = documentAt('/booking-confirmation', details.local)
+  first.boot(); first.ready()
+  const statuses = bookingStatuses(first.browser)
+  details.claims.failCommit = true
+  await flushBookingFunnel(first.browser, environment)
+  expect(statuses).toEqual([{ stage: 'dispatch', status: 'enqueue_unconfirmed' }])
+  const second = documentAt('/booking-confirmation', details.local)
+  second.boot(); second.ready()
+  await flushBookingFunnel(second.browser, environment)
+  expect(first.layer).toEqual([analyticsLead])
+  expect(second.layer).toEqual([])
+  expect(details.local.getItem(bookingKey)).toBeNull()
+})
+
+it('retains pending bookings while GTM or the shared claim store is unavailable', async () => {
+  const details = documentAt('/checkout/details')
+  setConsent(details.local, true)
+  recordBookingReceipt(details.browser, environment, receipt)
+  const page = documentAt('/booking-confirmation', details.local)
+  const statuses = bookingStatuses(page.browser)
+  Object.assign(page.browser, { indexedDB: undefined })
+  page.boot()
+  await flushBookingFunnel(page.browser, environment)
+  page.ready()
+  await flushBookingFunnel(page.browser, environment)
+  expect(statuses).toEqual([{ stage: 'drain', status: 'waiting_for_gtm' }, { stage: 'dispatch', status: 'storage_failed' }])
+  expect(page.layer).toEqual([])
+  expect(details.local.getItem(bookingKey)).not.toBeNull()
+})
+
+it('rechecks the original Analytics grant after waiting for a booking claim', async () => {
+  const details = documentAt('/checkout/details')
+  setConsent(details.local, true)
+  recordBookingReceipt(details.browser, environment, receipt)
+  const page = documentAt('/booking-confirmation', details.local)
+  page.boot(); page.ready()
+  details.claims.beforeClaim = () => {
+    setConsent(details.local, false)
+    setConsent(details.local, true, undefined, newAnalyticsGrant)
+  }
+  await flushBookingFunnel(page.browser, environment)
+  await flushBookingFunnel(page.browser, environment)
+  expect(page.layer).toEqual([])
+  expect(details.local.getItem(bookingKey)).toBeNull()
+  expect(details.local.getItem(bookingMarker)).toBeNull()
 })
 
 it('refreshes an expired undelivered booking on replay without refreshing it twice or overriding delivery', async () => {

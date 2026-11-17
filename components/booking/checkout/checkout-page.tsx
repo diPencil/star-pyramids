@@ -95,7 +95,7 @@ export function CheckoutPage({ measureBookings = false, initialReceipt = null }:
         // not linked to an account, so the reference alone opens nothing.
         const safeReplay=data.success===true&&data.existing===true&&data.guest===true
         if (!OFFICIAL_BOOKING_REF_PATTERN.test(data.reference) || !safeReplay&&(!Number.isFinite(data.total) || data.total < 0)) throw Error(sendFailed)
-        if (measureBookings) recordBookingReceipt(window, process.env.NODE_ENV, data.bookingMeasurement)
+        if (typeof window !== 'undefined') recordBookingReceipt(window, process.env.NODE_ENV, data.bookingMeasurement, measureBookings)
         const guestAccessUrl = data.guest !== false && typeof data.guestAccessUrl === 'string' && /^\/booking\/[A-Za-z0-9_-]{43}$/.test(data.guestAccessUrl) ? data.guestAccessUrl : null
         let linked = data.guest === false
         if (!guestAccessUrl && data.guest === undefined) {

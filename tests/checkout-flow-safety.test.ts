@@ -175,6 +175,41 @@ it('queues the saved milestone only after a verified recovery, following a price
   expect(values.get(key)).not.toMatch(/SP-BK|test@example/)
   expect(harness.remove).toHaveBeenCalledExactlyOnceWith(['submitted'])
 })
+
+it('completes checkout and acknowledges confirmation when the measurement receipt cannot be stored', async () => {
+  harness.measure = true
+  vi.stubEnv('NODE_ENV', 'production')
+  const grants = { analytics: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' }
+  const values = new Map([[TRACKING_CONSENT_STORAGE_KEY, JSON.stringify({ analytics: true, grants })]])
+  const acknowledge = vi.fn().mockResolvedValue(response({ ready: true }))
+  const assign = vi.fn()
+  vi.stubGlobal('window', {
+    location: { href: 'https://starpyramids.com/checkout/details', assign },
+    crypto: { randomUUID }, fetch: acknowledge,
+    localStorage: {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        if (key.startsWith(FUNNEL_STORAGE_PREFIX)) throw Error('Synthetic storage failure')
+        values.set(key, value)
+      },
+      removeItem: (key: string) => { values.delete(key) },
+    },
+    sessionStorage: { getItem: () => null, removeItem: vi.fn() },
+  })
+  const target = '/booking-confirmation?flow=' + 'a'.repeat(32)
+  const bookingMeasurement = { grants, event: {
+    event: 'sp_booking_created', event_id: 'bk_' + 'b'.repeat(32), currency: 'USD', value: 220,
+    items: [{ item_id: 'db-only', quantity: 1, price: 220 }],
+  } }
+  harness.fetch.mockResolvedValue(response({ reference: 'SP-BK-ABC123', guest: true, total: 220, bookingMeasurement, bookingConfirmationUrl: target }, 201))
+  await find(contact(), element => element.type === 'form')!.props.onSubmit({ preventDefault: vi.fn() })
+  expect(values.has(FUNNEL_STORAGE_PREFIX + bookingMeasurement.event.event_id)).toBe(false)
+  expect(harness.remove).toHaveBeenCalledExactlyOnceWith(['submitted'])
+  expect(harness.finish).toHaveBeenCalledExactlyOnceWith('stable-attempt-key')
+  expect(acknowledge).toHaveBeenCalledOnce()
+  expect(assign).toHaveBeenCalledExactlyOnceWith(target)
+})
+
 it('prefills current account contact data and submits it as editable contact, never ownership',async()=>{
   harness.user=signedInUser()
   const tree=render(),inputs=fields(tree)

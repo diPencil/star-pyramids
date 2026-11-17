@@ -2,7 +2,9 @@ import { CHECKOUT_DETAILS_PATH } from '../../booking/booking-confirmation'
 import { BOOKING_MARKETING_GRANT_HEADER, BOOKING_MEASUREMENT_HEADER, bookingMeasurementGrants, isFunnelLead, parseBookingFunnelEvent, type BookingFunnelEvent, type BookingMeasurementGrants } from './booking-measurement'
 import { hasOnlyTagAssistantQuery, isProductionTrackingHost, isSafeTrackingUrl } from '../tracking'
 import { analyticsDataLayer, canCaptureAnalytics, readTrackingConsent, readTrackingGrants } from '../tracking-browser'
-import { queueBookingFunnelEvent } from '../tracking-events'
+import { enqueueBookingFunnelEvent, queueBookingFunnelEvent } from '../tracking-events'
+import { reportBookingMeasurement } from './booking-diagnostics'
+import { claimBookingEnqueue } from './booking-enqueue-claim'
 
 export const FUNNEL_STORAGE_PREFIX = 'sp-funnel-v1:'
 const DELIVERED_PREFIX = 'sp-funnel-delivered-v1:'
@@ -32,16 +34,20 @@ export function bookingMeasurementHeaders(enabled: boolean): Record<string, stri
 function remember(browser: Window, event: BookingFunnelEvent, grants: BookingMeasurementGrants) {
   const key = FUNNEL_STORAGE_PREFIX + event.event_id
   const storage = browser.localStorage
-  if (storage.getItem(DELIVERED_PREFIX + event.event_id) !== null) return
+  if (storage.getItem(DELIVERED_PREFIX + event.event_id) !== null) return 'already_enqueued'
   const stored = storage.getItem(key)
   const now = Date.now()
   if (stored !== null) {
     const previous = readPendingRecord(key, stored, now)
     if (event.event === 'sp_begin_checkout') {
-      if (previous?.grants.analytics === grants.analytics) return
-    } else if (!isFunnelLead(event) || previous) return
+      if (previous?.grants.analytics === grants.analytics) return 'already_queued'
+    } else if (!isFunnelLead(event) || previous) {
+      return previous?.grants.analytics === grants.analytics ? 'already_queued' : 'ineligible'
+    }
   }
-  storage.setItem(key, JSON.stringify({ event, capturedAt: now, grants }))
+  const pending = JSON.stringify({ event, capturedAt: now, grants })
+  storage.setItem(key, pending)
+  return storage.getItem(key) === pending ? 'queued' : 'storage_failed'
 }
 
 function readPendingRecord(key: string, stored: string, now: number): PendingRecord | null {
@@ -127,18 +133,20 @@ export function recordBeginCheckout(browser: Window, environment: string | undef
   } catch { /* A tracking storage failure must not block checkout. */ }
 }
 
-export function recordBookingReceipt(browser: Window, environment: string | undefined, input: unknown) {
+export function recordBookingReceipt(browser: Window, environment: string | undefined, input: unknown, enabled = true) {
+  const report = (status: Parameters<typeof reportBookingMeasurement<'capture'>>[2]) => reportBookingMeasurement(browser, 'capture', status)
+  if (!enabled) return report('disabled')
   try {
-    if (isConsentedCheckout(browser, environment) && input && typeof input === 'object') {
-      const receipt = input as { event?: unknown; grants?: Partial<BookingMeasurementGrants> }
-      const event = parseBookingFunnelEvent(receipt.event)
-      const grants = bookingMeasurementGrants(receipt.grants?.analytics, receipt.grants?.marketing)
-      if (event?.event === 'sp_booking_created' && grants && grants.analytics === readTrackingGrants(browser).analytics) {
-        remember(browser, event, grants)
-      }
-    }
-    browser.sessionStorage.removeItem(CHECKOUT_KEY)
-  } catch { /* Keep receipt, cart cleanup and attempt recovery independent. */ }
+    if (!isConsentedCheckout(browser, environment)) return report('ineligible')
+    if (!input || typeof input !== 'object') return report('invalid_receipt')
+    const receipt = input as { event?: unknown; grants?: Partial<BookingMeasurementGrants> }
+    const event = parseBookingFunnelEvent(receipt.event)
+    const grants = bookingMeasurementGrants(receipt.grants?.analytics, receipt.grants?.marketing)
+    if (event?.event !== 'sp_booking_created' || !grants) return report('invalid_receipt')
+    if (grants.analytics !== readTrackingGrants(browser).analytics) return report('ineligible')
+    report(remember(browser, event, grants))
+  } catch { report('storage_failed') }
+  finally { resetCheckoutStart(browser) }
 }
 
 /** Capture consent proofs only; planner fields never enter a measurement payload. */
@@ -220,6 +228,26 @@ function dispatchPendingEvent(browser: Window, environment: string | undefined, 
   else storage.removeItem(deliveredKey)
 }
 
+async function dispatchPendingBooking(browser: Window, environment: string | undefined, key: string, eventId: string) {
+  const storage = browser.localStorage
+  const marker = DELIVERED_PREFIX + eventId
+  // Keep legacy markers. Their original format cannot distinguish an enqueue from an interrupted claim.
+  const result = storage.getItem(marker) !== null ? 'already_enqueued' : await claimBookingEnqueue(browser, eventId, () => {
+    const stored = storage.getItem(key)
+    if (storage.getItem(marker) !== null) return 'already_enqueued'
+    const record = stored && readPendingRecord(key, stored, Date.now())
+    if (!record || record.event.event !== 'sp_booking_created') return 'ineligible'
+    const status = enqueueBookingFunnelEvent(browser, environment, record.event, record.grants)
+    if (status === 'enqueued') {
+      // A completed push can also be recognized if the transaction later aborts.
+      try { storage.setItem(marker, '1') } catch { /* The IndexedDB transaction can still commit. */ }
+    }
+    return status
+  })
+  reportBookingMeasurement(browser, 'dispatch', result)
+  if (result === 'enqueued' || result === 'already_enqueued') storage.removeItem(key)
+}
+
 export function discardPendingBookingFunnel(browser: Window, environment: string | undefined) {
   const url = new URL(browser.location.href)
   if (url.protocol !== 'https:' || !isProductionTrackingHost(environment, url.host)) return
@@ -232,7 +260,7 @@ export function discardPendingBookingFunnel(browser: Window, environment: string
 export async function flushBookingFunnel(browser: Window, environment: string | undefined) {
   const url = new URL(browser.location.href)
   if (url.protocol !== 'https:' || !isProductionTrackingHost(environment, url.host)) return
-  const flush = () => {
+  const flush = async () => {
     const consent = readTrackingConsent(browser).analytics
     const currentGrants = readTrackingGrants(browser)
     const canDispatch = consent && Boolean(analyticsDataLayer(browser, environment))
@@ -242,24 +270,28 @@ export async function flushBookingFunnel(browser: Window, environment: string | 
     for (const key of storedKeys(storage)) {
       const stored = storage.getItem(key)
       if (!stored) continue
-      if (!consent) { storage.removeItem(key); continue }
       const record = readPendingRecord(key, stored, now)
-      if (!record || record.grants.analytics !== currentGrants.analytics) {
+      if (!consent || !record || record.grants.analytics !== currentGrants.analytics) {
         // A replay in another tab may have refreshed this entry.
-        if (storage.getItem(key) === stored) storage.removeItem(key)
+        if (storage.getItem(key) === stored) {
+          storage.removeItem(key)
+          if (key.startsWith(FUNNEL_STORAGE_PREFIX + 'bk_')) reportBookingMeasurement(browser, 'drain', 'discarded')
+        }
         continue
       }
       if (canDispatch) pending.push({ key, ...record })
+      else if (record.event.event === 'sp_booking_created') reportBookingMeasurement(browser, 'drain', 'waiting_for_gtm')
     }
     const order = { sp_book_now_click: 0, sp_add_to_cart: 1, sp_begin_checkout: 2, sp_checkout_continue: 3, sp_booking_created: 4, trip_request_created: 4, enquiry_created: 4, car_request_created: 4, event_request_created: 4 }
     pending.sort((a, b) => a.capturedAt - b.capturedAt || order[a.event.event] - order[b.event.event])
     for (const { key, event, grants } of pending) {
-      dispatchPendingEvent(browser, environment, key, event, grants)
+      if (event.event === 'sp_booking_created') await dispatchPendingBooking(browser, environment, key, event.event_id)
+      else dispatchPendingEvent(browser, environment, key, event, grants)
     }
   }
   try {
     const locks = browser.navigator?.locks
     if (locks) await locks.request('sp-booking-funnel', flush)
-    else flush()
-  } catch { /* Tracking is optional, including when browser storage is unavailable. */ }
+    else await flush()
+  } catch { reportBookingMeasurement(browser, 'drain', 'storage_failed') }
 }

@@ -159,9 +159,11 @@ it('admits only a clean public confirmation document and forces a fresh protecte
   }
 })
 
-it('navigates only after cookie acknowledgement and leaves failures, missing cookies and later navigation alone', async () => {
+it('navigates only after cookie acknowledgement and reports only sanitized lifecycle statuses', async () => {
   const assign = vi.fn()
-  const browser = { location: { href: origin + '/checkout/details', assign }, fetch: vi.fn() } as unknown as Window
+  const browser = Object.assign(new EventTarget(), { location: { href: origin + '/checkout/details', assign }, fetch: vi.fn() }) as unknown as Window
+  const statuses: unknown[] = []
+  browser.addEventListener('sp:booking-measurement-status', event => statuses.push((event as CustomEvent).detail))
   const target = '/booking-confirmation?flow=' + 'a'.repeat(32)
   const fetch = vi.mocked(browser.fetch)
   fetch.mockResolvedValueOnce(Response.json({ ready: true }))
@@ -178,6 +180,13 @@ it('navigates only after cookie acknowledgement and leaves failures, missing coo
   expect(await openBookingConfirmation(browser, target)).toBe(false)
   expect(await openBookingConfirmation(browser, 'https://evil.example')).toBe(false)
   expect(assign).not.toHaveBeenCalled()
+  expect(statuses).toEqual([
+    { stage: 'acknowledgement', status: 'ready' },
+    { stage: 'acknowledgement', status: 'rejected' },
+    { stage: 'acknowledgement', status: 'request_failed' },
+    { stage: 'acknowledgement', status: 'navigation_interrupted' },
+    { stage: 'acknowledgement', status: 'unavailable' },
+  ])
 })
 
 it('retries a failed acknowledgement once without restarting checkout', async () => {

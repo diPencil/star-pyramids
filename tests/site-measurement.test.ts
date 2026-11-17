@@ -9,6 +9,7 @@ import { submitTripRequest } from '@/lib/trip-builder/trip-request-submission'
 import type { MakeYourTripRequestDraft } from '@/lib/trip-builder/trip-request'
 import { SOCIAL_MEASUREMENT_HEADER, SOCIAL_MEASUREMENT_PATH } from '@/lib/tracking/auth/social-measurement'
 import { TourViewMeasurement } from '@/components/tours/detail/tour-view-measurement'
+import { bookingClaimStorage } from './helpers/booking-claim-storage'
 
 const effects = vi.hoisted(() => [] as Array<() => void | (() => void)>)
 vi.mock('react', async original => ({
@@ -46,7 +47,7 @@ function mount(path: string, modern: boolean, granted = true, pendingSocialMeasu
     },
   }
   const browser = Object.assign(new EventTarget(), {
-    location, navigation, history, fetch, crypto: { randomUUID },
+    location, navigation, history, fetch, crypto: { randomUUID }, indexedDB: bookingClaimStorage().indexedDB,
     dataLayer: [] as unknown[],
     document: { createElement: () => script, head: { appendChild } },
     localStorage: {
@@ -156,16 +157,34 @@ it('keeps the booking details document untagged with saved consent and the Previ
   expect(appendChild).not.toHaveBeenCalled()
 })
 
-it('drains the existing saved booking once when the clean confirmation container becomes ready', () => {
+it('drains the existing saved booking once when the clean confirmation container becomes ready', async () => {
   const { browser, script, appendChild } = mount('/booking-confirmation?flow=' + 'a'.repeat(32), false)
   const event = { event: 'sp_booking_created', event_id: 'bk_' + 'b'.repeat(32), currency: 'USD', value: 100, items: [{ item_id: 'cairo-tour', quantity: 1, price: 100 }] }
   browser.localStorage.setItem(FUNNEL_STORAGE_PREFIX + event.event_id, JSON.stringify({ event, capturedAt: Date.now(), grants: readTrackingGrants(browser as unknown as Window) }))
   script.onload?.()
   browser.dispatchEvent(new Event('online'))
   browser.dispatchEvent(new Event('hashchange'))
+  await vi.waitFor(() => expect(browser.localStorage.getItem(FUNNEL_STORAGE_PREFIX + event.event_id)).toBeNull())
   expect(browser.dataLayer.filter(entry => (entry as { event?: string }).event === 'sp_booking_created')).toEqual([{ ...event, ads_eligible: false }])
   expect(appendChild).toHaveBeenCalledOnce()
   expect(JSON.stringify(browser.dataLayer)).not.toContain('flow=')
+})
+
+it.each([true, false])('rechecks a pending booking when an already-loaded public page is restored, with Analytics consent %s', async granted => {
+  const { browser, script, appendChild } = mount('/checkout', false)
+  script.onload?.()
+  const event = { event: 'sp_booking_created', event_id: 'bk_' + 'c'.repeat(32), currency: 'USD', value: 100, items: [{ item_id: 'cairo-tour', quantity: 1, price: 100 }] }
+  browser.localStorage.setItem(FUNNEL_STORAGE_PREFIX + event.event_id, JSON.stringify({ event, capturedAt: Date.now(), grants: readTrackingGrants(browser as unknown as Window) }))
+  if (!granted) browser.localStorage.setItem(TRACKING_CONSENT_STORAGE_KEY, '{"analytics":false,"marketing":false}')
+  const leads = () => browser.dataLayer.filter(entry => (entry as { event?: string }).event === event.event)
+  browser.dispatchEvent(Object.assign(new Event('pageshow'), { persisted: false }))
+  expect(leads()).toEqual([])
+  const restore = () => browser.dispatchEvent(Object.assign(new Event('pageshow'), { persisted: true }))
+  restore()
+  restore()
+  await vi.waitFor(() => expect(browser.localStorage.getItem(FUNNEL_STORAGE_PREFIX + event.event_id)).toBeNull())
+  expect(leads()).toEqual(granted ? [{ ...event, ads_eligible: false }] : [])
+  expect(appendChild).toHaveBeenCalledOnce()
 })
 
 it.each(['/contact#contact-enquiry', '/events/cairo-event#event-book', '/egypt-tours/shore-excursions#tour-listing'])(
