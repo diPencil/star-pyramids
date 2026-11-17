@@ -308,8 +308,8 @@ describe('Google Tag Manager configuration', () => {
     expect(sanitizeMeasurementUrl(`${production}/trips?page=2&wbraid=abc`, 'production')).toBe(`${production}/trips`)
   })
 
-  it.each(['x', '1794000000000'])('permits the bounded Tag Assistant signal %s without putting it in measurement URLs', signal => {
-    const url = `${production}/trips?gtm_debug=${signal}&utm_source=google`
+  it.each(['gtm_debug=x', 'gtm_debug=1794000000000', '_dbg=1'])('permits the bounded Tag Assistant signal %s without putting it in measurement URLs', signal => {
+    const url = `${production}/trips?${signal}&utm_source=google`
     expect(canMeasureLocation(new URL(url), 'production')).toBe(true)
     expect(sanitizeMeasurementUrl(url, 'production')).toBe(`${production}/trips`)
     const { browser, window } = browserAt(url)
@@ -328,6 +328,7 @@ describe('Google Tag Manager configuration', () => {
     '/trips?gtm_debug=x&token=secret', '/trips?gtm_debug=x#secret',
     '/account?gtm_debug=x', '/booking/private?gtm_debug=x',
     '/trips?gtm_debug=x&gtm_auth=secret', '/trips?gtm_debug=x&gtm_preview=env-1',
+    '/trips?_dbg=secret', '/trips?_dbg=1&_dbg=1', '/account?_dbg=1', '/booking-confirmation?_dbg=1&token=private',
   ])('keeps invalid debug signals and sensitive contexts blocked: %s', path => {
     expect(canMeasureLocation(new URL(path, production), 'production')).toBe(false)
   })

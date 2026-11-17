@@ -1,6 +1,6 @@
 import { CHECKOUT_DETAILS_PATH } from '../../booking/booking-confirmation'
 import { BOOKING_MARKETING_GRANT_HEADER, BOOKING_MEASUREMENT_HEADER, bookingMeasurementGrants, isFunnelLead, parseBookingFunnelEvent, type BookingFunnelEvent, type BookingMeasurementGrants } from './booking-measurement'
-import { isProductionTrackingHost, isSafeTrackingUrl, TAG_ASSISTANT_DEBUG_VALUE } from '../tracking'
+import { hasOnlyTagAssistantQuery, isProductionTrackingHost, isSafeTrackingUrl } from '../tracking'
 import { analyticsDataLayer, canCaptureAnalytics, readTrackingConsent, readTrackingGrants } from '../tracking-browser'
 import { queueBookingFunnelEvent } from '../tracking-events'
 
@@ -15,9 +15,8 @@ function isConsentedCheckout(browser: Window, environment: string | undefined): 
   const url = new URL(browser.location.href)
   // Preview can add its debug flag to a direct visit. Only the local capture
   // is eligible here; the details document itself never initializes GTM.
-  const safeQuery = !url.search || (url.searchParams.size === 1 && TAG_ASSISTANT_DEBUG_VALUE.test(url.searchParams.get('gtm_debug') ?? ''))
   return url.protocol === 'https:' && isProductionTrackingHost(environment, url.host) &&
-    url.pathname === CHECKOUT_DETAILS_PATH && safeQuery && !url.hash && readTrackingConsent(browser).analytics
+    url.pathname === CHECKOUT_DETAILS_PATH && !url.hash && hasOnlyTagAssistantQuery(url.searchParams) && readTrackingConsent(browser).analytics
 }
 
 export function bookingMeasurementHeaders(enabled: boolean): Record<string, string> {

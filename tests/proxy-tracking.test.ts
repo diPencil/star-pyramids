@@ -14,6 +14,8 @@ describe('measurement document boundary', () => {
     expect(proxy(new NextRequest(`${origin}/cart`)).headers.get(eligibility)).toBe('1')
     expect(proxy(new NextRequest(`${origin}/cart?gtm_debug=x&_rsc=transport`, { headers: { rsc: '1', referer: `${origin}/trips` } })).headers.get(eligibility)).toBe('1')
     expect(proxy(new NextRequest(`${origin}/checkout?gtm_debug=x`)).headers.get(eligibility)).toBe('1')
+    expect(proxy(new NextRequest(`${origin}/checkout/details?_dbg=1`)).headers.get(eligibility)).toBe('0')
+    expect(proxy(new NextRequest(`${origin}/booking-confirmation?flow=${'a'.repeat(32)}&_dbg=1`)).headers.get(eligibility)).toBe('1')
     expect(proxy(new NextRequest(`${origin}/checkout/details?_rsc=transport`, { headers: { rsc: '1', referer: `${origin}/checkout` } })).status).toBe(204)
     const details = proxy(new NextRequest(`${origin}/checkout/details`))
     expect(details.headers.get(eligibility)).toBe('0')

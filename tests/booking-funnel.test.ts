@@ -540,7 +540,7 @@ it('preserves a multi-tour booking lead with a long public slug accepted by the 
   expect(confirmation.layer).toEqual([{ ...event, ads_eligible: false }])
 })
 
-it('tracks the booking funnel through a Preview-decorated private form and a clean public confirmation', async () => {
+it.each(['gtm_debug=x', '_dbg=1', 'gtm_debug=1794000000000&_dbg=1'])('tracks the booking funnel through Preview-decorated documents: %s', async debug => {
   vi.stubEnv('NODE_ENV', environment)
   const tour = documentAt('/egypt-tours/cairo-tour')
   setConsent(tour.local, true)
@@ -551,7 +551,7 @@ it('tracks the booking funnel through a Preview-decorated private form and a cle
   summary.boot(); summary.ready()
   recordBeginCheckout(summary.browser, environment, ['cairo-tour'])
 
-  const details = documentAt('/checkout/details?gtm_debug=x', tour.local, tour.session)
+  const details = documentAt('/checkout/details?' + debug, tour.local, tour.session)
   vi.stubGlobal('window', details.browser)
   expect(bookingMeasurementHeaders(true)).toEqual({ [BOOKING_MEASUREMENT_HEADER]: analyticsGrant })
   recordBeginCheckout(details.browser, environment, ['cairo-tour'])
@@ -565,7 +565,7 @@ it('tracks the booking funnel through a Preview-decorated private form and a cle
   expect(assign).toHaveBeenCalledExactlyOnceWith(target)
   expect(details.layer).toEqual([])
 
-  const confirmation = documentAt(target, tour.local, tour.session)
+  const confirmation = documentAt(target + '&' + debug, tour.local, tour.session)
   confirmation.boot(); confirmation.ready()
   await flushBookingFunnel(confirmation.browser, environment)
   await flushBookingFunnel(confirmation.browser, environment)
@@ -575,7 +575,7 @@ it('tracks the booking funnel through a Preview-decorated private form and a cle
   expect(confirmation.layer).toEqual([{ ...saved, ads_eligible: false }])
 })
 
-it.each(['?gtm_debug=secret', '?gtm_debug=x&gtm_debug=x', '?gtm_debug=x&token=private', '?gtm_debug=x#private'])(
+it.each(['?gtm_debug=secret', '?gtm_debug=x&gtm_debug=x', '?gtm_debug=x&token=private', '?gtm_debug=x#private', '?_dbg=secret', '?_dbg=1%0A', '?_dbg=1&_dbg=1', '?_dbg=1&token=private'])(
   'rejects unsafe Preview query data on booking details: %s', suffix => {
     vi.stubEnv('NODE_ENV', environment)
     const details = documentAt('/checkout/details' + suffix)
