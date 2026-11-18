@@ -5,6 +5,7 @@ import { publishedNavigation } from '@/lib/server/navigation/navigation'
 import { Alexandria, Montserrat } from 'next/font/google'
 import type { Metadata, Viewport } from 'next'
 import { cookies, headers } from 'next/headers'
+import Script from 'next/script'
 import { BrandFavicon } from '@/components/branding/brand-favicon'
 import { InitialLocaleProvider } from '@/components/locale'
 import { EnquiryHistoryTracking } from '@/components/enquiries/enquiry-history-tracking'
@@ -19,6 +20,7 @@ import { PublicAppearance } from '@/components/cms/public-appearance'
 import { SiteMeasurement } from '@/components/site-measurement'
 import { ConsentManager } from '@/components/consent-manager'
 import { getTrackingSettings } from '@/lib/server/tracking/tracking'
+import { earlyGtmBootstrap } from '@/lib/server/tracking/early-gtm'
 import { TRACKING_ELIGIBLE_HEADER } from '@/lib/tracking/tracking'
 import { SOCIAL_MEASUREMENT_COOKIE } from '@/lib/tracking/auth/social-measurement'
 
@@ -130,11 +132,13 @@ export default async function RootLayout({
   const requestHeaders = await headers()
   const measurementAllowed = process.env.NODE_ENV === 'production' && requestHeaders.get(TRACKING_ELIGIBLE_HEADER) === '1'
   const tracking = measurementAllowed ? await getTrackingSettings() : null
+  const earlyTracking = earlyGtmBootstrap(requestHeaders, tracking, process.env.NODE_ENV, process.env.TRACKING_EARLY_GTM)
   const pendingSocialMeasurement = Boolean(tracking?.enabled && (await cookies()).has(SOCIAL_MEASUREMENT_COOKIE))
 
   return (
     <html lang={htmlLang} data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
+        {earlyTracking && <Script id="sp-early-gtm" strategy="beforeInteractive" nonce={requestHeaders.get('x-nonce') ?? undefined}>{earlyTracking}</Script>}
         {/* Preconnect to Google Fonts for faster font loading */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />

@@ -4,6 +4,8 @@ The owner approved pre-consent cookieless Google signals on 2026-11-08. `SiteMea
 
 ## Consent and container contract
 
+The root layout can prepare GTM before hydration via `TRACKING_EARLY_GTM=true`. The flag defaults off. Set it only after the published container has verified Meta and Clarity consent gates and the early path has passed browser QA. The bootstrap and the hydrated consent bridge share one script instance. Because consent preferences require JavaScript, this installation omits the `noscript` iframe.
+
 Before appending `gtm.js`, the loader queues denied defaults for `analytics_storage`, `ad_storage`, `ad_user_data`, `ad_personalization` and `personalization_storage`, and enables `ads_data_redaction`. Only essential functionality/security storage defaults are granted. Existing persisted preferences are re-read when loading completes. Accept, reject, withdrawal and cross-tab updates use the existing consent bridge. A storage failure keeps optional consent denied. Loading the container does not grant consent.
 
 Advanced mode may send Google cookieless measurement/consent signals before acceptance and after rejection. It is not a promise of zero network traffic or anonymization. Confirm the published privacy/cookie notice covers this behavior. Application page/click/booking/trip-request events still require their existing consent and URL guards; no `purchase`, duplicate GA4 loader or automatic application page views were introduced. Third-party requests already sent cannot be cancelled by these guards.

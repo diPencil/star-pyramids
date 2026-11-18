@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { runInNewContext } from 'node:vm'
 import { describe, expect, it, vi } from 'vitest'
 
 import {
@@ -12,6 +13,7 @@ import {
   sanitizeMeasurementUrl,
 } from '@/lib/tracking/tracking'
 import { analyticsDataLayer, GTM_CONSENT_READY_EVENT, initializeGtm, isGtmReady, readTrackingConsent, readTrackingGrants, subscribeToTrackingConsent, updateGoogleConsent } from '@/lib/tracking/tracking-browser'
+import { earlyGtmBootstrap } from '@/lib/server/tracking/early-gtm'
 
 const production = 'https://starpyramids.com'
 
@@ -45,6 +47,62 @@ function finishLoading(browser: ReturnType<typeof browserAt>['browser']) {
 }
 
 describe('Google Tag Manager configuration', () => {
+  function bootstrap(path: string, enabled?: string, eligible = '1', cmsEnabled = true) {
+    return earlyGtmBootstrap(new Headers({ host: 'starpyramids.com', 'x-sp-path': path, 'x-sp-tracking-eligible': eligible }),
+      { enabled: cmsEnabled, containerId: DEFAULT_GTM_CONTAINER_ID }, 'production', enabled)
+  }
+
+  it('keeps the early bootstrap off by default and honors the server and CMS gates', () => {
+    expect(bootstrap('/checkout')).toBeNull()
+    expect(bootstrap('/checkout', 'false')).toBeNull()
+    expect(bootstrap('/checkout', 'true', '0')).toBeNull()
+    expect(bootstrap('/checkout', 'true', '1', false)).toBeNull()
+    expect(bootstrap('/checkout/details', 'true')).toBeNull()
+    expect(bootstrap('/checkout/receipt', 'true')).toBeNull()
+    expect(bootstrap('/cart?token=private', 'true')).toBeNull()
+  })
+
+  it.each(['loading', 'loaded'])('adopts a %s early loader and applies only the saved consent after hydration', state => {
+    const path = '/cart?gtm_debug=x'
+    const { browser, window } = browserAt(production + path, '{"analytics":true,"marketing":false}')
+    browser.document.head.appendChild.mockImplementation(() => {
+      expect(Array.from(browser.dataLayer[0] as ArrayLike<unknown>)).toEqual(['consent', 'default', expect.objectContaining({
+        analytics_storage: 'denied', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied',
+      })])
+      expect(browser.dataLayer[2]).toEqual(expect.objectContaining({ event: 'gtm.js' }))
+    })
+    runInNewContext(bootstrap(path, 'true')!, { window, URL })
+    if (state === 'loaded') finishLoading(browser)
+    expect(analyticsDataLayer(window, 'production')).toBeUndefined()
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production', 'advanced')
+    if (state === 'loading') finishLoading(browser)
+    expect(browser.document.head.appendChild).toHaveBeenCalledOnce()
+    expect(analyticsDataLayer(window, 'production')).toBe(browser.dataLayer)
+    const updates = browser.dataLayer.filter(x => (x as ArrayLike<unknown>)?.[1] === 'update')
+    expect(updates.map(x => Array.from(x as ArrayLike<unknown>))).toEqual([
+      ['consent', 'update', expect.objectContaining({ analytics_storage: 'granted', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied' })],
+    ])
+  })
+
+  it.each(['/about#private-token', '/about?token=private', '/checkout/details', 'https://preview.example/about'])(
+    'blocks the early bootstrap when the live URL is %s', path => {
+      const { browser, window } = browserAt(new URL(path, production).href)
+      runInNewContext(bootstrap('/about', 'true')!, { window, URL })
+      expect(browser.document.head.appendChild).not.toHaveBeenCalled()
+      expect(browser.dataLayer).toEqual([])
+    },
+  )
+
+  it('permits a reviewed fragment and preserves denied preferences', () => {
+    const { browser, window } = browserAt(production + '/about#our-story', '{"analytics":false,"marketing":false}')
+    runInNewContext(bootstrap('/about', 'true')!, { window, URL })
+    finishLoading(browser)
+    initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production', 'advanced')
+    expect(browser.document.head.appendChild).toHaveBeenCalledOnce()
+    expect(browser.dataLayer).not.toContainEqual({ event: GTM_CONSENT_READY_EVENT })
+    expect(analyticsDataLayer(window, 'production')).toBeUndefined()
+  })
+
   it('loads the public cart before acceptance exactly once without granting optional consent', () => {
     const { browser, window } = browserAt(production + '/cart?gtm_debug=x')
     initializeGtm(window, DEFAULT_GTM_CONTAINER_ID, readTrackingConsent(window), 'production', 'advanced')

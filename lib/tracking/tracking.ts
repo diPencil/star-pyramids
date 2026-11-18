@@ -127,15 +127,20 @@ export function isProductionTrackingHost(environment: string | undefined, host: 
   return environment === 'production' && PRODUCTION_HOSTS.has(host.toLowerCase())
 }
 
+export function publicTrackingAnchors(pathname: string): readonly string[] {
+  const path = pathname.replace(/\/$/, '') || '/'
+  if (EVENT_DETAIL.test(path)) return ['#event-book', '#event-program']
+  if (DESTINATION_DETAIL.test(path)) return ['#destination-experiences']
+  return PUBLIC_ANCHORS[path] ?? []
+}
+
 /** Allow only public catalogue URLs and typed parameters. A tag can read the
  * actual URL, so dropping a parameter from a payload alone is insufficient. */
 export function isSafeTrackingUrl(url: URL): boolean {
   if (url.username || url.password) return false
   const path = url.pathname.replace(/\/$/, '') || '/'
   if (!PUBLIC_PAGES.has(path) && !CATALOGUE_PATH.test(path) && !TOUR_DETAIL_PATH.test(path)) return false
-  if (url.hash && !PUBLIC_ANCHORS[path]?.includes(url.hash) &&
-      !(EVENT_DETAIL.test(path) && ['#event-book', '#event-program'].includes(url.hash)) &&
-      !(DESTINATION_DETAIL.test(path) && url.hash === '#destination-experiences')) return false
+  if (url.hash && !publicTrackingAnchors(url.pathname).includes(url.hash)) return false
   const isTourListing = path === '/trips' || path.startsWith('/egypt-tours/')
   const seen = new Set<string>()
   for (const [key, value] of url.searchParams) {
